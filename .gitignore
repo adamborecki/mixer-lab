@@ -1,0 +1,6 @@
+.DS_Store
+.claude/
+
+# High-resolution source stems (~440 MB). Kept locally as the masters for
+# tools/make-excerpts.sh; the site only ships the web excerpts in audio/.
+/stems */

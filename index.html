@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Mixer Lab</title>
+  <meta name="description" content="A hands-on live-sound mixer lab: patch real band stems into a virtual mixer, set gain, build Main and monitor mixes, and find out where the amplifier is." />
+  <meta name="theme-color" content="#0f1220" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-skin="analog">
+  <a class="skip-link" href="#main">Skip to the lab</a>
+
+  <header class="topbar">
+    <div class="brand-wrap">
+      <a class="brand" href="#/free-play">Mixer Lab</a>
+      <span class="topbar-note">live-sound mixer simulator</span>
+    </div>
+    <div class="skin-switch" role="radiogroup" aria-label="Mixer type">
+      <button type="button" role="radio" class="skin-btn" data-skin="analog" aria-checked="true">
+        <strong>Console A</strong><small>faders · MUTE · AUX</small>
+      </button>
+      <button type="button" role="radio" class="skin-btn" data-skin="compact" aria-checked="false">
+        <strong>Mixer B</strong><small>knobs · ON · MON</small>
+      </button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Lab sections">
+    <button type="button" role="tab" data-tab-btn="scenario" aria-controls="region-scenario">Scenario</button>
+    <button type="button" role="tab" data-tab-btn="sources" aria-controls="region-sources">Sources</button>
+    <button type="button" role="tab" data-tab-btn="mixer" aria-controls="region-mixer">Mixer</button>
+    <button type="button" role="tab" data-tab-btn="outputs" aria-controls="region-outputs">Outputs</button>
+  </nav>
+
+  <main id="main" class="lab" data-tab="scenario">
+    <section id="region-scenario" class="region region-scenario" aria-label="Scenario">
+      <div id="scenario"></div>
+    </section>
+
+    <section id="region-sources" class="region region-sources" aria-labelledby="sources-title">
+      <h2 class="region-title" id="sources-title"><span class="flow-step">1</span> Sources <small>on stage</small></h2>
+      <div id="sources"></div>
+    </section>
+
+    <section id="region-outputs" class="region region-outputs" aria-labelledby="outputs-title">
+      <h2 class="region-title" id="outputs-title"><span class="flow-step">3</span> Outputs <small>amps &amp; speakers</small></h2>
+      <div id="outputs"></div>
+    </section>
+
+    <section id="region-mixer" class="region region-mixer" aria-labelledby="mixer-title">
+      <h2 class="region-title" id="mixer-title"><span class="flow-step">2</span> Mixer <small class="mixer-hint">Tap a channel's name to patch its input.</small></h2>
+      <div id="flow"></div>
+      <div id="mixer"></div>
+    </section>
+  </main>
+
+  <footer id="listen-bar" class="listen-bar" aria-label="Listening"></footer>
+
+  <div id="load-errors" class="load-errors" role="alert" hidden></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <div id="start-overlay" class="start-overlay">
+    <div class="start-overlay-inner">
+      <p class="start-overlay-kicker">Mixer Lab · MUS 248</p>
+      <h1>Patch it. Mix it. Hear it.</h1>
+      <p class="start-overlay-sub">A real band's multitrack stems run through a virtual live-sound rig. Plug in sources, set gain, build the audience mix and a monitor mix — and find out where the amplifier is.</p>
+      <button type="button" id="start-btn" class="btn btn-start btn-overlay">▶ Start Audio</button>
+      <p class="start-overlay-note">Headphones recommended. Loads about 4 MB of audio. On iPhone, turn off Silent Mode or you won't hear anything.</p>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
