@@ -2099,3 +2099,34 @@ dialog::backdrop {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- credits ---------- */
+
+.credits-link {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+.credits-block h3 {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  margin: 0.8rem 0 0.4rem;
+}
+.credits-block dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.9rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+.credits-block dt {
+  color: var(--text-dim);
+}
+.credits-block dd {
+  margin: 0;
+}
+.credits-note {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0;
+}

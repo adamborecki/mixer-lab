@@ -76,6 +76,7 @@ export class ScenarioView {
         <div class="scenario-actions">
           <button type="button" class="chip" data-act="reset">${isFree ? "Reset the band" : "Start over"}</button>
           ${isFree ? `<button type="button" class="chip" data-act="clear">Unplug everything</button>` : ""}
+          <button type="button" class="linkish credits-link" data-open-credits>Credits</button>
         </div>
         ${isFree ? `<section class="music" aria-label="Band audio"></section>` : ""}
       </article>`;

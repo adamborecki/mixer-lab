@@ -178,6 +178,51 @@ export const SOURCES = [
 
 export const SOURCES_BY_ID = Object.fromEntries(SOURCES.map((s) => [s.id, s]));
 
+// ---------- preshow music (not wired into the mixer yet) ----------
+
+// Planned: a "Laptop — Preshow Music" source on a stereo line input 9/10
+// (3.5 mm TRS → breakout → L/R), playing on its OWN loop, independent of the
+// band timeline. See docs/HANDOFF.md. Stereo, 44.1 kHz, 160 kb/s, 59.6 s.
+export const PRESHOW = {
+  id: "preshow",
+  title: "Bossa Nova",
+  artist: "Joth",
+  file: "audio/preshow/joth-bossa-nova.mp3",
+  originalFilename: "8bit Bossa.mp3",
+  duration: 59.61,
+  license: "CC0",
+  source: "https://opengameart.org/content/bossa-nova",
+};
+
+// ---------- credits (shown in the app's Credits dialog and the docs) ----------
+
+export const CREDITS = [
+  {
+    title: "Persephone",
+    lines: [
+      ["Music and lyrics", "Giovanna"],
+      ["Guitars", "Caiden Craig"],
+      ["Bass", "Tyler Fraser"],
+      ["Background vocals", "Jake Flaa and Victoria Nguyen"],
+      ["Drums", "Eli Furie"],
+      ["Trumpets", "Kaizo Hall and Takazo Hall"],
+      ["Piano", "Julian Berger"],
+      ["Recording engineers", "Braedon Martin and Julian Berger"],
+      ["Mixing and mastering", "Eli Furie"],
+    ],
+    note: "Used with permission for this educational project.",
+  },
+  {
+    title: "Preshow music",
+    lines: [
+      ["“Bossa Nova”", "Joth"],
+      ["Source", "OpenGameArt — opengameart.org/content/bossa-nova"],
+      ["License", "CC0 (public domain dedication); credited with thanks"],
+      ["Original file", "8bit Bossa.mp3"],
+    ],
+  },
+];
+
 export function sourcesInFohOrder() {
   return [...SOURCES].sort((a, b) => a.order - b.order);
 }

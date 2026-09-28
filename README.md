@@ -122,10 +122,19 @@ npm test            # or: node --test tests/
 
 Node 18 or newer. There are 94 tests. They cover connectors, chain validation, the level law, computed mix behavior (including Aux 1 and Aux 2 independence), the store, the skin mappings, and each scenario's start state, solutions, listening objectives and wrong-wedge cases. They do not need a browser. Audio, layout, touch behavior and stem sync are checked by hand in a browser.
 
+## Credits
+
+**Persephone** — music and lyrics: Giovanna; guitars: Caiden Craig; bass: Tyler Fraser; background vocals: Jake Flaa and Victoria Nguyen; drums: Eli Furie; trumpets: Kaizo Hall and Takazo Hall; piano: Julian Berger; recording engineers: Braedon Martin and Julian Berger; mixing and mastering: Eli Furie. Used with permission for this educational project.
+
+**Preshow music** — "Bossa Nova" by Joth, [OpenGameArt](https://opengameart.org/content/bossa-nova), CC0 (original file `8bit Bossa.mp3`, stored as `audio/preshow/joth-bossa-nova.mp3`).
+
+The app shows the same credits in its Credits dialog (from `CREDITS` in `audio/source-manifest.js`).
+
 ## Documentation
 
 | Doc | Covers |
 |---|---|
+| [docs/HANDOFF.md](docs/HANDOFF.md) | Start here if you are continuing development: architecture, sync invariant, conventions, next steps |
 | [docs/AUDIO_ENGINE.md](docs/AUDIO_ENGINE.md) | Signal graph, Main/Aux 1/Aux 2/PFL, mute convention, listening, metering, stem transport (loop, full song, sync fix), adding a bus |
 | [docs/MIXER_MODEL_SCHEMA.md](docs/MIXER_MODEL_SCHEMA.md) | Semantic state vs skins, ON/MUTE inversion, control mapping, adding a skin |
 | [docs/SCENARIOS.md](docs/SCENARIOS.md) | Scenario schema, conditions, tolerances, the V1 scenarios, authoring |

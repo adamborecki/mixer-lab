@@ -84,6 +84,14 @@ It reads the masters and writes `audio/persephone/*.mp3` (excerpt) and `audio/pe
 - If you change `SEGMENT_SECONDS`, `SEGMENT_OVERLAP` or `FULL_TRIM_DB`, update `segmentSeconds`, `overlap` and `trimDb` in `STEM_SET.full`; `duration` and `segments` follow from the master's length.
 - Filenames come from the script's `STEMS` list; keep them in step with `STEMS` in the manifest.
 
+## Preshow music
+
+`preshow/joth-bossa-nova.mp3` is "Bossa Nova" by Joth ([OpenGameArt](https://opengameart.org/content/bossa-nova), CC0; original filename `8bit Bossa.mp3`): stereo, 44.1 kHz, 160 kb/s, 59.6 s. It is listed as `PRESHOW` in the manifest but not yet used by the app; the plan is a stereo input 9/10 fed by a laptop on its own loop, independent of the band timeline (see [../docs/HANDOFF.md](../docs/HANDOFF.md)).
+
+## Credits
+
+Persephone: music and lyrics Giovanna; guitars Caiden Craig; bass Tyler Fraser; background vocals Jake Flaa and Victoria Nguyen; drums Eli Furie; trumpets Kaizo Hall and Takazo Hall; piano Julian Berger; recording engineers Braedon Martin and Julian Berger; mixing and mastering Eli Furie. Used with permission for this educational project.
+
 ## Missing or failed files
 
 If a file fails to fetch or decode (the excerpt, or any full-song segment), that stem plays a plain sine test tone for that stretch so routing can still be tested, and a non-blocking error banner names the file. This is a development fallback only; the app never synthesizes music.

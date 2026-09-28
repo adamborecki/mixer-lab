@@ -242,6 +242,21 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
+// ---------- credits ----------
+
+const creditsDialog = $("#credits");
+creditsDialog.innerHTML = `<div class="patch-inner">
+  <header class="patch-head"><h2 id="credits-title">Credits</h2>
+    <button type="button" class="patch-x" data-close-credits aria-label="Close">✕</button></header>
+  ${manifest.CREDITS.map(
+    (c) => `<section class="credits-block"><h3>${c.title}</h3><dl>${c.lines.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>${c.note ? `<p class="credits-note">${c.note}</p>` : ""}</section>`,
+  ).join("")}
+</div>`;
+document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-open-credits]")) creditsDialog.showModal();
+  else if (e.target.closest("[data-close-credits]") || e.target === creditsDialog) creditsDialog.close();
+});
+
 // ---------- helpers ----------
 
 function makeToast(el) {
