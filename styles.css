@@ -2145,8 +2145,9 @@ dialog::backdrop {
 
 /* ---------- Canvas submission ---------- */
 
-.credits-link-plain {
-  margin-left: 0;
+.canvas-chip {
+  border-style: dashed;
+  color: var(--text-dim);
 }
 .canvas-dialog {
   max-width: min(620px, calc(100vw - 1.5rem));

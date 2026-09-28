@@ -56,7 +56,8 @@ export class ScenarioView {
           ${s.number ? `<span class="chip-num">${s.number}</span>` : ""}${esc(shortTitle(s))}${this.progress.has(s.id) ? ' <span class="chip-done" aria-label="completed">✓</span>' : ""}
         </button>`,
       )
-      .join("");
+      .join("")
+      .concat('<button type="button" class="chip scenario-chip canvas-chip" data-open-canvas>Canvas Submission</button>');
 
     const isFree = !def.conditions.length;
     this.root.innerHTML = `
@@ -76,8 +77,7 @@ export class ScenarioView {
         <div class="scenario-actions">
           <button type="button" class="chip" data-act="reset">${isFree ? "Reset the band" : "Start over"}</button>
           ${isFree ? `<button type="button" class="chip" data-act="clear">Unplug everything</button>` : ""}
-          <button type="button" class="linkish credits-link" data-open-canvas>Canvas Submission</button>
-          <button type="button" class="linkish credits-link credits-link-plain" data-open-credits>Credits</button>
+          <button type="button" class="linkish credits-link" data-open-credits>Credits</button>
         </div>
         ${isFree ? `<section class="music" aria-label="Band audio"></section>` : ""}
       </article>`;
