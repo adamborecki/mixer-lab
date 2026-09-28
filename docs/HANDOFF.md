@@ -78,7 +78,7 @@ Scenarios are data in `SCENARIOS` (`js/scenarios.js`); the UI and checker are ge
 
 Text can use `{aux1}`, `{aux2}`, `{aux1Master}`, `{aux2Master}`, `{level}`, `{enabled}`, `{main}` so it reads correctly on either skin.
 
-Things a setup can't express yet (add to the schema rather than special-casing): per-channel overrides (e.g. "guitar starts muted" for a fault scenario), pre-set faults, and starting with a cable on the wrong device.
+Setups can start channels muted (`muted`), override starting faders (`faders`) and start with cables on the wrong device (the `cables` list). Not yet expressible (add to the schema rather than special-casing): other per-channel faults such as a gain set far too low.
 
 ## Stereo input 9/10
 
@@ -109,7 +109,7 @@ Input 9/10 is **one** channel strip (`CHANNEL_LAYOUT[8]`, `stereo: true`, label 
 ## Tests and QA
 
 ```sh
-npm test            # or: node --test tests/   (Node 18+, 121 tests)
+npm test            # or: node --test tests/   (Node 18+, 185 tests)
 python3 -m http.server 8124   # then http://localhost:8124/?debug=1
 ```
 
@@ -121,8 +121,8 @@ One stereo input (9/10), no balance control on it, and its meter reads a mono fo
 
 ## Next planned work
 
-1. ~~Preshow input 9/10~~ — done, see Stereo input below. Still to do: a Preshow scenario.
-2. **About 10 beginner scenarios**, alternating build / use / diagnose: Preshow music; More of my voice (Aux 1); Line check; Whole wedge too quiet (Aux 2); Build the drummer wedge (Aux 2 → amp → passive); More piano please (one Aux 2 send); Too much vocal in the house; Where did the guitar go?; Singer can't hear themself; Build a monitor mix. The current "Build the rig" becomes smaller build steps.
+1. ~~Preshow input 9/10~~ — done, see Stereo input below. Its scenario (`preshow`) is done too.
+2. ~~About 10 beginner scenarios~~ — done: preshow, band into the house, find the amp, singer's wedge, drummer's wedge, more piano, too quiet, vocal too loud, missing guitar, drummer's mix. See [SCENARIOS.md](SCENARIOS.md). Possible later additions: Line check, a Build a monitor mix for the singer.
 3. **SVG equipment/connector icons** as a reusable, themeable library (`icon("passive-wedge")`), not per-scenario drawings: active PA speaker, active wedge, passive wedge, rack amp, laptop, mic, mixer, XLR M/F, 1/4" TRS/TS, 3.5 mm, RCA, SpeakON, IEC.
 4. **More physical-routing exercises** built on the semantic port model.
 5. Later: more aux buses and more skins.

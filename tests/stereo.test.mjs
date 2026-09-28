@@ -85,7 +85,7 @@ describe("stereo channel in the mix", () => {
   });
 
   it("scenarios other than Free play do not include the laptop", () => {
-    for (const id of ["build-rig", "more-vocal", "monitor-quiet"]) {
+    for (const id of ["build-rig", "find-amp", "more-vocal", "drummer-wedge", "more-piano", "monitor-quiet", "foh-vocal", "missing-guitar", "drummer-mix"]) {
       assert.equal(buildScenarioState(SCENARIOS_BY_ID[id]).rig.devices.some((d) => d.sourceId === "preshow"), false, id);
     }
   });

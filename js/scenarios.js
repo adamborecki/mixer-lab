@@ -56,37 +56,93 @@ export function defaultCableFor(source) {
 // mixer. Sends are given per bus in dB ("off" if missing).
 export const SCENARIOS = [
   {
-    id: "build-rig",
+    id: "preshow",
     number: 1,
-    title: "Build the rig",
-    who: "Band leader",
-    prompt: "“Doors in ten minutes. Get at least two of us into the house speakers — the audience has to hear us.”",
-    goal: "Two sources patched, gain-staged, and heard through a working Main L/R speaker chain.",
+    title: "Preshow music",
+    who: "Stage manager",
+    prompt: "“Doors open soon and the room is silent. Get the preshow music from the laptop playing through the house speakers.”",
+    goal: "The laptop's stereo music heard from both house speakers (Main L and Main R).",
     setup: {
-      devices: ["spk-l", "spk-r", "pspk-l", "amp", "wedge"],
+      devices: ["spk-l", "spk-r"],
       patch: "none",
-      // Deliberately incomplete: Main L is already run to a passive speaker.
-      cables: [{ from: "mixer/main-l", to: "pspk-l/in", cable: "xlr-trs" }],
+      cables: HOUSE_CABLES,
       channels: "safe", // gain at minimum, faders down
       listen: "main",
     },
     conditions: [
-      { id: "patched", kind: "goal", type: "sourcesPatched", min: 2, label: "Two different sources plugged into proper inputs" },
-      { id: "gain", kind: "goal", type: "gainStaged", min: 2, label: "Their input meters show a healthy level — not low, not clipping" },
-      { id: "chain", kind: "goal", type: "validChain", output: "main", zone: "foh", label: "A house speaker chain that can actually make sound" },
-      { id: "heard", kind: "goal", type: "heardInMain", min: 2, label: "Both sources reach that speaker through Main" },
-      { id: "no-broken", kind: "goal", type: "noBrokenChains", zone: "foh", label: "No house speaker left on a chain that can't work" },
+      { id: "patched", kind: "goal", type: "sourcePatched", source: "preshow", label: "The laptop is plugged into the mixer's stereo input" },
+      { id: "gain", kind: "goal", type: "sourceGain", source: "preshow", label: "Its input meter shows a healthy level" },
+      { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "preshow", stereo: true, label: "The music comes out of both house speakers, left and right" },
+      { id: "chain", kind: "keep", type: "validChain", output: "main", zone: "foh", label: "The house speakers keep working" },
     ],
     hints: [
-      "Start at the destination. Which speakers does the audience hear — and could they make sound right now?",
-      "Look at what Main L is plugged into. A passive speaker has no amplifier inside. Where is the amplifier?",
-      "Patch Main L/R into the powered speakers (or Main → power amp input → amp output → passive speaker). Then plug in two sources, raise GAIN until the meter reads Good, and bring up the {level}.",
+      "Start at the source. A laptop's headphone jack is a 3.5 mm stereo output: left and right. Which mixer input takes a stereo pair?",
+      "Use input 9/10, the stereo line input, with the 3.5 mm → dual 1/4″ breakout cable (one plug into the laptop, two into the L/R pair). Check its input meter reads Good; a laptop is already line level, so it needs little or no GAIN.",
+      "Bring up the 9/10 {level}. The house speakers are powered and already patched to {main} L/R, so no amplifier is needed.",
     ],
-    complete: "That's a working rig: source → preamp → channel → Main → amplifier → speaker. Every speaker needs an amp somewhere — inside it (powered) or in front of it (passive).",
+    complete: "Stereo in, stereo out: one 9/10 strip carries left and right, so the music reaches both house speakers. A laptop is a line-level source: no mic preamp, no +48 V.",
+  },
+  {
+    id: "build-rig",
+    number: 2,
+    title: "Get the band into the house",
+    who: "Band leader",
+    prompt: "“Soundcheck. Get at least two of us into the house speakers so the audience can hear the band.”",
+    goal: "Two band sources patched, gain-staged and heard through the house speakers ({main} L/R).",
+    setup: {
+      devices: ["spk-l", "spk-r"],
+      patch: "none",
+      cables: HOUSE_CABLES,
+      channels: "safe",
+      listen: "main",
+    },
+    conditions: [
+      { id: "patched", kind: "goal", type: "sourcesPatched", min: 2, label: "Two different sources plugged into proper inputs" },
+      { id: "gain", kind: "goal", type: "gainStaged", min: 2, label: "Their input meters show a healthy level, not low and not clipping" },
+      { id: "heard", kind: "goal", type: "heardInMain", min: 2, label: "Both sources are heard through the house speakers" },
+      { id: "chain", kind: "keep", type: "validChain", output: "main", zone: "foh", label: "The house speakers keep working" },
+    ],
+    hints: [
+      "Each band member needs a mixer input. A condenser mic needs XLR into the mic input, plus +48 V. A keyboard or bass can use a 1/4″ cable into the line input.",
+      "Raise each channel's GAIN until its input meter reads Good.",
+      "Then bring up each channel's {level}. The house speakers are already patched.",
+    ],
+    complete: "Source → preamp (GAIN) → channel ({level}) → {main} → speakers. GAIN sets how hot the signal is going into the mixer; the {level} sets how much of it goes to the house.",
+  },
+  {
+    id: "find-amp",
+    number: 3,
+    title: "Where is the amplifier?",
+    who: "Venue tech",
+    prompt: "“Tonight's house speakers are a rental pair of passive cabinets. The band is mixed, but we hear nothing. Find the amplifier.”",
+    goal: "Main L and Main R both reach a house speaker through a working chain.",
+    setup: {
+      devices: ["pspk-l", "pspk-r", "amp"],
+      patch: "reference",
+      // The trap: the mixer's line outputs plugged straight into passive speakers.
+      cables: [
+        { from: "mixer/main-l", to: "pspk-l/in", cable: "xlr-trs" },
+        { from: "mixer/main-r", to: "pspk-r/in", cable: "xlr-trs" },
+      ],
+      channels: "mixed",
+      listen: "main",
+    },
+    conditions: [
+      { id: "left", kind: "goal", type: "validChain", output: "main-l", zone: "foh", label: "Main L reaches a speaker through a working chain" },
+      { id: "right", kind: "goal", type: "validChain", output: "main-r", zone: "foh", label: "Main R reaches a speaker through a working chain" },
+      { id: "no-broken", kind: "goal", type: "noBrokenChains", zone: "foh", label: "No speaker is left plugged into something that can't drive it" },
+      { id: "heard", kind: "goal", type: "heardInMain", min: 2, label: "The band comes out of the speakers" },
+    ],
+    hints: [
+      "Which speakers are silent, and what is each one plugged into? A passive speaker has no amplifier inside.",
+      "A mixer output is line level: too weak to move a speaker. A power amp turns line level into speaker level. Path: mixer output → amp input → amp output → speaker.",
+      "Unplug Main L and R from the speakers. Main L → amp In A, amp Out A → left speaker; Main R → In B, Out B → right speaker. Use speaker cable from the amp to the speaker.",
+    ],
+    complete: "Line level can't drive a passive speaker. The amp sits between them: mixer line output → amp input → amp speaker output → passive speaker. A powered speaker just has that amp built in.",
   },
   {
     id: "more-vocal",
-    number: 2,
+    number: 4,
     title: "“More of my voice in the monitor”",
     who: "Lead singer",
     prompt: "“I can't hear myself in my wedge. More of my voice, please — but don't change what the audience hears.”",
@@ -123,8 +179,86 @@ export const SCENARIOS = [
     complete: "Exactly: the vocal's pre-fader {aux1} send changes only the singer's wedge. GAIN would have changed every mix; the {level} would have changed only the house.",
   },
   {
+    id: "drummer-wedge",
+    number: 5,
+    title: "Build the drummer's wedge",
+    who: "Drummer",
+    prompt: "“I've got a wedge on my side of the stage and it's dead. Get my monitor mix ({aux2}) into it.”",
+    goal: "The {aux2} mix reaches the drummer's passive wedge through the power amp.",
+    setup: {
+      devices: ["spk-l", "spk-r", "wedge", "amp", "pwedge"],
+      patch: "reference",
+      // House and the singer's wedge already work; Aux 2 is not patched at all.
+      cables: [...HOUSE_CABLES, { from: "mixer/aux1", to: "wedge/in", cable: "trs" }],
+      channels: "mixed",
+      sends: {
+        aux1: { bass: -3, keys: -6, "lead-vocal": 0 },
+        aux2: { drums: -2, bass: -3, keys: -8, "lead-vocal": -5 },
+      },
+      listen: "main",
+    },
+    baseline: {
+      mainByChannel: { metric: "mainDbByChannel" },
+      singerMix: { metric: "monitorByChannel", bus: "aux1" },
+    },
+    conditions: [
+      { id: "chain", kind: "goal", type: "validChain", output: "aux2", device: "pwedge", label: "{aux2} reaches the drummer's wedge through a working chain" },
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "aux2", label: "Check it: switch Listen to {aux2}" },
+      { id: "heard", kind: "goal", type: "busAudible", bus: "aux2", label: "The drummer can hear their mix" },
+      { id: "no-broken", kind: "keep", type: "noBrokenChains", zone: "stage", label: "No wedge is left on a chain that can't work" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "mainByChannel", toleranceDb: 1, label: "The audience mix stays the same" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "aux1", baseline: "singerMix", toleranceDb: 1, label: "The singer's wedge ({aux1}) stays the same" },
+    ],
+    hints: [
+      "Follow {aux2} out of the mixer. The drummer's wedge is passive, so it has no amplifier of its own.",
+      "Same as the house speakers earlier: {aux2} out → power amp input → power amp output → passive wedge.",
+      "{aux2} out → amp In A. Amp Out A → the wedge, on speaker cable. Then switch Listen to {aux2} to hear it.",
+    ],
+    complete: "The same amplifier rule as the house: a passive wedge needs a power amp between the mixer's line-level {aux2} output and the speaker. Only then does the drummer hear the mix.",
+  },
+  {
+    id: "more-piano",
+    number: 6,
+    title: "“More piano”",
+    who: "Drummer",
+    prompt: "“I can barely hear the piano in my wedge. More keys, please. Nothing else.”",
+    goal: "More keys in the drummer's wedge ({aux2}). Everything else stays put.",
+    setup: {
+      devices: ["spk-l", "spk-r", "wedge", "amp", "pwedge"],
+      patch: "reference",
+      cables: [...HOUSE_CABLES, ...MONITOR_CABLES],
+      channels: "mixed",
+      sends: {
+        aux1: { bass: -3, keys: -8, "lead-vocal": 0 },
+        aux2: { drums: -2, bass: -3, keys: -18, "lead-vocal": -5 },
+      },
+      listen: "main",
+    },
+    baseline: {
+      keysSendDb: { metric: "sendDb", source: "keys", bus: "aux2" },
+      keysMonitorDb: { metric: "heardMonitorDb", source: "keys", bus: "aux2" },
+      mainByChannel: { metric: "mainDbByChannel" },
+      drummerMix: { metric: "monitorByChannel", bus: "aux2" },
+      singerMix: { metric: "monitorByChannel", bus: "aux1" },
+    },
+    conditions: [
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "aux2", label: "Hear what the drummer hears: switch Listen to {aux2}" },
+      { id: "send", kind: "goal", type: "sendRaised", source: "keys", bus: "aux2", baseline: "keysSendDb", minDb: 4, label: "The change is made on the keys' own channel" },
+      { id: "wedge", kind: "goal", type: "monitorRaised", source: "keys", bus: "aux2", baseline: "keysMonitorDb", minDb: 4, label: "More keys actually comes out of the drummer's wedge" },
+      { id: "rest", kind: "keep", type: "monitorMixUnchanged", bus: "aux2", except: "keys", baseline: "drummerMix", toleranceDb: 1, label: "The rest of the drummer's mix stays the same" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "mainByChannel", toleranceDb: 1, label: "The audience mix stays the same" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "aux1", baseline: "singerMix", toleranceDb: 1, label: "The singer's wedge ({aux1}) stays the same" },
+    ],
+    hints: [
+      "Which wedge is this about? Switch Listen to it and hear what the drummer hears.",
+      "Change one instrument in one mix: the keys channel's {aux2} send.",
+      "Turn up only the keys' {aux2} send. GAIN and the {level} would change the house too.",
+    ],
+    complete: "One instrument, one mix: the keys' {aux2} send changes only that instrument in the drummer's wedge. GAIN would have changed every mix, and the {level} only the house.",
+  },
+  {
     id: "monitor-quiet",
-    number: 3,
+    number: 7,
     title: "“My whole monitor mix is too quiet”",
     who: "Drummer",
     prompt: "“The balance in my wedge is fine. It's just all too quiet — I can barely hear any of it back here.”",
@@ -154,11 +288,119 @@ export const SCENARIOS = [
       { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "aux1", baseline: "singerMix", toleranceDb: 1, label: "The singer's wedge ({aux1}) stays the same" },
     ],
     hints: [
-      "The destination is the drummer's wedge — and the complaint is about the whole mix, not one instrument. Which bus feeds it? Follow {aux2} out to the power amp and the passive wedge.",
-      "Turning up every channel's {aux2} send one by one would work — slowly, and the balance would drift. What controls the whole {aux2} bus at once?",
-      "Raise the {aux2Master}. Not the {aux1Master} — that's the singer's wedge.",
+      "The complaint is about the whole drummer's mix, not one instrument. Which destination is that? Switch Listen to it.",
+      "You could turn up every send one by one, but the balance would drift. Which control affects the whole {aux2} bus at once? Not the {aux1Master}: that's the singer's wedge.",
     ],
     complete: "One control, whole mix: the {aux2Master} sits after every {aux2} send is summed, so it moves the drummer's entire mix without touching its balance — or anyone else's wedge.",
+  },
+  {
+    id: "foh-vocal",
+    number: 8,
+    title: "“The vocal is too loud in the house”",
+    who: "Band leader",
+    prompt: "“Out front the lead vocal is way too loud over the band. The singer loves their wedge though. Don't touch that.”",
+    goal: "Lead vocal quieter for the audience. The singer's wedge and everything else stay the same.",
+    setup: {
+      devices: ["spk-l", "spk-r", "wedge", "amp", "pwedge"],
+      patch: "reference",
+      cables: [...HOUSE_CABLES, ...MONITOR_CABLES],
+      channels: "mixed",
+      faders: { "lead-vocal": 4 }, // starts pushed up in the house
+      sends: {
+        aux1: { drums: -10, bass: -3, keys: -6, "lead-vocal": 0 },
+        aux2: { drums: -2, bass: -3, keys: -8, "lead-vocal": -5 },
+      },
+      listen: "main",
+    },
+    baseline: {
+      mainByChannel: { metric: "mainDbByChannel" },
+      singerMix: { metric: "monitorByChannel", bus: "aux1" },
+      drummerMix: { metric: "monitorByChannel", bus: "aux2" },
+    },
+    conditions: [
+      { id: "lower", kind: "goal", type: "mainLowered", source: "lead-vocal", baseline: "mainByChannel", minDb: 6, label: "The lead vocal is clearly quieter in the house" },
+      { id: "audible", kind: "goal", type: "sourceHeardInMain", source: "lead-vocal", label: "It's still in the mix, just quieter" },
+      { id: "band", kind: "keep", type: "mainUnchanged", except: "lead-vocal", baseline: "mainByChannel", toleranceDb: 1, label: "The rest of the band in the house stays the same" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "aux1", baseline: "singerMix", toleranceDb: 1, label: "The singer's wedge ({aux1}) stays the same" },
+      { id: "drummer", kind: "keep", type: "monitorMixUnchanged", bus: "aux2", baseline: "drummerMix", toleranceDb: 1, label: "The drummer's wedge ({aux2}) stays the same" },
+    ],
+    hints: [
+      "Who is complaining? The audience. Which mix do they hear, and which controls change only that mix?",
+      "In this mixer the {aux1} and {aux2} sends are taken before the channel {level}, so the {level} affects the house alone.",
+    ],
+    complete: "Because the aux sends are pre-fader, the {level} moves only the house mix and the singer's wedge stays put. GAIN would have changed every mix, and the wedge would have followed.",
+  },
+  {
+    id: "missing-guitar",
+    number: 9,
+    title: "“Where did the guitar go?”",
+    who: "Guitarist",
+    prompt: "“I'm playing, the band can hear me, but I'm not in the house. Find out why and fix it.”",
+    goal: "The guitar is back in the house, and you changed only what was actually wrong.",
+    setup: {
+      devices: ["spk-l", "spk-r", "wedge", "amp", "pwedge"],
+      patch: "reference",
+      cables: [...HOUSE_CABLES, ...MONITOR_CABLES],
+      channels: "mixed",
+      sends: {
+        aux1: { drums: -10, bass: -3, guitars: -6, "lead-vocal": 0 },
+        aux2: { drums: -2, bass: -3, guitars: -6, "lead-vocal": -5 },
+      },
+      muted: ["guitars"], // the one fault
+      listen: "main",
+    },
+    baseline: {
+      mainByChannel: { metric: "mainDbByChannel" },
+      guitarChannel: { metric: "channelSettings", source: "guitars" },
+    },
+    conditions: [
+      { id: "pfl", kind: "goal", type: "listenedTo", dest: "pfl", label: "Check the guitar's own signal with PFL" },
+      { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "guitars", label: "The guitar is heard through the house speakers" },
+      { id: "settings", kind: "keep", type: "channelUnchanged", source: "guitars", baseline: "guitarChannel", toleranceDb: 1, label: "The guitar's GAIN and {level} are as they were" },
+      { id: "band", kind: "keep", type: "mainUnchanged", except: "guitars", baseline: "mainByChannel", toleranceDb: 1, label: "The rest of the band in the house stays the same" },
+    ],
+    hints: [
+      "First find out whether the guitar reaches the mixer at all. PFL lets you listen to one channel's signal before anything else acts on it.",
+      "If the signal is there but the audience can't hear it, check what stands between the channel and Main. Look at the channel's switches, not its knobs.",
+    ],
+    complete: "PFL showed the guitar arriving fine, so the problem was after the input: the channel was switched off for Main ({enabled}). Change only the actual fault.",
+  },
+  {
+    id: "drummer-mix",
+    number: 10,
+    title: "Build the drummer a monitor mix",
+    who: "Drummer",
+    prompt: "“Can I get drums, bass, some lead vocal, and a little piano?”",
+    goal: "Build that mix in the drummer's wedge ({aux2}): what they asked for, and nothing else.",
+    setup: {
+      devices: ["spk-l", "spk-r", "wedge", "amp", "pwedge"],
+      patch: "reference",
+      cables: [...HOUSE_CABLES, ...MONITOR_CABLES],
+      channels: "mixed",
+      sends: {
+        aux1: { drums: -10, bass: -3, guitars: -6, keys: -6, "lead-vocal": 0 },
+        aux2: { guitars: -12 }, // a leftover from soundcheck; everything else is empty
+      },
+      listen: "main",
+    },
+    baseline: {
+      mainByChannel: { metric: "mainDbByChannel" },
+      singerMix: { metric: "monitorByChannel", bus: "aux1" },
+    },
+    conditions: [
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "aux2", label: "Hear what the drummer hears: switch Listen to {aux2}" },
+      { id: "core", kind: "goal", type: "monitorPresent", bus: "aux2", sources: ["drums", "bass", "lead-vocal"], minDb: -30, label: "Drums, bass and lead vocal are clearly in the wedge" },
+      { id: "piano", kind: "goal", type: "monitorLittle", bus: "aux2", source: "keys", below: ["drums", "bass"], byDb: 3, label: "Piano is in there, but quieter than drums and bass" },
+      { id: "others", kind: "goal", type: "monitorAbsent", bus: "aux2", sources: ["guitars"], label: "Nothing they didn't ask for" },
+      { id: "chain", kind: "keep", type: "validChain", output: "aux2", label: "The drummer's wedge chain keeps working" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "mainByChannel", toleranceDb: 1, label: "The audience mix stays the same" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "aux1", baseline: "singerMix", toleranceDb: 1, label: "The singer's wedge ({aux1}) stays the same" },
+    ],
+    hints: [
+      "Switch Listen to the drummer's wedge and build the mix one channel at a time, using each channel's {aux2} send.",
+      "Drums and bass are the foundation. The piano should be audible but well behind them. Check the {aux2} bus for anything left over.",
+    ],
+    complete: "You built a monitor mix from scratch: the {aux2} sends choose who is in the wedge and how loud, the {aux2Master} moves it all together, and the amp and passive wedge make it audible.",
   },
   {
     id: "free-play",
@@ -188,7 +430,21 @@ export const SCENARIOS = [
 
 // Short label for pickers and reports (falls back to the full title for new scenarios).
 export function shortTitle(s) {
-  return { "build-rig": "Build the rig", "more-vocal": "Singer's wedge", "monitor-quiet": "Drummer's wedge", "free-play": "Free play" }[s.id] || s.title;
+  return (
+    {
+      preshow: "Preshow music",
+      "build-rig": "Band into the house",
+      "find-amp": "Find the amp",
+      "more-vocal": "Singer's wedge",
+      "drummer-wedge": "Drummer's wedge",
+      "more-piano": "More piano",
+      "monitor-quiet": "Too quiet",
+      "foh-vocal": "Vocal too loud",
+      "missing-guitar": "Missing guitar",
+      "drummer-mix": "Drummer's mix",
+      "free-play": "Free play",
+    }[s.id] || s.title
+  );
 }
 
 export const SCENARIOS_BY_ID = Object.fromEntries(SCENARIOS.map((s) => [s.id, s]));
@@ -223,7 +479,7 @@ export function buildScenarioState(def, sourcesById = SOURCES_BY_ID) {
       const ch = state.channels[s.order - 1];
       ch.gainDb = nominalGainDb(s);
       ch.phantom = s.phantom === "required";
-      ch.level = dbToLevel(s.mixDb);
+      ch.level = dbToLevel(setup.faders && s.id in setup.faders ? setup.faders[s.id] : s.mixDb);
       if (!ch.stereo) ch.pan = s.pan;
       for (const bus of BUSES) {
         const sends = (setup.sends && setup.sends[bus]) || {};
@@ -253,6 +509,11 @@ const METRICS = {
   busDb: (ctx, p) => levelToDb(ctx.state[p.bus].level),
   mainDbByChannel: (ctx) => ctx.mix.channels.map((c) => Math.max(c.mainDb.L, c.mainDb.R)),
   sendDbByChannel: (ctx, p) => ctx.mix.channels.map((c) => (c.sourceId ? c.aux[p.bus].sendDb : -Infinity)),
+  // A channel's own GAIN and fader (dB), for "fix only the fault" scenarios.
+  channelSettings: (ctx, p) => {
+    const ch = ctx.state.channels[ctx.sourcesById[p.source].order - 1];
+    return { gainDb: ch.gainDb, faderDb: levelToDb(ch.level) };
+  },
   // What each channel contributes to a wedge that actually makes sound.
   monitorByChannel: (ctx, p) => ctx.mix.channels.map((c) => c.aux[p.bus].heardDb),
 };
@@ -260,7 +521,7 @@ const METRICS = {
 export function captureBaseline(def, state, sourcesById = SOURCES_BY_ID, stems = STEMS) {
   const mix = computeMix(state, sourcesById, stems);
   const out = {};
-  for (const [name, spec] of Object.entries(def.baseline || {})) out[name] = METRICS[spec.metric]({ state, mix }, spec);
+  for (const [name, spec] of Object.entries(def.baseline || {})) out[name] = METRICS[spec.metric]({ state, mix, sourcesById }, spec);
   return out;
 }
 
@@ -269,6 +530,13 @@ export function captureBaseline(def, state, sourcesById = SOURCES_BY_ID, stems =
 // Threshold for "you'd hear it": estimated peak at a speaker, dBFS.
 export const AUDIBLE_DB = -45;
 const OFF_DB = -60; // a send/contribution below this counts as off
+
+// A source's channel by the source id it is patched from (null if unplugged).
+const chanFor = (ctx, sourceId) => ctx.mix.channels.find((c) => c.sourceId === sourceId) || null;
+// Index of the channel a source belongs on, whether or not it is plugged in.
+const indexOf = (ctx, sourceId) => (ctx.sourcesById[sourceId] ? ctx.sourcesById[sourceId].order - 1 : -1);
+const isWorking = (ch) => !!ch && ch.input.connected && ch.input.signal && ch.input.status === "ok";
+const isGood = (ch) => isWorking(ch) && (ch.band === "good" || ch.band === "hot");
 
 const usableChannels = (mix) => mix.channels.filter((c) => c.input.connected && c.input.signal && c.input.status === "ok");
 
@@ -283,9 +551,10 @@ export const CONDITIONS = {
     const good = usableChannels(ctx.mix).filter((ch) => ch.band === "good" || ch.band === "hot");
     return { met: good.length >= c.min, detail: `${good.length} of ${c.min}` };
   },
+  // `device`: a specific speaker (e.g. the drummer's passive wedge) must be the one on the chain.
   validChain(ctx, c) {
     const ports = c.output === "main" ? ["main-l", "main-r"] : [c.output];
-    const ends = ctx.mix.rig.endpoints.filter((e) => e.valid && ports.includes(e.output) && (!c.zone || e.zone === c.zone));
+    const ends = ctx.mix.rig.endpoints.filter((e) => e.valid && ports.includes(e.output) && (!c.zone || e.zone === c.zone) && (!c.device || e.deviceId === c.device));
     return { met: ends.length > 0 };
   },
   noBrokenChains(ctx, c) {
@@ -295,6 +564,53 @@ export const CONDITIONS = {
   heardInMain(ctx, c) {
     const heard = usableChannels(ctx.mix).filter((ch) => (ch.band === "good" || ch.band === "hot") && ch.heardMainDb >= AUDIBLE_DB);
     return { met: heard.length >= c.min, detail: `${heard.length} of ${c.min}` };
+  },
+  // One named source: plugged in properly / gain in the Good band / heard through Main.
+  // `stereo: true` also needs both sides (Main L and Main R) working and audible.
+  sourcePatched(ctx, c) {
+    return { met: isWorking(chanFor(ctx, c.source)) };
+  },
+  sourceGain(ctx, c) {
+    return { met: isGood(chanFor(ctx, c.source)) };
+  },
+  sourceHeardInMain(ctx, c) {
+    const ch = chanFor(ctx, c.source);
+    if (!isGood(ch)) return { met: false };
+    if (!c.stereo) return { met: ch.heardMainDb >= AUDIBLE_DB };
+    const { buses } = ctx.mix.rig;
+    const both = buses["main-l"].length > 0 && buses["main-r"].length > 0;
+    return { met: both && ch.mainDb.L >= AUDIBLE_DB && ch.mainDb.R >= AUDIBLE_DB };
+  },
+  // Some channel is audible through a working chain on that bus.
+  busAudible(ctx, c) {
+    return { met: ctx.mix.channels.some((ch) => ch.aux[c.bus].heardDb >= AUDIBLE_DB) };
+  },
+  // A source's Main contribution dropped by at least `minDb` from the baseline.
+  mainLowered(ctx, c) {
+    const i = indexOf(ctx, c.source);
+    const now = METRICS.mainDbByChannel(ctx)[i];
+    const base = ctx.baseline[c.baseline][i];
+    return { met: base - now >= c.minDb, detail: delta(now, base) };
+  },
+  // A channel's GAIN and fader are where they started ("fix only the fault").
+  channelUnchanged(ctx, c) {
+    const now = METRICS.channelSettings(ctx, c);
+    const base = ctx.baseline[c.baseline];
+    return { met: Math.abs(now.gainDb - base.gainDb) <= c.toleranceDb && same(now.faderDb, base.faderDb, c.toleranceDb) };
+  },
+  // Every listed source is at least `minDb` in the wedge (heard through a working chain).
+  monitorPresent(ctx, c) {
+    return { met: c.sources.every((id) => (chanFor(ctx, id)?.aux[c.bus].heardDb ?? -Infinity) >= c.minDb) };
+  },
+  // In the wedge (audible) but at least `byDb` quieter than each source in `below`.
+  monitorLittle(ctx, c) {
+    const heard = (id) => chanFor(ctx, id)?.aux[c.bus].heardDb ?? -Infinity;
+    const mine = heard(c.source);
+    return { met: mine >= AUDIBLE_DB && c.below.every((id) => mine <= heard(id) - c.byDb) };
+  },
+  // None of the listed sources is audible in the wedge.
+  monitorAbsent(ctx, c) {
+    return { met: c.sources.every((id) => (chanFor(ctx, id)?.aux[c.bus].heardDb ?? -Infinity) < AUDIBLE_DB) };
   },
   sendRaised(ctx, c) {
     const now = METRICS.sendDb(ctx, c);
@@ -307,10 +623,12 @@ export const CONDITIONS = {
     const heard = ctx.session.listened ? ctx.session.listened.has(c.dest) : ctx.state.listen === c.dest;
     return { met: heard || ctx.state.listen === c.dest };
   },
+  // `except`: a source that is allowed to change (the one the student is meant to adjust).
   monitorMixUnchanged(ctx, c) {
     const base = ctx.baseline[c.baseline];
+    const skip = c.except ? indexOf(ctx, c.except) : -1;
     const now = METRICS.monitorByChannel(ctx, c);
-    return { met: now.every((v, i) => same(v, base[i], c.toleranceDb)) };
+    return { met: now.every((v, i) => i === skip || same(v, base[i], c.toleranceDb)) };
   },
   monitorRaised(ctx, c) {
     const now = METRICS.heardMonitorDb(ctx, c);
@@ -320,7 +638,8 @@ export const CONDITIONS = {
   mainUnchanged(ctx, c) {
     const base = ctx.baseline[c.baseline];
     const now = METRICS.mainDbByChannel(ctx);
-    const moved = now.map((v, i) => !same(v, base[i], c.toleranceDb));
+    const skip = c.except ? indexOf(ctx, c.except) : -1;
+    const moved = now.map((v, i) => i !== skip && !same(v, base[i], c.toleranceDb));
     return { met: !moved.some(Boolean), moved: moved.map((m, i) => (m ? i : -1)).filter((i) => i >= 0) };
   },
   masterRaised(ctx, c) {

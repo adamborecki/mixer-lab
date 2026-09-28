@@ -27,7 +27,7 @@ python3 -m http.server 8124
 
 Then open <http://localhost:8124/>. There is nothing to install.
 
-- Deep links pick a scenario: `#/build-rig`, `#/more-vocal`, `#/monitor-quiet`, `#/free-play`.
+- Deep links pick a scenario by id: `#/preshow`, `#/build-rig`, `#/find-amp`, `#/more-vocal`, `#/drummer-wedge`, `#/more-piano`, `#/monitor-quiet`, `#/foh-vocal`, `#/missing-guitar`, `#/drummer-mix`, `#/free-play`.
 - Add `?debug=1` to expose `window.mixerLab` in the console with `store`, `engine`, `skins`, `evaluate()`, `mix()`, `selectScenario(id)` and `setSkin(id)`.
 - Audio starts only after the student presses **Start Audio**. Headphones help.
 
@@ -37,7 +37,7 @@ Four regions: **Scenario** (prompt, checklist, hints), **Sources** (band inputs)
 
 Patching is tap-based: tap a port, pick a cable, pick the other end. Bad choices are allowed when they are instructive (a mic on the 1/4" side, a passive speaker on a line output) and are explained in words.
 
-In the scenarios and Free play, Aux 1 feeds the lead singer's powered wedge and Aux 2 goes through the power amp to the drummer's passive wedge. Scenarios 2 and 3 ask the student to listen to the right wedge before fixing it. Free play can also play the whole song (3:58, with a seek slider) instead of the 8-bar loop.
+In the scenarios and Free play, Aux 1 feeds the lead singer's powered wedge and Aux 2 goes through the power amp to the drummer's passive wedge. The wedge scenarios ask the student to listen to the right wedge before fixing it. Free play can also play the whole song (3:58, with a seek slider) instead of the 8-bar loop.
 
 ## V1 scope
 
@@ -46,7 +46,7 @@ In the scenarios and Free play, Aux 1 feeds the lead singer's powered wedge and 
 - Per-channel gain, level, pan, phantom power, enabled (mute/on) and PFL; two pre-fader sends (Aux 1 and Aux 2); Main, Aux 1 and Aux 2 masters; headphone level.
 - Powered speakers, passive speakers and a 2-channel power amp. Sound is heard only through a valid chain.
 - Real Web Audio with metering from actual audio, and an audible clipper. The stems stay sample-locked whether or not they are patched (see [docs/AUDIO_ENGINE.md](docs/AUDIO_ENGINE.md)).
-- Three data-defined scenarios plus Free Play, with success computed from state, routing and what the student has listened to.
+- Ten data-defined beginner scenarios plus Free Play, with success computed from state, routing and what the student has listened to.
 - Two generic mixer skins. Switching keeps state, patching, scenario progress and audio.
 
 ## V1 conventions
@@ -96,7 +96,7 @@ js/
   ui/                      UI modules (instead of one ui.js): controls, flow,
                            listen-bar, mixer-view, patch-view, scenario-view
 docs/                      AUDIO_ENGINE.md, MIXER_MODEL_SCHEMA.md, SCENARIOS.md
-tests/                     routing, scenarios and skins tests (node --test, 94 tests)
+tests/                     routing, scenarios and skins tests (node --test, 185 tests)
 tools/make-excerpts.sh     regenerates the audio: excerpt, full, or both
 MIXER_LAB_BUILD_SPEC_V1_2.md, PROJECT_CONTEXT.md   spec and teaching context
 ```
@@ -137,7 +137,7 @@ The app shows the same credits in its Credits dialog (from `CREDITS` in `audio/s
 | [docs/HANDOFF.md](docs/HANDOFF.md) | Start here if you are continuing development: architecture, sync invariant, conventions, next steps |
 | [docs/AUDIO_ENGINE.md](docs/AUDIO_ENGINE.md) | Signal graph, Main/Aux 1/Aux 2/PFL, mute convention, listening, metering, stem transport (loop, full song, sync fix), adding a bus |
 | [docs/MIXER_MODEL_SCHEMA.md](docs/MIXER_MODEL_SCHEMA.md) | Semantic state vs skins, ON/MUTE inversion, control mapping, adding a skin |
-| [docs/SCENARIOS.md](docs/SCENARIOS.md) | Scenario schema, conditions, tolerances, the V1 scenarios, authoring |
+| [docs/SCENARIOS.md](docs/SCENARIOS.md) | Scenario schema, conditions, tolerances, the ten-scenario sequence, authoring |
 | [audio/README.md](audio/README.md) | Stems, excerpt and full-song files, format, levels, regeneration |
 | [MIXER_LAB_BUILD_SPEC_V1_2.md](MIXER_LAB_BUILD_SPEC_V1_2.md) | Implementation spec (authority) |
 | [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) | Teaching intent and direction |
@@ -152,7 +152,7 @@ Hooks exist for these; none are built. Where noted, the code needs changes beyon
 - Direct outs, board feeds and recording: add output ports to `DEVICE_TYPES.mixer`.
 - EQ, compression and effects between the preamp and the taps.
 - Connector and adapter challenges: the cable, jack and level tables in `js/connection-model.js`.
-- Fault injection and troubleshooting scenarios: `analyzeRig` already reports per-input and per-speaker statuses.
+- More fault-injection scenarios (one already: the muted guitar): `analyzeRig` reports per-input and per-speaker statuses.
 - More skins, including real-hardware layouts: [docs/MIXER_MODEL_SCHEMA.md](docs/MIXER_MODEL_SCHEMA.md).
 - Integrated PA systems (for example a Stagepas) and powered mini monitors as new endpoint device types.
 - Power sequencing and safe-setup checks.

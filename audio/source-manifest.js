@@ -53,7 +53,10 @@ export const STEMS = {
 //              it names a looping `asset` (LOOP_ASSETS) that plays on its own timeline,
 //              independent of the band's transport. `peakDb` is its measured stereo peak.
 // reference    false: not part of the pre-patched "reference" rig (student patches it)
-const ALL = ["free-play", "build-rig", "more-vocal", "monitor-quiet"];
+// The band scenarios (everything but the preshow one). Each source lists the ones it appears in.
+const BAND = ["free-play", "build-rig", "find-amp", "more-vocal", "drummer-wedge", "more-piano", "monitor-quiet", "foh-vocal", "missing-guitar", "drummer-mix"];
+const without = (...ids) => BAND.filter((id) => !ids.includes(id));
+const only = (...ids) => ["free-play", ...ids];
 
 export const SOURCES = [
   {
@@ -71,7 +74,7 @@ export const SOURCES = [
     stem: "drums",
     mixDb: -1,
     pan: 0,
-    scenarios: ["free-play", "build-rig", "monitor-quiet"],
+    scenarios: without("more-vocal"),
     note: "One overhead condenser stands in for the whole kit.",
   },
   {
@@ -89,7 +92,7 @@ export const SOURCES = [
     stem: "bass",
     mixDb: -3,
     pan: 0,
-    scenarios: ALL,
+    scenarios: BAND,
     note: "The bass is instrument level; the DI box turns it into a balanced mic-level XLR signal.",
   },
   {
@@ -107,7 +110,7 @@ export const SOURCES = [
     stem: "guitars",
     mixDb: -4,
     pan: -0.35,
-    scenarios: ["free-play", "more-vocal"],
+    scenarios: only("more-vocal", "missing-guitar", "drummer-mix"),
   },
   {
     id: "keys",
@@ -124,7 +127,7 @@ export const SOURCES = [
     stem: "piano",
     mixDb: -7,
     pan: 0.35,
-    scenarios: ALL,
+    scenarios: without("missing-guitar"),
     note: "A keyboard's 1/4\" output is already line level: it belongs on the 1/4\" line input, not the XLR mic input.",
   },
   {
@@ -159,7 +162,7 @@ export const SOURCES = [
     stem: "backing-vocals",
     mixDb: -4,
     pan: -0.2,
-    scenarios: ["free-play", "monitor-quiet"],
+    scenarios: only("monitor-quiet"),
   },
   {
     id: "lead-vocal",
@@ -176,7 +179,7 @@ export const SOURCES = [
     stem: "lead-vocals",
     mixDb: 0,
     pan: 0,
-    scenarios: ALL,
+    scenarios: BAND,
   },
   {
     id: "preshow",
@@ -196,7 +199,7 @@ export const SOURCES = [
     mixDb: -6,
     pan: 0,
     reference: false,
-    scenarios: ["free-play"],
+    scenarios: ["free-play", "preshow"],
     note: "A laptop's 3.5 mm headphone jack is a stereo line output. It needs a 3.5 mm → dual 1/4\" breakout cable into the mixer's stereo input 9/10, which is one stereo channel with one level control.",
   },
 ];
