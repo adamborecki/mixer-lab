@@ -291,7 +291,19 @@ describe("computeMix", () => {
     approx(after.inputPeakDb - before.inputPeakDb, 6);
     approx(after.pflDb - before.pflDb, 6);
     approx(after.mainDb.L - before.mainDb.L, 6);
-    approx(after.monitorDb - before.monitorDb, 6);
+    approx(after.aux.aux1.monitorDb - before.aux.aux1.monitorDb, 6);
+  });
+
+  it("Aux 1 and Aux 2 are independent mixes: an Aux 2 send or master leaves Aux 1 alone", () => {
+    const s = fixture();
+    const before = vox(s);
+    s.channels[6].auxSends.aux2 = dbToLevel(-3);
+    s.aux2.level = dbToLevel(-6);
+    const after = vox(s);
+    assert.equal(before.aux.aux2.monitorDb, -Infinity); // no Aux 2 send yet
+    approx(after.aux.aux2.monitorDb, before.inputPeakDb - 3 - 6);
+    assert.equal(after.aux.aux1.monitorDb, before.aux.aux1.monitorDb);
+    assert.equal(after.aux.aux2.heardDb, -Infinity); // nothing patched to Aux 2
   });
 
   it("channel level moves Main only; Aux 1 is pre-fader", () => {
@@ -300,38 +312,38 @@ describe("computeMix", () => {
     s.channels[6].level = 0.75;
     const after = vox(s);
     approx(after.mainDb.L - before.mainDb.L, 10);
-    assert.equal(after.monitorDb, before.monitorDb);
+    assert.equal(after.aux.aux1.monitorDb, before.aux.aux1.monitorDb);
     assert.equal(after.pflDb, before.pflDb);
   });
 
   it("enabled=false silences Main but not the monitor or PFL taps", () => {
     const s = fixture();
     const before = vox(s);
-    assert.ok(Number.isFinite(before.monitorDb) && Number.isFinite(before.pflDb) && Number.isFinite(before.heardMainDb));
+    assert.ok(Number.isFinite(before.aux.aux1.monitorDb) && Number.isFinite(before.pflDb) && Number.isFinite(before.heardMainDb));
     s.channels[6].enabled = false;
     const after = vox(s);
     assert.deepEqual([after.mainDb.L, after.mainDb.R, after.heardMainDb], [-Infinity, -Infinity, -Infinity]);
-    assert.equal(after.monitorDb, before.monitorDb);
+    assert.equal(after.aux.aux1.monitorDb, before.aux.aux1.monitorDb);
     assert.equal(after.pflDb, before.pflDb);
   });
 
-  it("an aux send changes that channel's monitorDb only", () => {
+  it("an aux send changes that channel's monitor contribution only", () => {
     const s = fixture();
     const before = mix(s).channels;
     s.channels[6].auxSends.aux1 = dbToLevel(levelToDb(0.5) + 6);
     const after = mix(s).channels;
-    approx(after[6].monitorDb - before[6].monitorDb, 6);
+    approx(after[6].aux.aux1.monitorDb - before[6].aux.aux1.monitorDb, 6);
     assert.equal(after[6].mainDb.L, before[6].mainDb.L);
-    assert.equal(after[1].monitorDb, before[1].monitorDb); // other channels untouched
+    assert.equal(after[1].aux.aux1.monitorDb, before[1].aux.aux1.monitorDb); // other channels untouched
   });
 
-  it("the Aux 1 master shifts every channel's monitorDb equally and leaves Main alone", () => {
+  it("the Aux 1 master shifts every channel's Aux 1 contribution equally and leaves Main and Aux 2 alone", () => {
     const s = fixture();
     const before = mix(s).channels;
     s.aux1.level = dbToLevel(-6); // was unity
     const after = mix(s).channels;
     for (const i of [1, 6]) {
-      approx(after[i].monitorDb - before[i].monitorDb, -6);
+      approx(after[i].aux.aux1.monitorDb - before[i].aux.aux1.monitorDb, -6);
       assert.equal(after[i].mainDb.L, before[i].mainDb.L);
     }
   });
@@ -364,12 +376,12 @@ describe("computeMix", () => {
     assert.equal(vox(s).heardMainDb, -Infinity);
   });
 
-  it("heardMonitorDb needs a valid Aux 1 chain; PFL needs no speaker", () => {
+  it("an aux heardDb needs a valid chain on that bus; PFL needs no speaker", () => {
     const s = fixture();
     s.rig.cables = s.rig.cables.filter((c) => c.from !== "mixer/aux1");
     const c = vox(s);
-    assert.equal(c.heardMonitorDb, -Infinity);
-    assert.ok(Number.isFinite(c.monitorDb) && Number.isFinite(c.pflDb));
+    assert.equal(c.aux.aux1.heardDb, -Infinity);
+    assert.ok(Number.isFinite(c.aux.aux1.monitorDb) && Number.isFinite(c.pflDb));
     s.channels[6].pfl = false;
     assert.equal(vox(s).pflDb, -Infinity);
   });

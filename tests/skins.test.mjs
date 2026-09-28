@@ -6,7 +6,7 @@ import { SCENARIOS } from "../js/scenarios.js";
 import { createMixerState } from "../js/mixer-state.js";
 
 const { analog, compact } = SKINS;
-const PARTS = new Set(["phantom", "gain", "aux", "pan", "pfl", "meter", "enabled", "level"]);
+const PARTS = new Set(["phantom", "gain", "aux1", "aux2", "pan", "pfl", "meter", "enabled", "level"]);
 
 describe("enable button mapping (MUTE vs ON)", () => {
   it("MUTE is lit when the channel is disabled; ON is lit when it is enabled", () => {
@@ -57,14 +57,16 @@ describe("skin definitions", () => {
   it("the skins differ in the ways the spec requires", () => {
     assert.equal(analog.levelControl, "fader");
     assert.equal(compact.levelControl, "knob");
-    assert.equal(analog.terms.aux, "AUX 1");
-    assert.equal(compact.terms.aux, "MON");
+    assert.equal(analog.terms.aux1, "AUX 1");
+    assert.equal(analog.terms.aux2, "AUX 2");
+    assert.equal(compact.terms.aux1, "MON 1");
+    assert.equal(compact.terms.aux2, "MON 2");
     assert.equal(analog.enabledControl.label, "MUTE");
     assert.equal(compact.enabledControl.label, "ON");
   });
 
   it("every hint placeholder is defined by both skins", () => {
-    const text = SCENARIOS.flatMap((s) => [s.prompt, s.goal, s.complete, ...s.hints]).filter(Boolean).join(" ");
+    const text = SCENARIOS.flatMap((s) => [s.prompt, s.goal, s.complete, ...s.hints, ...s.conditions.map((c) => c.label)]).filter(Boolean).join(" ");
     const keys = [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
     for (const skin of [analog, compact]) for (const k of keys) assert.ok(k in skin.terms, `${skin.id}: {${k}}`);
   });

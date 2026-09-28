@@ -127,6 +127,7 @@ export const DEVICE_TYPES = {
       { id: "main-l", dir: "out", jack: "xlr", level: "line", role: "bus-out", bus: "main", side: "L", name: "Main L out" },
       { id: "main-r", dir: "out", jack: "xlr", level: "line", role: "bus-out", bus: "main", side: "R", name: "Main R out" },
       { id: "aux1", dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: "aux1", side: "M", name: "Aux 1 out" },
+      { id: "aux2", dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: "aux2", side: "M", name: "Aux 2 out" },
     ],
   },
   "powered-speaker": {

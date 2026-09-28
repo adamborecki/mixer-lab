@@ -77,6 +77,24 @@ export class MixerView {
     el.appendChild(head);
     this.bindings.push({ kind: "head", el: head, index: i });
 
+    // Pre-fader send into a monitor bus.
+    const sendKnob = (bus) =>
+      this.bind(
+        this.knob({
+          label: t[bus],
+          sheetLabel: `Ch ${i + 1} ${t[bus]} send`,
+          min: 0,
+          max: 1,
+          step: 0.005,
+          keyStepMul: 2,
+          defaultValue: 0,
+          tone: bus,
+          format: sendFormat,
+          onInput: (v) => store.setSend(i, bus, v),
+        }),
+        (s) => s.channels[i].auxSends[bus],
+      ).el;
+
     const parts = {
       phantom: () => {
         const b = new LitButton({ label: t.phantom, tone: "phantom", small: true, onPress: () => store.setChannel(i, "phantom", !store.state.channels[i].phantom) });
@@ -99,22 +117,8 @@ export class MixerView {
           }),
           (s) => s.channels[i].gainDb,
         ).el,
-      aux: () =>
-        this.bind(
-          this.knob({
-            label: t.aux,
-            sheetLabel: `Ch ${i + 1} ${t.aux} send`,
-            min: 0,
-            max: 1,
-            step: 0.005,
-            keyStepMul: 2,
-            defaultValue: 0,
-            tone: "aux",
-            format: sendFormat,
-            onInput: (v) => store.setSend(i, "aux1", v),
-          }),
-          (s) => s.channels[i].auxSends.aux1,
-        ).el,
+      aux1: () => sendKnob("aux1"),
+      aux2: () => sendKnob("aux2"),
       pan: () =>
         this.bind(
           this.knob({
@@ -261,40 +265,52 @@ export class MixerView {
       const ctl =
         kind === "fader"
           ? new RangeControl({ kind: "fader", marks: FADER_MARKS, ...opts })
-          : this.knob({ size: bus === "main" ? "big" : undefined, tone: bus === "aux1" ? "aux" : bus === "main" ? "level" : "phones", ...opts });
+          : this.knob({ size: bus === "main" ? "big" : undefined, tone: bus === "main" ? "level" : bus === "headphones" ? "phones" : bus, ...opts });
       return this.bind(ctl, (s) => s[bus].level).el;
     };
 
     if (skin.layout === "console") {
-      const phones = masterLevel("headphones", t.phones, "knob");
-      phones.classList.add("master-phones");
-      const cols = document.createElement("div");
-      cols.className = "master-cols";
-      const auxCol = document.createElement("div");
-      auxCol.className = "master-col";
-      const auxRow = document.createElement("div");
-      auxRow.className = "fader-row";
-      auxRow.append(meterBlock(t.aux, "aux1", "vertical"), masterLevel("aux1", `${t.aux} MASTER`, "fader"));
-      auxCol.append(auxRow);
-      const mainCol = document.createElement("div");
-      mainCol.className = "master-col";
+      // Aux masters and phones as knobs with their meters, then the Main
+      // fader at the bottom, level with the channel faders.
+      const knobRow = (bus, label, meterLabel, meterKey) => {
+        const row = document.createElement("div");
+        row.className = "master-knob-row";
+        row.append(masterLevel(bus, label, "knob"), meterBlock(meterLabel, meterKey, "vertical"));
+        return row;
+      };
+      const top = document.createElement("div");
+      top.className = "master-knobs";
+      top.append(
+        knobRow("aux1", `${t.aux1} MASTER`, t.aux1, "aux1"),
+        knobRow("aux2", `${t.aux2} MASTER`, t.aux2, "aux2"),
+        knobRow("headphones", t.phones, t.pfl, "pfl"),
+      );
       const mainRow = document.createElement("div");
-      mainRow.className = "fader-row";
+      mainRow.className = "fader-row master-main";
       const lr = document.createElement("div");
       lr.className = "meter-pair";
       lr.append(meterBlock("L", "mainL", "vertical"), meterBlock("R", "mainR", "vertical"));
       mainRow.append(lr, masterLevel("main", "MAIN L/R", "fader"));
-      mainCol.append(mainRow);
-      cols.append(auxCol, mainCol);
-      el.append(phones, meterBlock(t.pfl, "pfl", "vertical"), cols);
+      el.append(top, mainRow);
     } else {
       if (skin.phantomControl === "global") el.append(this.globalPhantom());
       const knobs = document.createElement("div");
-      knobs.className = "tile-row tile-knobs";
-      knobs.append(masterLevel("main", t.mainShort, "knob"), masterLevel("aux1", `${t.aux} MASTER`, "knob"), masterLevel("headphones", t.phones, "knob"));
+      knobs.className = "tile-row tile-knobs master-knobs-b";
+      knobs.append(
+        masterLevel("main", t.mainShort, "knob"),
+        masterLevel("aux1", `${t.aux1} MASTER`, "knob"),
+        masterLevel("aux2", `${t.aux2} MASTER`, "knob"),
+        masterLevel("headphones", t.phones, "knob"),
+      );
       const meters = document.createElement("div");
       meters.className = "master-meters-h";
-      meters.append(meterBlock("MAIN L", "mainL", "horizontal"), meterBlock("MAIN R", "mainR", "horizontal"), meterBlock(t.aux, "aux1", "horizontal"), meterBlock(t.pfl, "pfl", "horizontal"));
+      meters.append(
+        meterBlock("MAIN L", "mainL", "horizontal"),
+        meterBlock("MAIN R", "mainR", "horizontal"),
+        meterBlock(t.aux1, "aux1", "horizontal"),
+        meterBlock(t.aux2, "aux2", "horizontal"),
+        meterBlock(t.pfl, "pfl", "horizontal"),
+      );
       el.append(knobs, meters);
     }
     return el;
@@ -383,6 +399,7 @@ export class MixerView {
     if (mm.mainL) mm.mainL.update(readings.mainL, now);
     if (mm.mainR) mm.mainR.update(readings.mainR, now);
     if (mm.aux1) mm.aux1.update(readings.aux1, now);
+    if (mm.aux2) mm.aux2.update(readings.aux2, now);
     if (mm.pfl) mm.pfl.update(readings.pfl, now);
   }
 }

@@ -12,8 +12,10 @@ export const SKINS = {
     terms: {
       gain: "GAIN",
       pan: "PAN",
-      aux: "AUX 1",
-      auxMaster: "AUX 1 master",
+      aux1: "AUX 1",
+      aux2: "AUX 2",
+      aux1Master: "AUX 1 master",
+      aux2Master: "AUX 2 master",
       enabled: "MUTE",
       level: "fader",
       levelShort: "FADER",
@@ -30,9 +32,9 @@ export const SKINS = {
     layout: "console",
     // Channel strip, top to bottom. Each section is a block; each row is a
     // list of controls (a lone control needs no wrapper). Parts: phantom,
-    // gain, aux, pan, pfl, meter, enabled, level.
+    // gain, aux1, aux2, pan, pfl, meter, enabled, level.
     strip: [
-      { className: "strip-top", rows: [["phantom"], ["gain"], ["aux"], ["pan"], ["pfl"]] },
+      { className: "strip-top", rows: [["phantom"], ["gain"], ["aux1"], ["aux2"], ["pan"], ["pfl"]] },
       { className: "strip-bottom", rows: [["enabled"], { parts: ["meter", "level"], className: "fader-row" }] },
     ],
     // Analog-style meter: 0 = nominal (−18 dBFS), with CLIP at the top.
@@ -58,8 +60,10 @@ export const SKINS = {
     terms: {
       gain: "GAIN",
       pan: "PAN",
-      aux: "MON",
-      auxMaster: "MON master",
+      aux1: "MON 1",
+      aux2: "MON 2",
+      aux1Master: "MON 1 master",
+      aux2Master: "MON 2 master",
       enabled: "ON",
       level: "LEVEL knob",
       levelShort: "LEVEL",
@@ -81,7 +85,8 @@ export const SKINS = {
           ["enabled"],
           { parts: ["meter"], className: "tile-meter" },
           { parts: ["gain", "pan"], className: "tile-row tile-knobs" },
-          { parts: ["level", "aux"], className: "tile-row tile-knobs tile-level" },
+          { parts: ["aux1", "aux2"], className: "tile-row tile-knobs tile-sends" },
+          { parts: ["level"], className: "tile-row tile-knobs tile-level" },
           { parts: ["pfl"], className: "tile-row tile-foot" },
         ],
       },
@@ -93,7 +98,7 @@ export const SKINS = {
       marks: [
         { db: -36, label: "−36" },
         { db: -18, label: "−18" },
-        { db: -6, label: "−6" },
+        { db: -10, label: "−10" },
         { db: 0, label: "OL" },
       ],
     },

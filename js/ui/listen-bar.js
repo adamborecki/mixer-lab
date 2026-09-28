@@ -1,6 +1,6 @@
-// Where is the student standing? House (Main L/R), stage (the monitor bus),
-// or wearing the engineer's headphones (PFL). Only valid speaker chains make
-// sound in the house or on stage; PFL needs no speakers.
+// Which destination is the student listening to? Main L/R, a monitor bus
+// (Aux 1 / Aux 2), or the engineer's headphones (PFL). Main and the auxes are
+// heard only through the speakers they validly reach; PFL needs no speakers.
 
 import { MeterView } from "../meters.js";
 
@@ -21,9 +21,9 @@ export class ListenBar {
       const b = e.target.closest("[data-dest]");
       if (!b || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
       e.preventDefault();
-      const order = ["main", "aux1", "pfl"];
+      const order = ["main", "aux1", "aux2", "pfl"];
       const i = order.indexOf(b.dataset.dest);
-      const next = order[(i + (e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : 2)) % 3];
+      const next = order[(i + (e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : order.length - 1)) % order.length];
       store.setListen(next);
       root.querySelector(`[data-dest="${next}"]`).focus();
     });
@@ -31,13 +31,13 @@ export class ListenBar {
   }
 
   render() {
-    const skin = this.getSkin();
+    const t = this.getSkin().terms;
+    const btn = (dest, label) =>
+      `<button type="button" role="radio" class="listen-btn" data-dest="${dest}"><strong>${esc(label)}</strong><small class="listen-sub"></small></button>`;
     this.root.innerHTML = `
       <div class="listen-group" role="radiogroup" aria-label="Listen to">
         <span class="listen-label" aria-hidden="true">Listen</span>
-        <button type="button" role="radio" class="listen-btn" data-dest="main"><strong>Main L/R</strong><small class="listen-sub"></small></button>
-        <button type="button" role="radio" class="listen-btn" data-dest="aux1"><strong>${esc(skin.terms.aux)}</strong><small class="listen-sub"></small></button>
-        <button type="button" role="radio" class="listen-btn" data-dest="pfl"><strong>PFL</strong><small class="listen-sub"></small></button>
+        ${btn("main", "Main L/R")}${btn("aux1", t.aux1)}${btn("aux2", t.aux2)}${btn("pfl", "PFL")}
       </div>
       <div class="listen-now">
         <p class="listen-msg" aria-live="polite"></p>
@@ -48,23 +48,23 @@ export class ListenBar {
     this.root.querySelector(".listen-now").prepend(this.meter.el);
     this.msg = this.root.querySelector(".listen-msg");
     this.transport = this.root.querySelector(".transport");
+    this.lastMsg = null;
   }
 
-  update(mix, { playing, ready, loadingText }) {
+  update(mix, { playing, ready, loadingText, buffering }) {
     const state = this.store.state;
-    const skin = this.getSkin();
-    const rig = state.rig;
-    const label = (id) => rig.devices.find((d) => d.id === id)?.label || id;
-    const bus = (port) => ({ "main-l": "Main L", "main-r": "Main R", aux1: skin.terms.aux })[port];
-    const zone = (z) => mix.rig.endpoints.filter((e) => e.valid && e.zone === z);
-    const house = zone("foh");
-    const stage = zone("stage");
+    const t = this.getSkin().terms;
+    const devices = new Map(state.rig.devices.map((d) => [d.id, d]));
+    const short = (e) => devices.get(e.deviceId)?.short || devices.get(e.deviceId)?.label || e.deviceId;
+    const reaching = (ports) => mix.rig.endpoints.filter((e) => e.valid && ports.includes(e.output));
+    const ends = { main: reaching(["main-l", "main-r"]), aux1: reaching(["aux1"]), aux2: reaching(["aux2"]) };
     const pfls = state.channels.filter((c) => c.pfl).map((c) => c.index + 1);
-    const feeds = (eps) => [...new Set(eps.map((e) => bus(e.output)))].join(" + ");
+    const names = (eps) => eps.map(short).join(" + ");
     const subs = {
-      main: house.length ? `House: ✓ ${feeds(house)}` : "House: ✕ no working speaker",
-      aux1: stage.length ? `Stage: ✓ ${feeds(stage)}` : "Stage: ✕ no working wedge",
-      pfl: pfls.length ? `Phones: Ch ${pfls.join(", ")}` : "Phones: no PFL pressed",
+      main: ends.main.length ? `✓ ${names(ends.main)}` : "✕ no working speaker",
+      aux1: ends.aux1.length ? `✓ ${names(ends.aux1)}` : "✕ no working speaker",
+      aux2: ends.aux2.length ? `✓ ${names(ends.aux2)}` : "✕ no working speaker",
+      pfl: pfls.length ? `Phones: Ch ${pfls.join(", ")}` : "Phones: no PFL",
     };
     for (const btn of this.root.querySelectorAll("[data-dest]")) {
       const d = btn.dataset.dest;
@@ -73,15 +73,18 @@ export class ListenBar {
       btn.tabIndex = on ? 0 : -1;
       btn.classList.toggle("active", on);
       btn.querySelector(".listen-sub").textContent = subs[d];
-      btn.classList.toggle("is-dead", d === "main" ? !house.length : d === "aux1" ? !stage.length : !pfls.length);
+      btn.classList.toggle("is-dead", d === "pfl" ? !pfls.length : !ends[d].length);
     }
 
+    const dest = state.listen;
+    const busName = { main: "Main L/R", aux1: t.aux1, aux2: t.aux2 }[dest];
     let msg;
     if (!ready) msg = loadingText || "Loading…";
     else if (!playing) msg = "Playback stopped.";
-    else if (state.listen === "main") msg = house.length ? `You're in the audience, hearing ${house.map((e) => label(e.deviceId)).join(" and ")}.` : "Silence in the house: nothing on Main reaches a working speaker.";
-    else if (state.listen === "aux1") msg = stage.length ? `You're on stage, hearing ${stage.map((e) => label(e.deviceId)).join(" and ")}.` : `Silence on stage: ${skin.terms.aux} isn't reaching a working wedge.`;
-    else msg = pfls.length ? `Engineer's headphones: PFL on Ch ${pfls.join(", ")} (before the ${skin.terms.levelShort.toLowerCase()}).` : "Headphones are quiet: press PFL on a channel to solo it here.";
+    else if (buffering) msg = "Buffering the next part of the song…";
+    else if (dest === "pfl") msg = pfls.length ? `Engineer's headphones: PFL on Ch ${pfls.join(", ")} (before the ${t.levelShort.toLowerCase()}).` : "Headphones are quiet: press PFL on a channel to hear it here.";
+    else if (ends[dest].length) msg = `Hearing ${busName} through the ${names(ends[dest])}.`;
+    else msg = `Silence: ${busName} doesn't reach a working speaker. Check the Outputs.`;
     if (msg !== this.lastMsg) {
       this.msg.textContent = msg;
       this.lastMsg = msg;

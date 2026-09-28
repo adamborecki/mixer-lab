@@ -608,6 +608,57 @@ button {
   flex-wrap: wrap;
 }
 
+.music {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 0.5rem;
+}
+.music-title {
+  margin: 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  font-weight: 700;
+}
+.music-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.music-chip small {
+  color: var(--text-dim);
+  margin-left: 0.2rem;
+}
+.music-pos {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.music-pos[hidden] {
+  display: none;
+}
+.music-pos .seek {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+  height: 32px;
+}
+.music-time {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.music-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
 /* ---------- sources & outputs ---------- */
 
 .source-list,
@@ -1190,8 +1241,11 @@ dialog::backdrop {
 .tone-gain .knob {
   --knob-color: #ffd166;
 }
-.tone-aux .knob {
+.tone-aux1 .knob {
   --knob-color: #7ce0ff;
+}
+.tone-aux2 .knob {
+  --knob-color: #6bffb0;
 }
 .tone-pan .knob {
   --knob-color: #c3a6ff;
@@ -1649,9 +1703,25 @@ dialog::backdrop {
   padding: 0 0.4rem 0.3rem 0.6rem;
   border-left: 2px solid rgba(0, 0, 0, 0.45);
 }
-.skin-analog .master-cols {
+.skin-analog .master-knobs {
+  display: grid;
+  gap: 0.35rem;
+}
+.skin-analog .master-knob-row {
   display: flex;
-  gap: 0.6rem;
+  align-items: center;
+  gap: 0.4rem;
+}
+.skin-analog .master-knob-row .master-meter-label {
+  display: none;
+}
+.skin-analog .master-knob-row .meter {
+  --meter-len: 64px;
+}
+.skin-analog .master-knob-row .meter-marks {
+  display: none;
+}
+.skin-analog .master-main {
   margin-top: auto;
 }
 .skin-analog .master .fader-row {
@@ -1674,9 +1744,6 @@ dialog::backdrop {
 }
 .skin-analog .meter-pair .master-meter:last-child .meter-marks {
   display: block;
-}
-.skin-analog .master > .master-meter .meter {
-  --meter-len: 90px;
 }
 
 @media (max-width: 1599px) {
@@ -1755,8 +1822,11 @@ dialog::backdrop {
 .skin-compact .strip.is-muted .tile-level .ctl-knob:first-child {
   opacity: 0.5;
 }
-.skin-compact .tone-aux .knob {
+.skin-compact .tone-aux1 .knob {
   --knob-color: #ffb86b;
+}
+.skin-compact .tone-aux2 .knob {
+  --knob-color: #ff8fc8;
 }
 .skin-compact .knob-cap {
   fill: #25383f;
@@ -1823,6 +1893,20 @@ dialog::backdrop {
   }
   .skin-analog .strip {
     width: 88px;
+    gap: 0.25rem;
+  }
+  .skin-analog .strip-top {
+    gap: 0.25rem;
+  }
+  .skin-analog .knob {
+    width: 40px;
+    height: 40px;
+  }
+  .skin-analog .strip .fader {
+    --fader-h: 170px;
+  }
+  .skin-analog .strip .fader-row .meter {
+    --meter-len: 142px;
   }
   .mixer-hint::after {
     content: " Swipe sideways for more channels.";

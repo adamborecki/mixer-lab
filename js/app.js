@@ -20,11 +20,14 @@ const store = new MixerStore();
 const engine = new AudioEngine(store, M);
 
 let skin = SKINS[readPref("mixer-lab-skin")] || SKINS[DEFAULT_SKIN];
-let current = { def: SCENARIOS_BY_ID["free-play"], baseline: {} };
+let current = { def: SCENARIOS_BY_ID["free-play"], baseline: {}, session: { listened: new Set() } };
+// Free play can run the whole song instead of the 8-bar loop.
+let musicMode = "excerpt";
 let ready = false;
 let loadingText = "Press Start Audio to begin.";
 let lastEval = "";
 let lastMix = null;
+let buffering = false;
 const pending = { any: false, patch: false };
 
 // ---------- views ----------
@@ -56,6 +59,14 @@ const scenarioView = new ScenarioView($("#scenario"), {
     for (const c of [...store.state.rig.cables]) store.disconnect(c.id);
     toast("Everything unplugged. Rebuild it!", "");
   },
+  getMusic: () => ({ mode: musicMode, started: engine.started }),
+  onMusicMode: (mode) => {
+    if (mode === musicMode) return;
+    musicMode = mode;
+    scenarioView.renderMusic();
+    if (engine.started) loadSources();
+  },
+  onSeek: (t) => engine.seek(t),
 });
 
 const listenBar = new ListenBar($("#listen-bar"), {
@@ -70,6 +81,7 @@ renderFlow($("#flow"), skin);
 
 store.subscribe((state, change) => {
   pending.any = true;
+  if (change.type === "listen") current.session.listened.add(state.listen);
   if (change.type === "rig" || change.type === "replace" || (change.type === "channel" && change.key === "phantom")) pending.patch = true;
 });
 
@@ -79,9 +91,9 @@ function refresh() {
   lastMix = mix;
   mixerView.sync(mix);
   if (pending.patch) patchView.render(mix);
-  listenBar.update(mix, { playing: engine.playing, ready, loadingText });
+  listenBar.update(mix, { playing: engine.playing, ready, loadingText, buffering });
   if (current.def.conditions.length) {
-    const result = evaluateScenario(current.def, state, current.baseline, M.SOURCES_BY_ID, M.STEMS);
+    const result = evaluateScenario(current.def, state, current.baseline, M.SOURCES_BY_ID, M.STEMS, current.session);
     const key = JSON.stringify(result.items.map((i) => [i.met, i.detail])) + result.complete;
     if (key !== lastEval) {
       const wasComplete = lastEval.endsWith("true");
@@ -99,7 +111,7 @@ function refresh() {
 const scenarioTab = document.querySelector('[data-tab-btn="scenario"]');
 
 function evaluateNow() {
-  return current.def.conditions.length ? evaluateScenario(current.def, store.state, current.baseline, M.SOURCES_BY_ID, M.STEMS) : null;
+  return current.def.conditions.length ? evaluateScenario(current.def, store.state, current.baseline, M.SOURCES_BY_ID, M.STEMS, current.session) : null;
 }
 
 // ---------- scenarios ----------
@@ -108,7 +120,7 @@ function selectScenario(id) {
   const def = SCENARIOS_BY_ID[id] || SCENARIOS_BY_ID["free-play"];
   const state = buildScenarioState(def, M.SOURCES_BY_ID);
   store.replace(state);
-  current = { def, baseline: captureBaseline(def, state, M.SOURCES_BY_ID, M.STEMS) };
+  current = { def, baseline: captureBaseline(def, state, M.SOURCES_BY_ID, M.STEMS), session: { listened: new Set([state.listen]) } };
   lastEval = "";
   scenarioTab.dataset.progress = "";
   scenarioView.resetHints();
@@ -120,19 +132,23 @@ function selectScenario(id) {
 
 function loadSources() {
   const ids = store.state.rig.devices.filter((d) => d.sourceId).map((d) => d.sourceId);
+  const mode = current.def.id === "free-play" ? musicMode : "excerpt";
   ready = false;
   pending.any = true;
-  engine.setSources(ids).catch((err) => {
+  engine.setSources(ids, { mode }).catch((err) => {
     loadingText = `Couldn't start audio: ${err.message}`;
     pending.any = true;
   });
 }
 
 engine.on((evt) => {
-  if (evt.type === "loading") loadingText = `Loading stems ${evt.done}/${evt.total}…`;
+  if (evt.type === "loading") loadingText = evt.what ? `Loading ${evt.what}…` : `Loading stems ${evt.done}/${evt.total}…`;
   if (evt.type === "ready") {
     ready = true;
     showLoadErrors(evt.errors);
+  }
+  if (evt.type === "buffering") {
+    buffering = evt.on;
   }
   pending.any = true;
 });
@@ -201,6 +217,7 @@ $("#start-btn").addEventListener("click", () => {
   $("#start-overlay").setAttribute("aria-hidden", "true");
   loadingText = "Loading stems…";
   loadSources();
+  scenarioView.renderMusic();
 });
 
 window.addEventListener("hashchange", () => {
@@ -210,11 +227,16 @@ window.addEventListener("hashchange", () => {
 
 // ---------- frame loop ----------
 
+let lastPos = 0;
 function frame(now) {
   if (engine.started) {
     const r = engine.readMeters();
     mixerView.updateMeters(r, now);
     listenBar.updateMeter(r.listen, now);
+    if (now - lastPos > 250) {
+      lastPos = now;
+      scenarioView.updatePosition(engine.position(), engine.mode);
+    }
   }
   if (pending.any) refresh();
   requestAnimationFrame(frame);

@@ -7,8 +7,10 @@ import { analyzeRig, checkConnection, getPort, splitRef } from "./connection-mod
 export const CHANNEL_COUNT = 8;
 export const GAIN_MIN_DB = 0;
 export const GAIN_MAX_DB = 60;
-export const BUSES = ["aux1"]; // Aux/monitor buses. Add "aux2" etc. here later.
-export const LISTEN_DESTINATIONS = ["main", "aux1", "pfl"];
+// Aux/monitor buses (all pre-fader in V1). Each needs a master in state, a
+// send on every channel, a mixer output port, and a word in each skin.
+export const BUSES = ["aux1", "aux2"];
+export const LISTEN_DESTINATIONS = ["main", ...BUSES, "pfl"];
 
 // Where a well-gain-staged channel lands: post-preamp peak (dBFS) =
 // stem peak + source output + pad + gain + HEADROOM_DB. With gain set so a
@@ -109,7 +111,7 @@ export function createChannel(index) {
     enabled: true, // Skin A shows this as MUTE (lit = false); Skin B as ON (lit = true)
     pan: 0,
     level: 0, // fader / level knob position, 0…1
-    auxSends: { aux1: 0 }, // send knob positions, 0…1 (pre-fader)
+    auxSends: Object.fromEntries(BUSES.map((b) => [b, 0])), // send knob positions, 0…1 (pre-fader)
     pfl: false,
   };
 }
@@ -118,7 +120,7 @@ export function createMixerState() {
   return {
     channels: Array.from({ length: CHANNEL_COUNT }, (_, i) => createChannel(i)),
     main: { level: 0.75 },
-    aux1: { level: 0.75 },
+    ...Object.fromEntries(BUSES.map((b) => [b, { level: 0.75 }])),
     headphones: { level: 0.6 },
     listen: "main",
     rig: { devices: [{ id: "mixer", type: "mixer", label: "Mixer" }], cables: [] },
@@ -135,7 +137,7 @@ export const cloneState = (s) => structuredClone(s);
 export function computeMix(state, sourcesById, stems) {
   const rig = analyzeRig(state.rig, state.channels, sourcesById);
   const mainDb = levelToDb(state.main.level);
-  const auxDb = levelToDb(state.aux1.level);
+  const busDb = Object.fromEntries(BUSES.map((b) => [b, levelToDb(state[b].level)]));
   const reachable = new Set(Object.entries(rig.buses).filter(([, ends]) => ends.length).map(([p]) => p));
 
   const channels = state.channels.map((ch, i) => {
@@ -153,11 +155,16 @@ export function computeMix(state, sourcesById, stems) {
       L: toMain + gainToDb(pg.L),
       R: toMain + gainToDb(pg.R),
     };
-    const sendDb = levelToDb(ch.auxSends.aux1);
-    const monitorDb = inputPeakDb + sendDb + auxDb; // pre-fader: ignores level and enabled
-    // What actually reaches a working speaker.
+    // Pre-fader sends: they ignore the fader and the enabled switch.
+    // `heardDb` is what actually reaches a working speaker on that bus.
+    const aux = Object.fromEntries(
+      BUSES.map((b) => {
+        const sendDb = levelToDb(ch.auxSends[b]);
+        const monitorDb = inputPeakDb + sendDb + busDb[b];
+        return [b, { sendDb, monitorDb, heardDb: reachable.has(b) ? monitorDb : -Infinity }];
+      }),
+    );
     const heardMainDb = Math.max(reachable.has("main-l") ? main.L : -Infinity, reachable.has("main-r") ? main.R : -Infinity);
-    const heardMonitorDb = reachable.has("aux1") ? monitorDb : -Infinity;
     return {
       index: i,
       sourceId: input.sourceId || null,
@@ -165,11 +172,9 @@ export function computeMix(state, sourcesById, stems) {
       inputPeakDb,
       band: inputBand(inputPeakDb),
       faderDb,
-      sendDb,
       mainDb: main,
-      monitorDb,
       heardMainDb,
-      heardMonitorDb,
+      aux,
       pflDb: ch.pfl ? inputPeakDb : -Infinity,
     };
   });
@@ -178,9 +183,9 @@ export function computeMix(state, sourcesById, stems) {
   const outputs = {
     "main-l": { peakDb: powerSum(channels.map((c) => c.mainDb.L)), endpoints: rig.buses["main-l"] || [] },
     "main-r": { peakDb: powerSum(channels.map((c) => c.mainDb.R)), endpoints: rig.buses["main-r"] || [] },
-    aux1: { peakDb: powerSum(channels.map((c) => c.monitorDb)), endpoints: rig.buses.aux1 || [] },
+    ...Object.fromEntries(BUSES.map((b) => [b, { peakDb: powerSum(channels.map((c) => c.aux[b].monitorDb)), endpoints: rig.buses[b] || [] }])),
   };
-  return { rig, channels, outputs, mainMasterDb: mainDb, auxMasterDb: auxDb };
+  return { rig, channels, outputs, mainMasterDb: mainDb, busDb };
 }
 
 // ---------- store ----------
@@ -232,7 +237,7 @@ export class MixerStore {
   }
 
   setBusLevel(bus, value) {
-    if (!["main", "aux1", "headphones"].includes(bus)) return;
+    if (!["main", "headphones", ...BUSES].includes(bus)) return;
     this.state[bus].level = clamp(Number(value), 0, 1);
     this.emit({ type: "bus", bus });
   }

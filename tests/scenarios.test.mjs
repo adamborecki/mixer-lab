@@ -12,10 +12,15 @@ import { SOURCES_BY_ID, sourcesForScenario } from "../audio/source-manifest.js";
 function start(id) {
   const def = SCENARIOS_BY_ID[id];
   const state = buildScenarioState(def);
-  return { def, store: new MixerStore(state), baseline: captureBaseline(def, state) };
+  // session.listened mirrors what js/app.js records when the student uses the Listen bar.
+  return { def, store: new MixerStore(state), baseline: captureBaseline(def, state), session: { listened: new Set([state.listen]) } };
 }
 const state = (ctx) => ctx.store.state;
-const evaluate = (ctx) => evaluateScenario(ctx.def, state(ctx), ctx.baseline);
+const evaluate = (ctx) => evaluateScenario(ctx.def, state(ctx), ctx.baseline, undefined, undefined, ctx.session);
+const listen = (ctx, dest) => {
+  ctx.store.setListen(dest);
+  ctx.session.listened.add(dest);
+};
 const item = (result, id) => result.items.find((i) => i.id === id);
 const met = (result) => Object.fromEntries(result.items.map((i) => [i.id, i.met]));
 const chOf = (ctx, sourceId) => state(ctx).channels[SOURCES_BY_ID[sourceId].order - 1]; // reference patch: channel = source.order
@@ -54,14 +59,15 @@ describe("scenario data", () => {
     });
   }
 
-  it("hint and completion text only use placeholders a skin can fill", () => {
-    const allowed = new Set(["aux", "auxMaster", "enabled", "level", "main"]);
+  it("student-facing text only uses placeholders a skin can fill", () => {
+    const allowed = new Set(["aux1", "aux2", "aux1Master", "aux2Master", "enabled", "level", "main"]);
     for (const def of SCENARIOS) {
-      for (const text of [...def.hints, def.complete].filter(Boolean)) {
+      const texts = [def.prompt, def.goal, def.complete, ...def.hints, ...def.conditions.map((c) => c.label)];
+      for (const text of texts.filter(Boolean)) {
         for (const [, key] of text.matchAll(/\{(\w+)\}/g)) assert.ok(allowed.has(key), `${def.id}: {${key}}`);
       }
     }
-    assert.equal(fillTerms("Turn up {aux} {nope}", { aux: "AUX 1" }), "Turn up AUX 1 {nope}");
+    assert.equal(fillTerms("Turn up {aux1} {nope}", { aux1: "AUX 1" }), "Turn up AUX 1 {nope}");
   });
 
   it("the reference patch puts each source on its own channel, gain-staged to 'good'", () => {
@@ -96,15 +102,25 @@ describe("starting states", () => {
     assert.equal(result.complete, false);
   });
 
-  it("evaluation is deterministic and ignores UI-only state (no skin input)", () => {
+  it("evaluation is deterministic and takes no skin input", () => {
     const ctx = start("more-vocal");
     chOf(ctx, "lead-vocal").auxSends.aux1 = bump(chOf(ctx, "lead-vocal").auxSends.aux1, 6);
+    listen(ctx, "aux1");
     const first = evaluate(ctx);
     assert.deepEqual(evaluate(ctx), first);
-    state(ctx).listen = "pfl"; // what a skin shows/listens to is irrelevant
+    assert.equal(first.complete, true);
+    // Having listened counts even after moving on: the student can go back to check the house.
+    listen(ctx, "main");
     state(ctx).headphones.level = 1;
     assert.deepEqual(met(evaluate(ctx)), met(first));
-    assert.equal(evaluate(ctx).complete, true);
+  });
+
+  it("scenarios 2 and 3 start on Main, so the student has to go and listen to the wedge", () => {
+    for (const id of ["more-vocal", "monitor-quiet"]) {
+      const ctx = start(id);
+      assert.equal(state(ctx).listen, "main");
+      assert.equal(item(evaluate(ctx), "listen").met, false);
+    }
   });
 });
 
@@ -200,17 +216,22 @@ describe("build-rig", () => {
 // ---------- scenario 2: more of my voice in the monitor ----------
 
 describe("more-vocal", () => {
-  it("raising the lead vocal's Aux 1 send by 6 dB → complete", () => {
+  const solved = { listen: true, send: true, wedge: true, house: true, drummer: true };
+
+  it("listening to Aux 1 and raising the lead vocal's Aux 1 send by 6 dB → complete", () => {
     const ctx = start("more-vocal");
     const vox = chOf(ctx, "lead-vocal");
     vox.auxSends.aux1 = bump(vox.auxSends.aux1, 6);
+    assert.equal(evaluate(ctx).complete, false, "not until they've listened to the singer's wedge");
+    listen(ctx, "aux1");
     const result = evaluate(ctx);
-    assert.deepEqual(met(result), { send: true, wedge: true, house: true });
+    assert.deepEqual(met(result), solved);
     assert.equal(result.complete, true);
   });
 
   it("a 3 dB nudge is not enough (needs ≥ 4 dB)", () => {
     const ctx = start("more-vocal");
+    listen(ctx, "aux1");
     const vox = chOf(ctx, "lead-vocal");
     vox.auxSends.aux1 = bump(vox.auxSends.aux1, 3);
     assert.equal(evaluate(ctx).complete, false);
@@ -218,18 +239,20 @@ describe("more-vocal", () => {
     assert.equal(evaluate(ctx).complete, true);
   });
 
-  it("raising the vocal's GAIN instead changes Main → not complete", () => {
+  it("raising the vocal's GAIN instead changes Main and the drummer's wedge → not complete", () => {
     const ctx = start("more-vocal");
-    const vox = chOf(ctx, "lead-vocal");
-    vox.gainDb += 6;
+    listen(ctx, "aux1");
+    chOf(ctx, "lead-vocal").gainDb += 6;
     const result = evaluate(ctx);
     assert.equal(item(result, "house").met, false);
+    assert.equal(item(result, "drummer").met, false);
     assert.equal(item(result, "send").met, false);
     assert.equal(result.complete, false);
   });
 
-  it("raising the vocal fader (pre-fader Aux doesn't move) → not complete", () => {
+  it("raising the vocal fader (pre-fader sends don't move) → not complete", () => {
     const ctx = start("more-vocal");
+    listen(ctx, "aux1");
     const vox = chOf(ctx, "lead-vocal");
     vox.level = bump(vox.level, 6);
     const result = evaluate(ctx);
@@ -238,18 +261,31 @@ describe("more-vocal", () => {
     assert.equal(result.complete, false);
   });
 
+  it("turning up the vocal in the wrong wedge (Aux 2) → not complete", () => {
+    const ctx = start("more-vocal");
+    listen(ctx, "aux1");
+    const vox = chOf(ctx, "lead-vocal");
+    vox.auxSends.aux2 = bump(vox.auxSends.aux2, 6);
+    const result = evaluate(ctx);
+    assert.equal(item(result, "send").met, false);
+    assert.equal(item(result, "drummer").met, false);
+    assert.equal(result.complete, false);
+  });
+
   it("muting the vocal breaks the 'house mix stays put' condition even with a bigger send", () => {
     const ctx = start("more-vocal");
+    listen(ctx, "aux1");
     const vox = chOf(ctx, "lead-vocal");
     vox.auxSends.aux1 = bump(vox.auxSends.aux1, 6);
     vox.enabled = false;
     const result = evaluate(ctx);
-    assert.deepEqual(met(result), { send: true, wedge: true, house: false }); // monitor is pre-fader/pre-mute
+    assert.deepEqual(met(result), { ...solved, house: false }); // monitors are pre-fader/pre-mute
     assert.equal(result.complete, false);
   });
 
   it("the raised send must actually come out of a working wedge", () => {
     const ctx = start("more-vocal");
+    listen(ctx, "aux1");
     const vox = chOf(ctx, "lead-vocal");
     vox.auxSends.aux1 = bump(vox.auxSends.aux1, 6);
     ctx.store.disconnect(cableFrom(ctx, "mixer/aux1").id);
@@ -260,51 +296,65 @@ describe("more-vocal", () => {
   });
 });
 
-// ---------- scenario 3: the whole monitor mix is too quiet ----------
+// ---------- scenario 3: the drummer's whole monitor mix is too quiet ----------
 
 describe("monitor-quiet", () => {
-  const sendChannels = (ctx) => state(ctx).channels.filter((c) => c.auxSends.aux1 > 0);
+  const sendChannels = (ctx) => state(ctx).channels.filter((c) => c.auxSends.aux2 > 0);
+  const solved = { listen: true, master: true, balance: true, chain: true, singer: true };
 
-  it("raising the Aux 1 master by 10 dB → complete", () => {
+  it("listening to Aux 2 and raising the Aux 2 master by 10 dB → complete", () => {
     const ctx = start("monitor-quiet");
-    state(ctx).aux1.level = bump(state(ctx).aux1.level, 10);
+    state(ctx).aux2.level = bump(state(ctx).aux2.level, 10);
+    assert.equal(evaluate(ctx).complete, false, "not until they've listened to the drummer's wedge");
+    listen(ctx, "aux2");
     const result = evaluate(ctx);
-    assert.deepEqual(met(result), { master: true, balance: true, chain: true });
+    assert.deepEqual(met(result), solved);
     assert.equal(result.complete, true);
   });
 
-  it("raising every send equally with the master untouched → not complete", () => {
+  it("raising the singer's master (Aux 1) instead → not complete", () => {
     const ctx = start("monitor-quiet");
-    for (const ch of sendChannels(ctx)) ch.auxSends.aux1 = bump(ch.auxSends.aux1, 8);
+    listen(ctx, "aux2");
+    state(ctx).aux1.level = bump(state(ctx).aux1.level, 10);
     const result = evaluate(ctx);
-    assert.deepEqual(met(result), { master: false, balance: true, chain: true });
+    assert.deepEqual(met(result), { ...solved, master: false, singer: false });
+  });
+
+  it("raising every Aux 2 send equally with the master untouched → not complete", () => {
+    const ctx = start("monitor-quiet");
+    listen(ctx, "aux2");
+    for (const ch of sendChannels(ctx)) ch.auxSends.aux2 = bump(ch.auxSends.aux2, 8);
+    const result = evaluate(ctx);
+    assert.deepEqual(met(result), { ...solved, master: false });
     assert.equal(result.complete, false);
   });
 
   it("raising the master while pushing one send +5 dB breaks the balance", () => {
     const ctx = start("monitor-quiet");
-    state(ctx).aux1.level = bump(state(ctx).aux1.level, 10);
+    listen(ctx, "aux2");
+    state(ctx).aux2.level = bump(state(ctx).aux2.level, 10);
     const drums = chOf(ctx, "drums");
-    drums.auxSends.aux1 = bump(drums.auxSends.aux1, 5); // one send moves on its own
+    drums.auxSends.aux2 = bump(drums.auxSends.aux2, 5); // one send moves on its own
     const result = evaluate(ctx);
     assert.equal(item(result, "master").met, true);
     assert.equal(item(result, "balance").met, false);
     assert.equal(result.complete, false);
   });
 
-  it("dropping a source out of the monitor mix breaks the balance", () => {
+  it("dropping a source out of the drummer's mix breaks the balance", () => {
     const ctx = start("monitor-quiet");
-    state(ctx).aux1.level = bump(state(ctx).aux1.level, 10);
-    chOf(ctx, "keys").auxSends.aux1 = 0;
+    state(ctx).aux2.level = bump(state(ctx).aux2.level, 10);
+    chOf(ctx, "keys").auxSends.aux2 = 0;
     assert.equal(item(evaluate(ctx), "balance").met, false);
   });
 
-  it("disconnecting the amp → wedge cable breaks the chain", () => {
+  it("disconnecting the amp → drummer's wedge cable breaks the chain", () => {
     const ctx = start("monitor-quiet");
-    state(ctx).aux1.level = bump(state(ctx).aux1.level, 10);
+    listen(ctx, "aux2");
+    state(ctx).aux2.level = bump(state(ctx).aux2.level, 10);
     ctx.store.disconnect(cableFrom(ctx, "amp/out-a").id);
     const result = evaluate(ctx);
-    assert.deepEqual(met(result), { master: true, balance: true, chain: false });
+    assert.deepEqual(met(result), { ...solved, chain: false });
     assert.equal(result.complete, false);
   });
 

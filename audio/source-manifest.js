@@ -13,6 +13,13 @@ export const STEM_SET = {
   // 0.5 s of pre-roll and 1 s of post-roll around the loop.
   loop: { start: 0.5, end: 28.905 },
   excerpt: { originalStart: 157.47, duration: 29.905 },
+  // The whole song, for Free play's "Full song" option. Each stem is split into
+  // 20 s segments (+0.5 s overlap each side for crossfades) that stream one
+  // segment ahead, so a phone never holds the whole song in memory. Segment
+  // files are named "<stem file without .mp3>-NN.mp3". They are encoded trimDb
+  // quieter than the excerpt (the full song peaks hotter); the app adds it back
+  // so levels and gain staging match the loop exactly.
+  full: { basePath: "audio/persephone/full/", segmentSeconds: 20, overlap: 0.5, duration: 238.2222, segments: 12, trimDb: 2 },
 };
 
 // monoPeakDb / monoRmsDb: the file after the mono fold-down the app performs.

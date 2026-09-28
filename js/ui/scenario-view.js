@@ -6,13 +6,16 @@ import { fillTerms } from "../scenarios.js";
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 export class ScenarioView {
-  constructor(root, { scenarios, onSelect, onReset, onClear, getTerms }) {
+  constructor(root, { scenarios, onSelect, onReset, onClear, getTerms, getMusic, onMusicMode, onSeek }) {
     this.root = root;
     this.scenarios = scenarios;
     this.onSelect = onSelect;
     this.onReset = onReset;
     this.onClear = onClear;
     this.getTerms = getTerms;
+    this.getMusic = getMusic;
+    this.onMusicMode = onMusicMode;
+    this.onSeek = onSeek;
     this.completed = new Set();
     root.addEventListener("click", (e) => {
       const b = e.target.closest("[data-act]");
@@ -23,6 +26,18 @@ export class ScenarioView {
       else if (act === "reset") this.onReset();
       else if (act === "clear") this.onClear();
       else if (act === "next") this.onSelect(b.dataset.id);
+      else if (act === "music") this.onMusicMode(b.dataset.mode);
+    });
+    // Seek on release, not on every drag step; show the target time while dragging.
+    root.addEventListener("input", (e) => {
+      if (!e.target.matches(".seek")) return;
+      this.seeking = true;
+      this.showTime(Number(e.target.value), Number(e.target.max));
+    });
+    root.addEventListener("change", (e) => {
+      if (!e.target.matches(".seek")) return;
+      this.seeking = false;
+      this.onSeek(Number(e.target.value));
     });
   }
 
@@ -62,7 +77,9 @@ export class ScenarioView {
           <button type="button" class="chip" data-act="reset">${isFree ? "Reset the band" : "Start over"}</button>
           ${isFree ? `<button type="button" class="chip" data-act="clear">Unplug everything</button>` : ""}
         </div>
+        ${isFree ? `<section class="music" aria-label="Band audio"></section>` : ""}
       </article>`;
+    this.renderMusic();
     this.renderHints();
     if (result) this.update(result);
   }
@@ -100,7 +117,7 @@ export class ScenarioView {
       .map(
         (i) => `<li class="check ${i.met ? "met" : "unmet"} kind-${i.kind}">
           <span class="check-box" aria-hidden="true">${i.met ? "✓" : i.kind === "keep" ? "!" : ""}</span>
-          <span class="check-text">${i.kind === "keep" ? "<em>Keep:</em> " : ""}${esc(i.label)}
+          <span class="check-text">${i.kind === "keep" ? "<em>Keep:</em> " : ""}${esc(fillTerms(i.label, this.getTerms()))}
             <span class="visually-hidden">${i.met ? "— done" : "— not yet"}</span>
             ${i.detail && !i.met ? `<small>${esc(i.detail)}</small>` : ""}
           </span>
@@ -128,6 +145,43 @@ export class ScenarioView {
     }
   }
 
+  // Free play only: choose the 8-bar loop or the whole song, and scrub the song.
+  renderMusic() {
+    const box = this.root.querySelector(".music");
+    if (!box) return;
+    const { mode } = this.getMusic();
+    const opt = (m, label, sub) =>
+      `<button type="button" role="radio" class="chip music-chip ${mode === m ? "active" : ""}" aria-checked="${mode === m}" data-act="music" data-mode="${m}">${label} <small>${sub}</small></button>`;
+    box.innerHTML = `
+      <p class="music-title">Band audio</p>
+      <div class="music-modes" role="radiogroup" aria-label="Band audio">
+        ${opt("excerpt", "8-bar loop", "28 s")}${opt("full", "Full song", "3:58")}
+      </div>
+      <div class="music-pos" ${mode === "full" ? "" : "hidden"}>
+        <input type="range" class="seek" min="0" max="238" step="0.5" value="0" aria-label="Song position" />
+        <span class="music-time" aria-hidden="true">0:00 / 3:58</span>
+      </div>
+      <p class="music-note">${
+        mode === "full"
+          ? "The whole song streams about 20 seconds ahead (~18 MB in total). Drag to jump to any part."
+          : "The scenarios use this loop: 8 bars where the whole band, trumpets included, is playing."
+      }</p>`;
+    this.seekEl = box.querySelector(".seek");
+    this.timeEl = box.querySelector(".music-time");
+  }
+
+  updatePosition(pos, mode) {
+    if (!this.seekEl || mode !== "full" || this.seeking) return;
+    this.seekEl.max = String(Math.round(pos.duration * 2) / 2);
+    this.seekEl.value = String(pos.t);
+    this.showTime(pos.t, pos.duration);
+  }
+
+  showTime(t, duration) {
+    if (this.timeEl) this.timeEl.textContent = `${clock(t)} / ${clock(duration)}`;
+    if (this.seekEl) this.seekEl.setAttribute("aria-valuetext", clock(t));
+  }
+
   nextScenario() {
     const n = this.def.number;
     return this.scenarios.find((s) => s.number === n + 1) || this.scenarios.find((s) => s.number === 0);
@@ -135,5 +189,7 @@ export class ScenarioView {
 }
 
 function shortTitle(s) {
-  return { "build-rig": "Build the rig", "more-vocal": "More vocal", "monitor-quiet": "Quiet wedge", "free-play": "Free play" }[s.id] || s.title;
+  return { "build-rig": "Build the rig", "more-vocal": "Singer's wedge", "monitor-quiet": "Drummer's wedge", "free-play": "Free play" }[s.id] || s.title;
 }
+
+const clock = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;

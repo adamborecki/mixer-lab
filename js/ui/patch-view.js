@@ -119,7 +119,7 @@ export class PatchView {
     const mixer = rig.devices.find((d) => d.type === "mixer");
     const outs = listPorts(rig, mixer).filter((p) => p.dir === "out");
     const endpoints = new Map(mix.rig.endpoints.map((e) => [e.deviceId, e]));
-    const busName = (portId) => ({ "main-l": "Main L", "main-r": "Main R", aux1: terms.aux })[portId] || portId;
+    const busName = (portId) => ({ "main-l": "Main L", "main-r": "Main R" })[portId] || terms[portId] || portId;
 
     const outRows = outs
       .map((p) => {
@@ -127,7 +127,7 @@ export class PatchView {
         const note = reached.length
           ? `<p class="port-msg ok">✓ Sound from: ${reached.map((id) => esc(rig.devices.find((d) => d.id === id).label)).join(", ")}</p>`
           : `<p class="port-msg">No working speaker on this output yet.</p>`;
-        const label = p.id === "aux1" ? `${terms.aux} out` : p.name;
+        const label = terms[p.id] ? `${terms[p.id]} out` : p.name;
         return `<li class="out-row">${this.portButton(p.ref, "out").replace(esc(p.name), esc(label))}${note}</li>`;
       })
       .join("");
