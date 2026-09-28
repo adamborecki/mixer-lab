@@ -93,7 +93,7 @@ aux: { aux1: { sendDb, monitorDb, heardDb }, aux2: { sendDb, monitorDb, heardDb 
 
 `SKINS` in `js/mixer-models.js` has two entries. Both call the same `MixerStore` actions.
 
-| Semantic | Console A (`analog`) | Mixer B (`compact`) |
+| Semantic | Mixer A (`analog`) | Mixer B (`compact`) |
 |---|---|---|
 | `enabled` | **MUTE**, lit when `enabled === false` | **ON**, lit when `enabled === true`, placed at the top of the tile |
 | `level` | vertical fader | rotary LEVEL knob |
@@ -112,7 +112,7 @@ Layout differs in kind, not just style. A is a classic strip with 48V, GAIN, AUX
 - `enabledLit(skin, enabled)`: whether the skin's button is lit. `skin.enabledControl.litWhenEnabled` is `false` for MUTE and `true` for ON.
 - `enabledAfterPress(skin, enabled)`: always `!enabled`. The inversion is only in what "lit" means, never in what a press does.
 - `enabledStatusText(skin, enabled)`: words for the state ("Muted" / "Off") so it does not rely on colour.
-- `globalPhantomState(channels)`: `"off"`, `"on"` or `"mixed"`. Mixer B's single +48V button lights only for `"on"`, shows "Only Ch 1, 2 - press to switch all on" for `"mixed"`, and pressing it calls `setAllPhantom(true)`. Phantom is still stored per channel, so a state set on Console A appears as "mixed" on Mixer B.
+- `globalPhantomState(channels)`: `"off"`, `"on"` or `"mixed"`. Mixer B's single +48V button lights only for `"on"`, shows "Only Ch 1, 2 - press to switch all on" for `"mixed"`, and pressing it calls `setAllPhantom(true)`. Phantom is still stored per channel, so a state set on Mixer A appears as "mixed" on Mixer B.
 - `terms`: display words (`aux1`, `aux2`, `aux1Master`, `aux2Master`, `enabled`, `level`, `main`, ...). Scenario text (prompt, goal, checklist labels, hints, completion) uses placeholders such as `{aux1}`, `{aux2Master}` and `{level}`, filled by `fillTerms(text, skin.terms)`. The old `{aux}` and `{auxMaster}` no longer exist. The patch view also names each mixer output from `terms[portId]`, so a bus's term key must match its port id.
 
 Faders and knobs are both `RangeControl` (`js/ui/controls.js`): an ARIA slider over a 0-1 position with the same `levelToDb` law, so a fader and a knob at the same value mean the same dB. Drag, arrow keys, Home/End, focused scroll wheel and double-click reset work everywhere. On touch, a tap opens a large fine-adjust sheet.

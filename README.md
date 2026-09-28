@@ -33,7 +33,7 @@ Then open <http://localhost:8124/>. There is nothing to install.
 
 ## Using the lab
 
-Four regions: **Scenario** (prompt, checklist, hints), **Sources** (band inputs), **Mixer**, **Outputs** (amps and speakers). Below about 900 px they become tabs. A bar at the bottom holds the listening selector (**Main L/R**, **Aux 1**, **Aux 2**, **PFL**; Mixer B calls the Auxes MON 1 and MON 2) and Play/Stop. It also says which speakers the selected bus reaches. The top bar switches between **Console A** and **Mixer B**; the choice is remembered in the browser.
+Four regions: **Scenario** (prompt, checklist, hints), **Sources** (band inputs), **Mixer**, **Outputs** (amps and speakers). Below about 900 px they become tabs. A bar at the bottom holds the listening selector (**Main L/R**, **Aux 1**, **Aux 2**, **PFL**; Mixer B calls the Auxes MON 1 and MON 2) and Play/Stop. It also says which speakers the selected bus reaches. The top bar switches between **Mixer A** and **Mixer B**; the choice is remembered in the browser.
 
 Patching is tap-based: tap a port, pick a cable, pick the other end. Bad choices are allowed when they are instructive (a mic on the 1/4" side, a passive speaker on a line output) and are explained in words.
 
@@ -55,7 +55,7 @@ These are teaching choices, not claims about every mixer:
 
 - Aux 1 and Aux 2 are **pre-fader**. Moving a channel's level does not change its monitor contribution.
 - **PFL** is post-preamp and pre-fader. It does not change Main or Aux.
-- `channel.enabled` affects the **Main path only**. A muted channel still feeds pre-fader Aux 1, Aux 2 and PFL. Console A shows it as MUTE (lit = not enabled); Mixer B shows it as ON (lit = enabled).
+- `channel.enabled` affects the **Main path only**. A muted channel still feeds pre-fader Aux 1, Aux 2 and PFL. Mixer A shows it as MUTE (lit = not enabled); Mixer B shows it as ON (lit = enabled).
 - The listening selector picks a bus to audition: Main, Aux 1, Aux 2 or PFL. Main and the Auxes play through whatever speakers that bus validly reaches, panned by speaker position; with no valid chain there is silence. PFL plays in the engineer's headphones and needs no speakers.
 
 A second Aux bus was a V1 non-goal in the build spec; it was added at the course owner's request. Details: [docs/AUDIO_ENGINE.md](docs/AUDIO_ENGINE.md).

@@ -94,7 +94,7 @@ Input 9/10 is **one** channel strip (`CHANNEL_LAYOUT[8]`, `stereo: true`, label 
 
 `SKINS` (`js/mixer-models.js`) map semantic state to presentation: `terms`, `enabledControl`, `levelControl` (fader vs knob), `phantomControl` (per-channel vs global), `meter` scale, `layout` (`console` / `tiles`) and `strip` (rows of parts). Both call the same `MixerStore` actions.
 
-- `channel.enabled` is the only truth. Console A's **MUTE** is lit when `enabled === false`; Mixer B's **ON** is lit when `enabled === true`. Pressing either toggles `enabled` (`enabledAfterPress`). The inversion is presentation only.
+- `channel.enabled` is the only truth. Mixer A's **MUTE** is lit when `enabled === false`; Mixer B's **ON** is lit when `enabled === true`. Pressing either toggles `enabled` (`enabledAfterPress`). The inversion is presentation only.
 - Faders and knobs share one position law (`levelToDb`: 0.75 = unity).
 - A global +48V switch shows a "mixed" state if channels were set individually.
 - Details: [MIXER_MODEL_SCHEMA.md](MIXER_MODEL_SCHEMA.md).
