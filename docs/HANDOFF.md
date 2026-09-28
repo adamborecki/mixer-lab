@@ -23,7 +23,8 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 | `js/loop-player.js` | Independent looping stereo playback (preshow laptop), own timeline, keep-alive |
 | `js/audio-engine.js` | Web Audio graph: channel strips, Main/Aux/PFL buses, speaker gating, listening, meters |
 | `js/app.js` | Wiring: store ↔ engine ↔ scenario checks ↔ views; session (listen history); Free play music mode; credits |
-| `js/ui/*.js` | `mixer-view` (renders a skin), `patch-view` (Sources/Outputs + patch dialog), `scenario-view`, `listen-bar`, `controls` (knob/fader/fine sheet), `flow` (signal-flow explainer) |
+| `js/progress.js`, `js/submission.js` | Solved-scenario tracking (localStorage, ids only) and the plain-text Canvas submission with its check code; pure, tested in `tests/submission.test.mjs`. `tools/verify-submission.mjs < file` re-checks a pasted submission |
+| `js/ui/*.js` | `submission-view` (Canvas Submission dialog), `mixer-view` (renders a skin), `patch-view` (Sources/Outputs + patch dialog), `scenario-view`, `listen-bar`, `controls` (knob/fader/fine sheet), `flow` (signal-flow explainer) |
 | `js/meters.js` | Meter drawing and ballistics (levels come from AnalyserNodes) |
 | `tests/*.test.mjs` | `routing`, `scenarios`, `skins` (node:test) |
 | `tools/make-excerpts.sh` | Regenerates delivery audio from the local WAV masters |
@@ -71,7 +72,7 @@ Scenarios are data in `SCENARIOS` (`js/scenarios.js`); the UI and checker are ge
 
 1. Add an entry: `id`, `number`, `title`, `who`, `prompt`, `goal`, `setup` (devices, `patch: "reference" | "none"`, cables, `channels: "mixed" | "safe"`, `sends: { aux1: {sourceId: dB}, aux2: {...} }`, `masters: { aux2: dB }`, `listen`), `baseline` (named metrics), `conditions` (`goal` must become true, `keep` must stay true), three `hints` (destination → path → control), `complete`.
 2. Add the scenario id to each source's `scenarios` list in the manifest.
-3. Add a short picker label in `shortTitle()` (`js/ui/scenario-view.js`).
+3. Add a short picker label in `shortTitle()` (`js/scenarios.js`); it is also the name used in the Canvas submission. Completion tracking and the submission list read `SCENARIOS`, so a new numbered scenario appears there automatically.
 4. If a check needs new logic, add a function to `CONDITIONS` (and a `METRICS` entry for a new baseline). Conditions read state + `computeMix`, never meters or skins; `session.listened` is available for "go listen to X" goals.
 5. Add tests in `tests/scenarios.test.mjs`: starts unsolved, the right fix completes it, the tempting wrong fixes don't.
 
@@ -108,7 +109,7 @@ Input 9/10 is **one** channel strip (`CHANNEL_LAYOUT[8]`, `stereo: true`, label 
 ## Tests and QA
 
 ```sh
-npm test            # or: node --test tests/   (Node 18+, 106 tests)
+npm test            # or: node --test tests/   (Node 18+, 120 tests)
 python3 -m http.server 8124   # then http://localhost:8124/?debug=1
 ```
 
@@ -116,7 +117,7 @@ python3 -m http.server 8124   # then http://localhost:8124/?debug=1
 
 ## Known limitations / deferred
 
-One stereo input (9/10), no balance control on it, and its meter reads a mono fold-down of L/R; two aux buses (a stereo strip sums to mono into them); no EQ, dynamics, effects or feedback; simplified electrical model; one cable per port; sources must go into the mixer; no saved progress; iPhone silent switch mutes Web Audio. Free play remembers its last music choice for the session.
+One stereo input (9/10), no balance control on it, and its meter reads a mono fold-down of L/R; two aux buses (a stereo strip sums to mono into them); no EQ, dynamics, effects or feedback; simplified electrical model; one cable per port; sources must go into the mixer; solved scenarios are remembered in this browser's localStorage (ids only; the submission name and reflection are never stored); iPhone silent switch mutes Web Audio. Free play remembers its last music choice for the session.
 
 ## Next planned work
 

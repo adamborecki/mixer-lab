@@ -2142,3 +2142,104 @@ dialog::backdrop {
   font-size: 0.85rem;
   margin: 0.5rem 0 0;
 }
+
+/* ---------- Canvas submission ---------- */
+
+.credits-link-plain {
+  margin-left: 0;
+}
+.canvas-dialog {
+  max-width: min(620px, calc(100vw - 1.5rem));
+}
+.canvas-inner {
+  display: grid;
+  gap: 0.8rem;
+}
+.canvas-count {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+}
+.canvas-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+.canvas-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-dim);
+}
+.canvas-list li.done {
+  color: var(--text);
+}
+.canvas-mark {
+  width: 1.3rem;
+  height: 1.3rem;
+  flex: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+}
+.canvas-list li.done .canvas-mark {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+.canvas-note {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+.canvas-field {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.92rem;
+}
+.canvas-field input,
+.canvas-field textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 1rem; /* 16px+ stops iOS zooming on focus */
+  color: var(--text);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.7rem;
+}
+.canvas-field input:focus-visible,
+.canvas-field textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.canvas-field [aria-invalid="true"] {
+  border-color: var(--bad);
+}
+.canvas-preview {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.8rem !important;
+  color: var(--text-dim) !important;
+  resize: vertical;
+}
+.canvas-error,
+.canvas-status {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: 0.85rem;
+  color: var(--bad);
+}
+.canvas-status[data-tone="ok"] {
+  color: var(--ok);
+}
+.canvas-status[data-tone="warn"] {
+  color: var(--warn);
+}
+.canvas-copy {
+  width: 100%;
+  min-height: 52px;
+  font-size: 1.05rem;
+}

@@ -8,16 +8,19 @@ import { AudioEngine } from "./audio-engine.js";
 import { DEFAULT_SKIN, SKINS } from "./mixer-models.js";
 import { MixerStore, computeMix } from "./mixer-state.js";
 import { SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, captureBaseline, evaluateScenario } from "./scenarios.js";
+import { Progress, numberedScenarios } from "./progress.js";
 import { renderFlow } from "./ui/flow.js";
 import { ListenBar } from "./ui/listen-bar.js";
 import { MixerView } from "./ui/mixer-view.js";
 import { PatchView } from "./ui/patch-view.js";
 import { ScenarioView } from "./ui/scenario-view.js";
+import { SubmissionView } from "./ui/submission-view.js";
 
 const M = { STEM_SET: manifest.STEM_SET, STEMS: manifest.STEMS, SOURCES_BY_ID: manifest.SOURCES_BY_ID, LOOP_ASSETS: manifest.LOOP_ASSETS };
 const $ = (sel) => document.querySelector(sel);
 
 const store = new MixerStore();
+const progress = new Progress(numberedScenarios(SCENARIOS).map((s) => s.id));
 const engine = new AudioEngine(store, M);
 
 let skin = SKINS[readPref("mixer-lab-skin")] || SKINS[DEFAULT_SKIN];
@@ -53,6 +56,7 @@ const mixerView = new MixerView($("#mixer"), {
 
 const scenarioView = new ScenarioView($("#scenario"), {
   scenarios: SCENARIOS,
+  progress,
   getTerms: () => skin.terms,
   onSelect: (id) => selectScenario(id),
   onReset: () => selectScenario(current.def.id),
@@ -99,6 +103,7 @@ function refresh() {
     if (key !== lastEval) {
       const wasComplete = lastEval.endsWith("true");
       lastEval = key;
+      if (result.complete) progress.add(current.def.id);
       scenarioView.update(result);
       const goals = result.items.filter((i) => i.kind === "goal");
       scenarioTab.dataset.progress = result.complete ? "✓" : `${goals.filter((i) => i.met).length}/${goals.length}`;
@@ -257,6 +262,17 @@ creditsDialog.innerHTML = `<div class="patch-inner">
 document.addEventListener("click", (e) => {
   if (e.target.closest("[data-open-credits]")) creditsDialog.showModal();
   else if (e.target.closest("[data-close-credits]") || e.target === creditsDialog) creditsDialog.close();
+});
+
+// ---------- Canvas submission ----------
+
+const submissionView = new SubmissionView($("#canvas"), {
+  scenarios: SCENARIOS,
+  progress,
+  getUrl: () => location.origin + location.pathname,
+});
+document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-open-canvas]")) submissionView.open();
 });
 
 // ---------- helpers ----------

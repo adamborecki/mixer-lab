@@ -186,6 +186,11 @@ export const SCENARIOS = [
   },
 ];
 
+// Short label for pickers and reports (falls back to the full title for new scenarios).
+export function shortTitle(s) {
+  return { "build-rig": "Build the rig", "more-vocal": "Singer's wedge", "monitor-quiet": "Drummer's wedge", "free-play": "Free play" }[s.id] || s.title;
+}
+
 export const SCENARIOS_BY_ID = Object.fromEntries(SCENARIOS.map((s) => [s.id, s]));
 
 // ---------- building a scenario's starting state ----------

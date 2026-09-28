@@ -1,12 +1,12 @@
 // Scenario picker, prompt, live checklist, progressive hints and completion.
 // Success is decided by js/scenarios.js from state — this only displays it.
 
-import { fillTerms } from "../scenarios.js";
+import { fillTerms, shortTitle } from "../scenarios.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 export class ScenarioView {
-  constructor(root, { scenarios, onSelect, onReset, onClear, getTerms, getMusic, onMusicMode, onSeek }) {
+  constructor(root, { scenarios, progress, onSelect, onReset, onClear, getTerms, getMusic, onMusicMode, onSeek }) {
     this.root = root;
     this.scenarios = scenarios;
     this.onSelect = onSelect;
@@ -16,7 +16,7 @@ export class ScenarioView {
     this.getMusic = getMusic;
     this.onMusicMode = onMusicMode;
     this.onSeek = onSeek;
-    this.completed = new Set();
+    this.progress = progress;
     root.addEventListener("click", (e) => {
       const b = e.target.closest("[data-act]");
       if (!b) return;
@@ -53,7 +53,7 @@ export class ScenarioView {
       .concat(ordered.filter((s) => s.number === 0))
       .map(
         (s) => `<button type="button" class="chip scenario-chip ${s.id === def.id ? "active" : ""}" data-act="select" data-id="${s.id}" aria-pressed="${s.id === def.id}">
-          ${s.number ? `<span class="chip-num">${s.number}</span>` : ""}${esc(shortTitle(s))}${this.completed.has(s.id) ? ' <span class="chip-done" aria-label="completed">✓</span>' : ""}
+          ${s.number ? `<span class="chip-num">${s.number}</span>` : ""}${esc(shortTitle(s))}${this.progress.has(s.id) ? ' <span class="chip-done" aria-label="completed">✓</span>' : ""}
         </button>`,
       )
       .join("");
@@ -76,7 +76,8 @@ export class ScenarioView {
         <div class="scenario-actions">
           <button type="button" class="chip" data-act="reset">${isFree ? "Reset the band" : "Start over"}</button>
           ${isFree ? `<button type="button" class="chip" data-act="clear">Unplug everything</button>` : ""}
-          <button type="button" class="linkish credits-link" data-open-credits>Credits</button>
+          <button type="button" class="linkish credits-link" data-open-canvas>Canvas Submission</button>
+          <button type="button" class="linkish credits-link credits-link-plain" data-open-credits>Credits</button>
         </div>
         ${isFree ? `<section class="music" aria-label="Band audio"></section>` : ""}
       </article>`;
@@ -136,10 +137,9 @@ export class ScenarioView {
       const still = result.complete ? "" : `<p class="complete-note">You've changed things since — the checklist shows what's true right now.</p>`;
       banner.innerHTML = `<p class="complete-title">Solved ✓</p><p>${esc(fillTerms(this.def.complete, t))}</p>${still}
         ${next ? `<button type="button" class="btn btn-start" data-act="next" data-id="${next.id}">Next: ${esc(shortTitle(next))} →</button>` : ""}`;
-      if (!this.completed.has(this.def.id)) {
-        this.completed.add(this.def.id);
+      if (result.complete) {
         const chip = this.root.querySelector(`.scenario-chip[data-id="${this.def.id}"]`);
-        if (chip) chip.insertAdjacentHTML("beforeend", ' <span class="chip-done" aria-label="completed">✓</span>');
+        if (chip && !chip.querySelector(".chip-done")) chip.insertAdjacentHTML("beforeend", ' <span class="chip-done" aria-label="completed">✓</span>');
       }
     } else {
       banner.hidden = true;
@@ -187,10 +187,6 @@ export class ScenarioView {
     const n = this.def.number;
     return this.scenarios.find((s) => s.number === n + 1) || this.scenarios.find((s) => s.number === 0);
   }
-}
-
-function shortTitle(s) {
-  return { "build-rig": "Build the rig", "more-vocal": "Singer's wedge", "monitor-quiet": "Drummer's wedge", "free-play": "Free play" }[s.id] || s.title;
 }
 
 const clock = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
