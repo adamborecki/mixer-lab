@@ -4,7 +4,7 @@
 // ever satisfied by a "done" button. See docs/SCENARIOS.md.
 
 import { SOURCES_BY_ID, STEMS, sourcesForScenario } from "../audio/source-manifest.js";
-import { DEVICE_TYPES } from "./connection-model.js";
+import { DEVICE_TYPES, channelPortRef } from "./connection-model.js";
 import { BUSES, computeMix, createMixerState, dbToLevel, levelToDb, clamp } from "./mixer-state.js";
 
 // ---------- rig inventory ----------
@@ -38,12 +38,13 @@ export const sourceDeviceId = (sourceId) => `src-${sourceId}`;
 
 // The correct preamp gain for a source on its intended input path.
 export function nominalGainDb(source) {
-  const pad = source.connector === "xlr" ? 0 : -20;
+  const pad = source.connector === "xlr" || source.stereo ? 0 : -20; // a stereo line input has no pad
   return clamp(-(source.outputDb + pad), 0, 60);
 }
 
 // The cable a tidy stage crew would use for a source.
 export function defaultCableFor(source) {
+  if (source.stereo) return "mini-dual-ts"; // 3.5 mm laptop out → stereo L/R line input
   return source.connector === "xlr" ? "xlr" : source.connector === "ts14" ? "ts" : "trs";
 }
 
@@ -203,7 +204,10 @@ export function buildScenarioState(def, sourcesById = SOURCES_BY_ID) {
   let n = 0;
   const addCable = (c) => state.rig.cables.push({ id: `c${++n}`, ...c });
   if (setup.patch === "reference") {
-    for (const s of sources) addCable({ from: `${sourceDeviceId(s.id)}/out`, to: `mixer/ch${s.order}`, cable: defaultCableFor(s) });
+    for (const s of sources) {
+      if (s.reference === false) continue; // available on stage, but the student patches it
+      addCable({ from: `${sourceDeviceId(s.id)}/out`, to: channelPortRef(s.order - 1), cable: defaultCableFor(s) });
+    }
   }
   for (const c of setup.cables || []) addCable(c);
 
@@ -213,7 +217,7 @@ export function buildScenarioState(def, sourcesById = SOURCES_BY_ID) {
       ch.gainDb = nominalGainDb(s);
       ch.phantom = s.phantom === "required";
       ch.level = dbToLevel(s.mixDb);
-      ch.pan = s.pan;
+      if (!ch.stereo) ch.pan = s.pan;
       for (const bus of BUSES) {
         const sends = (setup.sends && setup.sends[bus]) || {};
         ch.auxSends[bus] = dbToLevel(s.id in sends ? sends[s.id] : -Infinity);

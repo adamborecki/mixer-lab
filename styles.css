@@ -769,6 +769,10 @@ button {
   border-color: #6bffb0;
   color: #9dffcb;
 }
+.tag-stereo {
+  border-color: #c58bff;
+  color: #dcb8ff;
+}
 .tag-phantom {
   border-color: #ff8a5b;
   color: #ffb08f;
@@ -1613,6 +1617,14 @@ dialog::backdrop {
   color: var(--bad);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+.strip-kind {
+  margin: 0;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--muted, #9aa7ad);
+  text-align: center;
 }
 .master {
   display: flex;

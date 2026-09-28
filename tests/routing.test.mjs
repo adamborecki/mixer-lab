@@ -3,8 +3,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { PLUGS, JACKS, CABLES, SIGNAL_LEVELS, DEVICE_TYPES, plugFitsJack, checkConnection, plugAtInput, analyzeRig } from "../js/connection-model.js";
-import { createMixerState, MixerStore, computeMix, levelToDb, dbToLevel, panGains, HEADROOM_DB } from "../js/mixer-state.js";
-import { SOURCES, SOURCES_BY_ID, STEMS } from "../audio/source-manifest.js";
+import { CHANNEL_COUNT, createMixerState, MixerStore, computeMix, levelToDb, dbToLevel, panGains, HEADROOM_DB } from "../js/mixer-state.js";
+import { SOURCES, SOURCES_BY_ID, STEMS, LOOP_ASSETS } from "../audio/source-manifest.js";
 
 // ---------- helpers ----------
 
@@ -470,8 +470,9 @@ describe("source manifest", () => {
     const orders = new Set();
     for (const s of SOURCES) {
       assert.ok(DEVICE_TYPES[s.deviceType]?.source, `${s.id}: ${s.deviceType} is a source device`);
-      assert.ok(STEMS[s.stem], `${s.id}: stem ${s.stem}`);
-      assert.ok(s.order >= 1 && s.order <= 8);
+      if (s.stereo) assert.ok(LOOP_ASSETS[s.asset], `${s.id}: loop asset ${s.asset}`);
+      else assert.ok(STEMS[s.stem], `${s.id}: stem ${s.stem}`);
+      assert.ok(s.order >= 1 && s.order <= CHANNEL_COUNT);
       orders.add(s.order);
     }
     assert.equal(orders.size, SOURCES.length);

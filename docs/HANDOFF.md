@@ -20,6 +20,7 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 | `js/scenarios.js` | Scenario data, playback-device inventory, baselines (`METRICS`), `CONDITIONS`, `evaluateScenario` |
 | `js/mixer-models.js` | Skins: words, control types, layout data, MUTE/ON mapping |
 | `js/transport.js` | Stem playback: excerpt loop and streamed full song, sync, keep-alive |
+| `js/loop-player.js` | Independent looping stereo playback (preshow laptop), own timeline, keep-alive |
 | `js/audio-engine.js` | Web Audio graph: channel strips, Main/Aux/PFL buses, speaker gating, listening, meters |
 | `js/app.js` | Wiring: store ↔ engine ↔ scenario checks ↔ views; session (listen history); Free play music mode; credits |
 | `js/ui/*.js` | `mixer-view` (renders a skin), `patch-view` (Sources/Outputs + patch dialog), `scenario-view`, `listen-bar`, `controls` (knob/fader/fine sheet), `flow` (signal-flow explainer) |
@@ -41,7 +42,7 @@ How it's enforced (`js/transport.js`):
 - Listening is the listen-group gain after the speakers; switching destination never touches the transport.
 - Verified in Chromium with an AudioWorklet capture cross-correlated against the original WAVs: 0 samples offset after staggered patching and across segment joins. Re-run that kind of check if you touch the transport.
 
-Anything new that plays audio (e.g. preshow music) should get its own persistent output with the same keep-alive, and must not share or disturb the band's timeline.
+Anything new that plays audio should get its own persistent output with the same keep-alive, and must not share or disturb the band's timeline. The preshow laptop does exactly this: `LoopPlayer` (`js/loop-player.js`) starts once at `engine.start()`, loops the whole file on its own, and is never touched by the band transport, patching, muting or the Stop button. `engine.setSources` passes only stem sources (`source.stem`) to the transport.
 
 ## Stage conventions
 
@@ -78,6 +79,16 @@ Text can use `{aux1}`, `{aux2}`, `{aux1Master}`, `{aux2Master}`, `{level}`, `{en
 
 Things a setup can't express yet (add to the schema rather than special-casing): per-channel overrides (e.g. "guitar starts muted" for a fault scenario), pre-set faults, and starting with a cable on the wrong device.
 
+## Stereo input 9/10
+
+Input 9/10 is **one** channel strip (`CHANNEL_LAYOUT[8]`, `stereo: true`, label `"9/10"`), not two mono channels: one gain, one level, one enable, one set of aux sends and PFL.
+
+- **Connectors:** the source is `stereo-laptop` (port `out`: jack `mini`, level `line`, `stereo`). The mixer port `ch9-10` is jack `linepair` (a left + right ¼″ pair patched as one), `stereo: true`, `pad: false`. The only cable that fits both is `mini-dual-ts` (3.5 mm TRS ↔ `dualts14` breakout). It does not fit the mono combo jacks, and mono sources do not fit 9/10.
+- **Source data:** `preshow` in `SOURCES` has `stereo: true`, `asset: "preshow"`, a measured `peakDb` (no mono fold-down) and `reference: false`, so Free play puts the laptop on stage **unpatched**. The student patches it, and the band's reference rig is unchanged.
+- **Signal:** the strip carries L and R at every stage (`stereoGain` nodes in the engine) and skips the panner, so left goes to Main L and right to Main R. Aux and PFL feeds fold to mono. `computeMix` treats it as 0 dB pan law per side (a centred mono strip is −3 dB).
+- **State rules:** phantom and pan are ignored on a stereo strip; `setAllPhantom` and the global +48 V state skip it.
+- **Skins:** each skin has `stereoStrip` (same shape as `strip`, minus phantom and pan) plus `terms.stereo`. A future skin can draw stereo differently (two meters, a balance knob, or a linked pair of strips) by changing that data. Behaviour stays in state and engine.
+
 ## Skins
 
 `SKINS` (`js/mixer-models.js`) map semantic state to presentation: `terms`, `enabledControl`, `levelControl` (fader vs knob), `phantomControl` (per-channel vs global), `meter` scale, `layout` (`console` / `tiles`) and `strip` (rows of parts). Both call the same `MixerStore` actions.
@@ -91,13 +102,13 @@ Things a setup can't express yet (add to the schema rather than special-casing):
 
 - `audio/persephone/*.mp3`: 8-bar loop excerpt per stem (scenarios, default).
 - `audio/persephone/full/*-NN.mp3`: whole song, 12 × 20 s segments per stem (Free play "Full song").
-- `audio/preshow/joth-bossa-nova.mp3`: preshow music (stereo, 59.6 s). In the manifest as `PRESHOW`; **not yet wired into the app**.
+- `audio/preshow/joth-bossa-nova.mp3`: preshow music (stereo, 59.6 s). In the manifest as `PRESHOW` and `LOOP_ASSETS.preshow`; feeds the `preshow` source on stereo input 9/10.
 - The manifest holds per-stem measurements (`monoPeakDb`, `normalizeDb`) that drive the gain-staging model. Regenerate with `tools/make-excerpts.sh [excerpt|full]`; WAV masters are local and gitignored. Details: [../audio/README.md](../audio/README.md).
 
 ## Tests and QA
 
 ```sh
-npm test            # or: node --test tests/   (Node 18+, 94 tests)
+npm test            # or: node --test tests/   (Node 18+, 106 tests)
 python3 -m http.server 8124   # then http://localhost:8124/?debug=1
 ```
 
@@ -105,11 +116,11 @@ python3 -m http.server 8124   # then http://localhost:8124/?debug=1
 
 ## Known limitations / deferred
 
-Mono channels only (no stereo/linked inputs yet); two aux buses; no EQ, dynamics, effects or feedback; simplified electrical model; one cable per port; sources must go into the mixer; no saved progress; iPhone silent switch mutes Web Audio. Free play remembers its last music choice for the session.
+One stereo input (9/10), no balance control on it, and its meter reads a mono fold-down of L/R; two aux buses (a stereo strip sums to mono into them); no EQ, dynamics, effects or feedback; simplified electrical model; one cable per port; sources must go into the mixer; no saved progress; iPhone silent switch mutes Web Audio. Free play remembers its last music choice for the session.
 
 ## Next planned work
 
-1. **Preshow input 9/10:** a stereo line input pair (one stereo strip, one level control) fed by "Laptop — Preshow Music" via 3.5 mm TRS → breakout → 9/10, on its own independent loop. Needs stereo-channel support in state/engine/skins and 3.5 mm breakout cables in the connection model.
+1. ~~Preshow input 9/10~~ — done, see Stereo input below. Still to do: a Preshow scenario.
 2. **About 10 beginner scenarios**, alternating build / use / diagnose: Preshow music; More of my voice (Aux 1); Line check; Whole wedge too quiet (Aux 2); Build the drummer wedge (Aux 2 → amp → passive); More piano please (one Aux 2 send); Too much vocal in the house; Where did the guitar go?; Singer can't hear themself; Build a monitor mix. The current "Build the rig" becomes smaller build steps.
 3. **SVG equipment/connector icons** as a reusable, themeable library (`icon("passive-wedge")`), not per-scenario drawings: active PA speaker, active wedge, passive wedge, rack amp, laptop, mic, mixer, XLR M/F, 1/4" TRS/TS, 3.5 mm, RCA, SpeakON, IEC.
 4. **More physical-routing exercises** built on the semantic port model.

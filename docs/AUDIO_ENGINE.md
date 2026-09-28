@@ -171,3 +171,7 @@ For a pre/post choice, put the tap either before `enabled` (pre) or after `fader
 ## Limits
 
 Two Aux buses (both pre-fader), no EQ/dynamics/effects, no feedback, no stereo channels, and no per-speaker level model. The Aux and PFL paths are mono. Full-song playback exists only in Free play.
+
+## Preshow loop (stereo input 9/10)
+
+`js/loop-player.js` plays sources that have an `asset` (currently `preshow`) on their own timeline: one looping `AudioBufferSourceNode`, decoded stereo (no mono fold), started once by `engine.start()`. Its persistent `out` node (2 channels, explicit) is wired at zero gain to the destination (keep-alive) and is patched into the stereo strip's input like a transport output. The band's `StemTransport` never sees it (`engine.setSources` only passes sources with a `stem`), so patching, muting, Stop and mode changes cannot disturb either timeline. The stereo strip runs stereo nodes through preamp, clipper, enable and fader, and skips the panner so left stays left; aux sends and PFL fold to mono.

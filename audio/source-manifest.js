@@ -49,6 +49,10 @@ export const STEMS = {
 // mixDb        a sensible starting fader offset for the band mix (0 = unity)
 // pan          reference pan (-1 … 1)
 // scenarios    where the source is available (ids from js/scenarios.js)
+// stereo       true: a linked L/R source for a stereo channel strip. It has no `stem`;
+//              it names a looping `asset` (LOOP_ASSETS) that plays on its own timeline,
+//              independent of the band's transport. `peakDb` is its measured stereo peak.
+// reference    false: not part of the pre-patched "reference" rig (student patches it)
 const ALL = ["free-play", "build-rig", "more-vocal", "monitor-quiet"];
 
 export const SOURCES = [
@@ -174,15 +178,36 @@ export const SOURCES = [
     pan: 0,
     scenarios: ALL,
   },
+  {
+    id: "preshow",
+    order: 9, // stereo channel strip "9/10"
+    name: "Preshow music",
+    shortName: "MUSIC",
+    device: "Laptop — Preshow Music",
+    category: "Playback",
+    deviceType: "stereo-laptop",
+    signalLevel: "line",
+    connector: "trs35",
+    phantom: "none",
+    outputDb: -10, // consumer-level laptop output, a little under pro line level
+    stereo: true,
+    asset: "preshow",
+    peakDb: -1.1, // louder side of the stereo file; no mono fold-down
+    mixDb: -6,
+    pan: 0,
+    reference: false,
+    scenarios: ["free-play"],
+    note: "A laptop's 3.5 mm headphone jack is a stereo line output. It needs a 3.5 mm → dual 1/4\" breakout cable into the mixer's stereo input 9/10, which is one stereo channel with one level control.",
+  },
 ];
 
 export const SOURCES_BY_ID = Object.fromEntries(SOURCES.map((s) => [s.id, s]));
 
-// ---------- preshow music (not wired into the mixer yet) ----------
+// ---------- preshow music ----------
 
-// Planned: a "Laptop — Preshow Music" source on a stereo line input 9/10
-// (3.5 mm TRS → breakout → L/R), playing on its OWN loop, independent of the
-// band timeline. See docs/HANDOFF.md. Stereo, 44.1 kHz, 160 kb/s, 59.6 s.
+// Feeds the "Laptop — Preshow Music" source on stereo input 9/10 (3.5 mm TRS →
+// breakout → L/R), looping on its OWN timeline, independent of the band.
+// Stereo, 44.1 kHz, 160 kb/s, 59.6 s.
 export const PRESHOW = {
   id: "preshow",
   title: "Bossa Nova",
@@ -193,6 +218,9 @@ export const PRESHOW = {
   license: "CC0",
   source: "https://opengameart.org/content/bossa-nova",
 };
+
+// Looping stereo assets, keyed by a source's `asset` field.
+export const LOOP_ASSETS = { preshow: PRESHOW };
 
 // ---------- credits (shown in the app's Credits dialog and the docs) ----------
 

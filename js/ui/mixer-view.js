@@ -65,10 +65,12 @@ export class MixerView {
     const skin = this.skin;
     const t = skin.terms;
     const store = this.store;
+    const chState = store.state.channels[i];
+    const num = chState.label; // "3", or "9/10" for the stereo strip
     const el = document.createElement("section");
-    el.className = "strip";
+    el.className = chState.stereo ? "strip is-stereo" : "strip";
     el.dataset.channel = String(i + 1);
-    el.setAttribute("aria-label", `Channel ${i + 1}`);
+    el.setAttribute("aria-label", chState.stereo ? `Channel ${num}, stereo` : `Channel ${num}`);
 
     const head = document.createElement("button");
     head.type = "button";
@@ -82,7 +84,7 @@ export class MixerView {
       this.bind(
         this.knob({
           label: t[bus],
-          sheetLabel: `Ch ${i + 1} ${t[bus]} send`,
+          sheetLabel: `Ch ${num} ${t[bus]} send`,
           min: 0,
           max: 1,
           step: 0.005,
@@ -98,14 +100,14 @@ export class MixerView {
     const parts = {
       phantom: () => {
         const b = new LitButton({ label: t.phantom, tone: "phantom", small: true, onPress: () => store.setChannel(i, "phantom", !store.state.channels[i].phantom) });
-        this.bindings.push({ kind: "button", control: b, get: (s) => [s.channels[i].phantom, `${t.phantom} phantom power, channel ${i + 1}: ${s.channels[i].phantom ? "on" : "off"}`] });
+        this.bindings.push({ kind: "button", control: b, get: (s) => [s.channels[i].phantom, `${t.phantom} phantom power, channel ${num}: ${s.channels[i].phantom ? "on" : "off"}`] });
         return b.el;
       },
       gain: () =>
         this.bind(
           this.knob({
             label: t.gain,
-            sheetLabel: `Ch ${i + 1} ${t.gain}`,
+            sheetLabel: `Ch ${num} ${t.gain}`,
             min: GAIN_MIN_DB,
             max: GAIN_MAX_DB,
             step: 0.5,
@@ -123,7 +125,7 @@ export class MixerView {
         this.bind(
           this.knob({
             label: t.pan,
-            sheetLabel: `Ch ${i + 1} ${t.pan}`,
+            sheetLabel: `Ch ${num} ${t.pan}`,
             min: -1,
             max: 1,
             step: 0.02,
@@ -137,7 +139,7 @@ export class MixerView {
         ).el,
       pfl: () => {
         const b = new LitButton({ label: t.pfl, tone: "pfl", onPress: () => store.setChannel(i, "pfl", !store.state.channels[i].pfl) });
-        this.bindings.push({ kind: "button", control: b, get: (s) => [s.channels[i].pfl, `${t.pfl} channel ${i + 1}: ${s.channels[i].pfl ? "on" : "off"}`] });
+        this.bindings.push({ kind: "button", control: b, get: (s) => [s.channels[i].pfl, `${t.pfl} channel ${num}: ${s.channels[i].pfl ? "on" : "off"}`] });
         return b.el;
       },
       enabled: () => {
@@ -152,7 +154,7 @@ export class MixerView {
           control: b,
           get: (s) => {
             const en = s.channels[i].enabled;
-            return [enabledLit(skin, en), `${c.label} channel ${i + 1} — channel ${en ? "on in Main" : "muted from Main"}`];
+            return [enabledLit(skin, en), `${c.label} channel ${num} — channel ${en ? "on in Main" : "muted from Main"}`];
           },
         });
         return b.el;
@@ -161,7 +163,7 @@ export class MixerView {
         const m = new MeterView({
           marks: skin.meter.marks,
           orientation: skin.meter.orientation,
-          label: `Channel ${i + 1} input`,
+          label: `Channel ${num} input`,
           showBand: true,
         });
         m.el.classList.add(`meter-${skin.meter.style}`);
@@ -174,7 +176,7 @@ export class MixerView {
             ? new RangeControl({
                 kind: "fader",
                 label: t.levelShort,
-                sheetLabel: `Ch ${i + 1} ${t.levelShort}`,
+                sheetLabel: `Ch ${num} ${t.levelShort}`,
                 min: 0,
                 max: 1,
                 step: 0.005,
@@ -186,7 +188,7 @@ export class MixerView {
               })
             : this.knob({
                 label: t.levelShort,
-                sheetLabel: `Ch ${i + 1} ${t.levelShort}`,
+                sheetLabel: `Ch ${num} ${t.levelShort}`,
                 min: 0,
                 max: 1,
                 step: 0.005,
@@ -203,7 +205,8 @@ export class MixerView {
 
     // Placement comes from the skin's data: sections of rows of parts.
     const perChannelPhantom = skin.phantomControl === "per-channel";
-    for (const section of skin.strip) {
+    const layout = chState.stereo && skin.stereoStrip ? skin.stereoStrip : skin.strip;
+    for (const section of layout) {
       const block = document.createElement("div");
       block.className = section.className;
       for (const row of section.rows) {
@@ -226,6 +229,12 @@ export class MixerView {
     status.setAttribute("aria-live", "polite");
     el.appendChild(status);
     this.bindings.push({ kind: "status", el: status, index: i });
+    if (chState.stereo) {
+      const kind = document.createElement("p");
+      kind.className = "strip-kind";
+      kind.textContent = `${t.stereo} L/R`;
+      el.insertBefore(kind, head.nextSibling);
+    }
     return el;
   }
 
@@ -343,9 +352,10 @@ export class MixerView {
       kind: "text",
       el: text,
       get: (s) => {
-        const on = s.channels.filter((c) => c.phantom).map((c) => c.index + 1);
+        const mics = s.channels.filter((c) => !c.stereo);
+        const on = mics.filter((c) => c.phantom).map((c) => c.index + 1);
         if (!on.length) return "Off";
-        if (on.length === s.channels.length) return "On — every XLR input";
+        if (on.length === mics.length) return "On — every XLR input";
         return `Only Ch ${on.join(", ")} — press to switch all on`;
       },
     });
@@ -371,13 +381,13 @@ export class MixerView {
         const warn = c.input.connected && c.input.status !== "ok";
         b.el.classList.toggle("empty", !c.input.connected);
         b.el.classList.toggle("warn", warn);
-        const html = `<span class="strip-num">${b.index + 1}</span><span class="strip-name">${src ? src.shortName : c.input.connected ? "?" : "—"}</span>${warn ? '<span class="strip-warn" aria-hidden="true">!</span>' : ""}`;
+        const html = `<span class="strip-num">${s.channels[b.index].label}</span><span class="strip-name">${src ? src.shortName : c.input.connected ? "?" : "—"}</span>${warn ? '<span class="strip-warn" aria-hidden="true">!</span>' : ""}`;
         if (html === b.html) continue;
         b.html = html;
         b.el.innerHTML = html;
         b.el.setAttribute(
           "aria-label",
-          `Channel ${b.index + 1} input: ${src ? `${src.name}${c.input.path === "line" ? ", on the line input" : ", on the mic input"}` : "nothing patched"}${warn ? ". Problem: " + c.input.messages[0].replace(/[.!]$/, "") : ""}. Tap to patch.`,
+          `Channel ${s.channels[b.index].label} input: ${src ? `${src.name}${c.input.stereo ? ", on the stereo line input" : c.input.path === "line" ? ", on the line input" : ", on the mic input"}` : "nothing patched"}${warn ? ". Problem: " + c.input.messages[0].replace(/[.!]$/, "") : ""}. Tap to patch.`,
         );
         b.el.title = warn ? c.input.messages[0] : src ? `${src.device}` : "Tap to patch a source";
       } else if (b.kind === "status" && mix) {

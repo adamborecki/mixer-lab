@@ -2,6 +2,7 @@
 // semantic mixer state and never touches the DOM. See docs/AUDIO_ENGINE.md.
 //
 //   stem player (mono) ─► channel input ─► preamp gain ─► clipper ─► tap
+//   loop player (stereo, own timeline) ─► stereo channel strip (same chain, no pan)
 //   tap ─► input meter
 //   tap ─► enabled ─► fader ─► pan ─► Main bus ─► Main master ─► Main L / Main R outs
 //   tap ─► Aux 1 send (pre-fader) ─► Aux 1 bus ─► Aux 1 master ─► Aux 1 out
@@ -14,7 +15,8 @@
 // Stem playback and synchronization live in js/transport.js.
 
 import { analyzeRig } from "./connection-model.js";
-import { BUSES, CHANNEL_COUNT, HEADROOM_DB, dbToGain, levelToDb } from "./mixer-state.js";
+import { BUSES, CHANNEL_COUNT, CHANNEL_LAYOUT, HEADROOM_DB, dbToGain, levelToDb } from "./mixer-state.js";
+import { LoopPlayer } from "./loop-player.js";
 import { StemTransport } from "./transport.js";
 
 const RAMP = 0.012; // seconds; smooths control changes without lag
@@ -27,9 +29,10 @@ const busOfOutput = (port) => (port === "main-l" || port === "main-r" ? "main" :
 export class AudioEngine {
   constructor(store, manifest) {
     this.store = store;
-    this.manifest = manifest; // { STEM_SET, STEMS, SOURCES_BY_ID }
+    this.manifest = manifest; // { STEM_SET, STEMS, SOURCES_BY_ID, LOOP_ASSETS }
     this.ctx = null;
     this.transport = null;
+    this.loops = new Map(); // sourceId → LoopPlayer (independent of the band's transport)
     this.endpointNodes = new Map();
     this.routes = []; // [fromNode, toNode] connections that depend on the rig
     this.listeners = new Set();
@@ -66,10 +69,16 @@ export class AudioEngine {
     this.ctx = new Ctx({ latencyHint: "interactive" });
     this.ctx.resume();
     this.transport = new StemTransport(this.ctx, this.manifest, (evt) => this.emit(evt));
+    const errors = this.transport.errors;
+    for (const source of Object.values(this.manifest.SOURCES_BY_ID)) {
+      const asset = source.asset && this.manifest.LOOP_ASSETS[source.asset];
+      if (asset) this.loops.set(source.id, new LoopPlayer(this.ctx, { sourceId: source.id, url: asset.file, errors, emit: (evt) => this.emit(evt) }));
+    }
     this.buildGraph();
     this.unsubscribe = this.store.subscribe((state, change) => this.onChange(state, change));
     this.rewire();
     this.applyAll();
+    for (const p of this.loops.values()) p.start(); // once; never restarted or stopped by patching
   }
 
   // ---------- graph ----------
@@ -84,6 +93,14 @@ export class AudioEngine {
         g.channelCountMode = "explicit";
         g.channelInterpretation = "speakers";
       }
+      return g;
+    };
+    const stereoGain = (v = 1) => {
+      const g = ctx.createGain();
+      g.gain.value = v;
+      g.channelCount = 2;
+      g.channelCountMode = "explicit";
+      g.channelInterpretation = "speakers";
       return g;
     };
     const analyser = () => {
@@ -136,25 +153,30 @@ export class AudioEngine {
     this.strips = [];
     const clipCurve = new Float32Array([-1, 1]); // identity inside ±1, hard clip outside
     for (let i = 0; i < CHANNEL_COUNT; i++) {
-      const input = gain(1, true);
-      const pre = gain(0, true);
+      // A stereo strip is one strip: same controls, but every stage carries L and R.
+      const stereo = !!CHANNEL_LAYOUT[i].stereo;
+      const chan = stereo ? stereoGain : (v) => gain(v, true);
+      const input = chan(1);
+      const pre = chan(0);
       const clip = ctx.createWaveShaper();
       clip.curve = clipCurve;
       const meter = analyser();
-      const enabled = gain(1, true);
-      const fader = gain(0, true);
-      const pan = ctx.createStereoPanner();
+      const enabled = chan(1);
+      const fader = chan(0);
+      const pan = stereo ? null : ctx.createStereoPanner(); // stereo: left stays left, right stays right
       const pfl = gain(0, true);
       input.connect(pre).connect(clip);
       clip.connect(meter);
-      clip.connect(enabled).connect(fader).connect(pan).connect(this.mainBus);
+      clip.connect(enabled).connect(fader);
+      if (pan) fader.connect(pan).connect(this.mainBus);
+      else fader.connect(this.mainBus);
       const sends = {};
       for (const b of BUSES) {
         sends[b] = gain(0, true);
         clip.connect(sends[b]).connect(this.auxBus[b]); // pre-fader
       }
       clip.connect(pfl).connect(this.pflBus);
-      this.strips.push({ input, pre, clip, meter, enabled, fader, pan, sends, pfl });
+      this.strips.push({ input, pre, clip, meter, enabled, fader, pan, sends, pfl, stereo });
     }
 
     // Listening: each speaker feeds the listen group of the bus that reaches
@@ -205,7 +227,7 @@ export class AudioEngine {
       this.set(s.pre.gain, dbToGain(preDb));
       this.set(s.enabled.gain, ch.enabled ? 1 : 0);
       this.set(s.fader.gain, dbToGain(levelToDb(ch.level)));
-      this.set(s.pan.pan, ch.pan);
+      if (s.pan) this.set(s.pan.pan, ch.pan);
       for (const b of BUSES) this.set(s.sends[b].gain, dbToGain(levelToDb(ch.auxSends[b])));
       this.set(s.pfl.gain, ch.pfl ? 1 : 0);
     });
@@ -238,7 +260,8 @@ export class AudioEngine {
     // gain in applyAll so toggling 48 V doesn't need a rewire.
     rigInfo.channels.forEach((info, i) => {
       if (!info || !info.connected || !info.sourceId) return;
-      const out = this.transport.outs.get(info.sourceId);
+      const loop = this.loops.get(info.sourceId);
+      const out = loop ? loop.out : this.transport.outs.get(info.sourceId);
       if (out) link(out, this.strips[i].input);
     });
 
@@ -276,7 +299,8 @@ export class AudioEngine {
   // Loads the stems for these sources (excerpt loop or full song), then starts
   // them together. Nothing plays until the first audio is decoded.
   async setSources(sourceIds, { mode = this.mode } = {}) {
-    const ids = sourceIds.filter((id) => this.manifest.SOURCES_BY_ID[id]);
+    // Band stems only: loop-player sources (preshow) have their own timeline.
+    const ids = sourceIds.filter((id) => this.manifest.SOURCES_BY_ID[id] && this.manifest.SOURCES_BY_ID[id].stem);
     this.transport.prepare(ids);
     this.rewire();
     if (await this.transport.load(mode)) await this.transport.play();

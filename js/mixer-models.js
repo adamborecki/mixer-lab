@@ -24,6 +24,7 @@ export const SKINS = {
       pfl: "PFL",
       phantom: "48V",
       phones: "PHONES",
+      stereo: "STEREO",
     },
     // MUTE is lit when the channel is NOT enabled.
     enabledControl: { label: "MUTE", litWhenEnabled: false, litText: "Muted", unlitText: "" },
@@ -35,6 +36,13 @@ export const SKINS = {
     // gain, aux1, aux2, pan, pfl, meter, enabled, level.
     strip: [
       { className: "strip-top", rows: [["phantom"], ["gain"], ["aux1"], ["aux2"], ["pan"], ["pfl"]] },
+      { className: "strip-bottom", rows: [["enabled"], { parts: ["meter", "level"], className: "fader-row" }] },
+    ],
+    // A stereo input is still ONE strip. Same skin, but it drops the parts that
+    // don't apply to a linked L/R line input (phantom, pan). A skin could instead
+    // draw a stereo pair as two meters or a balance knob by changing this data.
+    stereoStrip: [
+      { className: "strip-top", rows: [["gain"], ["aux1"], ["aux2"], ["pfl"]] },
       { className: "strip-bottom", rows: [["enabled"], { parts: ["meter", "level"], className: "fader-row" }] },
     ],
     // Analog-style meter: 0 = nominal (−18 dBFS), with CLIP at the top.
@@ -72,6 +80,7 @@ export const SKINS = {
       pfl: "PFL",
       phantom: "+48V",
       phones: "PHONES",
+      stereo: "STEREO",
     },
     // ON is lit when the channel IS enabled.
     enabledControl: { label: "ON", litWhenEnabled: true, litText: "", unlitText: "Off" },
@@ -85,6 +94,19 @@ export const SKINS = {
           ["enabled"],
           { parts: ["meter"], className: "tile-meter" },
           { parts: ["gain", "pan"], className: "tile-row tile-knobs" },
+          { parts: ["aux1", "aux2"], className: "tile-row tile-knobs tile-sends" },
+          { parts: ["level"], className: "tile-row tile-knobs tile-level" },
+          { parts: ["pfl"], className: "tile-row tile-foot" },
+        ],
+      },
+    ],
+    stereoStrip: [
+      {
+        className: "tile-body",
+        rows: [
+          ["enabled"],
+          { parts: ["meter"], className: "tile-meter" },
+          { parts: ["gain"], className: "tile-row tile-knobs" },
           { parts: ["aux1", "aux2"], className: "tile-row tile-knobs tile-sends" },
           { parts: ["level"], className: "tile-row tile-knobs tile-level" },
           { parts: ["pfl"], className: "tile-row tile-foot" },
@@ -131,7 +153,8 @@ export function enabledStatusText(skin, enabled) {
 
 // A global phantom switch shows the combined state of every channel.
 export function globalPhantomState(channels) {
-  const on = channels.filter((c) => c.phantom).length;
+  const mics = channels.filter((c) => !c.stereo); // stereo line inputs have no phantom power
+  const on = mics.filter((c) => c.phantom).length;
   if (on === 0) return "off";
-  return on === channels.length ? "on" : "mixed";
+  return on === mics.length ? "on" : "mixed";
 }

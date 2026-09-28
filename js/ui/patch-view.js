@@ -92,11 +92,12 @@ export class PatchView {
       const tags = [
         `<span class="tag tag-level" data-level="${src.signalLevel}">${SIGNAL_LEVELS[src.signalLevel].name}</span>`,
         `<span class="tag">${esc(PLUGS[src.connector] ? PLUGS[src.connector].name : src.connector)} out</span>`,
+        src.stereo ? `<span class="tag tag-stereo">Stereo L/R</span>` : "",
         src.phantom === "required" ? `<span class="tag tag-phantom">Needs +48 V</span>` : "",
       ].join("");
       return `<li class="source-card status-${status}">
         <div class="source-top">
-          <span class="source-order" aria-label="Input list number">${src.order}</span>
+          <span class="source-order" aria-label="Input list number">${esc(state.channels[src.order - 1].label)}</span>
           <div class="source-names"><strong>${esc(src.name)}</strong><span>${esc(src.device)}</span></div>
           <span class="status-pill status-${status}">${status === "ok" ? "✓ Signal" : status === "idle" ? "Unpatched" : status === "bad" ? "✕ Danger" : "! Check"}</span>
         </div>
@@ -106,10 +107,10 @@ export class PatchView {
         ${src.note ? `<p class="source-note">${esc(src.note)}</p>` : ""}
       </li>`;
     });
-    const empty = mix.channels.filter((c) => !c.input.connected).map((c) => c.index + 1);
+    const empty = mix.channels.filter((c) => !c.input.connected).map((c) => state.channels[c.index].label);
     this.sourcesRoot.innerHTML = `
       <ol class="source-list">${cards.join("")}</ol>
-      <p class="panel-foot">Free mixer inputs: ${empty.length ? empty.map((n) => `Ch ${n}`).join(", ") : "none"}. Every channel input is an XLR/¼″ combo jack: XLR → mic preamp (+48 V available), ¼″ → line input (padded).</p>`;
+      <p class="panel-foot">Free mixer inputs: ${empty.length ? empty.map((n) => `Ch ${n}`).join(", ") : "none"}. Ch 1–8 are XLR/¼″ combo jacks: XLR → mic preamp (+48 V available), ¼″ → line input (padded). Ch 9/10 is one stereo line input (left + right ¼″ pair, no phantom power).</p>`;
   }
 
   renderOutputs(mix) {

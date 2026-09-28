@@ -28,6 +28,8 @@ export const PLUGS = {
   ts14: { id: "ts14", name: '1/4" TS', family: "quarter" },
   rca: { id: "rca", name: "RCA", family: "rca" },
   trs35: { id: "trs35", name: "3.5 mm TRS", family: "mini" },
+  // Two 1/4" TS plugs (left + right) on one breakout tail: the far end of a stereo Y cable.
+  dualts14: { id: "dualts14", name: '2× 1/4" TS (L + R)', family: "quarter-pair" },
 };
 
 export const JACKS = {
@@ -36,6 +38,8 @@ export const JACKS = {
   quarter: { id: "quarter", name: '1/4"', accepts: ["quarter"] },
   rca: { id: "rca", name: "RCA", accepts: ["rca"] },
   mini: { id: "mini", name: "3.5 mm", accepts: ["mini"] },
+  // A stereo line input made of a left and right 1/4" jack side by side, patched as one.
+  linepair: { id: "linepair", name: '1/4" L/R pair', accepts: ["quarter-pair"] },
 };
 
 export function plugFitsJack(plugId, jackId) {
@@ -57,6 +61,7 @@ export const CABLES = {
   rca: { id: "rca", name: "RCA cable", ends: ["rca", "rca"], kind: "signal", balanced: false, blurb: "Consumer gear: turntables, DJ players, record outs." },
   "rca-ts": { id: "rca-ts", name: 'RCA ↔ 1/4" TS cable', ends: ["rca", "ts14"], kind: "signal", balanced: false, blurb: "Consumer gear into a mixer line input." },
   "mini-rca": { id: "mini-rca", name: "3.5 mm ↔ RCA (Y) cable", ends: ["trs35", "rca"], kind: "signal", balanced: false, blurb: "Phone/laptop headphone out to RCA." },
+  "mini-dual-ts": { id: "mini-dual-ts", name: '3.5 mm ↔ dual 1/4" (breakout) cable', ends: ["trs35", "dualts14"], kind: "signal", balanced: false, stereo: true, blurb: "Stereo Y: laptop headphone out to a left + right pair of 1/4\" line inputs." },
   mini: { id: "mini", name: "3.5 mm aux cable", ends: ["trs35", "trs35"], kind: "signal", balanced: false, blurb: "Phone/laptop aux cable." },
 };
 
@@ -82,6 +87,8 @@ export function cableFitsPort(cableId, port) {
 //   level     out ports: the level they emit. in ports: the level they expect.
 //   phantom   in ports that can supply +48 V on XLR
 //   role      what the port means to the chain analysis
+//   stereo    a linked L/R pair carried on one cable (out) or one channel strip (in)
+//   pad       in ports: false = no 1/4" pad in front of the preamp (dedicated line input)
 // Device flags:
 //   source    a virtual sound source (plays a stem)
 //   endpoint  makes sound in a room; `amp: "internal"` (powered) or "none" (passive)
@@ -111,6 +118,13 @@ export const DEVICE_TYPES = {
     ports: [{ id: "out", dir: "out", jack: "quarter", level: "line", name: '1/4" line out' }],
     blurb: "Keyboard or playback device with a line output.",
   },
+  "stereo-laptop": {
+    name: "Laptop (stereo playback)",
+    source: true,
+    stereo: true,
+    ports: [{ id: "out", dir: "out", jack: "mini", level: "line", stereo: true, name: "3.5 mm headphone / line out" }],
+    blurb: "Stereo line-level output on a 3.5 mm jack.",
+  },
   mixer: {
     name: "Mixer",
     ports: [
@@ -124,6 +138,8 @@ export const DEVICE_TYPES = {
         channel: i,
         name: `Ch ${i + 1} input`,
       })),
+      // Stereo line input 9/10: ONE channel strip (channel index 8) fed by a linked L/R pair.
+      { id: "ch9-10", dir: "in", jack: "linepair", level: "line", stereo: true, pad: false, role: "channel-input", channel: 8, name: "Ch 9/10 stereo line input" },
       { id: "main-l", dir: "out", jack: "xlr", level: "line", role: "bus-out", bus: "main", side: "L", name: "Main L out" },
       { id: "main-r", dir: "out", jack: "xlr", level: "line", role: "bus-out", bus: "main", side: "R", name: "Main R out" },
       { id: "aux1", dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: "aux1", side: "M", name: "Aux 1 out" },
@@ -159,6 +175,12 @@ export const DEVICE_TYPES = {
 // ---------- rig helpers ----------
 
 export const portRef = (deviceId, portId) => `${deviceId}/${portId}`;
+
+// The mixer input port for channel strip `index` (0-based), e.g. "mixer/ch1" or "mixer/ch9-10".
+export function channelPortRef(index) {
+  const port = DEVICE_TYPES.mixer.ports.find((p) => p.role === "channel-input" && p.channel === index);
+  return port ? portRef("mixer", port.id) : null;
+}
 
 export function splitRef(ref) {
   const i = ref.indexOf("/");
@@ -260,7 +282,7 @@ export function analyzeRig(rig, channels = [], sources = {}) {
     const ref = portRef(mixer.id, port.id);
     const cable = byTo.get(ref);
     const ch = channels[port.channel] || {};
-    channelInfo[port.channel] = analyzeChannelInput(rig, cable, ch, sources);
+    channelInfo[port.channel] = analyzeChannelInput(rig, cable, ch, sources, port);
   }
 
   const endpoints = [];
@@ -277,7 +299,7 @@ export function analyzeRig(rig, channels = [], sources = {}) {
   return { channels: channelInfo, endpoints, buses };
 }
 
-function analyzeChannelInput(rig, cable, ch, sources) {
+function analyzeChannelInput(rig, cable, ch, sources, port) {
   if (!cable) return { connected: false, signal: false, status: "empty", messages: [] };
   const from = getPort(rig, cable.from);
   const plug = plugAtInput(rig, cable);
@@ -288,7 +310,8 @@ function analyzeChannelInput(rig, cable, ch, sources) {
     sourceDeviceId: from.device.id,
     sourceId: from.device.sourceId || null,
     path,
-    padDb: path === "line" ? LINE_PAD_DB : 0,
+    stereo: !!port.stereo,
+    padDb: path === "line" && port.pad !== false ? LINE_PAD_DB : 0,
     level: from.level,
     cable: cable.cable,
     signal: true,

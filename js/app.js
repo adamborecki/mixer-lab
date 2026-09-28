@@ -3,6 +3,7 @@
 // student presses Start Audio.
 
 import * as manifest from "../audio/source-manifest.js";
+import { channelPortRef } from "./connection-model.js";
 import { AudioEngine } from "./audio-engine.js";
 import { DEFAULT_SKIN, SKINS } from "./mixer-models.js";
 import { MixerStore, computeMix } from "./mixer-state.js";
@@ -13,7 +14,7 @@ import { MixerView } from "./ui/mixer-view.js";
 import { PatchView } from "./ui/patch-view.js";
 import { ScenarioView } from "./ui/scenario-view.js";
 
-const M = { STEM_SET: manifest.STEM_SET, STEMS: manifest.STEMS, SOURCES_BY_ID: manifest.SOURCES_BY_ID };
+const M = { STEM_SET: manifest.STEM_SET, STEMS: manifest.STEMS, SOURCES_BY_ID: manifest.SOURCES_BY_ID, LOOP_ASSETS: manifest.LOOP_ASSETS };
 const $ = (sel) => document.querySelector(sel);
 
 const store = new MixerStore();
@@ -47,7 +48,7 @@ const mixerView = new MixerView($("#mixer"), {
   store,
   skin,
   manifest: M,
-  onPatchChannel: (i) => patchView.openPort(`mixer/ch${i + 1}`),
+  onPatchChannel: (i) => patchView.openPort(channelPortRef(i)),
 });
 
 const scenarioView = new ScenarioView($("#scenario"), {
@@ -147,6 +148,7 @@ engine.on((evt) => {
     ready = true;
     showLoadErrors(evt.errors);
   }
+  if (evt.type === "load-errors") showLoadErrors(evt.errors);
   if (evt.type === "buffering") {
     buffering = evt.on;
   }

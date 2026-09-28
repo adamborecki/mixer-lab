@@ -4,7 +4,14 @@
 
 import { analyzeRig, checkConnection, getPort, splitRef } from "./connection-model.js";
 
-export const CHANNEL_COUNT = 8;
+// Channel strips, in order. A `stereo` strip is ONE strip (one gain, one level,
+// one set of sends) carrying a linked L/R pair — not two mono channels. Skins
+// decide how to draw it; state and engine treat it as a single channel.
+export const CHANNEL_LAYOUT = [
+  ...Array.from({ length: 8 }, (_, i) => ({ label: String(i + 1) })),
+  { label: "9/10", stereo: true },
+];
+export const CHANNEL_COUNT = CHANNEL_LAYOUT.length;
 export const GAIN_MIN_DB = 0;
 export const GAIN_MAX_DB = 60;
 // Aux/monitor buses (all pre-fader in V1). Each needs a master in state, a
@@ -104,12 +111,15 @@ export function clamp(v, lo, hi) {
 // ---------- state shape ----------
 
 export function createChannel(index) {
+  const layout = CHANNEL_LAYOUT[index];
   return {
     index,
+    label: layout.label, // what the strip is called on the mixer ("3", "9/10")
+    stereo: !!layout.stereo,
     gainDb: GAIN_MIN_DB,
     phantom: false,
     enabled: true, // Skin A shows this as MUTE (lit = false); Skin B as ON (lit = true)
-    pan: 0,
+    pan: 0, // mono strips only; a stereo strip keeps its left and right sides where they are
     level: 0, // fader / level knob position, 0…1
     auxSends: Object.fromEntries(BUSES.map((b) => [b, 0])), // send knob positions, 0…1 (pre-fader)
     pfl: false,
@@ -131,6 +141,14 @@ export const cloneState = (s) => structuredClone(s);
 
 // ---------- computed signal levels ----------
 
+// Peak (dBFS) a source delivers to the mixer: a stem after the mono fold-down,
+// or a stereo source's own measured peak.
+export function sourcePeakDb(source, stems) {
+  if (!source) return null;
+  if (source.stem) return stems[source.stem] ? stems[source.stem].monoPeakDb : null;
+  return typeof source.peakDb === "number" ? source.peakDb : null;
+}
+
 // Everything a scenario or hint needs, computed from state + manifest (not
 // from live meters, which fluctuate with the music). dB values are peak
 // estimates in dBFS.
@@ -143,14 +161,15 @@ export function computeMix(state, sourcesById, stems) {
   const channels = state.channels.map((ch, i) => {
     const input = rig.channels[i] || { connected: false, signal: false };
     const source = input.sourceId ? sourcesById[input.sourceId] : null;
-    const stem = source ? stems[source.stem] : null;
+    const peakDb = sourcePeakDb(source, stems);
     let inputPeakDb = -Infinity;
-    if (input.connected && input.signal && source && stem) {
-      inputPeakDb = stem.monoPeakDb + source.outputDb + (input.padDb || 0) + ch.gainDb + HEADROOM_DB;
+    if (input.connected && input.signal && source && peakDb !== null) {
+      inputPeakDb = peakDb + source.outputDb + (input.padDb || 0) + ch.gainDb + HEADROOM_DB;
     }
     const faderDb = levelToDb(ch.level);
-    const pg = panGains(ch.pan);
     const toMain = ch.enabled ? inputPeakDb + faderDb + mainDb : -Infinity;
+    // Mono strips are panned; a stereo strip passes left to Main L and right to Main R.
+    const pg = ch.stereo ? { L: 1, R: 1 } : panGains(ch.pan);
     const main = {
       L: toMain + gainToDb(pg.L),
       R: toMain + gainToDb(pg.R),
@@ -217,6 +236,7 @@ export class MixerStore {
   setChannel(index, key, value) {
     const ch = this.state.channels[index];
     if (!ch) return;
+    if (ch.stereo && (key === "phantom" || key === "pan")) return; // not on a stereo line strip
     const v = sanitizeChannelValue(key, value);
     if (v === undefined || ch[key] === v) return;
     ch[key] = v;
@@ -232,7 +252,7 @@ export class MixerStore {
 
   // Global phantom switch for skins that have one: sets every channel.
   setAllPhantom(on) {
-    for (const ch of this.state.channels) ch.phantom = !!on;
+    for (const ch of this.state.channels) if (!ch.stereo) ch.phantom = !!on; // stereo line inputs have no +48 V
     this.emit({ type: "channel", index: -1, key: "phantom" });
   }
 
