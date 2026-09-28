@@ -12,11 +12,15 @@ export function numberedScenarios(scenarios) {
 }
 
 export class Progress {
-  // `validIds`: ids that may be remembered (stale ids from old versions are dropped).
-  constructor(validIds, storage = defaultStorage()) {
+  // `validIds`: ids that may be marked solved. `statIds`: ids that get time and
+  // action counts (also Free play). Anything else from an old version is dropped.
+  constructor(validIds, storage = defaultStorage(), statIds = validIds) {
     this.valid = new Set(validIds);
+    this.statValid = new Set(statIds);
     this.storage = storage;
     this.solved = new Set();
+    this.stats = {}; // id -> { sec, actions }
+    this.dirty = false;
     this.load();
   }
 
@@ -24,6 +28,9 @@ export class Progress {
     try {
       const data = JSON.parse(this.storage?.getItem(PROGRESS_KEY) || "null");
       if (data && Array.isArray(data.solved)) for (const id of data.solved) if (this.valid.has(id)) this.solved.add(id);
+      for (const [id, v] of Object.entries(data?.stats || {})) {
+        if (this.statValid.has(id)) this.stats[id] = { sec: Math.max(0, Math.floor(Number(v?.sec)) || 0), actions: Math.max(0, Math.floor(Number(v?.actions)) || 0) };
+      }
     } catch (e) {
       /* unreadable or unavailable storage: start fresh */
     }
@@ -31,10 +38,29 @@ export class Progress {
 
   save() {
     try {
-      this.storage?.setItem(PROGRESS_KEY, JSON.stringify({ solved: [...this.solved] }));
+      this.storage?.setItem(PROGRESS_KEY, JSON.stringify({ solved: [...this.solved], stats: this.stats }));
+      this.dirty = false;
     } catch (e) {
       /* private mode etc.: progress just lasts until reload */
     }
+  }
+
+  // Active seconds and interaction counts per scenario. Saved by flush() (called
+  // periodically and when the page is hidden) rather than on every click.
+  record(id, { sec = 0, actions = 0 }) {
+    if (!this.statValid.has(id)) return;
+    const s = (this.stats[id] ||= { sec: 0, actions: 0 });
+    s.sec += sec;
+    s.actions += actions;
+    this.dirty = true;
+  }
+
+  statsFor(id) {
+    return this.stats[id] || { sec: 0, actions: 0 };
+  }
+
+  flush() {
+    if (this.dirty) this.save();
   }
 
   has(id) {
@@ -51,6 +77,8 @@ export class Progress {
 
   clear() {
     this.solved.clear();
+    this.stats = {};
+    this.dirty = false;
     try {
       this.storage?.removeItem(PROGRESS_KEY);
     } catch (e) {

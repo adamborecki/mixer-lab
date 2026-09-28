@@ -12,8 +12,9 @@ const memory = (init = {}) => {
 const ids = numberedScenarios(SCENARIOS).map((s) => s.id);
 const URL_ = "https://example.edu/mixer-lab/";
 const NOW = new Date("2026-10-01T12:00:00.000Z");
+const STATS = { [ids[0]]: { sec: 252, actions: 37 }, [ids[1]]: { sec: 65, actions: 9 }, "free-play": { sec: 3, actions: 1 } };
 const build = (over = {}, solved = []) =>
-  buildSubmission({ name: "Sam Student", reflection: "I raised the send, because the wedge was quiet.", summary: summarize(SCENARIOS, (id) => solved.includes(id)), url: URL_, now: NOW, ...over });
+  buildSubmission({ name: "Sam Student", reflection: "I raised the send, because the wedge was quiet.", summary: summarize(SCENARIOS, (id) => solved.includes(id), (id) => STATS[id] || { sec: 0, actions: 0 }), url: URL_, now: NOW, ...over });
 
 describe("scenario list", () => {
   it("counts every numbered scenario, in order, and never Free play", () => {
@@ -27,7 +28,7 @@ describe("scenario list", () => {
     const extra = { id: "new-one", number: 99, title: "Brand new", conditions: [], hints: [] };
     const s = summarize([...SCENARIOS, extra], (id) => id === "new-one");
     assert.equal(s.total, ids.length + 1);
-    assert.deepEqual(s.rows.at(-1), { id: "new-one", number: 99, title: "Brand new", done: true });
+    assert.deepEqual(s.rows.at(-1), { id: "new-one", number: 99, title: "Brand new", done: true, sec: 0, actions: 0 });
     assert.equal(s.done, 1);
   });
 });
@@ -38,7 +39,7 @@ describe("progress persistence", () => {
     const a = new Progress(ids, store);
     assert.equal(a.add(ids[0]), true);
     assert.equal(a.add(ids[0]), false);
-    assert.deepEqual(JSON.parse(store.data[PROGRESS_KEY]), { solved: [ids[0]] });
+    assert.deepEqual(JSON.parse(store.data[PROGRESS_KEY]), { solved: [ids[0]], stats: {} });
     const b = new Progress(ids, store); // "refresh"
     assert.equal(b.has(ids[0]), true);
     assert.equal(b.has(ids[1]), false);
@@ -71,6 +72,25 @@ describe("progress persistence", () => {
   });
 });
 
+describe("activity stats", () => {
+  it("records time and actions per scenario, persists them on flush, and drops unknown ids", () => {
+    const store = memory();
+    const p = new Progress(ids, store, [...ids, "free-play"]);
+    p.record(ids[0], { sec: 5, actions: 2 });
+    p.record(ids[0], { sec: 1 });
+    p.record("free-play", { actions: 1 });
+    p.record("nope", { sec: 9 });
+    assert.equal(store.data[PROGRESS_KEY], undefined, "not written until flushed");
+    p.flush();
+    const q = new Progress(ids, store, [...ids, "free-play"]);
+    assert.deepEqual(q.statsFor(ids[0]), { sec: 6, actions: 2 });
+    assert.deepEqual(q.statsFor("free-play"), { sec: 0, actions: 1 });
+    assert.deepEqual(q.statsFor("nope"), { sec: 0, actions: 0 });
+    q.clear();
+    assert.deepEqual(q.statsFor(ids[0]), { sec: 0, actions: 0 });
+  });
+});
+
 describe("submission text", () => {
   it("has the name, count, every scenario, reflection, URL and a check code", () => {
     const text = build({}, [ids[0]]);
@@ -78,11 +98,15 @@ describe("submission text", () => {
     assert.ok(text.includes(`Completed: 1 / ${ids.length}`));
     assert.ok(text.includes("Reflection: I raised the send, because the wedge was quiet."));
     assert.ok(text.includes(`Mixer Lab: ${URL_}`));
+    assert.ok(text.includes("— 4m 12s, 37 actions"));
+    assert.ok(text.includes("— 1m 05s, 9 actions"));
+    assert.ok(text.includes("Free play: 0m 03s, 1 actions"));
+    assert.ok(text.includes("Total: 5m 20s, 47 actions"));
     assert.match(text, /Check code: [0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{2}$/);
     const first = SCENARIOS.find((s) => s.id === ids[0]);
     assert.ok(text.includes(`[x] ${first.number}. ${shortTitle(first)}`));
     for (const id of ids.slice(1)) assert.ok(text.includes(`[ ] ${SCENARIOS.find((s) => s.id === id).number}.`));
-    assert.ok(!text.includes("Free play"));
+    assert.ok(!/^\[.\] 0\./m.test(text), "Free play is not a numbered row");
   });
 
   it("allows a partial (even empty) submission", () => {
@@ -125,6 +149,9 @@ describe("check code", () => {
     assert.equal(verifySubmission(text.replace(`https://example.edu`, "https://other.edu")).ok, false);
     assert.equal(verifySubmission(build({}, []).replace("[ ]", "[x]")).ok, false);
     assert.equal(verifySubmission(build({}, []).replace(/Completed: \d+/, "Completed: 3")).ok, false);
+    assert.equal(verifySubmission(text.replace("4m 12s", "0m 12s")).ok, false);
+    assert.equal(verifySubmission(text.replace("37 actions", "3 actions")).ok, false);
+    assert.equal(verifySubmission(text.replace(/Total: .*/, "Total: 0m 00s, 0 actions")).ok, false);
     assert.equal(verifySubmission(text.replace(/Check code: ....-/, "Check code: 0000-")).ok, false);
   });
 

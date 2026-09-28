@@ -20,7 +20,7 @@ const M = { STEM_SET: manifest.STEM_SET, STEMS: manifest.STEMS, SOURCES_BY_ID: m
 const $ = (sel) => document.querySelector(sel);
 
 const store = new MixerStore();
-const progress = new Progress(numberedScenarios(SCENARIOS).map((s) => s.id));
+const progress = new Progress(numberedScenarios(SCENARIOS).map((s) => s.id), undefined, SCENARIOS.map((s) => s.id));
 const engine = new AudioEngine(store, M);
 
 let skin = SKINS[readPref("mixer-lab-skin")] || SKINS[DEFAULT_SKIN];
@@ -86,6 +86,7 @@ renderFlow($("#flow"), skin);
 
 store.subscribe((state, change) => {
   pending.any = true;
+  if (change.type !== "replace") countAction(change);
   if (change.type === "listen") current.session.listened.add(state.listen);
   if (change.type === "rig" || change.type === "replace" || (change.type === "channel" && change.key === "phantom")) pending.patch = true;
 });
@@ -263,6 +264,34 @@ document.addEventListener("click", (e) => {
   if (e.target.closest("[data-open-credits]")) creditsDialog.showModal();
   else if (e.target.closest("[data-close-credits]") || e.target === creditsDialog) creditsDialog.close();
 });
+
+// ---------- activity (time and actions per scenario, for the Canvas report) ----------
+
+// Active time only: a second counts when the page is visible and the student
+// touched something in the last minute. A drag counts as one action, not one per pixel.
+const IDLE_MS = 60000;
+let lastActivity = performance.now();
+let lastAction = { key: "", at: 0 };
+for (const type of ["pointerdown", "keydown", "input"]) document.addEventListener(type, () => (lastActivity = performance.now()), true);
+
+function countAction(change) {
+  const key = `${change.type}:${change.index ?? change.bus ?? ""}:${change.key ?? ""}`;
+  const now = performance.now();
+  lastActivity = now;
+  if (key === lastAction.key && now - lastAction.at < 600) {
+    lastAction.at = now;
+    return;
+  }
+  lastAction = { key, at: now };
+  progress.record(current.def.id, { actions: 1 });
+}
+
+setInterval(() => {
+  if (!document.hidden && performance.now() - lastActivity < IDLE_MS) progress.record(current.def.id, { sec: 1 });
+}, 1000);
+setInterval(() => progress.flush(), 5000);
+document.addEventListener("visibilitychange", () => progress.flush());
+window.addEventListener("pagehide", () => progress.flush());
 
 // ---------- Canvas submission ----------
 

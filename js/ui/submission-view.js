@@ -2,7 +2,7 @@
 // and a Copy button. Report text comes from js/submission.js; nothing is sent
 // anywhere and the name and reflection are never stored.
 
-import { MAX_NAME, MAX_REFLECTION, REFLECTION_PROMPT, buildSubmission, summarize, validate } from "../submission.js";
+import { MAX_NAME, MAX_REFLECTION, REFLECTION_PROMPT, buildSubmission, duration, summarize, validate } from "../submission.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
@@ -17,6 +17,7 @@ export class SubmissionView {
       <header class="patch-head"><h2 id="canvas-title">Canvas Submission</h2>
         <button type="button" class="patch-x" data-close-canvas aria-label="Close">✕</button></header>
       <p class="canvas-count" aria-live="polite"></p>
+      <p class="canvas-note">Time counts only while this page is open and you're actively working. "Actions" are changes you make to the mixer or patch.</p>
       <ul class="canvas-list"></ul>
       <p class="canvas-note">Partial submissions are fine: hand in what you've solved so far. Your progress is saved in this browser only, so it survives a refresh but not clearing site data or switching browsers or devices.
         <button type="button" class="linkish" data-canvas-reset>Clear my progress</button></p>
@@ -52,14 +53,14 @@ export class SubmissionView {
   }
 
   summary() {
-    return summarize(this.scenarios, (id) => this.progress.has(id));
+    return summarize(this.scenarios, (id) => this.progress.has(id), (id) => this.progress.statsFor(id));
   }
 
   renderList() {
     const s = this.summary();
     this.$(".canvas-count").textContent = `Completed: ${s.done} / ${s.total}`;
     this.$(".canvas-list").innerHTML = s.rows
-      .map((r) => `<li class="${r.done ? "done" : ""}"><span class="canvas-mark" aria-hidden="true">${r.done ? "✓" : ""}</span>${r.number}. ${esc(r.title)}<span class="visually-hidden">${r.done ? " — solved" : " — not solved yet"}</span></li>`)
+      .map((r) => `<li class="${r.done ? "done" : ""}"><span class="canvas-mark" aria-hidden="true">${r.done ? "✓" : ""}</span>${r.number}. ${esc(r.title)}<span class="visually-hidden">${r.done ? " — solved" : " — not solved yet"}</span><small class="canvas-stat">${duration(r.sec)} · ${r.actions} actions</small></li>`)
       .join("");
   }
 

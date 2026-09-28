@@ -2244,3 +2244,9 @@ dialog::backdrop {
   min-height: 52px;
   font-size: 1.05rem;
 }
+.canvas-stat {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

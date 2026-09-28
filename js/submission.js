@@ -16,11 +16,30 @@ const SALT = "mixer-lab/mus248/v1";
 
 const clean = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
 
-// Rows for the dialog and the report: every numbered scenario and whether it is solved.
-export function summarize(scenarios, isSolved) {
-  const rows = numberedScenarios(scenarios).map((s) => ({ id: s.id, number: s.number, title: shortTitle(s), done: !!isSolved(s.id) }));
-  return { rows, done: rows.filter((r) => r.done).length, total: rows.length };
+const NO_STATS = () => ({ sec: 0, actions: 0 });
+
+// Rows for the dialog and the report: every numbered scenario, whether it is
+// solved, and the active time and interactions spent on it. Free play's stats
+// are reported separately.
+export function summarize(scenarios, isSolved, statsFor = NO_STATS) {
+  const rows = numberedScenarios(scenarios).map((s) => {
+    const st = statsFor(s.id);
+    return { id: s.id, number: s.number, title: shortTitle(s), done: !!isSolved(s.id), sec: st.sec, actions: st.actions };
+  });
+  const free = scenarios.find((s) => s.number === 0);
+  const fs = free ? statsFor(free.id) : NO_STATS();
+  return {
+    rows,
+    done: rows.filter((r) => r.done).length,
+    total: rows.length,
+    free: { sec: fs.sec, actions: fs.actions },
+    sec: rows.reduce((n, r) => n + r.sec, 0) + fs.sec,
+    actions: rows.reduce((n, r) => n + r.actions, 0) + fs.actions,
+  };
 }
+
+export const duration = (sec) => `${Math.floor(sec / 60)}m ${String(sec % 60).padStart(2, "0")}s`;
+const statText = (o) => `${duration(o.sec)}, ${o.actions} actions`;
 
 export function validate({ name, reflection }) {
   const errors = {};
@@ -29,7 +48,9 @@ export function validate({ name, reflection }) {
   return errors;
 }
 
-const rowLine = (r) => `[${r.done ? "x" : " "}] ${r.number}. ${r.title}`;
+const rowLine = (r) => `[${r.done ? "x" : " "}] ${r.number}. ${r.title} — ${statText(r)}`;
+const freeLine = (f) => `Free play: ${statText(f)}`;
+const totalLine = (t) => `Total: ${statText(t)}`;
 
 // 53-bit string hash (cyrb53), shown as four groups of hex.
 function hash53(str) {
@@ -47,14 +68,14 @@ function hash53(str) {
 }
 
 // What the code covers: the exact printed values, in a fixed order.
-export function checkCode({ name, generated, rows, reflection, url }) {
-  const body = [SALT, clean(name), generated, ...rows.map(rowLine), clean(reflection), url].join("\n");
+export function checkCode({ name, generated, rows, free, reflection, url }) {
+  const body = [SALT, clean(name), generated, ...rows.map(rowLine), freeLine(free), clean(reflection), url].join("\n");
   return hash53(body);
 }
 
 export function buildSubmission({ name, reflection, summary, url, now = new Date() }) {
   const generated = now.toISOString().replace(/\.\d+Z$/, "Z");
-  const fields = { name: clean(name), reflection: clean(reflection), generated, rows: summary.rows, url };
+  const fields = { name: clean(name), reflection: clean(reflection), generated, rows: summary.rows, free: summary.free, url };
   return [
     HEADER,
     `Name: ${fields.name}`,
@@ -63,6 +84,8 @@ export function buildSubmission({ name, reflection, summary, url, now = new Date
     "",
     "Scenarios:",
     ...summary.rows.map(rowLine),
+    freeLine(summary.free),
+    totalLine(summary),
     "",
     `Reflection: ${fields.reflection}`,
     "",
@@ -76,17 +99,26 @@ export function verifySubmission(text) {
   const lines = String(text).replace(/\r/g, "").split("\n");
   const get = (prefix) => lines.find((l) => l.startsWith(prefix))?.slice(prefix.length);
   const rows = lines
-    .map((l) => /^\[( |x)\] (\d+)\. (.*)$/.exec(l))
+    .map((l) => /^\[( |x)\] (\d+)\. (.*) — (\d+)m (\d\d)s, (\d+) actions$/.exec(l))
     .filter(Boolean)
-    .map((m) => ({ done: m[1] === "x", number: Number(m[2]), title: m[3] }));
+    .map((m) => ({ done: m[1] === "x", number: Number(m[2]), title: m[3], sec: Number(m[4]) * 60 + Number(m[5]), actions: Number(m[6]) }));
+  const free = parseStat(get("Free play: "));
+  const total = get("Total: ");
   const name = get("Name: ");
   const generated = get("Generated: ");
   const reflection = get("Reflection: ");
   const url = get("Mixer Lab: ");
   const code = get("Check code: ");
-  if ([name, generated, reflection, url, code].some((v) => v === undefined) || lines[0] !== HEADER) return { ok: false, reason: "not a Mixer Lab submission" };
+  if (!free || [name, generated, reflection, url, code, total].some((v) => v === undefined) || lines[0] !== HEADER) return { ok: false, reason: "not a Mixer Lab submission" };
   const done = rows.filter((r) => r.done).length;
   if (get("Completed: ") !== `${done} / ${rows.length}`) return { ok: false, reason: "completed count does not match the scenario list" };
-  if (checkCode({ name, generated, rows, reflection, url }) !== code.trim()) return { ok: false, reason: "check code does not match; the text was edited" };
+  const sum = { sec: free.sec + rows.reduce((n, r) => n + r.sec, 0), actions: free.actions + rows.reduce((n, r) => n + r.actions, 0) };
+  if (total !== statText(sum)) return { ok: false, reason: "total does not match the scenario times" };
+  if (checkCode({ name, generated, rows, free, reflection, url }) !== code.trim()) return { ok: false, reason: "check code does not match; the text was edited" };
   return { ok: true, name, done, total: rows.length };
+}
+
+function parseStat(text) {
+  const m = /^(\d+)m (\d\d)s, (\d+) actions$/.exec(text || "");
+  return m ? { sec: Number(m[1]) * 60 + Number(m[2]), actions: Number(m[3]) } : null;
 }
