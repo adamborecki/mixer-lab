@@ -41,7 +41,7 @@ In the scenarios and Free play, Aux 1 feeds the lead singer's powered wedge and 
 
 ## V1 scope
 
-- Seven band sources in FOH order (drums, bass, guitars, keys, trumpets, backing vocals, lead vocal) plus a spare eighth input and stereo input 9/10 (Free play: preshow music from a laptop, patched by the student).
+- Seven band sources in FOH order (drums, bass, guitars, keys, trumpets, backing vocals, lead vocal) plus a spare eighth input and stereo input 9/10 (Free play: preshow music from a laptop, patched and muted at the start).
 - Dynamic mic, condenser mic (needs +48 V), DI box and line-level source, with XLR, 1/4" TRS/TS, RCA and 3.5 mm connectors kept separate from signal levels.
 - Per-channel gain, level, pan, phantom power, enabled (mute/on) and PFL; two pre-fader sends (Aux 1 and Aux 2); Main, Aux 1 and Aux 2 masters; headphone level.
 - Powered speakers, passive speakers and a 2-channel power amp. Sound is heard only through a valid chain.

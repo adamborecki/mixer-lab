@@ -177,6 +177,8 @@ export const SCENARIOS = [
         aux2: { drums: -2, bass: 0, guitars: -6, keys: -8, trumpets: -12, "backing-vocals": -8, "lead-vocal": -3 },
       },
       listen: "main",
+      patchAlso: ["preshow"], // the preshow laptop is patched to stereo input 9/10 ...
+      muted: ["preshow"], // ... but that channel starts muted
     },
     conditions: [],
     hints: [],
@@ -205,7 +207,7 @@ export function buildScenarioState(def, sourcesById = SOURCES_BY_ID) {
   const addCable = (c) => state.rig.cables.push({ id: `c${++n}`, ...c });
   if (setup.patch === "reference") {
     for (const s of sources) {
-      if (s.reference === false) continue; // available on stage, but the student patches it
+      if (s.reference === false && !(setup.patchAlso || []).includes(s.id)) continue; // available on stage, but the student patches it
       addCable({ from: `${sourceDeviceId(s.id)}/out`, to: channelPortRef(s.order - 1), cable: defaultCableFor(s) });
     }
   }
@@ -223,6 +225,10 @@ export function buildScenarioState(def, sourcesById = SOURCES_BY_ID) {
         ch.auxSends[bus] = dbToLevel(s.id in sends ? sends[s.id] : -Infinity);
       }
     }
+  }
+  for (const id of setup.muted || []) {
+    const s = SOURCES_BY_ID[id];
+    if (s) state.channels[s.order - 1].enabled = false;
   }
   // Masters default to unity; setup.masters gives exceptions in dB.
   for (const [bus, db] of Object.entries(setup.masters || {})) state[bus].level = dbToLevel(db);

@@ -12,6 +12,7 @@ const IN = "mixer/ch9-10";
 const preshow = SOURCES_BY_ID.preshow;
 const freePlay = () => buildScenarioState(SCENARIOS_BY_ID["free-play"]);
 const patchPreshow = (state) => {
+  if (state.rig.cables.some((c) => c.from === LAPTOP)) return state;
   state.rig.cables.push({ id: "pre", from: LAPTOP, to: IN, cable: "mini-dual-ts" });
   return state;
 };
@@ -42,6 +43,7 @@ describe("stereo input model", () => {
 
   it("only the breakout cable joins the laptop to 9/10", () => {
     const rig = freePlay().rig;
+    rig.cables = rig.cables.filter((c) => c.from !== LAPTOP); // Free play ships it patched
     assert.equal(checkConnection(rig, LAPTOP, IN, "mini-dual-ts").ok, true);
     for (const cable of Object.keys(CABLES).filter((c) => c !== "mini-dual-ts")) assert.equal(checkConnection(rig, LAPTOP, IN, cable).ok, false, cable);
     assert.equal(defaultCableFor(preshow), "mini-dual-ts");
@@ -68,13 +70,17 @@ describe("stereo input model", () => {
 });
 
 describe("stereo channel in the mix", () => {
-  it("Free play has the preshow laptop on stage, unpatched, and the band unchanged", () => {
+  it("Free play starts with the preshow laptop patched to 9/10 on a muted channel, band unchanged", () => {
     const s = freePlay();
     assert.ok(s.rig.devices.some((d) => d.id === sourceDeviceId("preshow") && d.type === "stereo-laptop"));
-    assert.equal(s.rig.cables.some((c) => c.from === LAPTOP), false);
+    const cable = s.rig.cables.find((c) => c.from === LAPTOP);
+    assert.equal(cable.to, IN);
+    assert.equal(cable.cable, "mini-dual-ts");
+    assert.equal(s.channels[8].enabled, false);
     const mix = computeMix(s, SOURCES_BY_ID, STEMS);
-    assert.equal(mix.channels[8].input.connected, false);
-    assert.equal(mix.channels[8].inputPeakDb, -Infinity);
+    assert.equal(mix.channels[8].input.connected, true);
+    assert.equal(mix.channels[8].input.status, "ok");
+    for (let i = 0; i < 8; i++) assert.equal(s.channels[i].enabled, true);
     for (let i = 0; i < 7; i++) assert.equal(mix.channels[i].input.connected, true);
   });
 
@@ -95,6 +101,7 @@ describe("stereo channel in the mix", () => {
 
   it("left goes to Main L and right to Main R at the same level (no pan law)", () => {
     const s = patchPreshow(freePlay());
+    s.channels[8].enabled = true; // Free play starts it muted
     const c = computeMix(s, SOURCES_BY_ID, STEMS).channels[8];
     assert.equal(c.mainDb.L, c.mainDb.R);
     assert.equal(c.mainDb.L, c.inputPeakDb + levelToDb(s.channels[8].level) + levelToDb(s.main.level));
