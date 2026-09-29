@@ -17,6 +17,8 @@ import {
   plugFitsJack,
 } from "../connection-model.js";
 
+import { CONNECTOR_GUIDE, deviceIconName, icon, jackIconName, levelIconName, plugIconName } from "./icons.js";
+
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 const CABLE_HUES = [195, 145, 45, 330, 265, 20, 170, 290];
@@ -66,7 +68,9 @@ export class PatchView {
     const rig = this.store.state.rig;
     const p = getPort(rig, ref);
     const connected = !!cableAt(rig, ref);
+    const jackIcon = jackIconName(p.jack, p.dir);
     return `<button type="button" class="port-btn ${connected ? "is-connected" : ""} ${extraClass}" data-port="${esc(ref)}">
+      ${jackIcon ? `<span class="port-ico">${icon(jackIcon, { size: 30 })}</span>` : ""}
       <span class="port-name">${esc(p.name)} <small>${esc(JACKS[p.jack].name)} · ${esc(LEVEL_SHORT[p.level] || p.level)}</small></span>
       <span class="port-state">${this.cableChip(ref, dir)}</span>
     </button>`;
@@ -90,7 +94,7 @@ export class PatchView {
       const status = !input ? "idle" : input.status === "ok" ? "ok" : input.status === "danger" ? "bad" : "warn";
       const msgs = input ? input.messages : [];
       const tags = [
-        `<span class="tag tag-level" data-level="${src.signalLevel}">${SIGNAL_LEVELS[src.signalLevel].name}</span>`,
+        `<span class="tag tag-level" data-level="${src.signalLevel}">${icon(levelIconName(src.signalLevel), { size: 22, cls: "tag-ico" })}${SIGNAL_LEVELS[src.signalLevel].name}</span>`,
         `<span class="tag">${esc(PLUGS[src.connector] ? PLUGS[src.connector].name : src.connector)} out</span>`,
         src.stereo ? `<span class="tag tag-stereo">Stereo L/R</span>` : "",
         src.phantom === "required" ? `<span class="tag tag-phantom">Needs +48 V</span>` : "",
@@ -98,6 +102,7 @@ export class PatchView {
       return `<li class="source-card status-${status}">
         <div class="source-top">
           <span class="source-order" aria-label="Input list number">${esc(state.channels[src.order - 1].label)}</span>
+          <span class="dev-ico">${icon(deviceIconName(d), { size: 40 })}</span>
           <div class="source-names"><strong>${esc(src.name)}</strong><span>${esc(src.device)}</span></div>
           <span class="status-pill status-${status}">${status === "ok" ? "✓ Signal" : status === "idle" ? "Unpatched" : status === "bad" ? "✕ Danger" : "! Check"}</span>
         </div>
@@ -109,8 +114,10 @@ export class PatchView {
     });
     const empty = mix.channels.filter((c) => !c.input.connected).map((c) => state.channels[c.index].label);
     this.sourcesRoot.innerHTML = `
+      <p class="role-line">${icon("role-source", { size: 26 })}<span>Sources: the signal starts here and goes out to the mixer.</span></p>
       <ol class="source-list">${cards.join("")}</ol>
-      <p class="panel-foot">Free mixer inputs: ${empty.length ? empty.map((n) => `Ch ${n}`).join(", ") : "none"}. Ch 1–8 are XLR/¼″ combo jacks: XLR → mic preamp (+48 V available), ¼″ → line input (padded). Ch 9/10 is one stereo line input (left + right ¼″ pair, no phantom power).</p>`;
+      <p class="panel-foot">Free mixer inputs: ${empty.length ? empty.map((n) => `Ch ${n}`).join(", ") : "none"}. Ch 1–8 are XLR/¼″ combo jacks: XLR → mic preamp (+48 V available), ¼″ → line input (padded). Ch 9/10 is one stereo line input (left + right ¼″ pair, no phantom power).</p>
+      ${connectorGuide()}`;
   }
 
   renderOutputs(mix) {
@@ -137,10 +144,17 @@ export class PatchView {
     const ampHtml = amps
       .map(
         (d) => `<li class="device-card">
-        <div class="device-top"><strong>${esc(d.label)}</strong><span class="amp-where">Line in → speaker level out</span></div>
-        <div class="port-grid">${listPorts(rig, d)
-          .map((p) => this.portButton(p.ref, p.dir))
-          .join("")}</div>
+        <div class="device-top"><span class="dev-ico">${icon(deviceIconName(d), { size: 48 })}</span><div class="source-names"><strong>${esc(d.label)}</strong><span class="amp-where">Line level in → speaker level out</span></div></div>
+        <div class="amp-sides">
+          <div class="amp-side amp-in"><p class="amp-side-title">${icon("level-line", { size: 26 })}<span>Line level IN <small>from the mixer</small></span></p>${listPorts(rig, d)
+            .filter((p) => p.dir === "in")
+            .map((p) => this.portButton(p.ref, p.dir))
+            .join("")}</div>
+          <div class="amp-side amp-out"><p class="amp-side-title">${icon("level-speaker", { size: 26 })}<span>Speaker level OUT <small>to passive speakers only</small></span></p>${listPorts(rig, d)
+            .filter((p) => p.dir === "out")
+            .map((p) => this.portButton(p.ref, p.dir))
+            .join("")}</div>
+        </div>
       </li>`,
       )
       .join("");
@@ -156,6 +170,7 @@ export class PatchView {
         const amp = type.amp === "internal" ? "Amp: built in (powered)" : "Amp: none inside (passive)";
         return `<li class="device-card status-${status}">
           <div class="device-top">
+            <span class="dev-ico">${icon(deviceIconName(d), { size: 44 })}</span>
             <div class="source-names"><strong>${esc(d.label)}</strong><span>${amp} · ${zoneName[d.zone] || ""}</span></div>
             <span class="status-pill status-${status}">${statusText}</span>
           </div>
@@ -168,10 +183,10 @@ export class PatchView {
       .join("");
 
     this.outputsRoot.innerHTML = `
-      <h3 class="group-title">Mixer outputs</h3>
+      <h3 class="group-title">${icon("role-source", { size: 22 })}Mixer outputs <small>line level</small></h3>
       <ul class="out-list">${outRows}</ul>
       ${amps.length ? `<h3 class="group-title">Amplifier</h3><ul class="device-list">${ampHtml}</ul>` : ""}
-      <h3 class="group-title">Speakers — where is the amplifier?</h3>
+      <h3 class="group-title">${icon("role-destination", { size: 22 })}Speakers — where is the amplifier?</h3>
       <ul class="device-list">${spkHtml}</ul>`;
   }
 }
@@ -217,7 +232,7 @@ class PatchDialog {
     return `<header class="patch-head">
       <p class="patch-kicker">${step}</p>
       <h2 id="patch-title">${esc(portLabel(this.rig, this.ref))}</h2>
-      <p class="patch-sub">${p.dir === "out" ? "Output" : "Input"} · ${esc(JACKS[p.jack].name)} jack · ${esc(lvl ? lvl.name : LEVEL_SHORT[p.level] || p.level)}</p>
+      <p class="patch-sub">${icon(jackIconName(p.jack, p.dir), { size: 28 })}${p.dir === "out" ? "Output" : "Input"} · ${esc(JACKS[p.jack].name)} jack · ${esc(lvl ? lvl.name : LEVEL_SHORT[p.level] || p.level)}</p>
       <button type="button" class="patch-x" data-act="close" aria-label="Close">✕</button>
     </header>`;
   }
@@ -243,8 +258,12 @@ class PatchDialog {
     const card = (c) => {
       const ends = cableEndFor(c.id, p.jack);
       const plugs = ends ? `${PLUGS[ends.near].name} ⟷ ${PLUGS[ends.far].name}` : `${PLUGS[c.ends[0]].name} ⟷ ${PLUGS[c.ends[1]].name}`;
+      const near = ends ? ends.near : c.ends[0];
+      const far = ends ? ends.far : c.ends[1];
+      const farDir = p.dir === "out" ? "in" : "out";
+      const pair = `<span class="cable-art">${icon(plugIconName(near, p.dir), { size: 34 })}${icon(c.kind === "speaker" ? "cable-speaker" : "cable-signal", { size: 30 })}${icon(plugIconName(far, farDir), { size: 34 })}</span>`;
       return `<button type="button" class="cable-card" data-act="cable" data-cable="${c.id}">
-        <strong>${esc(c.name)}</strong><span class="cable-plugs">${esc(plugs)}</span><span class="cable-blurb">${esc(c.blurb)}</span>
+        ${pair}<strong>${esc(c.name)}</strong>${c.kind === "speaker" ? '<span class="cable-kind">Speaker cable: speaker level only</span>' : ""}<span class="cable-plugs">${esc(plugs)}</span><span class="cable-blurb">${esc(c.blurb)}</span>
       </button>`;
     };
     this.el.innerHTML = `<div class="patch-inner">
@@ -274,11 +293,12 @@ class PatchDialog {
         const busy = cableAt(rig, q.ref);
         const why = check.ok ? "" : busy ? `In use → ${portLabel(rig, busy.from === q.ref ? busy.to : busy.from)}` : check.reason;
         const lvl = SIGNAL_LEVELS[q.level];
+        const ji = jackIconName(q.jack, q.dir);
         return `<button type="button" class="target-btn" data-act="target" data-ref="${esc(q.ref)}" ${check.ok ? "" : "disabled"}>
-          <span>${esc(q.name)}</span><small>${esc(lvl ? lvl.name : LEVEL_SHORT[q.level] || "")}${why ? ` · ${esc(why)}` : ""}</small>
+          ${ji ? `<span class="port-ico">${icon(ji, { size: 26 })}</span>` : ""}<span>${esc(q.name)}</span><small>${esc(lvl ? lvl.name : LEVEL_SHORT[q.level] || "")}${why ? ` · ${esc(why)}` : ""}</small>
         </button>`;
       });
-      groups.push(`<div class="target-group"><h3>${esc(d.label || DEVICE_TYPES[d.type].name)}</h3>${items.join("")}</div>`);
+      groups.push(`<div class="target-group"><h3>${icon(deviceIconName(d), { size: 26 })}${esc(d.label || DEVICE_TYPES[d.type].name)}</h3>${items.join("")}</div>`);
     }
     this.el.innerHTML = `<div class="patch-inner">
       ${this.header(`Step 2 of 2 · Plug in the ${PLUGS[ends.far].name} end`)}
@@ -306,4 +326,13 @@ class PatchDialog {
     this.el.close();
     this.view.toast("Unplugged.", "");
   }
+}
+
+// Collapsed reference of every connector in the lab. Pictures only: what fits what
+// is decided by the connection model.
+function connectorGuide() {
+  return `<details class="conn-guide"><summary>Connector guide</summary>
+    <ul>${CONNECTOR_GUIDE.map(([name, title, text]) => `<li>${icon(name, { size: 40 })}<span><strong>${esc(title)}</strong> ${esc(text)}</span></li>`).join("")}</ul>
+    <p class="conn-guide-note">${icon("cable-signal", { size: 26 })}<span>Signal cable: thin.</span>${icon("cable-speaker", { size: 26 })}<span>Speaker cable: heavy, double line.</span>${icon("cable-power", { size: 26 })}<span>Power cable: dashed, with prongs.</span></p>
+  </details>`;
 }

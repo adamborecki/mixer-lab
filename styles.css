@@ -2250,3 +2250,181 @@ dialog::backdrop {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* ---------- icons and gear pictures ---------- */
+
+.ico {
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
+  color: var(--text);
+}
+.ico .acc {
+  stroke: var(--accent);
+}
+.ico .badge {
+  fill: var(--bg-raised);
+  stroke: var(--warn);
+}
+.ico .ico-power path {
+  fill: var(--warn);
+}
+.ico .ico-amp {
+  stroke: var(--warn);
+}
+.dev-ico,
+.port-ico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--text-dim);
+}
+.dev-ico .ico {
+  color: var(--text);
+}
+.tag-ico {
+  margin: -4px 2px -4px -4px;
+}
+.role-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.6rem;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+.group-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.group-title small {
+  color: var(--text-dim);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.port-btn {
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.6rem;
+  align-items: center;
+}
+.port-btn .port-ico {
+  grid-row: span 2;
+}
+.port-btn .port-name,
+.port-btn .port-state {
+  grid-column: 2;
+}
+.amp-sides {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+.amp-side {
+  display: grid;
+  gap: 0.4rem;
+  align-content: start;
+  padding: 0.5rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+}
+.amp-out {
+  border-style: double;
+  border-width: 3px;
+  border-color: var(--line-strong);
+}
+.amp-side-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.amp-side-title small {
+  display: block;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-dim);
+}
+.cable-art {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+.cable-kind {
+  color: var(--warn);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.patch-sub .ico,
+.target-group h3 .ico {
+  margin-right: 0.4rem;
+}
+.target-btn {
+  align-items: center;
+}
+.conn-guide {
+  margin-top: 0.8rem;
+  font-size: 0.9rem;
+}
+.conn-guide summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+.conn-guide ul {
+  list-style: none;
+  margin: 0.6rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.conn-guide li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+.conn-guide-note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.5rem;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+.target-btn {
+  grid-template-columns: auto 1fr;
+  column-gap: 0.6rem;
+}
+.target-btn .port-ico {
+  grid-row: span 2;
+}
+.target-btn small {
+  grid-column: 2;
+}
+.target-btn > span:first-child:not(.port-ico) {
+  grid-column: 1 / -1;
+}
+.port-state {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+}
+.port-state .cable-dot {
+  align-self: center;
+}
+.port-state .port-empty {
+  grid-column: 1 / -1;
+}
+.port-state .port-cable {
+  grid-column: 2;
+}
+.conn-guide-note {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.6rem;
+}

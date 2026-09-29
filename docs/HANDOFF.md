@@ -24,6 +24,7 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 | `js/audio-engine.js` | Web Audio graph: channel strips, Main/Aux/PFL buses, speaker gating, listening, meters |
 | `js/app.js` | Wiring: store ↔ engine ↔ scenario checks ↔ views; session (listen history); Free play music mode; credits |
 | `js/progress.js`, `js/submission.js` | Solved-scenario tracking and per-scenario active time and action counts (localStorage) and the plain-text Canvas submission with its check code; pure, tested in `tests/submission.test.mjs`. `tools/verify-submission.mjs < file` re-checks a pasted submission |
+| `js/ui/icons.js` | Original SVG icon library (gear, plugs, jacks, signal and cable kinds) and the model → picture mapping (`deviceIconName`, `plugIconName`, `jackIconName`). Presentation only; tested in `tests/icons.test.mjs` |
 | `js/ui/*.js` | `submission-view` (Canvas Submission dialog), `mixer-view` (renders a skin), `patch-view` (Sources/Outputs + patch dialog), `scenario-view`, `listen-bar`, `controls` (knob/fader/fine sheet), `flow` (signal-flow explainer) |
 | `js/meters.js` | Meter drawing and ballistics (levels come from AnalyserNodes) |
 | `tests/*.test.mjs` | `routing`, `scenarios`, `skins` (node:test) |
@@ -90,6 +91,10 @@ Input 9/10 is **one** channel strip (`CHANNEL_LAYOUT[8]`, `stereo: true`, label 
 - **State rules:** phantom and pan are ignored on a stereo strip; `setAllPhantom` and the global +48 V state skip it.
 - **Skins:** each skin has `stereoStrip` (same shape as `strip`, minus phantom and pan) plus `terms.stereo`. A future skin can draw stereo differently (two meters, a balance knob, or a linked pair of strips) by changing that data. Behaviour stays in state and engine.
 
+## Icons
+
+`js/ui/icons.js` draws gear and connectors as inline SVG (48×48, currentColor). It maps the model onto pictures and never the other way: whether something fits or makes sound comes from `connection-model.js`, not from what an icon looks like. Rules kept: active speakers show a power badge and an amp module, passive ones show speaker terminals and no power mark; the rack amp's page section splits **Line level IN** from **Speaker level OUT** (with different level glyphs and a double border); signal, speaker and power cables differ in shape and weight, not only colour. Icons are decorative (`aria-hidden`) by default because a text label is always next to them; pass `label: true` where one stands alone. To add gear or a connector: add the drawing to `ICONS`, map it in `TYPE_ICONS` / `plugIconName` / `jackIconName`, and the icon tests will tell you what you missed. SpeakON and IEC power exist as pictures only (Connector guide in the Sources panel); the model has no such ports.
+
 ## Skins
 
 `SKINS` (`js/mixer-models.js`) map semantic state to presentation: `terms`, `enabledControl`, `levelControl` (fader vs knob), `phantomControl` (per-channel vs global), `meter` scale, `layout` (`console` / `tiles`) and `strip` (rows of parts). Both call the same `MixerStore` actions.
@@ -109,7 +114,7 @@ Input 9/10 is **one** channel strip (`CHANNEL_LAYOUT[8]`, `stereo: true`, label 
 ## Tests and QA
 
 ```sh
-npm test            # or: node --test tests/   (Node 18+, 185 tests)
+npm test            # or: node --test tests/   (Node 18+, 194 tests)
 python3 -m http.server 8124   # then http://localhost:8124/?debug=1
 ```
 

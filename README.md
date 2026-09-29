@@ -94,9 +94,9 @@ js/
   scenarios.js             scenario data, baselines, conditions
   meters.js                meter ballistics and drawing
   ui/                      UI modules (instead of one ui.js): controls, flow,
-                           listen-bar, mixer-view, patch-view, scenario-view
+                           icons, listen-bar, mixer-view, patch-view, scenario-view
 docs/                      AUDIO_ENGINE.md, MIXER_MODEL_SCHEMA.md, SCENARIOS.md
-tests/                     routing, scenarios and skins tests (node --test, 185 tests)
+tests/                     routing, scenarios and skins tests (node --test, 194 tests)
 tools/make-excerpts.sh     regenerates the audio: excerpt, full, or both
 MIXER_LAB_BUILD_SPEC_V1_2.md, PROJECT_CONTEXT.md   spec and teaching context
 ```
