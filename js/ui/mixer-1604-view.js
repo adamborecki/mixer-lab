@@ -187,7 +187,7 @@ function buildStrip(view, i) {
     head,
     row("c16-sec c16-trim", trim),
     row("c16-sec c16-aux", row("c16-pair", send("aux1", "AUX 1", "aux1"), send("aux2", "AUX 2", "aux2")), pre, row("c16-pair", send("aux3", "3 / 5", "aux3"), send("aux4", "4 / 6", "aux4")), shift),
-    row("c16-sec c16-eq", row("c16-pair", eqKnob("high", "HI"), eqKnob("mid", "MID")), row("c16-pair", freq, eqKnob("low", "LOW")), lowCut),
+    row("c16-sec c16-eq", eqKnob("high", "HI"), eqKnob("mid", "MID"), freq, eqKnob("low", "LOW"), lowCut),
     row("c16-sec c16-pan", pan),
     row("c16-sec c16-mute", mute, row("c16-leds", ol, sig)),
     row("c16-sec c16-fader", level, row("c16-assign", solo, assign("s12", "1-2"), assign("s34", "3-4"), assign("lr", "L-R"))),
@@ -297,9 +297,16 @@ function buildMaster(view) {
   // Faders: SUB 1–4 with ASSIGN TO MAIN MIX, then MAIN L-R MIX.
   const faders = document.createElement("div");
   faders.className = "c16-faders";
+  const subs = document.createElement("div");
+  subs.className = "c16-subs";
+  subs.innerHTML = `<p class="c16-subs-title">ASSIGN TO MAIN MIX <small>L · R</small></p>`;
+  const subFaders = document.createElement("div");
+  subFaders.className = "c16-sub-faders";
+  subs.appendChild(subFaders);
+  faders.appendChild(subs);
   for (const sub of CR.SUBS) {
     const n = sub.slice(3);
-    faders.appendChild(
+    subFaders.appendChild(
       row(
         "c16-sub",
         row("c16-assign c16-tomain", busButton(sub, "toMainL", "L", `SUB ${n} ASSIGN TO MAIN MIX, LEFT`), busButton(sub, "toMainR", "R", `SUB ${n} ASSIGN TO MAIN MIX, RIGHT`)),

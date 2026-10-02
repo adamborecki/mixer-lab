@@ -2743,3 +2743,57 @@ dialog::backdrop {
   padding-left: 0.3rem;
   border-left: 1px solid rgba(0, 0, 0, 0.4);
 }
+/* Paired knobs keep a fixed width, so a growing readout can't push the neighbour. */
+.c16-pair > .ctl {
+  width: 38px;
+  flex: none;
+}
+.c16-pair > .ctl .ctl-value,
+.c16-eq .ctl .ctl-value {
+  overflow: visible;
+  text-align: center;
+}
+/* EQ: one band per row, like the real strip: label, knob, value. */
+.c16-eq .ctl {
+  display: grid;
+  grid-template-columns: 24px 30px 26px;
+  align-items: center;
+  column-gap: 1px;
+  width: 81px;
+}
+.c16-eq .ctl .ctl-label {
+  text-align: right;
+  font-size: 0.52rem;
+  letter-spacing: 0.02em;
+}
+.c16-eq .ctl .knob {
+  width: 30px;
+  height: 30px;
+}
+.c16-eq .ctl .ctl-value {
+  text-align: left;
+  font-size: 0.55rem;
+  white-space: normal;
+  line-height: 1.1;
+}
+.c16-subs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+.c16-subs-title {
+  margin: 0;
+  font-size: 0.56rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+.c16-subs-title small {
+  font-size: inherit;
+  opacity: 0.7;
+}
+.c16-sub-faders {
+  display: flex;
+  gap: 0.2rem;
+}

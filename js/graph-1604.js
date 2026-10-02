@@ -14,7 +14,8 @@
 
 import * as CR from "./cr1604.js";
 import { HEADROOM_DB, dbToGain } from "./levels.js";
-import { lowCutStage } from "./graph-kit.js";
+import { lowCutStage, popBuffer } from "./graph-kit.js";
+import { DEVICE_TYPES } from "./connection-model.js";
 
 // MID EQ bandwidth of 1.5 octaves as a peaking-filter Q.
 const MID_Q = Math.sqrt(Math.pow(2, CR.EQ_MID_OCTAVES)) / (Math.pow(2, CR.EQ_MID_OCTAVES) - 1);
@@ -87,6 +88,8 @@ export function buildCr1604Graph(kit) {
     const clip = kit.track(ctx.createWaveShaper());
     clip.curve = clipCurve;
     input.connect(pre).connect(clip);
+    const popIn = mono(1); // phantom pops arrive here, after the preamp
+    popIn.connect(clip);
     const lowCut = lowCutStage(kit, clip, mono);
     const tapPre = lowCut.out;
     const eq = {
@@ -138,7 +141,7 @@ export function buildCr1604Graph(kit) {
     side.L.connect(afl.L).connect(aflBus.L); // post-MUTE, fader and PAN
     side.R.connect(afl.R).connect(aflBus.R);
 
-    strips.push({ input, pre, lowCut, eq, meter, mute, fader, sends, pan, assign, pfl, afl });
+    strips.push({ input, pre, popIn, lowCut, eq, meter, mute, fader, sends, pan, assign, pfl, afl });
   }
 
   // TAPE IN: a stereo pair with a level knob.
@@ -214,11 +217,40 @@ export function buildCr1604Graph(kit) {
   meterIn.L.connect(meters.left);
   meterIn.R.connect(meters.right);
 
+  // Phantom voltage charges up in about a second and drains more slowly (the
+  // manual: the PHANTOM LED stays on for a while after switching off).
+  const lastPhantom = [];
+  const PHANTOM_TAU = { on: 0.35, off: 0.8 };
+
   return {
     strips,
     outputs,
     phones,
     phonesDest: "phones",
+
+    // Fire a phantom pop into channel i: `db` at the mic input, so the TRIM
+    // decides how loud it is after the preamp.
+    pop(state, i, db) {
+      const s = strips[i];
+      if (!s || !s.popIn) return;
+      const src = ctx.createBufferSource();
+      src.buffer = popBuffer(ctx);
+      const g = ctx.createGain();
+      g.gain.value = dbToGain(db + state.channels[i].gainDb + HEADROOM_DB);
+      src.connect(g).connect(s.popIn);
+      src.onended = () => g.disconnect();
+      src.start();
+    },
+
+    // Channels whose MIC jack has an XLR in it (they pop when phantom flips).
+    xlrChannels(rig) {
+      const mixer = rig.devices.find((d) => d.id === "mixer");
+      const ports = DEVICE_TYPES[mixer.type].ports;
+      return rig.cables
+        .map((c) => ports.find((p) => `mixer/${p.id}` === c.to && p.path === "mic"))
+        .filter(Boolean)
+        .map((p) => p.channel);
+    },
 
     apply(state, rig, SOURCES_BY_ID) {
       const set = kit.set;
@@ -231,7 +263,9 @@ export function buildCr1604Graph(kit) {
         const info = rig.channels[i];
         const source = info && info.sourceId ? SOURCES_BY_ID[info.sourceId] : null;
         const preDb = source && info.signal ? source.outputDb + (info.padDb || 0) + ch.gainDb + HEADROOM_DB : -Infinity;
-        set(s.pre.gain, dbToGain(preDb));
+        const flipped = lastPhantom[i] !== undefined && lastPhantom[i] !== ch.phantom;
+        lastPhantom[i] = ch.phantom;
+        set(s.pre.gain, dbToGain(preDb), flipped ? PHANTOM_TAU[ch.phantom ? "on" : "off"] : undefined);
         set(s.lowCut.dry.gain, on(!ch.lowCut));
         set(s.lowCut.wet.gain, on(ch.lowCut));
         set(s.eq.low.gain, ch.eq.low);

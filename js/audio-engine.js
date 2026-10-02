@@ -11,7 +11,7 @@
 // Stem playback and synchronization live in js/transport.js. Switching mixers
 // rebuilds only the mixer graph: the stems keep playing on one timeline.
 
-import { analyzeRig } from "./connection-model.js";
+import { DEVICE_TYPES, analyzeRig, mixerOf } from "./connection-model.js";
 import { dbToGain, listenDestinations, listenGroupOf, modelOf } from "./mixer-state.js";
 import { LoopPlayer } from "./loop-player.js";
 import { StemTransport } from "./transport.js";
@@ -70,6 +70,7 @@ export class AudioEngine {
       if (asset) this.loops.set(source.id, new LoopPlayer(this.ctx, { sourceId: source.id, url: asset.file, errors, emit: (evt) => this.emit(evt) }));
     }
     this.buildGraph();
+    this.lastCables = new Map(this.store.state.rig.cables.map((c) => [c.id, c]));
     this.unsubscribe = this.store.subscribe((state, change) => this.onChange(state, change));
     this.rewire();
     this.applyAll();
@@ -123,8 +124,30 @@ export class AudioEngine {
       this.kit.dispose();
       this.buildMixer();
     }
+    if (this.mixer.pop) this.firePops(state, change);
     if (change.type === "rig" || change.type === "replace") this.rewire();
     this.applyAll();
+  }
+
+  // Phantom pops (mixers whose graph supports them): an XLR plugged into or
+  // pulled out of a powered MIC jack pops loudly; flipping PHANTOM thumps
+  // every channel with an XLR in it.
+  firePops(state, change) {
+    const POP_DB = -14; // at the mic input, before TRIM
+    const THUMP_DB = -58; // several channels thump at once, so each is quieter
+    const cables = new Map(state.rig.cables.map((c) => [c.id, c]));
+    if (change.type === "rig") {
+      const mixerType = DEVICE_TYPES[mixerOf(state.rig).type];
+      const changed = [...[...cables.values()].filter((c) => !this.lastCables.has(c.id)), ...[...this.lastCables.values()].filter((c) => !cables.has(c.id))];
+      for (const c of changed) {
+        const port = mixerType.ports.find((p) => `mixer/${p.id}` === c.to);
+        if (port && port.path === "mic" && state.channels[port.channel]?.phantom) this.mixer.pop(state, port.channel, POP_DB);
+      }
+    }
+    if (change.type === "channel" && change.key === "phantom") {
+      for (const i of this.mixer.xlrChannels(state.rig)) this.mixer.pop(state, i, THUMP_DB);
+    }
+    this.lastCables = cables;
   }
 
   set(param, value) {

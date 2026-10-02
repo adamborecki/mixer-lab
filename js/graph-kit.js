@@ -39,7 +39,8 @@ export function nodeKit(ctx) {
     gain,
     stereoGain,
     analyser,
-    set: (param, value) => param.setTargetAtTime(value, ctx.currentTime, RAMP),
+    // `tau`: a slower approach than RAMP, e.g. phantom power charging up.
+    set: (param, value, tau = RAMP) => param.setTargetAtTime(value, ctx.currentTime, tau),
     dispose() {
       for (const n of nodes) {
         try {
@@ -51,6 +52,24 @@ export function nodeKit(ctx) {
       nodes.length = 0;
     },
   };
+}
+
+// A phantom-power pop: a hard step that decays, with a short click on top.
+// Low cut and the speakers turn the step into a thump. One buffer per context.
+const popBuffers = new WeakMap();
+export function popBuffer(ctx) {
+  if (popBuffers.has(ctx)) return popBuffers.get(ctx);
+  const n = Math.round(ctx.sampleRate * 0.35);
+  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  let seed = 7;
+  const noise = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
+  for (let i = 0; i < n; i++) {
+    const t = i / ctx.sampleRate;
+    d[i] = Math.exp(-t / 0.07) + (t < 0.004 ? noise() * 0.6 : 0);
+  }
+  popBuffers.set(ctx, buf);
+  return buf;
 }
 
 // First-order high-pass (6 dB/octave) by the bilinear transform; with the
