@@ -5,6 +5,7 @@
 // it), but the "key" is public in this source, so it is an integrity check, not
 // security. Progress lives in the student's browser and can't be proven.
 
+import { previewSlug } from "./deploy-context.js";
 import { numberedScenarios } from "./progress.js";
 import { shortTitle } from "./scenarios.js";
 
@@ -115,7 +116,9 @@ export function verifySubmission(text) {
   const sum = { sec: free.sec + rows.reduce((n, r) => n + r.sec, 0), actions: free.actions + rows.reduce((n, r) => n + r.actions, 0) };
   if (total !== statText(sum)) return { ok: false, reason: "total does not match the scenario times" };
   if (checkCode({ name, generated, rows, free, reflection, url }) !== code.trim()) return { ok: false, reason: "check code does not match; the text was edited" };
-  return { ok: true, name, done, total: rows.length };
+  // A branch preview's URL is covered by the check code, so this can't be edited away.
+  const preview = previewSlug(new URL(url.trim(), "https://x/").pathname);
+  return { ok: true, name, done, total: rows.length, ...(preview && { preview }) };
 }
 
 function parseStat(text) {

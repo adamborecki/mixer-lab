@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { PROGRESS_KEY, Progress, numberedScenarios } from "../js/progress.js";
 import { buildSubmission, summarize, validate, verifySubmission } from "../js/submission.js";
 import { SCENARIOS, shortTitle } from "../js/scenarios.js";
+import { liveUrl, previewSlug, storageKey } from "../js/deploy-context.js";
 
 const memory = (init = {}) => {
   const data = { ...init };
@@ -157,5 +158,27 @@ describe("check code", () => {
 
   it("rejects text that isn't a submission", () => {
     assert.equal(verifySubmission("hello").ok, false);
+  });
+});
+
+describe("branch previews", () => {
+  it("knows a preview from the live site by its path", () => {
+    assert.equal(previewSlug("/mixer-lab/"), null);
+    assert.equal(previewSlug("/mixer-lab/branch/feature-low-cut/"), "feature-low-cut");
+    assert.equal(previewSlug("/mixer-lab/branch/feature-low-cut/index.html"), "feature-low-cut");
+    assert.equal(liveUrl("https://a.github.io/mixer-lab/branch/skin-stagepas/#/free-play"), "https://a.github.io/mixer-lab/");
+  });
+
+  it("keeps a preview's progress apart from the live site's", () => {
+    assert.equal(storageKey(PROGRESS_KEY, null), PROGRESS_KEY);
+    const store = memory();
+    new Progress(ids, store, ids, storageKey(PROGRESS_KEY, "skin-stagepas")).add(ids[0]);
+    assert.equal(store.data[PROGRESS_KEY], undefined);
+    assert.equal(new Progress(ids, store).has(ids[0]), false);
+  });
+
+  it("flags a submission made on a preview", () => {
+    assert.equal(verifySubmission(build()).preview, undefined);
+    assert.equal(verifySubmission(build({ url: "https://example.edu/mixer-lab/branch/claude-x/" })).preview, "claude-x");
   });
 });

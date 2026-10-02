@@ -2,6 +2,8 @@
 // localStorage wrapper: progress survives an accidental refresh, but only in
 // this browser. Only scenario ids are stored; never names or free text.
 
+import { storageKey } from "./deploy-context.js";
+
 export const PROGRESS_KEY = "mixer-lab-progress-v1";
 
 // Scenarios that count toward the assignment: numbered ones, in order. Free
@@ -14,7 +16,8 @@ export function numberedScenarios(scenarios) {
 export class Progress {
   // `validIds`: ids that may be marked solved. `statIds`: ids that get time and
   // action counts (also Free play). Anything else from an old version is dropped.
-  constructor(validIds, storage = defaultStorage(), statIds = validIds) {
+  constructor(validIds, storage = defaultStorage(), statIds = validIds, key = storageKey(PROGRESS_KEY)) {
+    this.key = key;
     this.valid = new Set(validIds);
     this.statValid = new Set(statIds);
     this.storage = storage;
@@ -26,7 +29,7 @@ export class Progress {
 
   load() {
     try {
-      const data = JSON.parse(this.storage?.getItem(PROGRESS_KEY) || "null");
+      const data = JSON.parse(this.storage?.getItem(this.key) || "null");
       if (data && Array.isArray(data.solved)) for (const id of data.solved) if (this.valid.has(id)) this.solved.add(id);
       for (const [id, v] of Object.entries(data?.stats || {})) {
         if (this.statValid.has(id)) this.stats[id] = { sec: Math.max(0, Math.floor(Number(v?.sec)) || 0), actions: Math.max(0, Math.floor(Number(v?.actions)) || 0) };
@@ -38,7 +41,7 @@ export class Progress {
 
   save() {
     try {
-      this.storage?.setItem(PROGRESS_KEY, JSON.stringify({ solved: [...this.solved], stats: this.stats }));
+      this.storage?.setItem(this.key, JSON.stringify({ solved: [...this.solved], stats: this.stats }));
       this.dirty = false;
     } catch (e) {
       /* private mode etc.: progress just lasts until reload */
@@ -80,7 +83,7 @@ export class Progress {
     this.stats = {};
     this.dirty = false;
     try {
-      this.storage?.removeItem(PROGRESS_KEY);
+      this.storage?.removeItem(this.key);
     } catch (e) {
       /* nothing to do */
     }

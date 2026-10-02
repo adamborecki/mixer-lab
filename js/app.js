@@ -5,6 +5,7 @@
 import * as manifest from "../audio/source-manifest.js";
 import { channelPortRef } from "./connection-model.js";
 import { AudioEngine } from "./audio-engine.js";
+import { PREVIEW, liveUrl, storageKey } from "./deploy-context.js";
 import { DEFAULT_SKIN, SKINS } from "./mixer-models.js";
 import { MixerStore, computeMix } from "./mixer-state.js";
 import { SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, captureBaseline, evaluateScenario } from "./scenarios.js";
@@ -318,7 +319,7 @@ function makeToast(el) {
 
 function readPref(key) {
   try {
-    return localStorage.getItem(key);
+    return localStorage.getItem(storageKey(key));
   } catch (e) {
     return null;
   }
@@ -326,13 +327,31 @@ function readPref(key) {
 
 function writePref(key, value) {
   try {
-    localStorage.setItem(key, value);
+    localStorage.setItem(storageKey(key), value);
   } catch (e) {
     /* private mode etc. — preference just isn't remembered */
   }
 }
 
+// A branch preview says so on every screen, so it is never mistaken for the
+// Canvas assignment.
+function showPreviewBanner() {
+  if (!PREVIEW) return;
+  document.title = `[preview] ${document.title}`;
+  document.body.classList.add("is-preview");
+  const bar = document.createElement("div");
+  bar.className = "preview-banner";
+  bar.setAttribute("role", "note");
+  const live = document.createElement("a");
+  live.href = liveUrl(location.href);
+  live.textContent = "Go to the assignment";
+  bar.append(`Preview: ${PREVIEW} · not the Canvas assignment · `, live);
+  document.body.prepend(bar);
+}
+
 // ---------- boot ----------
+
+showPreviewBanner();
 
 setSkin(skin.id);
 setTab("scenario");

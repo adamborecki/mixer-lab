@@ -5,5 +5,6 @@ import { verifySubmission } from "../js/submission.js";
 let text = "";
 for await (const chunk of process.stdin) text += chunk;
 const r = verifySubmission(text);
+if (r.ok && r.preview) console.log(`WARNING: made on branch preview "${r.preview}", not the assignment site`);
 console.log(r.ok ? `OK: ${r.name}, ${r.done} / ${r.total} scenarios` : `INVALID: ${r.reason}`);
 process.exit(r.ok ? 0 : 1);

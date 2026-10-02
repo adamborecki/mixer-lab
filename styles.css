@@ -139,6 +139,25 @@ button {
 
 /* ---------- top bar ---------- */
 
+/* Branch previews (js/deploy-context.js): a banner on top, and the sticky
+   top bar keeps a warning edge after the banner scrolls away. */
+.preview-banner {
+  padding: 0.45rem clamp(1rem, 3vw, 1.5rem);
+  background: var(--warn);
+  color: var(--bg);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.preview-banner a {
+  color: inherit;
+}
+
+.is-preview .topbar {
+  box-shadow: inset 0 -3px 0 var(--warn);
+}
+
 .topbar {
   display: flex;
   align-items: center;
