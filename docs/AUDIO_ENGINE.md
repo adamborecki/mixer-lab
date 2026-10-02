@@ -10,7 +10,7 @@ Per channel (there are 8; 7 have sources):
 stem player(s) -> source output (persistent) -> channel input   (only while patched)
                                             \-> keepAlive (gain 0) -> destination   (always)
 
-channel input -> preamp gain -> clipper (WaveShaper) -> tap
+channel input -> preamp gain -> clipper (WaveShaper) -> low cut -> tap
 tap -> input meter (AnalyserNode)
 tap -> enabled -> fader -> pan -> Main bus -> Main master -> Main L / Main R outs
 tap -> Aux 1 send (pre-fader) -> Aux 1 bus -> Aux 1 master -> Aux 1 out
@@ -33,6 +33,7 @@ listen selector opens one group -> +4 dB trim -> safety limiter -> destination
 |---|---|
 | preamp gain | `outputDb + padDb + gainDb + HEADROOM_DB` (below), silent if the channel has no usable signal |
 | clipper | `WaveShaper`, curve `[-1, 1]`: identity inside +/-1, hard clip outside. Over-gain is audible and shows on the meter |
+| low cut | 75 Hz high-pass at 18 dB/octave (a 12 dB/octave biquad plus a first-order `IIRFilter`), after the CR1604-VLZ. Always in the graph; the switch crossfades a dry and a filtered gain. Before every tap, so meter, Main, Auxes and PFL all hear it. The computed level model in `computeMix` ignores it (scenario checks don't use it) |
 | pan | `StereoPannerNode`, equal-power (-3 dB centre) |
 | Main bus | 2-channel; splits to mono `main-l` / `main-r` after the Main master |
 | Aux 1, Aux 2, PFL | mono buses; each Aux has its own per-channel send, bus, master, out and meter |

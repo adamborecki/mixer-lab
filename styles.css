@@ -1403,6 +1403,9 @@ dialog::backdrop {
 .tone-phantom {
   --lit: #ff8a5b;
 }
+.tone-lowcut {
+  --lit: #8fa8ff;
+}
 
 /* ---------- meters ---------- */
 
@@ -1703,6 +1706,12 @@ dialog::backdrop {
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
+}
+.skin-analog .strip-switches {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.25rem;
 }
 .skin-analog .strip-bottom {
   display: flex;

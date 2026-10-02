@@ -15,7 +15,7 @@ The audio engine ([AUDIO_ENGINE.md](AUDIO_ENGINE.md)) and scenario checker ([SCE
 ```js
 {
   channels: [ // 8 mono channels; index 0-7 = input 1-8
-    { index, gainDb, phantom, enabled, pan, level, auxSends: { aux1, aux2 }, pfl }
+    { index, gainDb, phantom, lowCut, enabled, pan, level, auxSends: { aux1, aux2 }, pfl }
   ],
   main:       { level },   // Main L/R master
   aux1:       { level },   // Aux 1 master
@@ -33,6 +33,7 @@ The Aux buses are listed in `BUSES` (`["aux1", "aux2"]`); the send keys, master 
 |---|---|---|---|
 | `gainDb` | 0-60, 0.5 steps | 0 | Preamp gain; changes meter, Main, both Auxes, PFL |
 | `phantom` | bool | false | +48 V for this channel's XLR/mic path |
+| `lowCut` | bool | false | 75 Hz high-pass after the preamp (mono strips only). Optional skin part: Mixer A shows it; a skin without it leaves it off |
 | `enabled` | bool | true | In the Main path or not (Main only; see below) |
 | `pan` | -1...1 | 0 | Main L/R placement, equal-power |
 | `level` | 0...1 | 0 | Fader / level-knob position |

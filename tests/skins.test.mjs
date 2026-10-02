@@ -7,6 +7,8 @@ import { createMixerState } from "../js/mixer-state.js";
 
 const { analog, compact } = SKINS;
 const PARTS = new Set(["phantom", "gain", "aux1", "aux2", "pan", "pfl", "meter", "enabled", "level"]);
+// Controls only some mixers have; a skin places each at most once.
+const OPTIONAL = new Set(["lowCut"]);
 
 describe("enable button mapping (MUTE vs ON)", () => {
   it("MUTE is lit when the channel is disabled; ON is lit when it is enabled", () => {
@@ -48,9 +50,11 @@ describe("skin definitions", () => {
   it("both skins place every control exactly once, using known parts", () => {
     for (const skin of [analog, compact]) {
       const parts = skin.strip.flatMap((sec) => sec.rows.flatMap((r) => (Array.isArray(r) ? r : r.parts)));
-      for (const p of parts) assert.ok(PARTS.has(p), `${skin.id}: unknown part ${p}`);
+      for (const p of parts) assert.ok(PARTS.has(p) || OPTIONAL.has(p), `${skin.id}: unknown part ${p}`);
       const needed = [...PARTS].filter((p) => p !== "phantom" || skin.phantomControl === "per-channel");
       for (const p of needed) assert.equal(parts.filter((x) => x === p).length, 1, `${skin.id}: ${p}`);
+      for (const p of OPTIONAL) assert.ok(parts.filter((x) => x === p).length <= 1, `${skin.id}: ${p}`);
+      if (parts.includes("lowCut")) assert.ok(skin.terms.lowCut, `${skin.id}: needs a lowCut term`);
     }
   });
 

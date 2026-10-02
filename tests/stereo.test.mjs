@@ -123,10 +123,14 @@ describe("stereo channel in the mix", () => {
     assert.equal(c.pflDb, c.inputPeakDb);
   });
 
-  it("phantom power and pan do not apply to the stereo strip", () => {
+  it("phantom power, pan and low cut do not apply to the stereo strip", () => {
     const store = new MixerStore(freePlay());
     store.setChannel(8, "phantom", true);
     store.setChannel(8, "pan", 0.8);
+    store.setChannel(8, "lowCut", true);
+    assert.equal(store.state.channels[8].lowCut, false);
+    store.setChannel(0, "lowCut", true);
+    assert.equal(store.state.channels[0].lowCut, true);
     assert.equal(store.state.channels[8].phantom, false);
     assert.equal(store.state.channels[8].pan, 0);
     store.setAllPhantom(true);

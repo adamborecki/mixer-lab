@@ -103,6 +103,11 @@ export class MixerView {
         this.bindings.push({ kind: "button", control: b, get: (s) => [s.channels[i].phantom, `${t.phantom} phantom power, channel ${num}: ${s.channels[i].phantom ? "on" : "off"}`] });
         return b.el;
       },
+      lowCut: () => {
+        const b = new LitButton({ label: t.lowCut, tone: "lowcut", small: true, onPress: () => store.setChannel(i, "lowCut", !store.state.channels[i].lowCut) });
+        this.bindings.push({ kind: "button", control: b, get: (s) => [s.channels[i].lowCut, `${t.lowCut} 75 Hz, channel ${num}: ${s.channels[i].lowCut ? "on" : "off"}`] });
+        return b.el;
+      },
       gain: () =>
         this.bind(
           this.knob({

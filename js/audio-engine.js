@@ -1,7 +1,7 @@
 // Web Audio engine. Owns the AudioContext and the node graph; reads the
 // semantic mixer state and never touches the DOM. See docs/AUDIO_ENGINE.md.
 //
-//   stem player (mono) ─► channel input ─► preamp gain ─► clipper ─► tap
+//   stem player (mono) ─► channel input ─► preamp gain ─► clipper ─► low cut ─► tap
 //   loop player (stereo, own timeline) ─► stereo channel strip (same chain, no pan)
 //   tap ─► input meter
 //   tap ─► enabled ─► fader ─► pan ─► Main bus ─► Main master ─► Main L / Main R outs
@@ -22,6 +22,8 @@ import { StemTransport } from "./transport.js";
 const RAMP = 0.012; // seconds; smooths control changes without lag
 const LISTEN_TRIM_DB = 4; // fixed make-up gain so a typical mix sits at a comfortable level
 const METER_FFT = 1024;
+// Channel LOW CUT, after the CR1604-VLZ: 75 Hz, 18 dB/octave (2nd + 1st order).
+const LOW_CUT_HZ = 75;
 
 // Which listen group a mixer output belongs to.
 const busOfOutput = (port) => (port === "main-l" || port === "main-r" ? "main" : port);
@@ -165,18 +167,30 @@ export class AudioEngine {
       const fader = chan(0);
       const pan = stereo ? null : ctx.createStereoPanner(); // stereo: left stays left, right stays right
       const pfl = gain(0, true);
+      // Low cut: the switch crossfades between the dry and the filtered path,
+      // so nothing is rebuilt and playback is never touched.
+      const tap = chan(1);
+      const dry = chan(1);
+      const wet = chan(0);
+      const hp2 = ctx.createBiquadFilter();
+      hp2.type = "highpass";
+      hp2.frequency.value = LOW_CUT_HZ;
+      hp2.Q.value = Math.SQRT1_2;
+      const hp1 = onePoleHighpass(ctx, LOW_CUT_HZ);
       input.connect(pre).connect(clip);
-      clip.connect(meter);
-      clip.connect(enabled).connect(fader);
+      clip.connect(dry).connect(tap);
+      clip.connect(hp2).connect(hp1).connect(wet).connect(tap);
+      tap.connect(meter);
+      tap.connect(enabled).connect(fader);
       if (pan) fader.connect(pan).connect(this.mainBus);
       else fader.connect(this.mainBus);
       const sends = {};
       for (const b of BUSES) {
         sends[b] = gain(0, true);
-        clip.connect(sends[b]).connect(this.auxBus[b]); // pre-fader
+        tap.connect(sends[b]).connect(this.auxBus[b]); // pre-fader
       }
-      clip.connect(pfl).connect(this.pflBus);
-      this.strips.push({ input, pre, clip, meter, enabled, fader, pan, sends, pfl, stereo });
+      tap.connect(pfl).connect(this.pflBus);
+      this.strips.push({ input, pre, clip, lowCut: { dry, wet }, meter, enabled, fader, pan, sends, pfl, stereo });
     }
 
     // Listening: each speaker feeds the listen group of the bus that reaches
@@ -225,6 +239,8 @@ export class AudioEngine {
       // source is, the line-input pad, the gain knob, and fixed headroom.
       const preDb = source && info.signal ? source.outputDb + (info.padDb || 0) + ch.gainDb + HEADROOM_DB : -Infinity;
       this.set(s.pre.gain, dbToGain(preDb));
+      this.set(s.lowCut.dry.gain, ch.lowCut ? 0 : 1);
+      this.set(s.lowCut.wet.gain, ch.lowCut ? 1 : 0);
       this.set(s.enabled.gain, ch.enabled ? 1 : 0);
       this.set(s.fader.gain, dbToGain(levelToDb(ch.level)));
       if (s.pan) this.set(s.pan.pan, ch.pan);
@@ -346,4 +362,11 @@ export class AudioEngine {
     for (const k of Object.keys(this.meters)) out[k] = this.readAnalyser(this.meters[k]);
     return out;
   }
+}
+
+// First-order high-pass (6 dB/octave) by the bilinear transform; with the
+// 12 dB/octave biquad before it, the low cut falls at 18 dB/octave.
+function onePoleHighpass(ctx, hz) {
+  const k = Math.tan((Math.PI * hz) / ctx.sampleRate);
+  return ctx.createIIRFilter([1 / (1 + k), -1 / (1 + k)], [1, (k - 1) / (k + 1)]);
 }

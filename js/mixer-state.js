@@ -118,6 +118,7 @@ export function createChannel(index) {
     stereo: !!layout.stereo,
     gainDb: GAIN_MIN_DB,
     phantom: false,
+    lowCut: false, // 75 Hz high-pass right after the preamp (mono strips)
     enabled: true, // Skin A shows this as MUTE (lit = false); Skin B as ON (lit = true)
     pan: 0, // mono strips only; a stereo strip keeps its left and right sides where they are
     level: 0, // fader / level knob position, 0…1
@@ -236,7 +237,7 @@ export class MixerStore {
   setChannel(index, key, value) {
     const ch = this.state.channels[index];
     if (!ch) return;
-    if (ch.stereo && (key === "phantom" || key === "pan")) return; // not on a stereo line strip
+    if (ch.stereo && (key === "phantom" || key === "pan" || key === "lowCut")) return; // not on a stereo line strip
     const v = sanitizeChannelValue(key, value);
     if (v === undefined || ch[key] === v) return;
     ch[key] = v;
@@ -297,6 +298,7 @@ function sanitizeChannelValue(key, value) {
       return clamp(Number(value), -1, 1);
     case "enabled":
     case "phantom":
+    case "lowCut":
     case "pfl":
       return !!value;
     default:

@@ -23,6 +23,7 @@ export const SKINS = {
       mainShort: "MAIN",
       pfl: "PFL",
       phantom: "48V",
+      lowCut: "LOW CUT",
       phones: "PHONES",
       stereo: "STEREO",
     },
@@ -33,9 +34,9 @@ export const SKINS = {
     layout: "console",
     // Channel strip, top to bottom. Each section is a block; each row is a
     // list of controls (a lone control needs no wrapper). Parts: phantom,
-    // gain, aux1, aux2, pan, pfl, meter, enabled, level.
+    // gain, aux1, aux2, pan, pfl, meter, enabled, level, and optionally lowCut.
     strip: [
-      { className: "strip-top", rows: [["phantom"], ["gain"], ["aux1"], ["aux2"], ["pan"], ["pfl"]] },
+      { className: "strip-top", rows: [{ parts: ["phantom", "lowCut"], className: "strip-row strip-switches" }, ["gain"], ["aux1"], ["aux2"], ["pan"], ["pfl"]] },
       { className: "strip-bottom", rows: [["enabled"], { parts: ["meter", "level"], className: "fader-row" }] },
     ],
     // A stereo input is still ONE strip. Same skin, but it drops the parts that
