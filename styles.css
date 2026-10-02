@@ -142,6 +142,8 @@ button {
 /* Branch previews (js/deploy-context.js): a banner on top, and the sticky
    top bar keeps a warning edge after the banner scrolls away. */
 .preview-banner {
+  position: relative;
+  z-index: 150; /* above the start overlay (100), below the skip link (200) */
   padding: 0.45rem clamp(1rem, 3vw, 1.5rem);
   background: var(--warn);
   color: var(--bg);
