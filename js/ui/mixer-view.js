@@ -35,6 +35,9 @@ export class MixerView {
   detach() {
     this.bindings = [];
     this.channelMeters = [];
+    this.leds = [];
+    this.ledMeters = [];
+    this.soloLeds = null;
     this.root.innerHTML = "";
   }
 
