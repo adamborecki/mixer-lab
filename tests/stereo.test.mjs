@@ -140,8 +140,8 @@ describe("stereo channel in the mix", () => {
 });
 
 describe("skins and stereo", () => {
-  it("every skin offers a stereo strip that keeps the level controls and drops phantom and pan", () => {
-    for (const skin of Object.values(SKINS)) {
+  it("every skin of the generic mixer offers a stereo strip that keeps the level controls and drops phantom and pan", () => {
+    for (const skin of Object.values(SKINS).filter((s) => !s.hardware)) {
       const parts = skin.stereoStrip.flatMap((sec) => sec.rows.flatMap((r) => (Array.isArray(r) ? r : r.parts)));
       for (const p of ["gain", "aux1", "aux2", "pfl", "meter", "enabled", "level"]) assert.equal(parts.filter((x) => x === p).length, 1, `${skin.id}: ${p}`);
       assert.equal(parts.includes("phantom"), false);

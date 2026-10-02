@@ -1,10 +1,16 @@
 // Which destination is the student listening to? Main L/R, a monitor bus
 // (Aux 1 / Aux 2), or the engineer's headphones (PFL). Main and the auxes are
 // heard only through the speakers they validly reach; PFL needs no speakers.
+// On the CR1604-VLZ the list follows the patch: Main, every aux or subgroup
+// with a speaker on it, and the C-R/PHONES (SOURCE matrix, or SOLO).
 
 import { MeterView } from "../meters.js";
+import { listenGroupOf, modelOf } from "../mixer-state.js";
+import * as CR from "../cr1604.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const GENERIC = ["main", "aux1", "aux2", "pfl"];
+const SOURCE_NAMES = { main: "MAIN MIX", subs12: "SUBS 1-2", subs34: "SUBS 3-4", tape: "TAPE" };
 
 export class ListenBar {
   constructor(root, { store, getSkin, onTransport }) {
@@ -12,6 +18,7 @@ export class ListenBar {
     this.store = store;
     this.getSkin = getSkin;
     this.onTransport = onTransport;
+    this.dests = GENERIC;
     root.addEventListener("click", (e) => {
       const b = e.target.closest("[data-dest]");
       if (b) store.setListen(b.dataset.dest);
@@ -21,7 +28,7 @@ export class ListenBar {
       const b = e.target.closest("[data-dest]");
       if (!b || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
       e.preventDefault();
-      const order = ["main", "aux1", "aux2", "pfl"];
+      const order = this.dests;
       const i = order.indexOf(b.dataset.dest);
       const next = order[(i + (e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : order.length - 1)) % order.length];
       store.setListen(next);
@@ -30,14 +37,22 @@ export class ListenBar {
     this.render();
   }
 
-  render() {
+  label(dest) {
     const t = this.getSkin().terms;
-    const btn = (dest, label) =>
-      `<button type="button" role="radio" class="listen-btn" data-dest="${dest}"><strong>${esc(label)}</strong><small class="listen-sub"></small></button>`;
+    if (dest === "main") return modelOf(this.store.state) === "cr1604" ? "MAIN" : "Main L/R";
+    if (dest === "pfl") return "PFL";
+    if (dest === "phones") return "PHONES";
+    return t[dest] || dest;
+  }
+
+  render(dests = modelOf(this.store.state) === "cr1604" ? ["main", "aux1", "aux2", "phones"] : GENERIC) {
+    this.dests = dests;
+    const btn = (dest) =>
+      `<button type="button" role="radio" class="listen-btn" data-dest="${dest}"><strong>${esc(this.label(dest))}</strong><small class="listen-sub"></small></button>`;
     this.root.innerHTML = `
       <div class="listen-group" role="radiogroup" aria-label="Listen to">
         <span class="listen-label" aria-hidden="true">Listen</span>
-        ${btn("main", "Main L/R")}${btn("aux1", t.aux1)}${btn("aux2", t.aux2)}${btn("pfl", "PFL")}
+        ${dests.map(btn).join("")}
       </div>
       <div class="listen-now">
         <p class="listen-msg" aria-live="polite"></p>
@@ -54,36 +69,58 @@ export class ListenBar {
   update(mix, { playing, ready, loadingText, buffering }) {
     const state = this.store.state;
     const t = this.getSkin().terms;
+    const cr1604 = modelOf(state) === "cr1604";
     const devices = new Map(state.rig.devices.map((d) => [d.id, d]));
     const short = (e) => devices.get(e.deviceId)?.short || devices.get(e.deviceId)?.label || e.deviceId;
-    const reaching = (ports) => mix.rig.endpoints.filter((e) => e.valid && ports.includes(e.output));
-    const ends = { main: reaching(["main-l", "main-r"]), aux1: reaching(["aux1"]), aux2: reaching(["aux2"]) };
-    const pfls = state.channels.filter((c) => c.pfl).map((c) => c.index + 1);
     const names = (eps) => eps.map(short).join(" + ");
-    const subs = {
-      main: ends.main.length ? `✓ ${names(ends.main)}` : "✕ no working speaker",
-      aux1: ends.aux1.length ? `✓ ${names(ends.aux1)}` : "✕ no working speaker",
-      aux2: ends.aux2.length ? `✓ ${names(ends.aux2)}` : "✕ no working speaker",
-      pfl: pfls.length ? `Phones: Ch ${pfls.join(", ")}` : "Phones: no PFL",
+    // Speakers by listening group: the working ones, and every one patched at all.
+    const ends = {};
+    const patched = new Set();
+    for (const e of mix.rig.endpoints) {
+      if (!e.output) continue;
+      const g = listenGroupOf(state, e.output);
+      patched.add(g);
+      if (e.valid) (ends[g] ||= []).push(e);
+    }
+
+    // The buttons follow the mixer (and, on the 1604, the patch).
+    const wanted = cr1604 ? ["main", ...[...CR.AUXES, ...CR.SUBS].filter((d) => patched.has(d) || d === state.listen || d === "aux1" || d === "aux2"), "phones"] : GENERIC;
+    if (wanted.join() !== this.dests.join()) this.render(wanted);
+
+    const pfls = state.channels.filter((c) => c.pfl).map((c) => c.index + 1);
+    const phones = cr1604 ? mix.phones : null;
+    const phonesText = () => {
+      if (phones.solo) {
+        const what = [...phones.soloed.map((n) => `Ch ${n}`), ...phones.auxSolo.map((b) => t[b])].join(", ");
+        return `SOLO: ${what}`;
+      }
+      return phones.sources.length ? `C-R: ${phones.sources.map((s) => SOURCE_NAMES[s]).join(" + ")}` : "C-R: no SOURCE";
     };
+    const sub = (d) => {
+      if (d === "pfl") return pfls.length ? `Phones: Ch ${pfls.join(", ")}` : "Phones: no PFL";
+      if (d === "phones") return phonesText();
+      return ends[d]?.length ? `✓ ${names(ends[d])}` : "✕ no working speaker";
+    };
+    const dead = (d) => (d === "pfl" ? !pfls.length : d === "phones" ? !phones.solo && !phones.sources.length : !ends[d]?.length);
     for (const btn of this.root.querySelectorAll("[data-dest]")) {
       const d = btn.dataset.dest;
       const on = state.listen === d;
       btn.setAttribute("aria-checked", String(on));
       btn.tabIndex = on ? 0 : -1;
       btn.classList.toggle("active", on);
-      btn.querySelector(".listen-sub").textContent = subs[d];
-      btn.classList.toggle("is-dead", d === "pfl" ? !pfls.length : !ends[d].length);
+      btn.querySelector(".listen-sub").textContent = sub(d);
+      btn.classList.toggle("is-dead", dead(d));
     }
 
     const dest = state.listen;
-    const busName = { main: "Main L/R", aux1: t.aux1, aux2: t.aux2 }[dest];
+    const busName = dest === "main" ? (cr1604 ? "the MAIN mix" : "Main L/R") : t[dest] || dest;
     let msg;
     if (!ready) msg = loadingText || "Loading…";
     else if (!playing) msg = "Playback stopped.";
     else if (buffering) msg = "Buffering the next part of the song…";
     else if (dest === "pfl") msg = pfls.length ? `Engineer's headphones: PFL on Ch ${pfls.join(", ")} (before the ${t.levelShort.toLowerCase()}).` : "Headphones are quiet: press PFL on a channel to hear it here.";
-    else if (ends[dest].length) msg = `Hearing ${busName} through the ${names(ends[dest])}.`;
+    else if (dest === "phones") msg = phonesMessage(phones, t);
+    else if (ends[dest]?.length) msg = `Hearing ${busName} through the ${names(ends[dest])}.`;
     else msg = `Silence: ${busName} doesn't reach a working speaker. Check the Outputs.`;
     if (msg !== this.lastMsg) {
       this.msg.textContent = msg;
@@ -99,4 +136,15 @@ export class ListenBar {
   updateMeter(reading, now) {
     this.meter.update(reading, now);
   }
+}
+
+function phonesMessage(p, t) {
+  if (p.solo) {
+    const what = [...p.soloed.map((n) => `Ch ${n}`), ...p.auxSolo.map((b) => t[b])].join(", ");
+    return p.mode === "pfl"
+      ? `Engineer's headphones: SOLO ${what} in LEVEL SET (PFL), before the fader. The left meter shows its level.`
+      : `Engineer's headphones: SOLO ${what} in NORMAL (AFL), after the fader and pan.`;
+  }
+  if (!p.sources.length) return "Headphones are quiet: pick a C-R/PHONES SOURCE, or press SOLO on a channel.";
+  return `Engineer's headphones: the C-R SOURCE ${p.sources.map((s) => SOURCE_NAMES[s]).join(" + ")}.`;
 }

@@ -154,6 +154,7 @@ const TYPE_ICONS = {
   "line-source": "keyboard",
   "stereo-laptop": "laptop",
   mixer: "mixer",
+  cr1604: "mixer",
   "power-amp": "power-amp",
 };
 
@@ -173,7 +174,7 @@ export function plugIconName(plugId, intoDir = "in") {
 
 // A port's jack (the socket on the gear). XLR on an output is male, on an input female.
 export function jackIconName(jackId, dir = "in") {
-  return { xlr: dir === "out" ? "xlr-m" : "xlr-f", combo: "jack-combo", quarter: "jack-quarter", rca: "jack-rca", mini: "jack-mini", linepair: "jack-pair" }[jackId] || null;
+  return { xlr: dir === "out" ? "xlr-m" : "xlr-f", combo: "jack-combo", quarter: "jack-quarter", rca: "jack-rca", mini: "jack-mini", linepair: "jack-pair", rcapair: "jack-rca" }[jackId] || null;
 }
 
 export const levelIconName = (level) => (level === "speaker" ? "level-speaker" : "level-line");

@@ -19,93 +19,31 @@ export const GAIN_MAX_DB = 60;
 export const BUSES = ["aux1", "aux2"];
 export const LISTEN_DESTINATIONS = ["main", ...BUSES, "pfl"];
 
-// Where a well-gain-staged channel lands: post-preamp peak (dBFS) =
-// stem peak + source output + pad + gain + HEADROOM_DB. With gain set so a
-// source reaches line level (0 dB), peaks sit ~10 dB under clip.
-export const HEADROOM_DB = -8;
+export {
+  HEADROOM_DB,
+  INPUT_BANDS,
+  inputBand,
+  levelToDb,
+  dbToLevel,
+  dbToGain,
+  gainToDb,
+  panGains,
+  formatDb,
+  formatPan,
+  clamp,
+} from "./levels.js";
+import { HEADROOM_DB, inputBand, levelToDb, dbToLevel, gainToDb, panGains, clamp } from "./levels.js";
+import * as CR1604 from "./cr1604.js";
 
-// Input meter bands (post-preamp peak, dBFS). Shared by meters, hints and scenarios.
-export const INPUT_BANDS = [
-  { id: "clip", min: 0, label: "Clipping" },
-  { id: "hot", min: -4, label: "Hot" },
-  { id: "good", min: -22, label: "Good" },
-  { id: "low", min: -40, label: "Low" },
-  { id: "none", min: -Infinity, label: "No signal" },
-];
-
-export function inputBand(peakDb) {
-  return INPUT_BANDS.find((b) => peakDb >= b.min).id;
-}
-
-// ---------- level laws (shared by every skin) ----------
-
-// Normalised control position (0…1) ↔ dB. 0.75 is unity ("U"/0 dB), the top
-// is +10 dB, the bottom is off. Same law for faders, level knobs, sends and
-// masters, so a skin's fader and another skin's knob mean the same thing.
-const LAW = [
-  [0, -Infinity],
-  [0.02, -70],
-  [0.1, -50],
-  [0.25, -30],
-  [0.5, -10],
-  [0.75, 0],
-  [1, 10],
-];
-
-export function levelToDb(pos) {
-  const p = clamp(pos, 0, 1);
-  if (p <= 0) return -Infinity;
-  for (let i = 1; i < LAW.length; i++) {
-    const [p1, d1] = LAW[i];
-    const [p0, d0] = LAW[i - 1];
-    if (p <= p1) {
-      if (d0 === -Infinity) return d1 + (p - p1) * 400; // steep tail into silence
-      return d0 + ((p - p0) / (p1 - p0)) * (d1 - d0);
-    }
-  }
-  return LAW[LAW.length - 1][1];
-}
-
-export function dbToLevel(db) {
-  if (db === -Infinity || db <= -78) return 0;
-  if (db >= 10) return 1;
-  for (let i = LAW.length - 1; i > 0; i--) {
-    const [p0, d0] = LAW[i - 1];
-    const [p1, d1] = LAW[i];
-    if (db >= (d0 === -Infinity ? -78 : d0)) {
-      if (d0 === -Infinity) return p1 + (db - d1) / 400;
-      return p0 + ((db - d0) / (d1 - d0)) * (p1 - p0);
-    }
-  }
-  return 0;
-}
-
-export const dbToGain = (db) => (db === -Infinity ? 0 : Math.pow(10, db / 20));
-export const gainToDb = (g) => (g <= 0 ? -Infinity : 20 * Math.log10(g));
-
-// Equal-power pan (−3 dB in the centre), matching StereoPannerNode.
-export function panGains(pan) {
-  const x = (clamp(pan, -1, 1) + 1) / 2;
-  const snap = (v) => (v < 1e-9 ? 0 : v); // cos(π/2) isn't exactly 0 in floating point
-  return { L: snap(Math.cos((x * Math.PI) / 2)), R: snap(Math.sin((x * Math.PI) / 2)) };
-}
-
-export function formatDb(db, { unity = false, digits = 0 } = {}) {
-  if (db === -Infinity || db < -69.5) return "−∞";
-  if (unity && Math.abs(db) < 0.25) return "U";
-  const v = db.toFixed(digits);
-  if (Number(v) === 0) return "0 dB";
-  return `${db > 0 ? "+" : "−"}${Math.abs(Number(v)).toFixed(digits)} dB`;
-}
-
-export function formatPan(pan) {
-  if (Math.abs(pan) < 0.03) return "C";
-  const pct = Math.round(Math.abs(pan) * 100);
-  return `${pan < 0 ? "L" : "R"}${pct}`;
-}
-
-export function clamp(v, lo, hi) {
-  return Math.min(hi, Math.max(lo, v));
+// Which mixer a state belongs to. A state without `model` is the generic
+// mixer that Mixer A and Mixer B draw; "cr1604" is the Mackie (js/cr1604.js).
+export const MODELS = ["generic", "cr1604"];
+export const modelOf = (state) => state.model || "generic";
+export const listenDestinations = (state) => (modelOf(state) === "cr1604" ? CR1604.LISTEN : LISTEN_DESTINATIONS);
+// The listening group a mixer output feeds (Main L and R are both "main").
+export function listenGroupOf(state, portId) {
+  if (modelOf(state) === "cr1604") return CR1604.listenGroupOf(portId);
+  return portId === "main-l" || portId === "main-r" ? "main" : portId;
 }
 
 // ---------- state shape ----------
@@ -127,7 +65,8 @@ export function createChannel(index) {
   };
 }
 
-export function createMixerState() {
+export function createMixerState(model = "generic") {
+  if (model === "cr1604") return CR1604.createState();
   return {
     channels: Array.from({ length: CHANNEL_COUNT }, (_, i) => createChannel(i)),
     main: { level: 0.75 },
@@ -154,6 +93,7 @@ export function sourcePeakDb(source, stems) {
 // from live meters, which fluctuate with the music). dB values are peak
 // estimates in dBFS.
 export function computeMix(state, sourcesById, stems) {
+  if (modelOf(state) === "cr1604") return CR1604.computeMix(state, sourcesById, stems, sourcePeakDb);
   const rig = analyzeRig(state.rig, state.channels, sourcesById);
   const mainDb = levelToDb(state.main.level);
   const busDb = Object.fromEntries(BUSES.map((b) => [b, levelToDb(state[b].level)]));
@@ -237,6 +177,17 @@ export class MixerStore {
   setChannel(index, key, value) {
     const ch = this.state.channels[index];
     if (!ch) return;
+    if (modelOf(this.state) === "cr1604") {
+      // Keys may name a nested control: "eq.mid", "assign.lr".
+      const v = CR1604.sanitizeChannel(ch, key, value);
+      const [a, b] = key.split(".");
+      const holder = b ? ch[a] : ch;
+      const k = b || a;
+      if (v === undefined || holder[k] === v) return;
+      holder[k] = v;
+      this.emit({ type: "channel", index, key });
+      return;
+    }
     if (ch.stereo && (key === "phantom" || key === "pan" || key === "lowCut")) return; // not on a stereo line strip
     const v = sanitizeChannelValue(key, value);
     if (v === undefined || ch[key] === v) return;
@@ -258,13 +209,24 @@ export class MixerStore {
   }
 
   setBusLevel(bus, value) {
+    if (modelOf(this.state) === "cr1604") return this.setBus(bus, "level", value);
     if (!["main", "headphones", ...BUSES].includes(bus)) return;
     this.state[bus].level = clamp(Number(value), 0, 1);
     this.emit({ type: "bus", bus });
   }
 
+  // A master-section control other than a level (CR1604: SUB assigns, SOURCE
+  // matrix, solo MODE, AUX SEND solo). Validated by the mixer model.
+  setBus(bus, key, value) {
+    const fn = modelOf(this.state) === "cr1604" ? CR1604.BUS_KEYS[bus]?.[key] : key === "level" && ["main", "headphones", ...BUSES].includes(bus) ? (v) => clamp(Number(v), 0, 1) : null;
+    const v = fn ? fn(value) : undefined;
+    if (v === undefined || this.state[bus][key] === v) return;
+    this.state[bus][key] = v;
+    this.emit({ type: "bus", bus, key });
+  }
+
   setListen(dest) {
-    if (!LISTEN_DESTINATIONS.includes(dest) || this.state.listen === dest) return;
+    if (!listenDestinations(this.state).includes(dest) || this.state.listen === dest) return;
     this.state.listen = dest;
     this.emit({ type: "listen" });
   }

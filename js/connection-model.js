@@ -40,6 +40,8 @@ export const JACKS = {
   mini: { id: "mini", name: "3.5 mm", accepts: ["mini"] },
   // A stereo line input made of a left and right 1/4" jack side by side, patched as one.
   linepair: { id: "linepair", name: '1/4" L/R pair', accepts: ["quarter-pair"] },
+  // A left and right RCA jack side by side (a tape/CD input), patched as one.
+  rcapair: { id: "rcapair", name: "RCA L/R pair", accepts: ["rca"] },
 };
 
 export function plugFitsJack(plugId, jackId) {
@@ -89,7 +91,10 @@ export function cableFitsPort(cableId, port) {
 //   role      what the port means to the chain analysis
 //   stereo    a linked L/R pair carried on one cable (out) or one channel strip (in)
 //   pad       in ports: false = no 1/4" pad in front of the preamp (dedicated line input)
+//   path      in ports with their own jack per path: "mic" | "line" (a combo jack
+//             decides by the plug instead). Several ports may feed one `channel`.
 // Device flags:
+//   mixer     a mixer (every rig has exactly one, with id "mixer")
 //   source    a virtual sound source (plays a stem)
 //   endpoint  makes sound in a room; `amp: "internal"` (powered) or "none" (passive)
 export const DEVICE_TYPES = {
@@ -127,6 +132,7 @@ export const DEVICE_TYPES = {
   },
   mixer: {
     name: "Mixer",
+    mixer: true,
     ports: [
       ...Array.from({ length: 8 }, (_, i) => ({
         id: `ch${i + 1}`,
@@ -144,6 +150,27 @@ export const DEVICE_TYPES = {
       { id: "main-r", dir: "out", jack: "xlr", level: "line", role: "bus-out", bus: "main", side: "R", name: "Main R out" },
       { id: "aux1", dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: "aux1", side: "M", name: "Aux 1 out" },
       { id: "aux2", dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: "aux2", side: "M", name: "Aux 2 out" },
+    ],
+  },
+  // Mackie CR1604-VLZ rear panel: separate MIC (XLR) and LINE (1/4") jacks on
+  // every channel, RCA tape in, and 1/4" outputs. Inserts, direct outs and the
+  // aux returns are left out until the lab has outboard gear and recorders.
+  cr1604: {
+    name: "Mackie CR1604-VLZ",
+    mixer: true,
+    ports: [
+      ...Array.from({ length: 16 }, (_, i) => [
+        { id: `ch${i + 1}-mic`, dir: "in", jack: "xlr", level: "mic", phantom: true, path: "mic", role: "channel-input", channel: i, name: `Ch ${i + 1} MIC` },
+        { id: `ch${i + 1}-line`, dir: "in", jack: "quarter", level: "line", path: "line", role: "channel-input", channel: i, name: `Ch ${i + 1} LINE` },
+      ]).flat(),
+      { id: "tape-in", dir: "in", jack: "rcapair", level: "line", stereo: true, pad: false, path: "line", role: "channel-input", channel: 16, name: "TAPE INPUT (L/R)" },
+      { id: "main-l", dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: "main", side: "L", name: "MAIN OUT L" },
+      { id: "main-r", dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: "main", side: "R", name: "MAIN OUT R" },
+      { id: "mono", dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: "main", side: "M", name: "MONO OUT" },
+      ...Array.from({ length: 6 }, (_, i) => ({ id: `aux${i + 1}`, dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: `aux${i + 1}`, side: "M", name: `AUX SEND ${i + 1}` })),
+      ...Array.from({ length: 4 }, (_, i) => ({ id: `sub${i + 1}`, dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: `sub${i + 1}`, side: "M", name: `SUB OUT ${i + 1}` })),
+      { id: "cr-l", dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: "cr", side: "L", name: "C-R OUT L" },
+      { id: "cr-r", dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: "cr", side: "R", name: "C-R OUT R" },
     ],
   },
   "powered-speaker": {
@@ -176,9 +203,15 @@ export const DEVICE_TYPES = {
 
 export const portRef = (deviceId, portId) => `${deviceId}/${portId}`;
 
-// The mixer input port for channel strip `index` (0-based), e.g. "mixer/ch1" or "mixer/ch9-10".
-export function channelPortRef(index) {
-  const port = DEVICE_TYPES.mixer.ports.find((p) => p.role === "channel-input" && p.channel === index);
+export const isMixer = (device) => !!device && !!DEVICE_TYPES[device.type]?.mixer;
+export const mixerOf = (rig) => rig.devices.find(isMixer) || null;
+
+// The mixer input port for channel strip `index` (0-based), e.g. "mixer/ch1" or
+// "mixer/ch9-10". Where a channel has a jack per path, `plug` picks it: an XLR
+// plug goes to the MIC jack, anything else to LINE.
+export function channelPortRef(index, { plug, mixerType = "mixer" } = {}) {
+  const ports = DEVICE_TYPES[mixerType].ports.filter((p) => p.role === "channel-input" && p.channel === index);
+  const port = ports.find((p) => !p.path || p.path === (plug === "xlr" ? "mic" : "line")) || ports[0];
   return port ? portRef("mixer", port.id) : null;
 }
 
@@ -236,14 +269,18 @@ export function checkConnection(rig, fromRef, toRef, cableId) {
   }
   if (cableAt(rig, fromRef)) return { ok: false, reason: `${from.name} already has a cable.` };
   if (cableAt(rig, toRef)) return { ok: false, reason: `${to.name} already has a cable.` };
+  if (to.role === "channel-input") {
+    const sibling = to.type.ports.find((p) => p.channel === to.channel && p.id !== to.id && cableAt(rig, portRef(to.device.id, p.id)));
+    if (sibling) return { ok: false, reason: `${sibling.name} is already in use. Use one input per channel.` };
+  }
 
-  if (from.device.type === "mixer" && to.device.type === "mixer") {
+  if (isMixer(from.device) && isMixer(to.device)) {
     return { ok: false, reason: "Patching the mixer into itself makes a feedback loop." };
   }
-  if (from.type.source && to.device.type !== "mixer") {
+  if (from.type.source && !isMixer(to.device)) {
     return { ok: false, reason: "In this lab, sources plug into the mixer first." };
   }
-  if (to.device.type === "mixer" && !from.type.source) {
+  if (isMixer(to.device) && !from.type.source) {
     return { ok: false, reason: "Only sources go into the mixer's channel inputs here." };
   }
   if (from.role === "amp-out" && to.role === "amp-in") {
@@ -276,11 +313,12 @@ export function analyzeRig(rig, channels = [], sources = {}) {
   const byTo = new Map(rig.cables.map((c) => [c.to, c]));
 
   const channelInfo = [];
-  const mixer = rig.devices.find((d) => d.type === "mixer");
-  const mixerPorts = mixer ? DEVICE_TYPES.mixer.ports.filter((p) => p.role === "channel-input") : [];
-  for (const port of mixerPorts) {
+  const mixer = mixerOf(rig);
+  const mixerPorts = mixer ? DEVICE_TYPES[mixer.type].ports : [];
+  for (const port of mixerPorts.filter((p) => p.role === "channel-input")) {
     const ref = portRef(mixer.id, port.id);
     const cable = byTo.get(ref);
+    if (!cable && channelInfo[port.channel]) continue; // a channel with two jacks: the one in use wins
     const ch = channels[port.channel] || {};
     channelInfo[port.channel] = analyzeChannelInput(rig, cable, ch, sources, port);
   }
@@ -293,7 +331,7 @@ export function analyzeRig(rig, channels = [], sources = {}) {
   }
 
   const buses = {};
-  for (const p of DEVICE_TYPES.mixer.ports.filter((p) => p.role === "bus-out")) {
+  for (const p of mixerPorts.filter((p) => p.role === "bus-out")) {
     buses[p.id] = endpoints.filter((e) => e.valid && e.output === p.id).map((e) => e.deviceId);
   }
   return { channels: channelInfo, endpoints, buses };
@@ -303,7 +341,7 @@ function analyzeChannelInput(rig, cable, ch, sources, port) {
   if (!cable) return { connected: false, signal: false, status: "empty", messages: [] };
   const from = getPort(rig, cable.from);
   const plug = plugAtInput(rig, cable);
-  const path = plug === "xlr" ? "mic" : "line";
+  const path = port.path || (plug === "xlr" ? "mic" : "line");
   const source = sources[from.device.sourceId] || null;
   const info = {
     connected: true,

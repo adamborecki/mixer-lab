@@ -3,12 +3,12 @@
 // student presses Start Audio.
 
 import * as manifest from "../audio/source-manifest.js";
-import { channelPortRef } from "./connection-model.js";
+import { DEVICE_TYPES, cableAt, channelPortRef, mixerOf, portRef } from "./connection-model.js";
 import { AudioEngine } from "./audio-engine.js";
 import { PREVIEW, liveUrl, storageKey } from "./deploy-context.js";
 import { DEFAULT_SKIN, SKINS } from "./mixer-models.js";
-import { MixerStore, computeMix } from "./mixer-state.js";
-import { SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, captureBaseline, evaluateScenario } from "./scenarios.js";
+import { MixerStore, computeMix, createMixerState } from "./mixer-state.js";
+import { SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, captureBaseline, evaluateScenario, scenariosFor } from "./scenarios.js";
 import { Progress, numberedScenarios } from "./progress.js";
 import { renderFlow } from "./ui/flow.js";
 import { ListenBar } from "./ui/listen-bar.js";
@@ -20,11 +20,14 @@ import { SubmissionView } from "./ui/submission-view.js";
 const M = { STEM_SET: manifest.STEM_SET, STEMS: manifest.STEMS, SOURCES_BY_ID: manifest.SOURCES_BY_ID, LOOP_ASSETS: manifest.LOOP_ASSETS };
 const $ = (sel) => document.querySelector(sel);
 
-const store = new MixerStore();
+let skin = SKINS[readPref("mixer-lab-skin")] || SKINS[DEFAULT_SKIN];
+// Which mixer hardware the current skin draws ("generic" for Mixer A and B).
+const hardwareOf = (sk) => sk.hardware || "generic";
+
+const store = new MixerStore(createMixerState(hardwareOf(skin)));
 const progress = new Progress(numberedScenarios(SCENARIOS).map((s) => s.id), undefined, SCENARIOS.map((s) => s.id));
 const engine = new AudioEngine(store, M);
 
-let skin = SKINS[readPref("mixer-lab-skin")] || SKINS[DEFAULT_SKIN];
 let current = { def: SCENARIOS_BY_ID["free-play"], baseline: {}, session: { listened: new Set() } };
 // Free play can run the whole song instead of the 8-bar loop.
 let musicMode = "excerpt";
@@ -52,11 +55,21 @@ const mixerView = new MixerView($("#mixer"), {
   store,
   skin,
   manifest: M,
-  onPatchChannel: (i) => patchView.openPort(channelPortRef(i)),
+  onPatchChannel: (i) => patchView.openPort(channelPatchPort(i)),
 });
+
+// The jack to open for a channel: the one in use, else its first (MIC) jack.
+function channelPatchPort(i) {
+  const rig = store.state.rig;
+  const mixer = mixerOf(rig);
+  const refs = DEVICE_TYPES[mixer.type].ports.filter((p) => p.role === "channel-input" && p.channel === i).map((p) => portRef(mixer.id, p.id));
+  return refs.find((r) => cableAt(rig, r)) || channelPortRef(i, { plug: "xlr", mixerType: mixer.type });
+}
 
 const scenarioView = new ScenarioView($("#scenario"), {
   scenarios: SCENARIOS,
+  getScenarios: () => scenariosFor(hardwareOf(skin)),
+  getMixerName: () => skin.name,
   progress,
   getTerms: () => skin.terms,
   onSelect: (id) => selectScenario(id),
@@ -125,8 +138,9 @@ function evaluateNow() {
 // ---------- scenarios ----------
 
 function selectScenario(id) {
-  const def = SCENARIOS_BY_ID[id] || SCENARIOS_BY_ID["free-play"];
-  const state = buildScenarioState(def, M.SOURCES_BY_ID);
+  const available = scenariosFor(hardwareOf(skin));
+  const def = available.find((s) => s.id === id) || SCENARIOS_BY_ID["free-play"];
+  const state = buildScenarioState(def, M.SOURCES_BY_ID, hardwareOf(skin));
   store.replace(state);
   current = { def, baseline: captureBaseline(def, state, M.SOURCES_BY_ID, M.STEMS), session: { listened: new Set([state.listen]) } };
   lastEval = "";
@@ -176,10 +190,19 @@ function showLoadErrors(errors) {
 
 // ---------- skins ----------
 
-function setSkin(id) {
+function setSkin(id, { boot = false } = {}) {
   if (!SKINS[id]) return;
+  const changed = hardwareOf(SKINS[id]) !== hardwareOf(skin) || boot;
   skin = SKINS[id];
   writePref("mixer-lab-skin", id);
+  // A different mixer has a different state shape: rebuild the scenario on it
+  // (the band keeps playing; only the mixer graph is swapped).
+  if (changed) {
+    mixerView.detach();
+    const wanted = current.def.id;
+    selectScenario(wanted);
+    if (!boot && current.def.id !== wanted) toast(`${skin.name}: its own scenarios aren't written yet, so this is Free play.`, "");
+  }
   mixerView.setSkin(skin);
   renderFlow($("#flow"), skin);
   listenBar.render();
@@ -231,7 +254,7 @@ $("#start-btn").addEventListener("click", () => {
 
 window.addEventListener("hashchange", () => {
   const id = location.hash.replace(/^#\/?/, "");
-  if (SCENARIOS_BY_ID[id] && id !== current.def.id) selectScenario(id);
+  if (scenariosFor(hardwareOf(skin)).some((s) => s.id === id) && id !== current.def.id) selectScenario(id);
 });
 
 // ---------- frame loop ----------
@@ -353,9 +376,9 @@ function showPreviewBanner() {
 
 showPreviewBanner();
 
-setSkin(skin.id);
+current.def = SCENARIOS_BY_ID[location.hash.replace(/^#\/?/, "")] || SCENARIOS_BY_ID["free-play"];
+setSkin(skin.id, { boot: true });
 setTab("scenario");
-selectScenario(location.hash.replace(/^#\/?/, "") || "free-play");
 requestAnimationFrame(frame);
 
 if (new URLSearchParams(location.search).has("debug")) {

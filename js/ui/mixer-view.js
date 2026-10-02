@@ -5,6 +5,7 @@ import { RangeControl, LitButton } from "./controls.js";
 import { MeterView } from "../meters.js";
 import { enabledLit, enabledAfterPress, enabledStatusText, globalPhantomState } from "../mixer-models.js";
 import { GAIN_MAX_DB, GAIN_MIN_DB, dbToLevel, formatDb, formatPan, levelToDb } from "../mixer-state.js";
+import { render1604, update1604 } from "./mixer-1604-view.js";
 
 const FADER_MARKS = [10, 5, 0, -5, -10, -20, -30, -50].map((db) => ({ value: dbToLevel(db), label: db === 0 ? "U" : db > 0 ? `+${db}` : `${db}` }));
 FADER_MARKS.push({ value: 0, label: "−∞" });
@@ -29,6 +30,14 @@ export class MixerView {
     this.render();
   }
 
+  // Drop the drawn surface before the state changes shape (switching to or
+  // from a mixer with a different channel layout); setSkin draws it again.
+  detach() {
+    this.bindings = [];
+    this.channelMeters = [];
+    this.root.innerHTML = "";
+  }
+
   // ---------- building ----------
 
   render() {
@@ -38,6 +47,14 @@ export class MixerView {
     this.root.innerHTML = "";
     this.root.className = `mixer skin-${skin.id}`;
     this.root.dataset.skin = skin.id;
+    if (skin.layout === "cr1604") {
+      this.leds = [];
+      this.paths = [];
+      this.pathKey = "";
+      render1604(this);
+      this.sync();
+      return;
+    }
 
     const surface = document.createElement("div");
     surface.className = "mixer-surface";
@@ -373,6 +390,15 @@ export class MixerView {
   sync(mix) {
     const s = this.store.state;
     const { SOURCES_BY_ID } = this.manifest;
+    if (mix && this.skin.layout === "cr1604") {
+      // The TRIM scale depends on which jack (MIC or LINE) is in use.
+      const key = mix.channels.map((c) => c.input.path || "").join();
+      if (key !== this.pathKey) {
+        this.pathKey = key;
+        this.paths = mix.channels.map((c) => c.input.path);
+        for (const b of this.bindings) if (b.kind === "range") b.control.render();
+      }
+    }
     for (const b of this.bindings) {
       if (b.kind === "range") b.control.setValue(b.get(s), true);
       else if (b.kind === "text") {
@@ -380,6 +406,7 @@ export class MixerView {
         if (b.el.textContent !== v) b.el.textContent = v;
       }
       else if (b.kind === "button") b.control.setLit(...b.get(s));
+      else if (b.kind === "fn") b.run(s);
       else if (b.kind === "head" && mix) {
         const c = mix.channels[b.index];
         const src = c.sourceId ? SOURCES_BY_ID[c.sourceId] : null;
@@ -409,6 +436,7 @@ export class MixerView {
 
   updateMeters(readings, now) {
     if (!readings) return;
+    if (this.skin.layout === "cr1604") return update1604(this, readings, now);
     this.channelMeters.forEach((m, i) => m && m.update(readings.channels[i], now));
     const mm = this.masterMeters || {};
     if (mm.mainL) mm.mainL.update(readings.mainL, now);

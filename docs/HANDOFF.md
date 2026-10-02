@@ -16,12 +16,15 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 | `index.html`, `styles.css` | Page shell (start overlay, tabs, regions, dialogs) and all styling |
 | `audio/source-manifest.js` | Stems, virtual sources, FOH order, levels, scenario availability, full-song segments, `PRESHOW`, `CREDITS` |
 | `js/connection-model.js` | Plugs, jacks, cables, signal levels, device types/ports, `checkConnection`, `analyzeRig` (chain validity) |
-| `js/mixer-state.js` | Semantic state, `BUSES`, level/pan laws, `computeMix`, `MixerStore` actions |
+| `js/mixer-state.js` | Semantic state, `BUSES`, `computeMix`, `MixerStore` actions; dispatches to the 1604 by `state.model` |
+| `js/levels.js` | Level and pan laws, knob tapers (`makeLaw`, `knobLaw`), input bands (re-exported by `mixer-state.js`) |
+| `js/cr1604.js` | Mackie CR1604-VLZ: state, validation, level model ([CR1604.md](CR1604.md)) |
 | `js/scenarios.js` | Scenario data, playback-device inventory, baselines (`METRICS`), `CONDITIONS`, `evaluateScenario` |
 | `js/mixer-models.js` | Skins: words, control types, layout data, MUTE/ON mapping |
 | `js/transport.js` | Stem playback: excerpt loop and streamed full song, sync, keep-alive |
 | `js/loop-player.js` | Independent looping stereo playback (preshow laptop), own timeline, keep-alive |
-| `js/audio-engine.js` | Web Audio graph: channel strips, Main/Aux/PFL buses, speaker gating, listening, meters |
+| `js/audio-engine.js` | Web Audio shell: transport, speaker gating, listening, limiter, meters; builds the mixer graph for `state.model` |
+| `js/graph-generic.js`, `js/graph-1604.js`, `js/graph-kit.js` | The mixer graphs (Mixer A/B; CR1604-VLZ) and shared node helpers (low cut, teardown) |
 | `js/app.js` | Wiring: store ↔ engine ↔ scenario checks ↔ views; session (listen history); Free play music mode; credits |
 | `js/progress.js`, `js/submission.js` | Solved-scenario tracking and per-scenario active time and action counts (localStorage) and the plain-text Canvas submission with its check code; pure, tested in `tests/submission.test.mjs`. `tools/verify-submission.mjs < file` re-checks a pasted submission |
 | `js/ui/icons.js` | Original SVG icon library (gear, plugs, jacks, signal and cable kinds) and the model → picture mapping (`deviceIconName`, `plugIconName`, `jackIconName`). Presentation only; tested in `tests/icons.test.mjs` |

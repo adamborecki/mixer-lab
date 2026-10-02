@@ -92,7 +92,7 @@ aux: { aux1: { sendDb, monitorDb, heardDb }, aux2: { sendDb, monitorDb, heardDb 
 
 ## Skins
 
-`SKINS` in `js/mixer-models.js` has two entries. Both call the same `MixerStore` actions.
+`SKINS` in `js/mixer-models.js` has three entries. Mixer A (`analog`) and Mixer B (`compact`) draw the generic mixer described here and call the same `MixerStore` actions. The third, `mackie1604`, has `hardware: "cr1604"`: its state (`model: "cr1604"`) has a different shape, described in [CR1604.md](CR1604.md).
 
 | Semantic | Mixer A (`analog`) | Mixer B (`compact`) |
 |---|---|---|

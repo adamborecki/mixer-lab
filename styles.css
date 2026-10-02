@@ -2458,3 +2458,288 @@ dialog::backdrop {
   grid-template-columns: auto 1fr;
   gap: 0.2rem 0.6rem;
 }
+
+/* ---------- Mackie CR1604-VLZ (js/ui/mixer-1604-view.js) ---------- */
+
+.scenario-note {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+.tone-eq .knob {
+  --knob-color: #ffb38a;
+}
+.tone-aux3 .knob,
+.tone-aux4 .knob {
+  --knob-color: #c3a6ff;
+}
+.tone-assign {
+  --lit: #7ce0ff;
+}
+.ctl-xs .knob {
+  width: 34px;
+  height: 34px;
+}
+.ctl-xs .ctl-label {
+  font-size: 0.58rem;
+}
+.ctl-xs .ctl-value {
+  font-size: 0.6rem;
+}
+
+.skin-mackie1604 .mixer-surface {
+  background: linear-gradient(180deg, #2a2d36 0%, #20232b 100%);
+  border: 1px solid #383c48;
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+.skin-mackie1604 .mixer-strips {
+  flex: none;
+}
+.c16-strip {
+  width: 84px;
+  flex: none;
+  padding: 0 0.25rem 0.3rem;
+  gap: 0.25rem;
+  border-right: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.05);
+  scroll-snap-align: start;
+}
+.c16-strip .strip-head {
+  min-height: 38px;
+  flex-direction: column;
+  gap: 0;
+}
+.c16-sec {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  width: 100%;
+  padding-top: 0.25rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.35);
+}
+.c16-pair {
+  display: flex;
+  justify-content: center;
+  gap: 0.15rem;
+}
+.c16-strip .lit-btn {
+  min-width: 0;
+  width: 100%;
+  min-height: 26px;
+  padding: 0.15rem 0.2rem;
+  font-size: 0.58rem;
+  letter-spacing: 0.03em;
+}
+.c16-strip .lit-btn .lit-led {
+  width: 6px;
+  height: 6px;
+}
+.c16-mute {
+  flex-direction: row;
+  justify-content: space-between;
+}
+.c16-mute .lit-btn {
+  width: auto;
+  flex: 1;
+}
+.c16-leds {
+  display: flex;
+  gap: 0.25rem;
+}
+.c16-led {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.5rem;
+  font-weight: 800;
+  color: var(--text-dim);
+}
+.c16-led i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+.c16-led.led-ol i.on {
+  background: var(--bad);
+  box-shadow: 0 0 6px var(--bad);
+}
+.c16-led.led-sig i.on,
+.c16-led.led-levelset i.on {
+  background: var(--ok);
+  box-shadow: 0 0 6px var(--ok);
+}
+.c16-led i.on:not(.steady) {
+  opacity: 0.75;
+}
+.c16-led.led-rude i.on {
+  background: var(--warn);
+  box-shadow: 0 0 10px var(--warn);
+}
+.c16-fader {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: center;
+}
+.skin-mackie1604 .fader {
+  --fader-h: 180px;
+  width: 38px;
+}
+.c16-assign {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  width: 36px;
+  margin-top: 1.2rem;
+}
+.c16-strip .c16-assign .lit-btn {
+  min-height: 24px;
+  padding: 0.1rem;
+  font-size: 0.55rem;
+}
+.c16-strip.is-muted .fader-cap {
+  filter: saturate(0) brightness(0.7);
+}
+
+.c16-master {
+  flex: none;
+  align-items: stretch;
+  gap: 0.5rem;
+  padding: 0 0.3rem 0.3rem 0.6rem;
+  border-left: 2px solid rgba(0, 0, 0, 0.5);
+}
+.c16-master-top {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  width: 330px;
+}
+.c16-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.15);
+}
+.c16-block h4 {
+  margin: 0;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  text-align: center;
+}
+.c16-block .lit-btn {
+  min-width: 0;
+  width: 100%;
+  min-height: 26px;
+  padding: 0.15rem 0.25rem;
+  font-size: 0.56rem;
+}
+.c16-note {
+  margin: 0;
+  font-size: 0.55rem;
+  color: var(--text-dim);
+  text-align: center;
+}
+.c16-matrix {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.2rem;
+  width: 100%;
+}
+.c16-tape-head {
+  min-height: 34px;
+  flex-direction: column;
+  gap: 0;
+}
+.c16-meters {
+  grid-row: span 2;
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border-radius: 8px;
+  background: #121318;
+}
+.c16-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+}
+.c16-meter .seg {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.5rem;
+  color: var(--text-dim);
+}
+.c16-meter .seg i {
+  width: 14px;
+  height: 7px;
+  border-radius: 2px;
+  background: rgba(107, 255, 176, 0.12);
+}
+.c16-meter .seg.on i {
+  background: var(--ok);
+  box-shadow: 0 0 5px var(--ok);
+}
+.c16-meter .seg-hot.on i {
+  background: var(--warn);
+  box-shadow: 0 0 5px var(--warn);
+}
+.c16-meter .seg-clip i {
+  background: rgba(255, 107, 129, 0.15);
+}
+.c16-meter .seg-clip.on i {
+  background: var(--bad);
+  box-shadow: 0 0 6px var(--bad);
+}
+.c16-meter .seg small {
+  width: 1.6rem;
+  text-align: right;
+}
+.c16-meter b {
+  font-size: 0.5rem;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+}
+.c16-faders {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.2rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.4);
+}
+.c16-sub {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+.c16-tomain {
+  flex-direction: row;
+  margin-top: 0;
+  width: auto;
+}
+.c16-tomain .lit-btn {
+  min-width: 0;
+  min-height: 24px;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.55rem;
+}
+.c16-main {
+  justify-content: flex-end;
+  padding-left: 0.3rem;
+  border-left: 1px solid rgba(0, 0, 0, 0.4);
+}

@@ -6,9 +6,12 @@ import { fillTerms, shortTitle } from "../scenarios.js";
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 export class ScenarioView {
-  constructor(root, { scenarios, progress, onSelect, onReset, onClear, getTerms, getMusic, onMusicMode, onSeek }) {
+  constructor(root, { scenarios, getScenarios, getMixerName, progress, onSelect, onReset, onClear, getTerms, getMusic, onMusicMode, onSeek }) {
     this.root = root;
     this.scenarios = scenarios;
+    // The scenarios the current mixer can run (all of them on Mixer A and B).
+    this.getScenarios = getScenarios || (() => scenarios);
+    this.getMixerName = getMixerName || (() => "");
     this.onSelect = onSelect;
     this.onReset = onReset;
     this.onClear = onClear;
@@ -47,7 +50,8 @@ export class ScenarioView {
     this.hints = this.hints && this.hintsFor === def.id ? this.hints : 0;
     this.hintsFor = def.id;
     const t = this.getTerms();
-    const ordered = [...this.scenarios].sort((a, b) => (a.number || 99) - (b.number || 99));
+    const available = this.getScenarios();
+    const ordered = [...available].sort((a, b) => (a.number || 99) - (b.number || 99));
     const picker = ordered
       .filter((s) => s.number > 0)
       .concat(ordered.filter((s) => s.number === 0))
@@ -60,8 +64,10 @@ export class ScenarioView {
       .concat('<button type="button" class="chip scenario-chip canvas-chip" data-open-canvas>Canvas Submission</button>');
 
     const isFree = !def.conditions.length;
+    const onlyFree = available.length < this.scenarios.length;
     this.root.innerHTML = `
       <nav class="scenario-picker" aria-label="Choose a scenario">${picker}</nav>
+      ${onlyFree ? `<p class="scenario-note">The numbered scenarios run on Mixer A and Mixer B. Scenarios for the ${esc(this.getMixerName())} are still being written, so it opens in Free play.</p>` : ""}
       <article class="scenario-card">
         <p class="kicker">${def.number ? `Scenario ${def.number}` : "Sandbox"}${def.who ? ` · ${esc(def.who)}` : ""}</p>
         <h2>${esc(def.title)}</h2>

@@ -1,32 +1,25 @@
-// Web Audio engine. Owns the AudioContext and the node graph; reads the
-// semantic mixer state and never touches the DOM. See docs/AUDIO_ENGINE.md.
+// Web Audio engine. Owns the AudioContext, stem playback, the speakers and
+// listening; the mixer itself is a graph built for the current state's model
+// (graph-generic.js for Mixer A/B, graph-1604.js for the CR1604-VLZ). Reads
+// semantic state and never touches the DOM. See docs/AUDIO_ENGINE.md.
 //
-//   stem player (mono) ─► channel input ─► preamp gain ─► clipper ─► low cut ─► tap
-//   loop player (stereo, own timeline) ─► stereo channel strip (same chain, no pan)
-//   tap ─► input meter
-//   tap ─► enabled ─► fader ─► pan ─► Main bus ─► Main master ─► Main L / Main R outs
-//   tap ─► Aux 1 send (pre-fader) ─► Aux 1 bus ─► Aux 1 master ─► Aux 1 out
-//   tap ─► Aux 2 send (pre-fader) ─► Aux 2 bus ─► Aux 2 master ─► Aux 2 out
-//   tap ─► PFL switch ─► PFL bus ─► phones level
-//
+//   stem player (mono) ─► mixer channel input ─► … mixer graph … ─► mixer outs
+//   loop player (stereo, own timeline) ─► the mixer's stereo input
 //   mixer outs ─► (only through a valid chain) ─► speaker ─► listen group of the bus feeding it
-//   listen selector: Main | Aux 1 | Aux 2 | phones ─► safety limiter ─► destination
+//   listen selector: Main | an aux or subgroup | phones ─► safety limiter ─► destination
 //
-// Stem playback and synchronization live in js/transport.js.
+// Stem playback and synchronization live in js/transport.js. Switching mixers
+// rebuilds only the mixer graph: the stems keep playing on one timeline.
 
 import { analyzeRig } from "./connection-model.js";
-import { BUSES, CHANNEL_COUNT, CHANNEL_LAYOUT, HEADROOM_DB, dbToGain, levelToDb } from "./mixer-state.js";
+import { dbToGain, listenDestinations, listenGroupOf, modelOf } from "./mixer-state.js";
 import { LoopPlayer } from "./loop-player.js";
 import { StemTransport } from "./transport.js";
+import { METER_FFT, RAMP, nodeKit } from "./graph-kit.js";
+import { buildGenericGraph } from "./graph-generic.js";
+import { buildCr1604Graph } from "./graph-1604.js";
 
-const RAMP = 0.012; // seconds; smooths control changes without lag
 const LISTEN_TRIM_DB = 4; // fixed make-up gain so a typical mix sits at a comfortable level
-const METER_FFT = 1024;
-// Channel LOW CUT, after the CR1604-VLZ: 75 Hz, 18 dB/octave (2nd + 1st order).
-const LOW_CUT_HZ = 75;
-
-// Which listen group a mixer output belongs to.
-const busOfOutput = (port) => (port === "main-l" || port === "main-r" ? "main" : port);
 
 export class AudioEngine {
   constructor(store, manifest) {
@@ -85,123 +78,12 @@ export class AudioEngine {
 
   // ---------- graph ----------
 
+  // The parts that never change: listening output, safety limiter, its meter.
   buildGraph() {
     const ctx = this.ctx;
-    const gain = (v = 1, mono = false) => {
-      const g = ctx.createGain();
-      g.gain.value = v;
-      if (mono) {
-        g.channelCount = 1;
-        g.channelCountMode = "explicit";
-        g.channelInterpretation = "speakers";
-      }
-      return g;
-    };
-    const stereoGain = (v = 1) => {
-      const g = ctx.createGain();
-      g.gain.value = v;
-      g.channelCount = 2;
-      g.channelCountMode = "explicit";
-      g.channelInterpretation = "speakers";
-      return g;
-    };
-    const analyser = () => {
-      const a = ctx.createAnalyser();
-      a.fftSize = METER_FFT;
-      a.smoothingTimeConstant = 0;
-      return a;
-    };
     this.meterBuf = new Float32Array(METER_FFT);
-    this.meters = {};
-
-    // Main L/R
-    this.mainBus = gain(1);
-    this.mainBus.channelCount = 2;
-    this.mainBus.channelCountMode = "explicit";
-    this.mainMaster = gain(1);
-    this.mainBus.connect(this.mainMaster);
-    const split = ctx.createChannelSplitter(2);
-    this.mainMaster.connect(split);
-    const mainL = gain(1, true);
-    const mainR = gain(1, true);
-    split.connect(mainL, 0);
-    split.connect(mainR, 1);
-    this.outputs = { "main-l": mainL, "main-r": mainR };
-    this.meters.mainL = analyser();
-    this.meters.mainR = analyser();
-    mainL.connect(this.meters.mainL);
-    mainR.connect(this.meters.mainR);
-
-    // Aux buses: bus → master → out
-    this.auxBus = {};
-    this.auxMaster = {};
-    for (const b of BUSES) {
-      this.auxBus[b] = gain(1, true);
-      this.auxMaster[b] = gain(1, true);
-      this.auxBus[b].connect(this.auxMaster[b]);
-      this.outputs[b] = this.auxMaster[b];
-      this.meters[b] = analyser();
-      this.auxMaster[b].connect(this.meters[b]);
-    }
-
-    // PFL
-    this.pflBus = gain(1, true);
-    this.phones = gain(1, true);
-    this.pflBus.connect(this.phones);
-    this.meters.pfl = analyser();
-    this.pflBus.connect(this.meters.pfl);
-
-    // Channel strips
-    this.strips = [];
-    const clipCurve = new Float32Array([-1, 1]); // identity inside ±1, hard clip outside
-    for (let i = 0; i < CHANNEL_COUNT; i++) {
-      // A stereo strip is one strip: same controls, but every stage carries L and R.
-      const stereo = !!CHANNEL_LAYOUT[i].stereo;
-      const chan = stereo ? stereoGain : (v) => gain(v, true);
-      const input = chan(1);
-      const pre = chan(0);
-      const clip = ctx.createWaveShaper();
-      clip.curve = clipCurve;
-      const meter = analyser();
-      const enabled = chan(1);
-      const fader = chan(0);
-      const pan = stereo ? null : ctx.createStereoPanner(); // stereo: left stays left, right stays right
-      const pfl = gain(0, true);
-      // Low cut: the switch crossfades between the dry and the filtered path,
-      // so nothing is rebuilt and playback is never touched.
-      const tap = chan(1);
-      const dry = chan(1);
-      const wet = chan(0);
-      const hp2 = ctx.createBiquadFilter();
-      hp2.type = "highpass";
-      hp2.frequency.value = LOW_CUT_HZ;
-      hp2.Q.value = Math.SQRT1_2;
-      const hp1 = onePoleHighpass(ctx, LOW_CUT_HZ);
-      input.connect(pre).connect(clip);
-      clip.connect(dry).connect(tap);
-      clip.connect(hp2).connect(hp1).connect(wet).connect(tap);
-      tap.connect(meter);
-      tap.connect(enabled).connect(fader);
-      if (pan) fader.connect(pan).connect(this.mainBus);
-      else fader.connect(this.mainBus);
-      const sends = {};
-      for (const b of BUSES) {
-        sends[b] = gain(0, true);
-        tap.connect(sends[b]).connect(this.auxBus[b]); // pre-fader
-      }
-      tap.connect(pfl).connect(this.pflBus);
-      this.strips.push({ input, pre, clip, lowCut: { dry, wet }, meter, enabled, fader, pan, sends, pfl, stereo });
-    }
-
-    // Listening: each speaker feeds the listen group of the bus that reaches
-    // it; the selector opens one group (or the phones).
-    this.listenGains = {};
-    this.listenOut = gain(dbToGain(LISTEN_TRIM_DB));
-    for (const dest of ["main", ...BUSES, "pfl"]) {
-      this.listenGains[dest] = gain(0);
-      this.listenGains[dest].connect(this.listenOut);
-    }
-    this.phones.connect(this.listenGains.pfl);
+    this.listenOut = ctx.createGain();
+    this.listenOut.gain.value = dbToGain(LISTEN_TRIM_DB);
     // Safety limiter: protects ears when students crank things, not a mix tool.
     this.limiter = ctx.createDynamicsCompressor();
     this.limiter.threshold.value = -3;
@@ -210,13 +92,37 @@ export class AudioEngine {
     this.limiter.attack.value = 0.002;
     this.limiter.release.value = 0.2;
     this.listenOut.connect(this.limiter).connect(ctx.destination);
-    this.meters.listen = analyser();
-    this.limiter.connect(this.meters.listen);
+    this.listenMeter = ctx.createAnalyser();
+    this.listenMeter.fftSize = METER_FFT;
+    this.listenMeter.smoothingTimeConstant = 0;
+    this.limiter.connect(this.listenMeter);
+    this.buildMixer();
+  }
+
+  // The mixer graph for the current state's model, plus one listen group per destination.
+  buildMixer() {
+    const state = this.store.state;
+    this.model = modelOf(state);
+    this.kit = nodeKit(this.ctx);
+    this.mixer = this.model === "cr1604" ? buildCr1604Graph(this.kit) : buildGenericGraph(this.kit);
+    this.strips = this.mixer.strips;
+    this.outputs = this.mixer.outputs;
+    this.listenGains = {};
+    for (const dest of listenDestinations(state)) {
+      this.listenGains[dest] = this.kit.gain(0);
+      this.listenGains[dest].connect(this.listenOut);
+    }
+    this.mixer.phones.connect(this.listenGains[this.mixer.phonesDest]);
   }
 
   // ---------- state → graph ----------
 
   onChange(state, change) {
+    if (change.type === "replace" && modelOf(state) !== this.model) {
+      this.unroute();
+      this.kit.dispose();
+      this.buildMixer();
+    }
     if (change.type === "rig" || change.type === "replace") this.rewire();
     this.applyAll();
   }
@@ -231,34 +137,11 @@ export class AudioEngine {
     const { SOURCES_BY_ID } = this.manifest;
     // Re-analyse every time: phantom power changes whether a channel has signal.
     const rig = analyzeRig(state.rig, state.channels, SOURCES_BY_ID);
-    state.channels.forEach((ch, i) => {
-      const s = this.strips[i];
-      const info = rig.channels[i];
-      const source = info && info.sourceId ? SOURCES_BY_ID[info.sourceId] : null;
-      // Everything before the preamp is folded into one gain: how hot the
-      // source is, the line-input pad, the gain knob, and fixed headroom.
-      const preDb = source && info.signal ? source.outputDb + (info.padDb || 0) + ch.gainDb + HEADROOM_DB : -Infinity;
-      this.set(s.pre.gain, dbToGain(preDb));
-      this.set(s.lowCut.dry.gain, ch.lowCut ? 0 : 1);
-      this.set(s.lowCut.wet.gain, ch.lowCut ? 1 : 0);
-      this.set(s.enabled.gain, ch.enabled ? 1 : 0);
-      this.set(s.fader.gain, dbToGain(levelToDb(ch.level)));
-      if (s.pan) this.set(s.pan.pan, ch.pan);
-      for (const b of BUSES) this.set(s.sends[b].gain, dbToGain(levelToDb(ch.auxSends[b])));
-      this.set(s.pfl.gain, ch.pfl ? 1 : 0);
-    });
-    this.set(this.mainMaster.gain, dbToGain(levelToDb(state.main.level)));
-    for (const b of BUSES) this.set(this.auxMaster[b].gain, dbToGain(levelToDb(state[b].level)));
-    this.set(this.phones.gain, dbToGain(levelToDb(state.headphones.level)));
+    this.mixer.apply(state, rig, SOURCES_BY_ID);
     for (const [dest, g] of Object.entries(this.listenGains)) this.set(g.gain, state.listen === dest ? 1 : 0);
   }
 
-  // Rebuilds every connection that depends on patching: which stem feeds
-  // which channel, and which mixer output reaches which speaker.
-  rewire() {
-    if (!this.ctx) return;
-    const state = this.store.state;
-    const rigInfo = analyzeRig(state.rig, state.channels, this.manifest.SOURCES_BY_ID);
+  unroute() {
     for (const [from, to] of this.routes) {
       try {
         from.disconnect(to);
@@ -267,6 +150,15 @@ export class AudioEngine {
       }
     }
     this.routes = [];
+  }
+
+  // Rebuilds every connection that depends on patching: which stem feeds
+  // which channel, and which mixer output reaches which speaker.
+  rewire() {
+    if (!this.ctx) return;
+    const state = this.store.state;
+    const rigInfo = analyzeRig(state.rig, state.channels, this.manifest.SOURCES_BY_ID);
+    this.unroute();
     const link = (from, to) => {
       from.connect(to);
       this.routes.push([from, to]);
@@ -278,7 +170,7 @@ export class AudioEngine {
       if (!info || !info.connected || !info.sourceId) return;
       const loop = this.loops.get(info.sourceId);
       const out = loop ? loop.out : this.transport.outs.get(info.sourceId);
-      if (out) link(out, this.strips[i].input);
+      if (out && this.strips[i]) link(out, this.strips[i].input);
     });
 
     // Speakers: one node per speaker, panned to its place, feeding the listen
@@ -298,9 +190,10 @@ export class AudioEngine {
       }
       node.pan.pan.value = ep.pan * 0.8;
       // Only a valid physical chain makes sound. No bypass.
-      if (ep.valid && this.outputs[ep.output]) {
+      const group = this.listenGains[listenGroupOf(state, ep.output)];
+      if (ep.valid && this.outputs[ep.output] && group) {
         link(this.outputs[ep.output], node.input);
-        link(node.pan, this.listenGains[busOfOutput(ep.output)]);
+        link(node.pan, group);
       }
     }
     for (const [id, node] of this.endpointNodes) {
@@ -358,15 +251,6 @@ export class AudioEngine {
 
   readMeters() {
     if (!this.ctx) return null;
-    const out = { channels: this.strips.map((s) => this.readAnalyser(s.meter)) };
-    for (const k of Object.keys(this.meters)) out[k] = this.readAnalyser(this.meters[k]);
-    return out;
+    return { ...this.mixer.readMeters((a) => this.readAnalyser(a)), listen: this.readAnalyser(this.listenMeter) };
   }
-}
-
-// First-order high-pass (6 dB/octave) by the bilinear transform; with the
-// 12 dB/octave biquad before it, the low cut falls at 18 dB/octave.
-function onePoleHighpass(ctx, hz) {
-  const k = Math.tan((Math.PI * hz) / ctx.sampleRate);
-  return ctx.createIIRFilter([1 / (1 + k), -1 / (1 + k)], [1, (k - 1) / (k + 1)]);
 }

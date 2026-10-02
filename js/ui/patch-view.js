@@ -13,9 +13,12 @@ import {
   cablesForPort,
   checkConnection,
   getPort,
+  isMixer,
   listPorts,
+  mixerOf,
   plugFitsJack,
 } from "../connection-model.js";
+import { modelOf } from "../mixer-state.js";
 
 import { CONNECTOR_GUIDE, deviceIconName, icon, jackIconName, levelIconName, plugIconName } from "./icons.js";
 
@@ -29,7 +32,7 @@ const LEVEL_SHORT = { mic: "Mic level", instrument: "Instrument level", line: "L
 export function portLabel(rig, ref, { short = false } = {}) {
   const p = getPort(rig, ref);
   if (!p) return ref;
-  if (p.device.type === "mixer") return short ? p.name.replace(" input", "").replace(" out", "") : `Mixer · ${p.name}`;
+  if (isMixer(p.device)) return short ? p.name.replace(" input", "").replace(" out", "") : `Mixer · ${p.name}`;
   const dev = p.device.label || DEVICE_TYPES[p.device.type].name;
   return short ? dev : `${dev} · ${p.name}`;
 }
@@ -99,9 +102,11 @@ export class PatchView {
         src.stereo ? `<span class="tag tag-stereo">Stereo L/R</span>` : "",
         src.phantom === "required" ? `<span class="tag tag-phantom">Needs +48 V</span>` : "",
       ].join("");
+      // Input-list number: where this source belongs (the CR1604 takes the laptop on TAPE IN).
+      const listNo = modelOf(state) === "cr1604" && src.stereo ? "TAPE" : state.channels[src.order - 1].label;
       return `<li class="source-card status-${status}">
         <div class="source-top">
-          <span class="source-order" aria-label="Input list number">${esc(state.channels[src.order - 1].label)}</span>
+          <span class="source-order" aria-label="Input list number">${esc(listNo)}</span>
           <span class="dev-ico">${icon(deviceIconName(d), { size: 40 })}</span>
           <div class="source-names"><strong>${esc(src.name)}</strong><span>${esc(src.device)}</span></div>
           <span class="status-pill status-${status}">${status === "ok" ? "✓ Signal" : status === "idle" ? "Unpatched" : status === "bad" ? "✕ Danger" : "! Check"}</span>
@@ -116,7 +121,7 @@ export class PatchView {
     this.sourcesRoot.innerHTML = `
       <p class="role-line">${icon("role-source", { size: 26 })}<span>Sources: the signal starts here and goes out to the mixer.</span></p>
       <ol class="source-list">${cards.join("")}</ol>
-      <p class="panel-foot">Free mixer inputs: ${empty.length ? empty.map((n) => `Ch ${n}`).join(", ") : "none"}. Ch 1–8 are XLR/¼″ combo jacks: XLR → mic preamp (+48 V available), ¼″ → line input (padded). Ch 9/10 is one stereo line input (left + right ¼″ pair, no phantom power).</p>
+      <p class="panel-foot">${modelOf(state) === "cr1604" ? cr1604Foot(empty) : `Free mixer inputs: ${empty.length ? empty.map((n) => `Ch ${n}`).join(", ") : "none"}. Ch 1–8 are XLR/¼″ combo jacks: XLR → mic preamp (+48 V available), ¼″ → line input (padded). Ch 9/10 is one stereo line input (left + right ¼″ pair, no phantom power).`}</p>
       ${connectorGuide()}`;
   }
 
@@ -124,10 +129,11 @@ export class PatchView {
     const state = this.store.state;
     const rig = state.rig;
     const terms = this.getTerms();
-    const mixer = rig.devices.find((d) => d.type === "mixer");
+    const mixer = mixerOf(rig);
     const outs = listPorts(rig, mixer).filter((p) => p.dir === "out");
     const endpoints = new Map(mix.rig.endpoints.map((e) => [e.deviceId, e]));
-    const busName = (portId) => ({ "main-l": "Main L", "main-r": "Main R" })[portId] || terms[portId] || portId;
+    const busName = (portId) => ({ "main-l": "Main L", "main-r": "Main R", "cr-l": "C-R L", "cr-r": "C-R R" })[portId] || terms[portId] || portId;
+    const boardNames = modelOf(state) === "cr1604"; // the 1604's jacks are named as printed on it
 
     const outRows = outs
       .map((p) => {
@@ -135,7 +141,7 @@ export class PatchView {
         const note = reached.length
           ? `<p class="port-msg ok">✓ Sound from: ${reached.map((id) => esc(rig.devices.find((d) => d.id === id).label)).join(", ")}</p>`
           : `<p class="port-msg">No working speaker on this output yet.</p>`;
-        const label = terms[p.id] ? `${terms[p.id]} out` : p.name;
+        const label = !boardNames && terms[p.id] ? `${terms[p.id]} out` : p.name;
         return `<li class="out-row">${this.portButton(p.ref, "out").replace(esc(p.name), esc(label))}${note}</li>`;
       })
       .join("");
@@ -326,6 +332,11 @@ class PatchDialog {
     this.el.close();
     this.view.toast("Unplugged.", "");
   }
+}
+
+function cr1604Foot(empty) {
+  const free = empty.filter((n) => n !== "TAPE");
+  return `Free channels: ${free.length ? free.map((n) => `Ch ${n}`).join(", ") : "none"}. Every channel has its own MIC jack (XLR → mic preamp, +48 V from the rear PHANTOM switch) and LINE jack (¼″, padded 20 dB); use one per channel. TAPE INPUT is a stereo RCA pair for a laptop or player.`;
 }
 
 // Collapsed reference of every connector in the lab. Pictures only: what fits what

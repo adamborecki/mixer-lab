@@ -4,8 +4,9 @@
 // ever satisfied by a "done" button. See docs/SCENARIOS.md.
 
 import { SOURCES_BY_ID, STEMS, sourcesForScenario } from "../audio/source-manifest.js";
-import { DEVICE_TYPES, channelPortRef } from "./connection-model.js";
+import { CABLES, DEVICE_TYPES, cableEndFor, channelPortRef, getPort, plugFitsJack } from "./connection-model.js";
 import { BUSES, computeMix, createMixerState, dbToLevel, levelToDb, clamp } from "./mixer-state.js";
+import * as CR1604 from "./cr1604.js";
 
 // ---------- rig inventory ----------
 
@@ -449,9 +450,14 @@ export function shortTitle(s) {
 
 export const SCENARIOS_BY_ID = Object.fromEntries(SCENARIOS.map((s) => [s.id, s]));
 
+// The numbered scenarios are written for the generic mixer (Mixer A / Mixer B).
+// The CR1604-VLZ runs Free play until its own scenarios are written.
+export const scenariosFor = (model = "generic") => (model === "cr1604" ? SCENARIOS.filter((s) => s.id === "free-play") : SCENARIOS);
+
 // ---------- building a scenario's starting state ----------
 
-export function buildScenarioState(def, sourcesById = SOURCES_BY_ID) {
+export function buildScenarioState(def, sourcesById = SOURCES_BY_ID, model = "generic") {
+  if (model === "cr1604") return buildCr1604State(def, sourcesById);
   const state = createMixerState();
   const setup = def.setup;
   const sources = sourcesForScenario(def.id).filter((s) => sourcesById[s.id]);
@@ -495,6 +501,70 @@ export function buildScenarioState(def, sourcesById = SOURCES_BY_ID) {
   for (const [bus, db] of Object.entries(setup.masters || {})) state[bus].level = dbToLevel(db);
   state.listen = setup.listen || "main";
   return state;
+}
+
+// The same gig on the Mackie CR1604-VLZ. Its outputs are 1/4" jacks, so a
+// setup cable that doesn't fit is swapped for one that does; mics go into MIC
+// jacks and line sources into LINE jacks; the laptop goes into TAPE IN.
+// Monitors are set up the way the manual recommends: AUX 1 and 2 with PRE down.
+function buildCr1604State(def, sourcesById) {
+  const state = CR1604.createState();
+  const setup = def.setup;
+  const sources = sourcesForScenario(def.id).filter((s) => sourcesById[s.id]);
+  for (const s of sources) state.rig.devices.push({ id: sourceDeviceId(s.id), type: s.deviceType, sourceId: s.id, label: s.device });
+  for (const id of setup.devices) {
+    const d = PLAYBACK_DEVICES[id];
+    state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan });
+  }
+  const channelOfSource = (s) => (s.stereo ? CR1604.TAPE : s.order - 1);
+  let n = 0;
+  const addCable = (c) => state.rig.cables.push({ id: `c${++n}`, ...c });
+  if (setup.patch === "reference") {
+    for (const s of sources) {
+      if (s.reference === false && !(setup.patchAlso || []).includes(s.id)) continue;
+      const cable = s.stereo ? "mini-rca" : defaultCableFor(s);
+      const plug = cableEndFor(cable, DEVICE_TYPES[s.deviceType].ports[0].jack).far;
+      addCable({ from: `${sourceDeviceId(s.id)}/out`, to: channelPortRef(channelOfSource(s), { plug, mixerType: "cr1604" }), cable });
+    }
+  }
+  for (const c of setup.cables || []) addCable({ ...c, cable: fittingCable(state.rig, c) });
+
+  if (setup.channels === "mixed") {
+    for (const s of sources) {
+      const ch = state.channels[channelOfSource(s)];
+      if (ch.tape) continue; // TAPE IN stays at U, off the main mix until TAPE TO MAIN MIX
+      ch.gainDb = clamp(nominalGainDb(s), CR1604.GAIN_MIN_DB, CR1604.GAIN_MAX_DB);
+      ch.level = CR1604.LAWS.fader.toPos(setup.faders && s.id in setup.faders ? setup.faders[s.id] : s.mixDb);
+      ch.pan = s.pan;
+      ch.pre = true;
+      ch.lowCut = !["drums", "bass"].includes(s.id); // the manual: low cut on everything but kick and bass
+      ch.assign.lr = true;
+      for (const bus of BUSES) {
+        const sends = (setup.sends && setup.sends[bus]) || {};
+        ch.auxSends[bus] = CR1604.LAWS.send.toPos(s.id in sends ? sends[s.id] : -Infinity);
+      }
+    }
+    // One PHANTOM switch for the whole board.
+    const phantom = sources.some((s) => s.phantom === "required");
+    for (const ch of state.channels) if (!ch.tape) ch.phantom = phantom;
+    for (const sub of CR1604.SUBS) state[sub].level = CR1604.LAWS.fader.toPos(0);
+    state.soloBus.mode = "pfl"; // live sound: LEVEL SET (PFL)
+  }
+  for (const [bus, db] of Object.entries(setup.masters || {})) state[bus].level = CR1604.LAWS.master.toPos(db);
+  state.listen = setup.listen || "main";
+  return state;
+}
+
+// The setup's cable if it fits both ends, else the first signal cable that does.
+function fittingCable(rig, c) {
+  const from = getPort(rig, c.from);
+  const to = getPort(rig, c.to);
+  const fits = (id) => {
+    const ends = cableEndFor(id, from.jack);
+    return ends && plugFitsJack(ends.far, to.jack);
+  };
+  if (fits(c.cable)) return c.cable;
+  return ["trs", "xlr-trs", "ts", "xlr", "speaker"].find((id) => fits(id) && CABLES[id].kind === CABLES[c.cable].kind) || c.cable;
 }
 
 // ---------- baselines ----------

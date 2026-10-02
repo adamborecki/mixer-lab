@@ -1,6 +1,6 @@
 # Audio engine
 
-Two modules share the audio work. `js/audio-engine.js` owns the `AudioContext` and the mixer node graph. `js/transport.js` (`StemTransport`) owns stem playback: loading, looping, streaming the full song, and keeping the stems in sync. The engine reads the semantic mixer state ([MIXER_MODEL_SCHEMA.md](MIXER_MODEL_SCHEMA.md)), never touches the DOM, and knows nothing about skins. `js/meters.js` only draws the levels the engine reads. Asset details are in [../audio/README.md](../audio/README.md).
+Two modules share the audio work. `js/audio-engine.js` owns the `AudioContext`, the speakers and listening, and builds the mixer node graph for the state's model: `js/graph-generic.js` for Mixer A/B (described below) or `js/graph-1604.js` for the CR1604-VLZ ([CR1604.md](CR1604.md)). Switching mixers tears down only the mixer graph (`nodeKit().dispose()` in `js/graph-kit.js`); the stems keep playing. `js/transport.js` (`StemTransport`) owns stem playback: loading, looping, streaming the full song, and keeping the stems in sync. The engine reads the semantic mixer state ([MIXER_MODEL_SCHEMA.md](MIXER_MODEL_SCHEMA.md)), never touches the DOM, and knows nothing about skins. `js/meters.js` only draws the levels the engine reads. Asset details are in [../audio/README.md](../audio/README.md).
 
 ## Signal graph
 
