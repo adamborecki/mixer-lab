@@ -18,6 +18,8 @@ import { StemTransport } from "./transport.js";
 import { METER_FFT, RAMP, nodeKit } from "./graph-kit.js";
 import { buildGenericGraph } from "./graph-generic.js";
 import { buildCr1604Graph } from "./graph-1604.js";
+import { buildCompactGraph } from "./graph-compact.js";
+import { COMPACT } from "./compact-defs.js";
 import { buildRecorder, buildReverb, buildRoomPair } from "./outboard-audio.js";
 import { splitRef } from "./connection-model.js";
 
@@ -112,7 +114,7 @@ export class AudioEngine {
     const state = this.store.state;
     this.model = modelOf(state);
     this.kit = nodeKit(this.ctx);
-    this.mixer = this.model === "cr1604" ? buildCr1604Graph(this.kit) : buildGenericGraph(this.kit);
+    this.mixer = this.model === "cr1604" ? buildCr1604Graph(this.kit) : COMPACT[this.model] ? buildCompactGraph(this.kit, COMPACT[this.model]) : buildGenericGraph(this.kit);
     this.strips = this.mixer.strips;
     this.outputs = this.mixer.outputs;
     this.listenGains = {};
@@ -120,7 +122,7 @@ export class AudioEngine {
       this.listenGains[dest] = this.kit.gain(0);
       this.listenGains[dest].connect(this.listenOut);
     }
-    this.mixer.phones.connect(this.listenGains[this.mixer.phonesDest]);
+    if (this.mixer.phonesDest && this.listenGains[this.mixer.phonesDest]) this.mixer.phones.connect(this.listenGains[this.mixer.phonesDest]);
   }
 
   // ---------- state → graph ----------

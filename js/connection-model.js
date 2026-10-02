@@ -7,6 +7,8 @@
 //   2. Does the signal make sense?  (mic / instrument / line / speaker level)
 // A plug that fits is not proof that the connection is right.
 
+import { COMPACT, compactPorts } from "./compact-defs.js";
+
 // ---------- signal levels ----------
 
 // nominalDb is relative to pro line level (+4 dBu = 0 dB). Used for teaching
@@ -245,6 +247,9 @@ export const DEVICE_TYPES = {
   },
 };
 
+// The compact mixers' rear panels come from their definitions.
+for (const def of Object.values(COMPACT)) DEVICE_TYPES[def.id] = { name: def.name, mixer: true, compact: true, ports: compactPorts(def) };
+
 // ---------- rig helpers ----------
 
 export const portRef = (deviceId, portId) => `${deviceId}/${portId}`;
@@ -420,6 +425,7 @@ function analyzeChannelInput(rig, cable, ch, sources, port) {
     fromPort: cable.from,
     path,
     stereo: !!port.stereo,
+    monoIn: !!port.monoIn, // a mono source into a stereo channel's L (MONO) jack
     padDb: path === "line" && port.pad !== false ? LINE_PAD_DB : 0,
     level: from.level,
     cable: cable.cable,
@@ -512,6 +518,13 @@ function analyzeEndpoint(rig, device, byTo) {
   }
 
   // passive speaker
+  // A powered mixer (STAGEPAS) has its amp inside: its SPEAKERS jacks carry speaker level.
+  if (up.role === "bus-out" && up.level === "speaker") {
+    result.output = up.id;
+    result.valid = true;
+    result.status = "ok";
+    return result;
+  }
   if (up.role === "bus-out") {
     result.output = up.id;
     result.status = "no-amp";

@@ -2,10 +2,13 @@
 // V1 conventions visible: Aux 1 is pre-fader, PFL is pre-fader, and the
 // enable (MUTE/ON) switch only affects the Main path.
 
+import { COMPACT } from "../compact-defs.js";
+
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 export function renderFlow(root, skin) {
   if (skin.layout === "cr1604") return renderFlow1604(root, skin);
+  if (skin.layout === "compact") return renderFlowCompact(root, skin, COMPACT[skin.hardware]);
   const t = skin.terms;
   const c = skin.enabledControl;
   const enableWord = c.litWhenEnabled ? `${c.label} (lit = in Main)` : `${c.label} (lit = out of Main)`;
@@ -99,6 +102,39 @@ function renderFlow1604(root, skin) {
           <li>A channel only reaches the house if <strong>L-R</strong> is pressed (or it goes through a subgroup that is assigned to the main mix).</li>
           <li>The outputs are line level. A speaker only makes sound if an amplifier is somewhere in the chain: inside it (powered) or in front of it (passive + power amp).</li>
         </ul>
+      </div>
+    </details>`;
+}
+
+// A compact mixer, described from its definition: what each send hears.
+function renderFlowCompact(root, skin, def) {
+  const tapWord = { pre: "before the channel LEVEL (pre-fader)", post: "after the channel LEVEL (post-fader)", switch: "pre- or post-fader, by the PRE switch beside its master" };
+  const sends = Object.values(def.sends).map((s) =>
+    s.bipolar
+      ? `<li><strong>${esc(s.label)}</strong>: one knob. Left of centre feeds ${esc(def.buses[s.bipolar.left.bus].label)} (${tapWord[s.bipolar.left.tap]}); right feeds ${esc(def.buses[s.bipolar.right.bus].label)} (${tapWord[s.bipolar.right.tap]}). A channel can feed one or the other, not both.</li>`
+      : `<li><strong>${esc(s.label)}</strong> is taken ${tapWord[s.tap]}.${s.bus === "reverb" ? " It feeds the built-in reverb." : ""}</li>`,
+  );
+  const notes = [
+    def.channels.some((c) => c.gain.switch) ? "<li>There is no gain knob: the MIC/LINE switch sets the input gain, and each channel LEVEL does the rest.</li>" : "<li><strong>GAIN/TRIM</strong> sets how hot the signal is; the channel LEVEL sets how much goes to the mix.</li>",
+    ...sends,
+    def.alt ? "<li><strong>MUTE/ALT 3-4</strong> takes a channel out of MAIN and puts it on the ALT 3-4 bus (its own outputs, or back into MAIN with ASSIGN TO MAIN).</li>" : "",
+    def.solo ? "<li><strong>SOLO</strong> is PFL: the channel before its LEVEL, in the C-R/PHONES and the meters.</li>" : "",
+    def.monitorOut ? "<li><strong>MONITOR OUT</strong> carries the whole mix (no per-channel monitor sends) and ignores MASTER LEVEL.</li>" : "",
+    def.poweredAmp ? `<li>The amplifier is <strong>inside the mixer</strong>: SPEAKERS L/R carry speaker level, straight into the passive STAGEPAS speakers. Never into a powered speaker or a line input.</li>` : "<li>The outputs are line level. A speaker only makes sound if an amplifier is somewhere in the chain: inside it (powered) or in front of it (passive + power amp).</li>",
+  ];
+  root.innerHTML = `
+    <details class="flow">
+      <summary>How the signal flows on the ${esc(skin.name)}</summary>
+      <div class="flow-body">
+        <ol class="flow-trunk" aria-label="Every channel">
+          <li class="flow-node">Input jack</li>
+          <li class="flow-node">${def.channels.some((c) => c.gain.switch) ? "MIC/LINE" : "GAIN"}</li>
+          <li class="flow-node">EQ</li>
+          <li class="flow-node">LEVEL</li>
+          <li class="flow-node">${def.channels.some((c) => c.kind === "stereo") ? "PAN / BAL" : "PAN"}</li>
+          <li class="flow-node flow-end">${esc(def.main.label)} → ${def.poweredAmp ? "amp → speakers" : "MAIN OUT"}</li>
+        </ol>
+        <ul class="flow-notes">${notes.join("")}</ul>
       </div>
     </details>`;
 }

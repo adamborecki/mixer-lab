@@ -117,8 +117,15 @@ export class PatchView {
         src.phantom === "required" ? `<span class="tag tag-phantom">Needs +48 V</span>` : "",
       ].join("");
       // Input-list number: where this source belongs (the CR1604 takes the laptop on TAPE IN).
-      const listNo = modelOf(state) === "cr1604" && src.stereo ? "TAPE" : state.channels[src.order - 1].label;
-      const note = modelOf(state) === "cr1604" && src.stereo ? "A laptop's 3.5 mm headphone jack is a stereo line output. On the 1604 it goes into the TAPE INPUT RCA pair with a 3.5 mm ↔ RCA (Y) cable, then TAPE TO MAIN MIX puts it in the house." : src.note;
+      const model = modelOf(state);
+      // Input-list number: where the source is patched (a compact mixer has fewer channels than the band).
+      const listNo = model === "generic" ? state.channels[src.order - 1].label : model === "cr1604" && src.stereo ? "TAPE" : chInfo ? state.channels[chInfo.index].label : "—";
+      const note =
+        model === "cr1604" && src.stereo
+          ? "A laptop's 3.5 mm headphone jack is a stereo line output. On the 1604 it goes into the TAPE INPUT RCA pair with a 3.5 mm ↔ RCA (Y) cable, then TAPE TO MAIN MIX puts it in the house."
+          : model !== "generic" && src.stereo
+            ? "A laptop's 3.5 mm headphone jack is a stereo line output: a stereo line channel or the tape input takes it, with a breakout, RCA (Y) or 3.5 mm cable to suit the jacks."
+            : src.note;
       return `<li class="source-card status-${status}">
         <div class="source-top">
           <span class="source-order" aria-label="Input list number">${esc(listNo)}</span>
@@ -136,7 +143,7 @@ export class PatchView {
     this.sourcesRoot.innerHTML = `
       <p class="role-line">${icon("role-source", { size: 26 })}<span>Sources: the signal starts here and goes out to the mixer.</span></p>
       <ol class="source-list">${cards.join("")}${pairs.map((d) => this.pairCard(d, mix)).join("")}</ol>
-      <p class="panel-foot">${modelOf(state) === "cr1604" ? cr1604Foot(empty) : `Free mixer inputs: ${empty.length ? empty.map((n) => `Ch ${n}`).join(", ") : "none"}. Ch 1–8 are XLR/¼″ combo jacks: XLR → mic preamp (+48 V available), ¼″ → line input (padded). Ch 9/10 is one stereo line input (left + right ¼″ pair, no phantom power).`}</p>
+      <p class="panel-foot">${modelOf(state) === "cr1604" ? cr1604Foot(empty) : modelOf(state) !== "generic" ? compactFoot(state, empty) : `Free mixer inputs: ${empty.length ? empty.map((n) => `Ch ${n}`).join(", ") : "none"}. Ch 1–8 are XLR/¼″ combo jacks: XLR → mic preamp (+48 V available), ¼″ → line input (padded). Ch 9/10 is one stereo line input (left + right ¼″ pair, no phantom power).`}</p>
       ${connectorGuide()}`;
   }
 
@@ -191,7 +198,7 @@ export class PatchView {
     const outs = listPorts(rig, mixer).filter((p) => p.dir === "out");
     const endpoints = new Map(mix.rig.endpoints.map((e) => [e.deviceId, e]));
     const busName = (portId) => ({ "main-l": "Main L", "main-r": "Main R", "cr-l": "C-R L", "cr-r": "C-R R" })[portId] || terms[portId] || portId;
-    const boardNames = modelOf(state) === "cr1604"; // the 1604's jacks are named as printed on it
+    const boardNames = modelOf(state) !== "generic"; // real mixers' jacks are named as printed on them
 
     const outRows = outs
       .map((p) => {
@@ -441,6 +448,11 @@ function formatHours(sec) {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   return `${h} h ${String(m).padStart(2, "0")} min`;
+}
+
+function compactFoot(state, empty) {
+  const free = empty.filter((n) => !/TAPE|2TR/.test(n));
+  return `Free channels: ${free.length ? free.map((n) => `Ch ${n}`).join(", ") : "none"}. ${free.length ? "" : "This mixer is full: the rest of the band stays unplugged. "}Tap a channel's name on the Mixer to see its jacks; use one input per channel.`;
 }
 
 function cr1604Foot(empty) {

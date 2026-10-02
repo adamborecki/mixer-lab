@@ -8,7 +8,7 @@ import { AudioEngine } from "./audio-engine.js";
 import { PREVIEW, liveUrl, storageKey } from "./deploy-context.js";
 import { DEFAULT_SKIN, SKINS } from "./mixer-models.js";
 import { MixerStore, computeMix, createMixerState } from "./mixer-state.js";
-import { SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, captureBaseline, evaluateScenario, scenariosFor } from "./scenarios.js";
+import { SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, captureBaseline, evaluateScenario, scenarioFor, scenariosFor } from "./scenarios.js";
 import { Progress, numberedScenarios } from "./progress.js";
 import { renderFlow } from "./ui/flow.js";
 import { ListenBar } from "./ui/listen-bar.js";
@@ -150,7 +150,7 @@ function evaluateNow() {
 
 function selectScenario(id) {
   const available = scenariosFor(hardwareOf(skin));
-  const def = available.find((s) => s.id === id) || SCENARIOS_BY_ID["free-play"];
+  const def = scenarioFor(available.find((s) => s.id === id) || SCENARIOS_BY_ID["free-play"], hardwareOf(skin));
   const state = buildScenarioState(def, M.SOURCES_BY_ID, hardwareOf(skin));
   store.replace(state);
   current = { def, baseline: captureBaseline(def, state, M.SOURCES_BY_ID, M.STEMS), session: { listened: new Set([state.listen]) } };
@@ -220,18 +220,25 @@ function setSkin(id, { boot = false } = {}) {
   listenBar.render();
   scenarioView.render(current.def, evaluateNow());
   document.body.dataset.skin = id;
-  for (const b of document.querySelectorAll("[data-skin]")) {
+  for (const b of document.querySelectorAll(".skin-btn[data-skin]")) {
     const on = b.dataset.skin === id;
     b.setAttribute("aria-checked", String(on));
     b.classList.toggle("active", on);
   }
+  // Real mixers live in a menu; it shows the current one (or its prompt for Mixer A/B).
+  const select = document.querySelector(".skin-select");
+  select.value = skin.hardware ? id : "";
+  select.closest(".skin-real").classList.toggle("active", !!skin.hardware);
   pending.any = pending.patch = true;
   lastEval = "";
 }
 
 document.querySelector(".skin-switch").addEventListener("click", (e) => {
-  const b = e.target.closest("[data-skin]");
+  const b = e.target.closest(".skin-btn[data-skin]");
   if (b) setSkin(b.dataset.skin);
+});
+document.querySelector(".skin-select").addEventListener("change", (e) => {
+  if (e.target.value) setSkin(e.target.value);
 });
 
 // ---------- mobile tabs ----------

@@ -8,6 +8,7 @@ import { CABLES, DEVICE_TYPES, cableEndFor, channelPortRef, getPort, plugFitsJac
 import { BUSES, computeMix, createMixerState, dbToLevel, levelToDb, clamp } from "./mixer-state.js";
 import * as CR1604 from "./cr1604.js";
 import { createF8, createPair, createReverb } from "./devices.js";
+import { COMPACT, LAWS as COMPACT_LAWS, channelGainDb, compactModel } from "./compact.js";
 
 // Outboard gear for the CR1604 gig: a reverb on AUX 3 → AUX RETURN 1, and a
 // field recorder with a stereo room pair for recording the show.
@@ -35,6 +36,9 @@ export const PLAYBACK_DEVICES = {
   "pspk-r": { type: "passive-speaker", label: "Passive speaker · house right", short: "house right (passive)", zone: "foh", pan: 1 },
   amp: { type: "power-amp", label: "Power amp (2-channel)" },
   wedge: { type: "powered-speaker", label: "Powered wedge · lead singer", short: "singer's wedge", zone: "stage", pan: 0 },
+  // The STAGEPAS 400BT's own speakers: passive, driven by the amp in its mixer.
+  "sp-l": { type: "passive-speaker", label: "STAGEPAS 400S speaker · left", short: "STAGEPAS left", zone: "foh", pan: -1 },
+  "sp-r": { type: "passive-speaker", label: "STAGEPAS 400S speaker · right", short: "STAGEPAS right", zone: "foh", pan: 1 },
   pwedge: { type: "passive-speaker", label: "Passive wedge · drummer", short: "drummer's wedge", zone: "stage", pan: 0 },
 };
 
@@ -467,12 +471,13 @@ export const SCENARIOS_BY_ID = Object.fromEntries(SCENARIOS.map((s) => [s.id, s]
 
 // The numbered scenarios are written for the generic mixer (Mixer A / Mixer B).
 // The CR1604-VLZ runs Free play until its own scenarios are written.
-export const scenariosFor = (model = "generic") => (model === "cr1604" ? SCENARIOS.filter((s) => s.id === "free-play") : SCENARIOS);
+export const scenariosFor = (model = "generic") => (model !== "generic" ? SCENARIOS.filter((s) => s.id === "free-play") : SCENARIOS);
 
 // ---------- building a scenario's starting state ----------
 
 export function buildScenarioState(def, sourcesById = SOURCES_BY_ID, model = "generic") {
   if (model === "cr1604") return buildCr1604State(def, sourcesById);
+  if (COMPACT[model]) return buildCompactState(model, sourcesById);
   const state = createMixerState();
   const setup = def.setup;
   const sources = sourcesForScenario(def.id).filter((s) => sourcesById[s.id]);
@@ -571,6 +576,129 @@ function buildCr1604State(def, sourcesById) {
   }
   for (const [bus, db] of Object.entries(setup.masters || {})) state[bus].level = CR1604.LAWS.master.toPos(db);
   state.listen = setup.listen || "main";
+  return state;
+}
+
+// ---------- the gig on a compact mixer ----------
+
+// Which source goes where on each compact mixer (channel index and jack), the
+// stage, the patch and the sends (dB). A small mixer can't take the whole band:
+// the sources left over stay on stage, unplugged.
+export const COMPACT_GIGS = {
+  mix8: {
+    prompt: "A duo gig on a Mackie Mix8: two mic channels (both vocals), the keys on stereo channel 3/4, the laptop on TAPE IN. The rest of the band has no channel left. The singer's wedge is on the AUX send, which on this mixer is post-fader.",
+    patch: { "lead-vocal": [0, "mic"], "backing-vocals": [1, "mic"], keys: [2, "l"], preshow: ["tape"] },
+    devices: ["spk-l", "spk-r", "wedge"],
+    cables: [
+      { from: "mixer/main-l", to: "spk-l/in", cable: "trs" },
+      { from: "mixer/main-r", to: "spk-r/in", cable: "trs" },
+      { from: "mixer/aux1", to: "wedge/in", cable: "trs" },
+    ],
+    sends: { aux: { "lead-vocal": 0, "backing-vocals": -8, keys: -10 } },
+  },
+  vlz1202: {
+    prompt: "The band on a Mackie 1202-VLZ: drums, bass and both vocals on the four mic channels, keys on 5/6, the laptop on 7/8 (level down). AUX 1 (switched to PRE) feeds the singer's wedge; AUX 2 feeds a reverb that comes back on AUX RETURN 1.",
+    patch: { drums: [0, "mic"], bass: [1, "mic"], "lead-vocal": [2, "mic"], "backing-vocals": [3, "mic"], keys: [4, "l"], preshow: [5, "lr"] },
+    devices: ["spk-l", "spk-r", "wedge"],
+    reverb: { send: "mixer/aux2", ret: "ret1" },
+    cables: [
+      { from: "mixer/main-l", to: "spk-l/in", cable: "xlr" },
+      { from: "mixer/main-r", to: "spk-r/in", cable: "xlr" },
+      { from: "mixer/aux1", to: "wedge/in", cable: "trs" },
+    ],
+    sends: { aux1: { drums: -10, bass: -6, "lead-vocal": 0, "backing-vocals": -4, keys: -8 }, aux2: { "lead-vocal": -6, "backing-vocals": -8 } },
+  },
+  mg102: {
+    prompt: "The band on a Yamaha MG10/2: both vocals on 1 and 2, drums and bass on the XLRs of 3/4 and 5/6, keys on 7/8, the laptop on 9/10 (level down). Each channel's one AUX knob feeds either the singer's wedge (AUX1, left) or the reverb (AUX2, right).",
+    patch: { "lead-vocal": [0, "mic"], "backing-vocals": [1, "mic"], drums: [2, "mic"], bass: [3, "mic"], keys: [4, "l"], preshow: [5, "rca"] },
+    devices: ["spk-l", "spk-r", "wedge"],
+    reverb: { send: "mixer/aux2", ret: "ret1" },
+    cables: [
+      { from: "mixer/main-l", to: "spk-l/in", cable: "trs" },
+      { from: "mixer/main-r", to: "spk-r/in", cable: "trs" },
+      { from: "mixer/aux1", to: "wedge/in", cable: "trs" },
+    ],
+    // One AUX knob per channel: negative = AUX1 (the wedge, pre), positive = AUX2 (the reverb, post).
+    sends: { auxPan: { "lead-vocal": -0, "backing-vocals": 6, drums: -10, bass: -6 } },
+    bipolarSides: { "lead-vocal": "left", "backing-vocals": "right", drums: "left", bass: "left" },
+  },
+  stagepas400bt: {
+    prompt: "A small gig on a Yamaha STAGEPAS 400BT: vocals on 1 and 2, guitar and bass on 3 and 4, keys on 5/6, the laptop on 7/8 (level down). SPEAKERS L/R drive the two STAGEPAS speakers directly — the amp is in the mixer — and MONITOR OUT feeds the singer's wedge.",
+    patch: { "lead-vocal": [0, "mic"], "backing-vocals": [1, "mic"], guitars: [2, "in"], bass: [3, "in"], keys: [4, "l"], preshow: [5, "mini"] },
+    devices: ["sp-l", "sp-r", "wedge"],
+    cables: [
+      { from: "mixer/spk-l", to: "sp-l/in", cable: "speaker" },
+      { from: "mixer/spk-r", to: "sp-r/in", cable: "speaker" },
+      { from: "mixer/mon-l", to: "wedge/in", cable: "trs" },
+    ],
+    sends: { reverb: { "lead-vocal": -8, "backing-vocals": -10 } },
+  },
+};
+
+// Free play on a real mixer describes that mixer's gig (the shared text names
+// Mixer A/B's two wedges).
+export function scenarioFor(def, model = "generic") {
+  if (def.id !== "free-play" || !COMPACT_GIGS[model]) return def;
+  return { ...def, prompt: COMPACT_GIGS[model].prompt, goal: "No objective — try a monitor mix, the reverb, or plugging in what has no channel yet." };
+}
+
+function buildCompactState(model, sourcesById) {
+  const def = COMPACT[model];
+  const gig = COMPACT_GIGS[model];
+  const state = compactModel(model).createState();
+  const sources = sourcesForScenario("free-play").filter((s) => sourcesById[s.id]);
+  for (const s of sources) state.rig.devices.push({ id: sourceDeviceId(s.id), type: s.deviceType, sourceId: s.id, label: s.device });
+  for (const id of gig.devices) {
+    const d = PLAYBACK_DEVICES[id];
+    state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan });
+  }
+  if (gig.reverb) state.rig.devices.push(STAGE_GEAR.reverb());
+  let n = 0;
+  const addCable = (c) => state.rig.cables.push({ id: `c${++n}`, ...c });
+  const tape = def.channels.length;
+  for (const s of sources) {
+    const where = gig.patch[s.id];
+    if (!where) continue; // no channel left for this one
+    const [index, jack] = where[0] === "tape" ? [tape, "tape-in"] : where;
+    const port = index === tape ? "tape-in" : `ch${index + 1}-${jack}`;
+    const cable = s.stereo ? { lr: "mini-dual-ts", rca: "mini-rca", mini: "mini", "tape-in": "mini-rca" }[jack] : defaultCableFor(s);
+    addCable({ from: `${sourceDeviceId(s.id)}/out`, to: `mixer/${port}`, cable });
+  }
+  for (const c of gig.cables) addCable(c);
+  if (gig.reverb) {
+    addCable({ from: gig.reverb.send, to: "reverb/in-l", cable: "trs" });
+    addCable({ from: "reverb/out-l", to: `mixer/${gig.reverb.ret}-l`, cable: "trs" });
+    addCable({ from: "reverb/out-r", to: `mixer/${gig.reverb.ret}-r`, cable: "trs" });
+  }
+
+  // Gain-stage and mix what is patched.
+  const mix = compactModel(model).computeMix(state, sourcesById, STEMS, (src) => (src && src.stem ? STEMS[src.stem]?.monoPeakDb ?? null : src?.peakDb ?? null));
+  for (const s of sources) {
+    const where = gig.patch[s.id];
+    if (!where || where[0] === "tape") continue;
+    const ch = state.channels[where[0]];
+    const c = def.channels[where[0]];
+    const input = mix.channels[where[0]].input;
+    if (c.gain.switch) ch.micLine = s.signalLevel === "line" ? "line" : "mic";
+    else if (c.gain.min !== undefined) ch.gainDb = clamp(-s.outputDb - (channelGainDb(def, { ...ch, gainDb: 0 }, input)), c.gain.min, c.gain.max);
+    ch.level = COMPACT_LAWS.level.toPos(s.mixDb);
+    if (!ch.stereo) ch.pan = s.pan;
+    if (c.lowCut && !["drums", "bass"].includes(s.id)) ch.lowCut = true;
+    for (const [sid, levels] of Object.entries(gig.sends)) {
+      if (!(sid in ch.sends) || !(s.id in levels)) continue;
+      const send = def.sends[sid];
+      const pos = COMPACT_LAWS[send.law].toPos(levels[s.id]);
+      ch.sends[sid] = send.bipolar ? (gig.bipolarSides[s.id] === "left" ? -pos : pos) : pos;
+    }
+  }
+  // The preshow laptop is patched but kept out of the house, as in the generic Free play.
+  const laptop = gig.patch.preshow;
+  if (laptop && laptop[0] === "tape") state.channels[tape].toCr = def.tape.routing === "toMainOrCr";
+  else if (laptop) state.channels[laptop[0]].level = 0;
+  if (sources.some((s) => gig.patch[s.id] && s.phantom === "required")) for (const i of def.phantom.channels) state.channels[i].phantom = true;
+  for (const b of Object.keys(def.buses)) if (state[b].pre !== undefined) state[b].pre = true; // monitors pre-fader
+  if (state.reverb) state.reverb.on = true;
+  if (state.monitor) state.monitor.level = 0.5;
   return state;
 }
 

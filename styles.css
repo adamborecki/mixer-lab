@@ -2943,3 +2943,93 @@ dialog::backdrop {
   color: var(--text-dim);
   margin-right: 0.4rem;
 }
+
+/* ---------- real-mixer menu in the skin switch ---------- */
+
+.skin-real {
+  display: flex;
+  align-items: center;
+  border-radius: 999px;
+}
+.skin-select {
+  min-height: 44px;
+  max-width: 12rem;
+  padding: 0.35rem 2rem 0.35rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 16px) 55%, calc(100% - 11px) 55%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+.skin-select option {
+  color: #111;
+}
+.skin-real.active .skin-select {
+  background-color: #7ce0ff;
+  color: var(--bg);
+}
+@media (max-width: 899px) {
+  .skin-select {
+    max-width: 8.5rem;
+    font-size: 0.85rem;
+    padding-left: 0.7rem;
+  }
+}
+
+/* ---------- compact mixers ---------- */
+
+.skin-vlz1202 .mixer-surface,
+.skin-mix8 .mixer-surface,
+.skin-mg102 .mixer-surface,
+.skin-stagepas400bt .mixer-surface {
+  background: linear-gradient(180deg, #2a2d36 0%, #20232b 100%);
+  border: 1px solid #383c48;
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.skin-mg102 .mixer-surface,
+.skin-stagepas400bt .mixer-surface {
+  background: linear-gradient(180deg, #2b3038 0%, #1f242c 100%);
+}
+.cm-strip .c16-sec:has(.ctl-big) {
+  border-top: none;
+}
+.cm-strip .ctl-big {
+  margin-top: auto;
+}
+.cm-eq .ctl {
+  width: 81px;
+}
+.cm-master-top {
+  width: 360px;
+}
+.skin-vlz1202 .mixer-strips,
+.skin-mix8 .mixer-strips,
+.skin-mg102 .mixer-strips,
+.skin-stagepas400bt .mixer-strips {
+  flex: none;
+}
+/* More than four listening positions (real mixers): the buttons scroll, the message keeps its width. */
+.listen-group.many {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.listen-group.many .listen-btn {
+  flex: none;
+}
+.listen-group.many + .listen-now {
+  flex: 1 0 10rem;
+}

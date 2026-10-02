@@ -35,15 +35,18 @@ export {
 import { HEADROOM_DB, inputBand, levelToDb, dbToLevel, gainToDb, panGains, clamp } from "./levels.js";
 import * as CR1604 from "./cr1604.js";
 import { setDeviceValue } from "./devices.js";
+import { compactModel, COMPACT_IDS } from "./compact.js";
 
 // Which mixer a state belongs to. A state without `model` is the generic
 // mixer that Mixer A and Mixer B draw; "cr1604" is the Mackie (js/cr1604.js).
-export const MODELS = ["generic", "cr1604"];
+export const MODELS = ["generic", "cr1604", ...COMPACT_IDS];
 export const modelOf = (state) => state.model || "generic";
-export const listenDestinations = (state) => (modelOf(state) === "cr1604" ? CR1604.LISTEN : LISTEN_DESTINATIONS);
+// The model module for a non-generic state: js/cr1604.js or a compact mixer (js/compact.js).
+export const hardware = (model) => (model === "cr1604" ? CR1604 : compactModel(model));
+export const listenDestinations = (state) => (modelOf(state) === "generic" ? LISTEN_DESTINATIONS : hardware(modelOf(state)).LISTEN);
 // The listening group a mixer output feeds (Main L and R are both "main").
 export function listenGroupOf(state, portId) {
-  if (modelOf(state) === "cr1604") return CR1604.listenGroupOf(portId);
+  if (modelOf(state) !== "generic") return hardware(modelOf(state)).listenGroupOf(portId);
   return portId === "main-l" || portId === "main-r" ? "main" : portId;
 }
 
@@ -67,7 +70,7 @@ export function createChannel(index) {
 }
 
 export function createMixerState(model = "generic") {
-  if (model === "cr1604") return CR1604.createState();
+  if (model !== "generic") return hardware(model).createState();
   return {
     channels: Array.from({ length: CHANNEL_COUNT }, (_, i) => createChannel(i)),
     main: { level: 0.75 },
@@ -94,7 +97,7 @@ export function sourcePeakDb(source, stems) {
 // from live meters, which fluctuate with the music). dB values are peak
 // estimates in dBFS.
 export function computeMix(state, sourcesById, stems) {
-  if (modelOf(state) === "cr1604") return CR1604.computeMix(state, sourcesById, stems, sourcePeakDb);
+  if (modelOf(state) !== "generic") return hardware(modelOf(state)).computeMix(state, sourcesById, stems, sourcePeakDb);
   const rig = analyzeRig(state.rig, state.channels, sourcesById);
   const mainDb = levelToDb(state.main.level);
   const busDb = Object.fromEntries(BUSES.map((b) => [b, levelToDb(state[b].level)]));
@@ -178,9 +181,9 @@ export class MixerStore {
   setChannel(index, key, value) {
     const ch = this.state.channels[index];
     if (!ch) return;
-    if (modelOf(this.state) === "cr1604") {
+    if (modelOf(this.state) !== "generic") {
       // Keys may name a nested control: "eq.mid", "assign.lr".
-      const v = CR1604.sanitizeChannel(ch, key, value);
+      const v = hardware(modelOf(this.state)).sanitizeChannel(ch, key, value);
       const [a, b] = key.split(".");
       const holder = b ? ch[a] : ch;
       const k = b || a;
@@ -205,12 +208,14 @@ export class MixerStore {
 
   // Global phantom switch for skins that have one: sets every channel.
   setAllPhantom(on) {
-    for (const ch of this.state.channels) if (!ch.stereo) ch.phantom = !!on; // stereo line inputs have no +48 V
+    // Which channels the switch powers: a compact mixer says (STAGEPAS: CH1/2 only).
+    const powered = modelOf(this.state) !== "generic" ? hardware(modelOf(this.state)).phantomChannels : null;
+    for (const ch of this.state.channels) if (powered ? powered.includes(ch.index) : !ch.stereo) ch.phantom = !!on; // stereo line inputs have no +48 V
     this.emit({ type: "channel", index: -1, key: "phantom" });
   }
 
   setBusLevel(bus, value) {
-    if (modelOf(this.state) === "cr1604") return this.setBus(bus, "level", value);
+    if (modelOf(this.state) !== "generic") return this.setBus(bus, "level", value);
     if (!["main", "headphones", ...BUSES].includes(bus)) return;
     this.state[bus].level = clamp(Number(value), 0, 1);
     this.emit({ type: "bus", bus });
@@ -219,7 +224,7 @@ export class MixerStore {
   // A master-section control other than a level (CR1604: SUB assigns, SOURCE
   // matrix, solo MODE, AUX SEND solo). Validated by the mixer model.
   setBus(bus, key, value) {
-    const fn = modelOf(this.state) === "cr1604" ? CR1604.BUS_KEYS[bus]?.[key] : key === "level" && ["main", "headphones", ...BUSES].includes(bus) ? (v) => clamp(Number(v), 0, 1) : null;
+    const fn = modelOf(this.state) !== "generic" ? hardware(modelOf(this.state)).BUS_KEYS[bus]?.[key] : key === "level" && ["main", "headphones", ...BUSES].includes(bus) ? (v) => clamp(Number(v), 0, 1) : null;
     const v = fn ? fn(value) : undefined;
     if (v === undefined || this.state[bus][key] === v) return;
     this.state[bus][key] = v;

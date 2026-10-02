@@ -6,6 +6,8 @@ import { MeterView } from "../meters.js";
 import { enabledLit, enabledAfterPress, enabledStatusText, globalPhantomState } from "../mixer-models.js";
 import { GAIN_MAX_DB, GAIN_MIN_DB, dbToLevel, formatDb, formatPan, levelToDb } from "../mixer-state.js";
 import { render1604, update1604 } from "./mixer-1604-view.js";
+import { renderCompact, updateCompact } from "./mixer-compact-view.js";
+import { COMPACT } from "../compact-defs.js";
 
 const FADER_MARKS = [10, 5, 0, -5, -10, -20, -30, -50].map((db) => ({ value: dbToLevel(db), label: db === 0 ? "U" : db > 0 ? `+${db}` : `${db}` }));
 FADER_MARKS.push({ value: 0, label: "−∞" });
@@ -50,6 +52,11 @@ export class MixerView {
     this.root.innerHTML = "";
     this.root.className = `mixer skin-${skin.id}`;
     this.root.dataset.skin = skin.id;
+    if (skin.layout === "compact") {
+      renderCompact(this, COMPACT[skin.hardware]);
+      this.sync();
+      return;
+    }
     if (skin.layout === "cr1604") {
       this.leds = [];
       this.paths = [];
@@ -393,7 +400,7 @@ export class MixerView {
   sync(mix) {
     const s = this.store.state;
     const { SOURCES_BY_ID } = this.manifest;
-    if (mix && this.skin.layout === "cr1604") {
+    if (mix && (this.skin.layout === "cr1604" || this.skin.layout === "compact")) {
       // The TRIM scale depends on which jack (MIC or LINE) is in use.
       const key = mix.channels.map((c) => c.input.path || "").join();
       if (key !== this.pathKey) {
@@ -440,6 +447,7 @@ export class MixerView {
   updateMeters(readings, now) {
     if (!readings) return;
     if (this.skin.layout === "cr1604") return update1604(this, readings, now);
+    if (this.skin.layout === "compact") return updateCompact(this, readings, now);
     this.channelMeters.forEach((m, i) => m && m.update(readings.channels[i], now));
     const mm = this.masterMeters || {};
     if (mm.mainL) mm.mainL.update(readings.mainL, now);

@@ -5,12 +5,12 @@
 // with a speaker on it, and the C-R/PHONES (SOURCE matrix, or SOLO).
 
 import { MeterView } from "../meters.js";
-import { listenGroupOf, modelOf } from "../mixer-state.js";
-import * as CR from "../cr1604.js";
+import { listenDestinations, listenGroupOf, modelOf } from "../mixer-state.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const GENERIC = ["main", "aux1", "aux2", "pfl"];
-const SOURCE_NAMES = { main: "MAIN MIX", subs12: "SUBS 1-2", subs34: "SUBS 3-4", tape: "TAPE" };
+const SOURCE_NAMES = { main: "MAIN MIX", subs12: "SUBS 1-2", subs34: "SUBS 3-4", tape: "TAPE", alt: "ALT 3-4" };
+const ALWAYS = ["main", "aux1", "aux2", "alt", "monitor", "phones"];
 
 export class ListenBar {
   constructor(root, { store, getSkin, onTransport, getRecorder = () => null }) {
@@ -40,19 +40,19 @@ export class ListenBar {
 
   label(dest) {
     const t = this.getSkin().terms;
-    if (dest === "main") return modelOf(this.store.state) === "cr1604" ? "MAIN" : "Main L/R";
+    if (dest === "main") return modelOf(this.store.state) !== "generic" ? "MAIN" : "Main L/R";
     if (dest === "pfl") return "PFL";
     if (dest === "phones") return "PHONES";
     if (dest === "rec") return "RECORDER";
     return t[dest] || dest;
   }
 
-  render(dests = modelOf(this.store.state) === "cr1604" ? ["main", "aux1", "aux2", "phones"] : GENERIC) {
+  render(dests = modelOf(this.store.state) !== "generic" ? listenDestinations(this.store.state).filter((d) => ALWAYS.includes(d)) : GENERIC) {
     this.dests = dests;
     const btn = (dest) =>
       `<button type="button" role="radio" class="listen-btn" data-dest="${dest}"><strong>${esc(this.label(dest))}</strong><small class="listen-sub"></small></button>`;
     this.root.innerHTML = `
-      <div class="listen-group" role="radiogroup" aria-label="Listen to">
+      <div class="listen-group${dests.length > 4 ? " many" : ""}" role="radiogroup" aria-label="Listen to">
         <span class="listen-label" aria-hidden="true">Listen</span>
         ${dests.map(btn).join("")}
       </div>
@@ -71,7 +71,7 @@ export class ListenBar {
   update(mix, { playing, ready, loadingText, buffering }) {
     const state = this.store.state;
     const t = this.getSkin().terms;
-    const cr1604 = modelOf(state) === "cr1604";
+    const real = modelOf(state) !== "generic"; // the 1604 or a compact mixer
     const devices = new Map(state.rig.devices.map((d) => [d.id, d]));
     const short = (e) => devices.get(e.deviceId)?.short || devices.get(e.deviceId)?.label || e.deviceId;
     const names = (eps) => eps.map(short).join(" + ");
@@ -87,12 +87,13 @@ export class ListenBar {
 
     // The buttons follow the mixer (and, on the 1604, the patch).
     const recDev = state.rig.devices.find((d) => d.type === "zoom-f8");
-    const others = [...CR.AUXES, ...CR.SUBS, ...CR.DIRECTS, ...CR.INSERTS];
-    const wanted = cr1604 ? ["main", ...others.filter((d) => patched.has(d) || d === state.listen || d === "aux1" || d === "aux2"), "phones", ...(recDev ? ["rec"] : [])] : GENERIC;
+    // Always the main mix, the first two auxes, ALT, MONITOR and the phones the
+    // mixer has; any other output only once a speaker is patched to it.
+    const wanted = real ? listenDestinations(state).filter((d) => (d === "rec" ? !!recDev : ALWAYS.includes(d) || patched.has(d) || d === state.listen)) : GENERIC;
     if (wanted.join() !== this.dests.join()) this.render(wanted);
 
     const pfls = state.channels.filter((c) => c.pfl).map((c) => c.index + 1);
-    const phones = cr1604 ? mix.phones : null;
+    const phones = real ? mix.phones : null;
     const phonesText = () => {
       if (phones.solo) {
         const what = [...phones.soloed.map((n) => `Ch ${n}`), ...phones.auxSolo.map((b) => t[b])].join(", ");
@@ -119,7 +120,7 @@ export class ListenBar {
     }
 
     const dest = state.listen;
-    const busName = dest === "main" ? (cr1604 ? "the MAIN mix" : "Main L/R") : t[dest] || dest;
+    const busName = dest === "main" ? (real ? "the MAIN mix" : "Main L/R") : t[dest] || dest;
     let msg;
     if (dest === "rec" && this.getRecorder()?.playing) msg = rec.msg; // a take plays even with the band stopped
     else if (!ready) msg = loadingText || "Loading…";

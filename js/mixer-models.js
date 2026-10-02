@@ -172,7 +172,45 @@ export const SKINS = {
     layout: "cr1604",
     dragAxis: "vertical",
   },
+  // Compact mixers: their own hardware (js/compact-defs.js), drawn by js/ui/mixer-compact-view.js.
+  ...compactSkin("vlz1202", "Mackie 1202-VLZ", "12-channel, MUTE/ALT 3-4", { aux1: "AUX 1", aux2: "AUX 2", alt: "ALT 3-4", phones: "C-R/PHONES", pfl: "SOLO", gain: "TRIM" }),
+  ...compactSkin("mix8", "Mackie Mix8", "8-channel, one aux", { aux1: "AUX", phones: "CR/PHONES", pfl: "PFL" }),
+  ...compactSkin("mg102", "Yamaha MG10/2", "10-channel, AUX1/AUX2 knob", { aux1: "AUX1", aux2: "AUX2", phones: "C-R/PHONES", pfl: "PFL" }),
+  ...compactSkin("stagepas400bt", "Yamaha STAGEPAS 400BT", "powered mixer + speakers", { monitor: "MONITOR OUT", pfl: "PFL" }),
 };
+
+// A skin for a compact mixer: the words come from the board.
+function compactSkin(id, name, subtitle, words) {
+  return {
+    [id]: {
+      id,
+      hardware: id,
+      name,
+      subtitle,
+      terms: {
+        gain: "GAIN",
+        pan: "PAN",
+        aux1Master: "AUX master",
+        aux2Master: "AUX 2 master",
+        enabled: "MUTE",
+        level: "LEVEL knob",
+        levelShort: "LEVEL",
+        main: "MAIN",
+        mainShort: "MAIN",
+        phantom: "48V",
+        stereo: "STEREO",
+        rec: "RECORDER",
+        ...Object.fromEntries(Array.from({ length: 4 }, (_, i) => [`insert${i + 1}`, `INSERT ${i + 1}`])),
+        ...words,
+      },
+      enabledControl: { label: "MUTE", litWhenEnabled: false, litText: "Muted", unlitText: "" },
+      levelControl: "knob",
+      phantomControl: "global",
+      layout: "compact",
+      dragAxis: "vertical",
+    },
+  };
+}
 
 export const SKIN_IDS = Object.keys(SKINS);
 export const DEFAULT_SKIN = "analog";
