@@ -19,6 +19,9 @@ export const GAIN_MAX_DB = 60;
 export const AUXES = ["aux1", "aux2", "aux3", "aux4", "aux5", "aux6"];
 export const MASTERED_AUXES = ["aux1", "aux2"]; // AUX SENDS 3–6 leave at unity, no master
 export const SUBS = ["sub1", "sub2", "sub3", "sub4"];
+export const RETURNS = ["ret1", "ret2", "ret3", "ret4"];
+export const DIRECTS = Array.from({ length: 8 }, (_, i) => `direct${i + 1}`);
+export const INSERTS = Array.from({ length: 16 }, (_, i) => `insert${i + 1}`);
 export const EQ_RANGE_DB = 15;
 export const EQ_FREQ = { low: 80, high: 12000, midMin: 100, midMax: 8000 };
 export const EQ_MID_OCTAVES = 1.5;
@@ -33,7 +36,7 @@ export const LAWS = {
   fader: FADER_LAW, // channel, SUB and MAIN faders: U ¾ up, +10 at the top
   send: knobLaw(15), // channel AUX knobs: off, U at the detent, +15
   master: knobLaw(10), // AUX SEND masters, C-R/PHONES, SOLO level: off, U, +10
-  tape: knobLaw(20), // TAPE IN: off, U, +20
+  tape: knobLaw(20), // TAPE IN and the AUX RETURN levels: off, U, +20
   mono: makeLaw([[0, -Infinity], [0.05, -50], [0.3, -20], [0.67, 0], [1, 6]]), // MONO LEVEL: U at 1:30, +6
 };
 
@@ -41,11 +44,14 @@ export const LAWS = {
 export const midFreqToPos = (hz) => Math.log(hz / EQ_FREQ.midMin) / Math.log(EQ_FREQ.midMax / EQ_FREQ.midMin);
 export const posToMidFreq = (pos) => EQ_FREQ.midMin * Math.pow(EQ_FREQ.midMax / EQ_FREQ.midMin, Math.min(1, Math.max(0, pos)));
 
-// Every listening position, and which mixer output belongs to which.
-export const LISTEN = ["main", ...AUXES, ...SUBS, "phones"];
+// Every listening position, and which mixer output belongs to which. "rec"
+// is a recorder's headphone out.
+export const LISTEN = ["main", ...AUXES, ...SUBS, ...DIRECTS, ...INSERTS, "phones", "rec"];
 export function listenGroupOf(portId) {
-  if (portId === "main-l" || portId === "main-r" || portId === "mono") return "main";
+  if (["main-l", "main-r", "mono", "tape-out-l", "tape-out-r"].includes(portId)) return "main";
   if (portId === "cr-l" || portId === "cr-r") return "phones";
+  const m = /^ch(\d+)-(direct|insert)$/.exec(portId);
+  if (m) return `${m[2]}${m[1]}`;
   return portId;
 }
 
@@ -91,7 +97,13 @@ export function createState() {
     mono: { level: 0.67 },
     // C-R/PHONES: SOURCE matrix and level. SOLO replaces the selection while any solo is on.
     cr: { level: 0.5, main: true, subs12: false, subs34: false, tape: false },
-    soloBus: { level: 0.5, mode: "afl" }, // MODE: "afl" = NORMAL (AFL), "pfl" = LEVEL SET (PFL)
+    soloBus: { level: 0.5, mode: "afl", returns: false }, // MODE: "afl" = NORMAL (AFL), "pfl" = LEVEL SET (PFL); RETURNS SOLO
+    // STEREO AUX RETURNS. 1 and 2 also feed AUX SEND 1/2 (EFFECTS TO MONITORS);
+    // 3 can go to the subgroups instead of MAIN; 4 can go to C-R/PHONES only.
+    ret1: { level: 0.5, toAux: 0 },
+    ret2: { level: 0.5, toAux: 0 },
+    ret3: { level: 0.5, toSubs: false, subs34: false },
+    ret4: { level: 0.5, crOnly: false },
     listen: "main",
     rig: { devices: [{ id: "mixer", type: "cr1604", label: "Mackie CR1604-VLZ" }], cables: [] },
   };
@@ -136,7 +148,11 @@ export const BUS_KEYS = {
   ...Object.fromEntries(SUBS.map((s) => [s, { level: range(0, 1), toMainL: bool, toMainR: bool }])),
   mono: { level: range(0, 1) },
   cr: { level: range(0, 1), main: bool, subs12: bool, subs34: bool, tape: bool },
-  soloBus: { level: range(0, 1), mode: (v) => (v === "pfl" || v === "afl" ? v : undefined) },
+  soloBus: { level: range(0, 1), mode: (v) => (v === "pfl" || v === "afl" ? v : undefined), returns: bool },
+  ret1: { level: range(0, 1), toAux: range(0, 1) },
+  ret2: { level: range(0, 1), toAux: range(0, 1) },
+  ret3: { level: range(0, 1), toSubs: bool, subs34: bool },
+  ret4: { level: range(0, 1), crOnly: bool },
 };
 
 // ---------- computed signal levels ----------
@@ -237,6 +253,7 @@ export function computeMix(state, sourcesById, stems, sourcePeakDb) {
 export function phonesOf(state) {
   const soloed = state.channels.filter((c) => !c.tape && c.solo).map((c) => c.label);
   const auxSolo = MASTERED_AUXES.filter((b) => state[b].solo);
+  if (state.soloBus.returns) auxSolo.push("returns");
   const solo = soloed.length > 0 || auxSolo.length > 0;
   const sources = [state.cr.main && "main", state.cr.subs12 && "subs12", state.cr.subs34 && "subs34", state.cr.tape && "tape"].filter(Boolean);
   return { solo, soloed, auxSolo, mode: state.soloBus.mode, sources };

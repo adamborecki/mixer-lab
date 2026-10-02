@@ -7,6 +7,21 @@ import { SOURCES_BY_ID, STEMS, sourcesForScenario } from "../audio/source-manife
 import { CABLES, DEVICE_TYPES, cableEndFor, channelPortRef, getPort, plugFitsJack } from "./connection-model.js";
 import { BUSES, computeMix, createMixerState, dbToLevel, levelToDb, clamp } from "./mixer-state.js";
 import * as CR1604 from "./cr1604.js";
+import { createF8, createPair, createReverb } from "./devices.js";
+
+// Outboard gear for the CR1604 gig: a reverb on AUX 3 → AUX RETURN 1, and a
+// field recorder with a stereo room pair for recording the show.
+export const STAGE_GEAR = {
+  reverb: () => ({ id: "reverb", type: "reverb", label: "Reverb unit (stereo)", ...createReverb() }),
+  recorder: () => ({ id: "rec", type: "zoom-f8", label: "Zoom F8 field recorder", ...createF8() }),
+  pair: () => ({ id: "room-pair", type: "stereo-mic-pair", label: "Room pair · stereo bar at FOH", ...createPair() }),
+};
+const REVERB_CABLES = [
+  { from: "mixer/aux3", to: "reverb/in-l", cable: "trs" },
+  { from: "reverb/out-l", to: "mixer/ret1-l", cable: "trs" },
+  { from: "reverb/out-r", to: "mixer/ret1-r", cable: "trs" },
+];
+const REVERB_SENDS = { "lead-vocal": -6, "backing-vocals": -10, trumpets: -14 };
 
 // ---------- rig inventory ----------
 
@@ -516,6 +531,8 @@ function buildCr1604State(def, sourcesById) {
     const d = PLAYBACK_DEVICES[id];
     state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan });
   }
+  const sandbox = def.id === "free-play";
+  if (sandbox) state.rig.devices.push(STAGE_GEAR.reverb(), STAGE_GEAR.recorder(), STAGE_GEAR.pair());
   const channelOfSource = (s) => (s.stereo ? CR1604.TAPE : s.order - 1);
   let n = 0;
   const addCable = (c) => state.rig.cables.push({ id: `c${++n}`, ...c });
@@ -528,6 +545,7 @@ function buildCr1604State(def, sourcesById) {
     }
   }
   for (const c of setup.cables || []) addCable({ ...c, cable: fittingCable(state.rig, c) });
+  if (sandbox) for (const c of REVERB_CABLES) addCable(c);
 
   if (setup.channels === "mixed") {
     for (const s of sources) {
@@ -543,6 +561,7 @@ function buildCr1604State(def, sourcesById) {
         const sends = (setup.sends && setup.sends[bus]) || {};
         ch.auxSends[bus] = CR1604.LAWS.send.toPos(s.id in sends ? sends[s.id] : -Infinity);
       }
+      if (sandbox && s.id in REVERB_SENDS) ch.auxSends.aux3 = CR1604.LAWS.send.toPos(REVERB_SENDS[s.id]);
     }
     // One PHANTOM switch for the whole board.
     const phantom = sources.some((s) => s.phantom === "required");

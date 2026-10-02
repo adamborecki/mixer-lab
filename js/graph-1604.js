@@ -142,6 +142,9 @@ export function buildCr1604Graph(kit) {
     side.R.connect(afl.R).connect(aflBus.R);
 
     strips.push({ input, pre, popIn, lowCut, eq, meter, mute, fader, sends, pan, assign, pfl, afl });
+    // INSERT used as a send: after TRIM, before LOW CUT and EQ. DIRECT OUT (1–8): the end of the channel.
+    outputs[`ch${i + 1}-insert`] = clip;
+    if (i < 8) outputs[`ch${i + 1}-direct`] = tapPost;
   }
 
   // TAPE IN: a stereo pair with a level knob.
@@ -156,6 +159,52 @@ export function buildCr1604Graph(kit) {
   tape.side.L.connect(tape.toMain.L).connect(mainBus.L);
   tape.side.R.connect(tape.toMain.R).connect(mainBus.R);
   strips.push(tape);
+
+  // TAPE OUTPUT: a copy of the MAIN MIX after its fader.
+  outputs["tape-out-l"] = mainFader.L;
+  outputs["tape-out-r"] = mainFader.R;
+
+  // ---------- STEREO AUX RETURNS ----------
+  // A lone L input is normalled to both sides. Each return's level knob feeds
+  // MAIN (or, for 3, a subgroup pair; for 4, only the C-R/PHONES); 1 and 2 also
+  // feed AUX SEND 1/2 through EFFECTS TO MONITORS, before the level knob.
+  const inputs = {};
+  const returns = {};
+  for (const r of CR.RETURNS) {
+    const n = r.slice(3);
+    const ret = { inL: mono(1), inR: mono(1), normal: mono(0), side: pair(), level: pair(1) };
+    inputs[`ret${n}-l`] = ret.inL;
+    inputs[`ret${n}-r`] = ret.inR;
+    ret.inL.connect(ret.side.L);
+    ret.inR.connect(ret.side.R);
+    ret.inL.connect(ret.normal).connect(ret.side.R);
+    ret.side.L.connect(ret.level.L);
+    ret.side.R.connect(ret.level.R);
+    ret.toMain = pair(0);
+    ret.level.L.connect(ret.toMain.L).connect(mainBus.L);
+    ret.level.R.connect(ret.toMain.R).connect(mainBus.R);
+    if (r === "ret3") {
+      ret.toS12 = pair(0);
+      ret.toS34 = pair(0);
+      ret.level.L.connect(ret.toS12.L).connect(subBus.sub1);
+      ret.level.R.connect(ret.toS12.R).connect(subBus.sub2);
+      ret.level.L.connect(ret.toS34.L).connect(subBus.sub3);
+      ret.level.R.connect(ret.toS34.R).connect(subBus.sub4);
+    }
+    if (r === "ret1" || r === "ret2") {
+      ret.toAux = mono(0);
+      ret.side.L.connect(ret.toAux);
+      ret.side.R.connect(ret.toAux);
+      ret.toAux.connect(auxBus[r === "ret1" ? "aux1" : "aux2"]);
+    }
+    ret.solo = { afl: pair(0), pfl: mono(0) };
+    ret.level.L.connect(ret.solo.afl.L).connect(aflBus.L);
+    ret.level.R.connect(ret.solo.afl.R).connect(aflBus.R);
+    ret.level.L.connect(ret.solo.pfl);
+    ret.level.R.connect(ret.solo.pfl);
+    ret.solo.pfl.connect(pflBus);
+    returns[r] = ret;
+  }
 
   // ---------- C-R / PHONES ----------
   const sel = {
@@ -173,6 +222,10 @@ export function buildCr1604Graph(kit) {
   subFader.sub4.connect(sel.subs34.R).connect(crSum.R);
   tape.side.L.connect(sel.tape.L).connect(crSum.L);
   tape.side.R.connect(sel.tape.R).connect(crSum.R);
+  // AUX RETURN 4 with C-R/PHNS ONLY: into the C-R mix whatever the SOURCE (still replaced by SOLO).
+  returns.ret4.toCr = pair(0);
+  returns.ret4.level.L.connect(returns.ret4.toCr.L).connect(crSum.L);
+  returns.ret4.level.R.connect(returns.ret4.toCr.R).connect(crSum.R);
 
   // While any SOLO is on it replaces the SOURCE selection.
   const crGate = pair(1);
@@ -225,6 +278,7 @@ export function buildCr1604Graph(kit) {
   return {
     strips,
     outputs,
+    inputs, // input jacks other than the channels' (the aux returns)
     phones,
     phonesDest: "phones",
 
@@ -319,6 +373,31 @@ export function buildCr1604Graph(kit) {
       set(auxSolo.aux1.R.gain, state.aux1.solo ? centre : 0);
       set(auxSolo.aux2.L.gain, state.aux2.solo ? centre : 0);
       set(auxSolo.aux2.R.gain, state.aux2.solo ? (mode === "pfl" ? centre : 1) : 0);
+
+      for (const r of CR.RETURNS) {
+        const st = state[r];
+        const ret = returns[r];
+        const used = rig.returns?.[r] || { L: false, R: false };
+        set(ret.normal.gain, on(used.L && !used.R));
+        const g = dbToGain(law.tape.toDb(st.level));
+        set(ret.level.L.gain, g);
+        set(ret.level.R.gain, g);
+        const toMain = r === "ret3" ? !st.toSubs : r === "ret4" ? !st.crOnly : true;
+        set(ret.toMain.L.gain, on(toMain));
+        set(ret.toMain.R.gain, on(toMain));
+        if (ret.toS12) {
+          for (const side of ["L", "R"]) {
+            set(ret.toS12[side].gain, on(st.toSubs && !st.subs34));
+            set(ret.toS34[side].gain, on(st.toSubs && st.subs34));
+          }
+        }
+        if (ret.toCr) for (const side of ["L", "R"]) set(ret.toCr[side].gain, on(st.crOnly));
+        if (ret.toAux) set(ret.toAux.gain, 0.5 * dbToGain(law.send.toDb(st.toAux)));
+        const rs = state.soloBus.returns;
+        set(ret.solo.afl.L.gain, on(rs && mode === "afl"));
+        set(ret.solo.afl.R.gain, on(rs && mode === "afl"));
+        set(ret.solo.pfl.gain, rs && mode === "pfl" ? 0.5 : 0);
+      }
 
       for (const k of ["main", "subs12", "subs34", "tape"]) {
         set(sel[k].L.gain, on(state.cr[k]));

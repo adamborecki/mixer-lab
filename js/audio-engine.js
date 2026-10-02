@@ -18,6 +18,11 @@ import { StemTransport } from "./transport.js";
 import { METER_FFT, RAMP, nodeKit } from "./graph-kit.js";
 import { buildGenericGraph } from "./graph-generic.js";
 import { buildCr1604Graph } from "./graph-1604.js";
+import { buildRecorder, buildReverb, buildRoomPair } from "./outboard-audio.js";
+import { splitRef } from "./connection-model.js";
+
+// Outboard gear with audio of its own (settings: js/devices.js).
+const OUTBOARD = { reverb: "reverb", "zoom-f8": "recorder", "stereo-mic-pair": "pair" };
 
 const LISTEN_TRIM_DB = 4; // fixed make-up gain so a typical mix sits at a comfortable level
 
@@ -30,6 +35,7 @@ export class AudioEngine {
     this.loops = new Map(); // sourceId → LoopPlayer (independent of the band's transport)
     this.endpointNodes = new Map();
     this.routes = []; // [fromNode, toNode] connections that depend on the rig
+    this.devices = new Map(); // deviceId → { type, rt }: reverb, recorder, mic pair
     this.listeners = new Set();
   }
 
@@ -70,6 +76,7 @@ export class AudioEngine {
       if (asset) this.loops.set(source.id, new LoopPlayer(this.ctx, { sourceId: source.id, url: asset.file, errors, emit: (evt) => this.emit(evt) }));
     }
     this.buildGraph();
+    this.syncDevices(this.store.state);
     this.lastCables = new Map(this.store.state.rig.cables.map((c) => [c.id, c]));
     this.unsubscribe = this.store.subscribe((state, change) => this.onChange(state, change));
     this.rewire();
@@ -124,6 +131,7 @@ export class AudioEngine {
       this.kit.dispose();
       this.buildMixer();
     }
+    if (change.type === "replace" || change.type === "rig") this.syncDevices(state);
     if (this.mixer.pop) this.firePops(state, change);
     if (change.type === "rig" || change.type === "replace") this.rewire();
     this.applyAll();
@@ -147,6 +155,25 @@ export class AudioEngine {
     if (change.type === "channel" && change.key === "phantom") {
       for (const i of this.mixer.xlrChannels(state.rig)) this.mixer.pop(state, i, THUMP_DB);
     }
+    // The recorder's inputs pop the same way when their own 48V is on.
+    const recPop = (ref, cable, db) => {
+      const { deviceId, portId } = splitRef(ref);
+      const d = this.devices.get(deviceId);
+      const dev = state.rig.devices.find((x) => x.id === deviceId);
+      const m = /^in(\d)$/.exec(portId);
+      if (!d || d.type !== "zoom-f8" || !m || !dev || cable.cable === undefined) return;
+      const t = Number(m[1]) - 1;
+      if (dev.tracks[t].phantom && ["xlr", "xlr-trs"].includes(cable.cable)) d.rt.pop(t, db);
+    };
+    if (change.type === "rig") {
+      for (const c of cables.values()) if (!this.lastCables.has(c.id)) recPop(c.to, c, POP_DB);
+      for (const c of this.lastCables.values()) if (!cables.has(c.id)) recPop(c.to, c, POP_DB);
+    }
+    if (change.type === "device" && /^tracks\.\d\.phantom$/.test(change.key)) {
+      const t = Number(change.key.split(".")[1]);
+      const c = [...cables.values()].find((x) => x.to === `${change.id}/in${t + 1}`);
+      if (c) recPop(c.to, c, THUMP_DB + 8);
+    }
     this.lastCables = cables;
   }
 
@@ -161,7 +188,60 @@ export class AudioEngine {
     // Re-analyse every time: phantom power changes whether a channel has signal.
     const rig = analyzeRig(state.rig, state.channels, SOURCES_BY_ID);
     this.mixer.apply(state, rig, SOURCES_BY_ID);
+    for (const dev of state.rig.devices) {
+      const d = this.devices.get(dev.id);
+      if (d) d.rt.apply(dev, rig.recorders?.[dev.id], SOURCES_BY_ID);
+    }
     for (const [dest, g] of Object.entries(this.listenGains)) this.set(g.gain, state.listen === dest ? 1 : 0);
+  }
+
+  // Builds or tears down the outboard gear to match the rig. A recorder keeps
+  // its takes while it stays on stage (a scenario reset doesn't wipe the card).
+  syncDevices(state) {
+    const want = new Map(state.rig.devices.filter((d) => OUTBOARD[d.type]).map((d) => [d.id, d.type]));
+    for (const [id, d] of this.devices) {
+      if (want.get(id) === d.type) continue;
+      d.rt.dispose();
+      this.devices.delete(id);
+    }
+    for (const [id, type] of want) {
+      if (this.devices.has(id)) continue;
+      const rt =
+        type === "reverb"
+          ? buildReverb(this.ctx)
+          : type === "stereo-mic-pair"
+            ? buildRoomPair(this.ctx, this.manifest.SOURCES_BY_ID)
+            : buildRecorder(this.ctx, { onUpdate: () => this.emit({ type: "recorder", id }) });
+      this.devices.set(id, { type, rt });
+    }
+  }
+
+  recorder(id) {
+    const d = this.devices.get(id);
+    return d && d.type === "zoom-f8" ? d.rt : null;
+  }
+
+  // The audio node behind an output port, or an input port (null if none).
+  outNode(ref) {
+    const { deviceId, portId } = splitRef(ref);
+    if (deviceId === "mixer") return this.outputs[portId] || null;
+    const d = this.devices.get(deviceId);
+    if (d) return d.rt.outputs[portId] || null;
+    const dev = this.store.state.rig.devices.find((x) => x.id === deviceId);
+    if (!dev || !dev.sourceId) return null;
+    const loop = this.loops.get(dev.sourceId);
+    return loop ? loop.out : this.transport.outs.get(dev.sourceId) || null;
+  }
+
+  inNode(ref) {
+    const { deviceId, portId } = splitRef(ref);
+    if (deviceId === "mixer") {
+      const port = DEVICE_TYPES[mixerOf(this.store.state.rig).type].ports.find((p) => p.id === portId);
+      if (port && port.role === "channel-input") return this.strips[port.channel]?.input || null;
+      return this.mixer.inputs?.[portId] || null;
+    }
+    const d = this.devices.get(deviceId);
+    return d ? d.rt.inputs[portId] || null : null;
   }
 
   unroute() {
@@ -187,14 +267,18 @@ export class AudioEngine {
       this.routes.push([from, to]);
     };
 
-    // Sources → channel inputs. Signal validity (phantom etc.) is applied as
-    // gain in applyAll so toggling 48 V doesn't need a rewire.
-    rigInfo.channels.forEach((info, i) => {
-      if (!info || !info.connected || !info.sourceId) return;
-      const loop = this.loops.get(info.sourceId);
-      const out = loop ? loop.out : this.transport.outs.get(info.sourceId);
-      if (out && this.strips[i]) link(out, this.strips[i].input);
-    });
+    // Every cable between two ports that have audio: sources and the room
+    // pair into the mixer or the recorder, aux sends into the reverb, the
+    // reverb into the returns, mixer outputs into the recorder. Signal validity
+    // (phantom etc.) is applied as gain in applyAll, so 48 V needs no rewire.
+    // Speakers and amps are handled below.
+    for (const d of this.devices.values()) if (d.rt.link) d.rt.link(this.transport.outs);
+    for (const c of state.rig.cables) {
+      const from = this.outNode(c.from);
+      const to = this.inNode(c.to);
+      if (from && to) link(from, to);
+    }
+    for (const d of this.devices.values()) if (d.rt.phones && this.listenGains.rec) link(d.rt.phones, this.listenGains.rec);
 
     // Speakers: one node per speaker, panned to its place, feeding the listen
     // group of whichever bus reaches it.
@@ -274,6 +358,8 @@ export class AudioEngine {
 
   readMeters() {
     if (!this.ctx) return null;
-    return { ...this.mixer.readMeters((a) => this.readAnalyser(a)), listen: this.readAnalyser(this.listenMeter) };
+    const recorders = {};
+    for (const [id, d] of this.devices) if (d.type === "zoom-f8") recorders[id] = d.rt.tracks.map((t) => this.readAnalyser(t.meter));
+    return { ...this.mixer.readMeters((a) => this.readAnalyser(a)), listen: this.readAnalyser(this.listenMeter), recorders };
   }
 }

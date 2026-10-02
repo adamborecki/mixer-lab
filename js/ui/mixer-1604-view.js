@@ -284,6 +284,30 @@ function buildMaster(view) {
     return { side, segs: [...col.querySelectorAll(".seg")].map((s) => ({ el: s, db: Number(s.dataset.db) })), level: -Infinity, lastT: 0 };
   });
 
+  // STEREO AUX RETURNS: level knobs; EFFECTS TO MONITORS (1 → AUX SEND 1,
+  // 2 → AUX SEND 2); ASSIGN OPTIONS (3: MAIN MIX TO SUBS + 1-2/3-4; 4: C-R/PHNS ONLY); RETURNS SOLO.
+  const retKnob = (r) => busKnob(r, r.slice(3), L.tape);
+  const toAux = (r, n) =>
+    knob(view, { label: `→ AUX ${n}`, sheetLabel: `EFFECTS TO MONITORS: return ${n} to AUX SEND ${n}`, defaultValue: 0, tone: `aux${n}`, format: lawFormat(L.send), onInput: (v) => store.setBus(r, "toAux", v) }, (s) => s[r].toAux);
+  const returns = block(
+    "STEREO AUX RETURNS",
+    row("c16-pair c16-quad", retKnob("ret1"), retKnob("ret2"), retKnob("ret3"), retKnob("ret4")),
+    row("c16-pair", toAux("ret1", 1), toAux("ret2", 2)),
+    row(
+      "c16-matrix",
+      busButton("ret3", "toSubs", "3: MAIN TO SUBS", "AUX RETURN 3: MAIN MIX TO SUBS"),
+      button(view, {
+        label: "3: SUBS 3-4",
+        tone: "assign",
+        get: (s) => s.ret3.subs34,
+        onPress: () => store.setBus("ret3", "subs34", !store.state.ret3.subs34),
+        aria: (s) => `AUX RETURN 3 to subgroups ${s.ret3.subs34 ? "3-4" : "1-2"}`,
+      }),
+      busButton("ret4", "crOnly", "4: C-R/PHNS ONLY", "AUX RETURN 4: C-R/PHONES only"),
+      busButton("soloBus", "returns", "RETURNS SOLO", "RETURNS SOLO", "pfl"),
+    ),
+  );
+
   // Rear-panel controls that matter for sound: one PHANTOM switch, MONO LEVEL.
   const phantom = button(view, {
     label: "PHANTOM",
@@ -316,7 +340,7 @@ function buildMaster(view) {
   }
   faders.appendChild(row("c16-sub c16-main", fader(view, { label: "MAIN L-R", sheetLabel: "MAIN L-R MIX fader", get: (s) => s.main.level, onInput: (v) => store.setBus("main", "level", v) })));
 
-  el.append(row("c16-master-top", meters, auxes, tape, cr, solo, rear), faders);
+  el.append(row("c16-master-top", meters, auxes, tape, cr, solo, rear, returns), faders);
   return el;
 }
 

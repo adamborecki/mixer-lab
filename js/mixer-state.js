@@ -34,6 +34,7 @@ export {
 } from "./levels.js";
 import { HEADROOM_DB, inputBand, levelToDb, dbToLevel, gainToDb, panGains, clamp } from "./levels.js";
 import * as CR1604 from "./cr1604.js";
+import { setDeviceValue } from "./devices.js";
 
 // Which mixer a state belongs to. A state without `model` is the generic
 // mixer that Mixer A and Mixer B draw; "cr1604" is the Mackie (js/cr1604.js).
@@ -223,6 +224,13 @@ export class MixerStore {
     if (v === undefined || this.state[bus][key] === v) return;
     this.state[bus][key] = v;
     this.emit({ type: "bus", bus, key });
+  }
+
+  // A setting on an outboard device (reverb, recorder, mic pair): js/devices.js.
+  setDevice(deviceId, key, value) {
+    const dev = this.state.rig.devices.find((d) => d.id === deviceId);
+    if (!dev || !setDeviceValue(dev, key, value)) return;
+    this.emit({ type: "device", id: deviceId, key });
   }
 
   setListen(dest) {

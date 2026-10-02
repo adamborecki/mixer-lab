@@ -13,8 +13,9 @@ const GENERIC = ["main", "aux1", "aux2", "pfl"];
 const SOURCE_NAMES = { main: "MAIN MIX", subs12: "SUBS 1-2", subs34: "SUBS 3-4", tape: "TAPE" };
 
 export class ListenBar {
-  constructor(root, { store, getSkin, onTransport }) {
+  constructor(root, { store, getSkin, onTransport, getRecorder = () => null }) {
     this.root = root;
+    this.getRecorder = getRecorder; // the recorder's runtime (take playback), if one is on stage
     this.store = store;
     this.getSkin = getSkin;
     this.onTransport = onTransport;
@@ -42,6 +43,7 @@ export class ListenBar {
     if (dest === "main") return modelOf(this.store.state) === "cr1604" ? "MAIN" : "Main L/R";
     if (dest === "pfl") return "PFL";
     if (dest === "phones") return "PHONES";
+    if (dest === "rec") return "RECORDER";
     return t[dest] || dest;
   }
 
@@ -84,7 +86,9 @@ export class ListenBar {
     }
 
     // The buttons follow the mixer (and, on the 1604, the patch).
-    const wanted = cr1604 ? ["main", ...[...CR.AUXES, ...CR.SUBS].filter((d) => patched.has(d) || d === state.listen || d === "aux1" || d === "aux2"), "phones"] : GENERIC;
+    const recDev = state.rig.devices.find((d) => d.type === "zoom-f8");
+    const others = [...CR.AUXES, ...CR.SUBS, ...CR.DIRECTS, ...CR.INSERTS];
+    const wanted = cr1604 ? ["main", ...others.filter((d) => patched.has(d) || d === state.listen || d === "aux1" || d === "aux2"), "phones", ...(recDev ? ["rec"] : [])] : GENERIC;
     if (wanted.join() !== this.dests.join()) this.render(wanted);
 
     const pfls = state.channels.filter((c) => c.pfl).map((c) => c.index + 1);
@@ -96,12 +100,14 @@ export class ListenBar {
       }
       return phones.sources.length ? `C-R: ${phones.sources.map((s) => SOURCE_NAMES[s]).join(" + ")}` : "C-R: no SOURCE";
     };
+    const rec = recDev ? recorderText(recDev, this.getRecorder(), mix.rig.recorders?.[recDev.id]) : null;
     const sub = (d) => {
       if (d === "pfl") return pfls.length ? `Phones: Ch ${pfls.join(", ")}` : "Phones: no PFL";
       if (d === "phones") return phonesText();
+      if (d === "rec") return rec.sub;
       return ends[d]?.length ? `✓ ${names(ends[d])}` : "✕ no working speaker";
     };
-    const dead = (d) => (d === "pfl" ? !pfls.length : d === "phones" ? !phones.solo && !phones.sources.length : !ends[d]?.length);
+    const dead = (d) => (d === "pfl" ? !pfls.length : d === "phones" ? !phones.solo && !phones.sources.length : d === "rec" ? rec.dead : !ends[d]?.length);
     for (const btn of this.root.querySelectorAll("[data-dest]")) {
       const d = btn.dataset.dest;
       const on = state.listen === d;
@@ -115,11 +121,13 @@ export class ListenBar {
     const dest = state.listen;
     const busName = dest === "main" ? (cr1604 ? "the MAIN mix" : "Main L/R") : t[dest] || dest;
     let msg;
-    if (!ready) msg = loadingText || "Loading…";
+    if (dest === "rec" && this.getRecorder()?.playing) msg = rec.msg; // a take plays even with the band stopped
+    else if (!ready) msg = loadingText || "Loading…";
     else if (!playing) msg = "Playback stopped.";
     else if (buffering) msg = "Buffering the next part of the song…";
     else if (dest === "pfl") msg = pfls.length ? `Engineer's headphones: PFL on Ch ${pfls.join(", ")} (before the ${t.levelShort.toLowerCase()}).` : "Headphones are quiet: press PFL on a channel to hear it here.";
     else if (dest === "phones") msg = phonesMessage(phones, t);
+    else if (dest === "rec") msg = rec.msg;
     else if (ends[dest]?.length) msg = `Hearing ${busName} through the ${names(ends[dest])}.`;
     else msg = `Silence: ${busName} doesn't reach a working speaker. Check the Outputs.`;
     if (msg !== this.lastMsg) {
@@ -136,6 +144,18 @@ export class ListenBar {
   updateMeter(reading, now) {
     this.meter.update(reading, now);
   }
+}
+
+// The recorder's headphone out: its input tracks, or a take playing back.
+function recorderText(dev, rt, inputs = []) {
+  const live = inputs.map((inp, i) => (inp && inp.connected ? i + 1 : 0)).filter(Boolean);
+  if (rt && rt.playing) {
+    const take = rt.takes.find((t) => t.id === rt.playing.takeId);
+    return { sub: `▶ ${take ? take.name : "take"}`, dead: false, msg: `Recorder headphones: playing back ${take ? take.name : "a take"} from the card.` };
+  }
+  const recording = rt && rt.recording ? " ● REC" : "";
+  if (!live.length) return { sub: `No inputs${recording}`, dead: true, msg: "Recorder headphones are quiet: nothing is plugged into the recorder." };
+  return { sub: `Inputs ${live.join(", ")}${recording}`, dead: false, msg: `Recorder headphones: what inputs ${live.join(", ")} are hearing${recording ? ", while recording" : ""}.` };
 }
 
 function phonesMessage(p, t) {

@@ -16,6 +16,7 @@ import { MixerView } from "./ui/mixer-view.js";
 import { PatchView } from "./ui/patch-view.js";
 import { ScenarioView } from "./ui/scenario-view.js";
 import { SubmissionView } from "./ui/submission-view.js";
+import { RecorderView } from "./ui/recorder-view.js";
 
 const M = { STEM_SET: manifest.STEM_SET, STEMS: manifest.STEMS, SOURCES_BY_ID: manifest.SOURCES_BY_ID, LOOP_ASSETS: manifest.LOOP_ASSETS };
 const $ = (sel) => document.querySelector(sel);
@@ -49,7 +50,13 @@ const patchView = new PatchView({
   manifest: M,
   toast,
   getTerms: () => skin.terms,
+  onOpenRecorder: (id) => recorderView.open(id),
+  getRecorder: (id) => engine.recorder(id),
 });
+
+// The field recorder's own panel (opened from its card in Outputs).
+const firstRecorderId = () => store.state.rig.devices.find((d) => d.type === "zoom-f8")?.id;
+const recorderView = new RecorderView({ store, getRuntime: (id) => engine.recorder(id), getMix: () => lastMix, toast });
 
 const mixerView = new MixerView($("#mixer"), {
   store,
@@ -92,6 +99,7 @@ const listenBar = new ListenBar($("#listen-bar"), {
   store,
   getSkin: () => skin,
   onTransport: () => (engine.playing ? engine.stop() : engine.play()),
+  getRecorder: () => (firstRecorderId() ? engine.recorder(firstRecorderId()) : null),
 });
 
 renderFlow($("#flow"), skin);
@@ -103,6 +111,8 @@ store.subscribe((state, change) => {
   if (change.type !== "replace") countAction(change);
   if (change.type === "listen") current.session.listened.add(state.listen);
   if (change.type === "rig" || change.type === "replace" || (change.type === "channel" && change.key === "phantom")) pending.patch = true;
+  // Recorder settings show on its Outputs card (the mic pair and reverb update their own readouts).
+  if (change.type === "device" && state.rig.devices.find((d) => d.id === change.id)?.type === "zoom-f8") pending.patch = true;
 });
 
 function refresh() {
@@ -112,6 +122,7 @@ function refresh() {
   mixerView.sync(mix);
   if (pending.patch) patchView.render(mix);
   listenBar.update(mix, { playing: engine.playing, ready, loadingText, buffering });
+  if (recorderView.isOpen) recorderView.sync();
   if (current.def.conditions.length) {
     const result = evaluateScenario(current.def, state, current.baseline, M.SOURCES_BY_ID, M.STEMS, current.session);
     const key = JSON.stringify(result.items.map((i) => [i.met, i.detail])) + result.complete;
@@ -173,6 +184,7 @@ engine.on((evt) => {
   if (evt.type === "buffering") {
     buffering = evt.on;
   }
+  if (evt.type === "recorder") pending.patch = true;
   pending.any = true;
 });
 
@@ -265,6 +277,7 @@ function frame(now) {
     const r = engine.readMeters();
     mixerView.updateMeters(r, now);
     listenBar.updateMeter(r.listen, now);
+    recorderView.updateMeters(r, now);
     if (now - lastPos > 250) {
       lastPos = now;
       scenarioView.updatePosition(engine.position(), engine.mode);

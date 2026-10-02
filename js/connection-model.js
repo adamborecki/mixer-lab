@@ -93,8 +93,14 @@ export function cableFitsPort(cableId, port) {
 //   pad       in ports: false = no 1/4" pad in front of the preamp (dedicated line input)
 //   path      in ports with their own jack per path: "mic" | "line" (a combo jack
 //             decides by the plug instead). Several ports may feed one `channel`.
+//   sourceId  out ports of a device with several sources (a stereo mic pair): which one
+// Port roles beyond the channel inputs and bus outputs:
+//   return-in a mixer's aux return jack (`ret`, `side` L/R)
+//   proc-in / proc-out   an effects unit's inputs and outputs
+//   rec-in    a recorder input (`track`, 0-based)
 // Device flags:
 //   mixer     a mixer (every rig has exactly one, with id "mixer")
+//   processor an outboard effects unit; recorder: a field recorder
 //   source    a virtual sound source (plays a stem)
 //   endpoint  makes sound in a room; `amp: "internal"` (powered) or "none" (passive)
 export const DEVICE_TYPES = {
@@ -164,6 +170,10 @@ export const DEVICE_TYPES = {
         { id: `ch${i + 1}-line`, dir: "in", jack: "quarter", level: "line", path: "line", role: "channel-input", channel: i, name: `Ch ${i + 1} LINE` },
       ]).flat(),
       { id: "tape-in", dir: "in", jack: "rcapair", level: "line", stereo: true, pad: false, path: "line", role: "channel-input", channel: 16, name: "TAPE INPUT (L/R)" },
+      // STEREO AUX RETURNS 1–4: a mono effect goes into L only and appears on both sides.
+      ...Array.from({ length: 4 }, (_, i) =>
+        ["L", "R"].map((side) => ({ id: `ret${i + 1}-${side.toLowerCase()}`, dir: "in", jack: "quarter", level: "line", role: "return-in", ret: i + 1, side, name: `AUX RETURN ${i + 1} ${side === "L" ? "L (MONO)" : "R"}` })),
+      ).flat(),
       { id: "main-l", dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: "main", side: "L", name: "MAIN OUT L" },
       { id: "main-r", dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: "main", side: "R", name: "MAIN OUT R" },
       { id: "mono", dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: "main", side: "M", name: "MONO OUT" },
@@ -171,7 +181,43 @@ export const DEVICE_TYPES = {
       ...Array.from({ length: 4 }, (_, i) => ({ id: `sub${i + 1}`, dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: `sub${i + 1}`, side: "M", name: `SUB OUT ${i + 1}` })),
       { id: "cr-l", dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: "cr", side: "L", name: "C-R OUT L" },
       { id: "cr-r", dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: "cr", side: "R", name: "C-R OUT R" },
+      { id: "tape-out-l", dir: "out", jack: "rca", level: "line", role: "bus-out", bus: "main", side: "L", name: "TAPE OUTPUT L" },
+      { id: "tape-out-r", dir: "out", jack: "rca", level: "line", role: "bus-out", bus: "main", side: "R", name: "TAPE OUTPUT R" },
+      // DIRECT OUT (1–8): the end of the channel. INSERT (1–16), used as a send: after TRIM, before LOW CUT and EQ.
+      ...Array.from({ length: 8 }, (_, i) => ({ id: `ch${i + 1}-direct`, dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: `direct${i + 1}`, side: "M", channel: i, name: `Ch ${i + 1} DIRECT OUT` })),
+      ...Array.from({ length: 16 }, (_, i) => ({ id: `ch${i + 1}-insert`, dir: "out", jack: "quarter", level: "line", role: "bus-out", bus: `insert${i + 1}`, side: "M", channel: i, name: `Ch ${i + 1} INSERT (send)` })),
     ],
+  },
+  // A stereo reverb: fed from an aux send, returned to the aux returns. It sums
+  // its inputs to mono (as the manual recommends: "in mono, return in stereo").
+  reverb: {
+    name: "Reverb unit",
+    processor: true,
+    ports: [
+      { id: "in-l", dir: "in", jack: "quarter", level: "line", role: "proc-in", side: "L", name: "INPUT L (MONO)" },
+      { id: "in-r", dir: "in", jack: "quarter", level: "line", role: "proc-in", side: "R", name: "INPUT R" },
+      { id: "out-l", dir: "out", jack: "quarter", level: "line", role: "proc-out", side: "L", name: "OUTPUT L" },
+      { id: "out-r", dir: "out", jack: "quarter", level: "line", role: "proc-out", side: "R", name: "OUTPUT R" },
+    ],
+    blurb: "Takes a line-level send, returns a stereo wet signal.",
+  },
+  // Zoom F8: eight XLR/TRS combo inputs; XLR → mic preamp with +48 V, TRS → line.
+  "zoom-f8": {
+    name: "Zoom F8 field recorder",
+    recorder: true,
+    ports: Array.from({ length: 8 }, (_, i) => ({ id: `in${i + 1}`, dir: "in", jack: "combo", level: "mic-or-line", phantom: true, role: "rec-in", track: i, name: `Input ${i + 1}` })),
+    blurb: "Eight-track field recorder. Records each input to its own track.",
+  },
+  // A stereo bar with two small-diaphragm condensers, for room recording.
+  "stereo-mic-pair": {
+    name: "Stereo mic pair",
+    source: true,
+    needsPhantom: true,
+    ports: [
+      { id: "out-l", dir: "out", jack: "xlr", level: "mic", sourceId: "room-l", name: "Left mic XLR out" },
+      { id: "out-r", dir: "out", jack: "xlr", level: "mic", sourceId: "room-r", name: "Right mic XLR out" },
+    ],
+    blurb: "Two condensers on a stereo bar; their angle and spacing make the stereo image.",
   },
   "powered-speaker": {
     name: "Powered speaker",
@@ -277,11 +323,17 @@ export function checkConnection(rig, fromRef, toRef, cableId) {
   if (isMixer(from.device) && isMixer(to.device)) {
     return { ok: false, reason: "Patching the mixer into itself makes a feedback loop." };
   }
-  if (from.type.source && !isMixer(to.device)) {
-    return { ok: false, reason: "In this lab, sources plug into the mixer first." };
+  if (from.type.source && !isMixer(to.device) && to.role !== "rec-in") {
+    return { ok: false, reason: "In this lab, sources plug into the mixer (or a recorder) first." };
   }
-  if (isMixer(to.device) && !from.type.source) {
+  if (to.role === "channel-input" && !from.type.source) {
     return { ok: false, reason: "Only sources go into the mixer's channel inputs here." };
+  }
+  if (to.role === "return-in" && from.role !== "proc-out") {
+    return { ok: false, reason: "The aux returns take an effects unit's outputs." };
+  }
+  if (to.role === "proc-in" && !(isMixer(from.device) && from.role === "bus-out")) {
+    return { ok: false, reason: "Feed the effects unit from a mixer output (usually an aux send)." };
   }
   if (from.role === "amp-out" && to.role === "amp-in") {
     return { ok: false, reason: "Never feed a power amp's speaker output into an input." };
@@ -334,7 +386,24 @@ export function analyzeRig(rig, channels = [], sources = {}) {
   for (const p of mixerPorts.filter((p) => p.role === "bus-out")) {
     buses[p.id] = endpoints.filter((e) => e.valid && e.output === p.id).map((e) => e.deviceId);
   }
-  return { channels: channelInfo, endpoints, buses };
+
+  // Aux returns: which jacks are in use (a lone L is normalled to both sides).
+  const returns = {};
+  for (const p of mixerPorts.filter((p) => p.role === "return-in")) {
+    const r = (returns[`ret${p.ret}`] ||= { L: false, R: false });
+    r[p.side] = byTo.has(portRef(mixer.id, p.id));
+  }
+
+  // Recorder inputs, analysed like mixer inputs (phantom is the recorder's own).
+  const recorders = {};
+  for (const device of rig.devices) {
+    const type = DEVICE_TYPES[device.type];
+    if (!type || !type.recorder) continue;
+    recorders[device.id] = type.ports
+      .filter((p) => p.role === "rec-in")
+      .map((p) => analyzeChannelInput(rig, byTo.get(portRef(device.id, p.id)), { phantom: !!device.tracks?.[p.track]?.phantom }, sources, p));
+  }
+  return { channels: channelInfo, endpoints, buses, returns, recorders };
 }
 
 function analyzeChannelInput(rig, cable, ch, sources, port) {
@@ -342,11 +411,13 @@ function analyzeChannelInput(rig, cable, ch, sources, port) {
   const from = getPort(rig, cable.from);
   const plug = plugAtInput(rig, cable);
   const path = port.path || (plug === "xlr" ? "mic" : "line");
-  const source = sources[from.device.sourceId] || null;
+  const sourceId = from.sourceId || from.device.sourceId || null;
+  const source = sources[sourceId] || null;
   const info = {
     connected: true,
     sourceDeviceId: from.device.id,
-    sourceId: from.device.sourceId || null,
+    sourceId,
+    fromPort: cable.from,
     path,
     stereo: !!port.stereo,
     padDb: path === "line" && port.pad !== false ? LINE_PAD_DB : 0,
@@ -373,6 +444,10 @@ function analyzeChannelInput(rig, cable, ch, sources, port) {
     info.signal = false;
     info.status = "no-phantom";
     info.messages.push("Condenser mic, no +48 V: it's plugged in but silent. Turn on phantom power.");
+  }
+  if (from.level === "line" && path === "mic" && !from.type.source) {
+    if (info.status === "ok") info.status = "hot";
+    info.messages.push("Line level into a mic preamp: far too hot, even with the gain all the way down. Use a 1/4\" cable into the line input.");
   }
   if (from.level === "mic" && path === "line") {
     if (info.status === "ok") info.status = "weak";

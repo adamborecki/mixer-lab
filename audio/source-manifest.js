@@ -204,7 +204,14 @@ export const SOURCES = [
   },
 ];
 
-export const SOURCES_BY_ID = Object.fromEntries(SOURCES.map((s) => [s.id, s]));
+// Virtual sources: the two mics of the stereo room pair. Their sound is built
+// from the band stems by js/room-mics.js (distance, angle, delay, room reverb).
+export const ROOM_SOURCES = [
+  { id: "room-l", name: "Room mic L", shortName: "ROOM L", device: "Room pair · left mic", deviceType: "stereo-mic-pair", signalLevel: "mic", connector: "xlr", phantom: "required", outputDb: -38, peakDb: -4, room: true, pan: -1, mixDb: -10 },
+  { id: "room-r", name: "Room mic R", shortName: "ROOM R", device: "Room pair · right mic", deviceType: "stereo-mic-pair", signalLevel: "mic", connector: "xlr", phantom: "required", outputDb: -38, peakDb: -4, room: true, pan: 1, mixDb: -10 },
+];
+
+export const SOURCES_BY_ID = Object.fromEntries([...SOURCES, ...ROOM_SOURCES].map((s) => [s.id, s]));
 
 // ---------- preshow music ----------
 

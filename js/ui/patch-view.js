@@ -19,6 +19,7 @@ import {
   plugFitsJack,
 } from "../connection-model.js";
 import { modelOf } from "../mixer-state.js";
+import { F8, PAIR, REVERB, TECHNIQUES, cardStats, techniqueOf } from "../devices.js";
 
 import { CONNECTOR_GUIDE, deviceIconName, icon, jackIconName, levelIconName, plugIconName } from "./icons.js";
 
@@ -38,7 +39,9 @@ export function portLabel(rig, ref, { short = false } = {}) {
 }
 
 export class PatchView {
-  constructor({ sourcesRoot, outputsRoot, store, manifest, toast, getTerms }) {
+  constructor({ sourcesRoot, outputsRoot, store, manifest, toast, getTerms, onOpenRecorder = () => {}, getRecorder = () => null }) {
+    this.onOpenRecorder = onOpenRecorder;
+    this.getRecorder = getRecorder;
     this.sourcesRoot = sourcesRoot;
     this.outputsRoot = outputsRoot;
     this.store = store;
@@ -50,6 +53,16 @@ export class PatchView {
       root.addEventListener("click", (e) => {
         const btn = e.target.closest("[data-port]");
         if (btn) this.dialog.open(btn.dataset.port);
+        const rec = e.target.closest("[data-open-recorder]");
+        if (rec) this.onOpenRecorder(rec.dataset.openRecorder);
+      });
+      // Device settings (mic pair spacing/angle, reverb decay). The panel isn't
+      // redrawn while dragging; only the readouts next to the slider change.
+      root.addEventListener("input", (e) => {
+        const el = e.target.closest("[data-device-key]");
+        if (!el) return;
+        this.store.setDevice(el.dataset.device, el.dataset.deviceKey, Number(el.value));
+        this.updateDeviceReadouts(root);
       });
     }
   }
@@ -88,7 +101,8 @@ export class PatchView {
     const state = this.store.state;
     const rig = state.rig;
     const { SOURCES_BY_ID } = this.manifest;
-    const sources = rig.devices.filter((d) => DEVICE_TYPES[d.type].source).sort((a, b) => SOURCES_BY_ID[a.sourceId].order - SOURCES_BY_ID[b.sourceId].order);
+    const sources = rig.devices.filter((d) => DEVICE_TYPES[d.type].source && d.sourceId).sort((a, b) => SOURCES_BY_ID[a.sourceId].order - SOURCES_BY_ID[b.sourceId].order);
+    const pairs = rig.devices.filter((d) => d.type === "stereo-mic-pair");
     const cards = sources.map((d) => {
       const src = SOURCES_BY_ID[d.sourceId];
       const ref = `${d.id}/out`;
@@ -104,6 +118,7 @@ export class PatchView {
       ].join("");
       // Input-list number: where this source belongs (the CR1604 takes the laptop on TAPE IN).
       const listNo = modelOf(state) === "cr1604" && src.stereo ? "TAPE" : state.channels[src.order - 1].label;
+      const note = modelOf(state) === "cr1604" && src.stereo ? "A laptop's 3.5 mm headphone jack is a stereo line output. On the 1604 it goes into the TAPE INPUT RCA pair with a 3.5 mm ↔ RCA (Y) cable, then TAPE TO MAIN MIX puts it in the house." : src.note;
       return `<li class="source-card status-${status}">
         <div class="source-top">
           <span class="source-order" aria-label="Input list number">${esc(listNo)}</span>
@@ -114,15 +129,58 @@ export class PatchView {
         <div class="tags">${tags}</div>
         ${this.portButton(ref, "out")}
         ${msgs.map((m) => `<p class="port-msg">${esc(m)}</p>`).join("")}
-        ${src.note ? `<p class="source-note">${esc(src.note)}</p>` : ""}
+        ${note ? `<p class="source-note">${esc(note)}</p>` : ""}
       </li>`;
     });
     const empty = mix.channels.filter((c) => !c.input.connected).map((c) => state.channels[c.index].label);
     this.sourcesRoot.innerHTML = `
       <p class="role-line">${icon("role-source", { size: 26 })}<span>Sources: the signal starts here and goes out to the mixer.</span></p>
-      <ol class="source-list">${cards.join("")}</ol>
+      <ol class="source-list">${cards.join("")}${pairs.map((d) => this.pairCard(d, mix)).join("")}</ol>
       <p class="panel-foot">${modelOf(state) === "cr1604" ? cr1604Foot(empty) : `Free mixer inputs: ${empty.length ? empty.map((n) => `Ch ${n}`).join(", ") : "none"}. Ch 1–8 are XLR/¼″ combo jacks: XLR → mic preamp (+48 V available), ¼″ → line input (padded). Ch 9/10 is one stereo line input (left + right ¼″ pair, no phantom power).`}</p>
       ${connectorGuide()}`;
+  }
+
+  // The stereo room pair: two condenser outs, spacing and angle, and which
+  // named technique the setting matches.
+  pairCard(d, mix) {
+    const inputs = [...mix.channels.map((c) => c.input), ...Object.values(mix.rig.recorders || {}).flat()].filter((i) => i && i.sourceDeviceId === d.id);
+    const bad = inputs.find((i) => i.status !== "ok");
+    const status = !inputs.length ? "idle" : bad ? "warn" : "ok";
+    return `<li class="source-card status-${status}" data-device-card="${esc(d.id)}">
+      <div class="source-top">
+        <span class="source-order">ST</span>
+        <span class="dev-ico">${icon(deviceIconName({ type: "condenser-mic" }), { size: 40 })}</span>
+        <div class="source-names"><strong>Room pair</strong><span>${esc(d.label)}</span></div>
+        <span class="status-pill status-${status}">${status === "ok" ? "✓ Signal" : status === "idle" ? "Unpatched" : "! Check"}</span>
+      </div>
+      <div class="tags"><span class="tag">2× condenser (cardioid)</span><span class="tag">XLR outs</span><span class="tag tag-phantom">Needs +48 V</span></div>
+      ${listPorts(this.store.state.rig, d).map((p) => this.portButton(p.ref, "out")).join("")}
+      ${(bad ? bad.messages : []).map((m) => `<p class="port-msg">${esc(m)}</p>`).join("")}
+      <div class="dev-settings">
+        <label>Spacing <output data-readout="spacingCm">${d.spacingCm} cm</output>
+          <input type="range" min="0" max="${PAIR.spacingMax}" step="1" value="${d.spacingCm}" data-device="${esc(d.id)}" data-device-key="spacingCm" /></label>
+        <label>Angle between the mics <output data-readout="angleDeg">${d.angleDeg}°</output>
+          <input type="range" min="0" max="${PAIR.angleMax}" step="1" value="${d.angleDeg}" data-device="${esc(d.id)}" data-device-key="angleDeg" /></label>
+        <p class="dev-technique" data-readout="technique">${techniqueText(d)}</p>
+      </div>
+    </li>`;
+  }
+
+  updateDeviceReadouts(root) {
+    for (const card of root.querySelectorAll("[data-device-card]")) {
+      const d = this.store.state.rig.devices.find((x) => x.id === card.dataset.deviceCard);
+      if (!d) continue;
+      const set = (k, v) => {
+        const el = card.querySelector(`[data-readout="${k}"]`);
+        if (el && el.textContent !== v) el.textContent = v;
+      };
+      if (d.type === "stereo-mic-pair") {
+        set("spacingCm", `${d.spacingCm} cm`);
+        set("angleDeg", `${d.angleDeg}°`);
+        card.querySelector('[data-readout="technique"]').innerHTML = techniqueText(d);
+      }
+      if (d.type === "reverb") set("decay", `${d.decay.toFixed(1)} s`);
+    }
   }
 
   renderOutputs(mix) {
@@ -138,11 +196,48 @@ export class PatchView {
     const outRows = outs
       .map((p) => {
         const reached = mix.rig.buses[p.id] || [];
+        const cable = cableAt(rig, p.ref);
+        const target = cable ? getPort(rig, cable.to) : null;
+        const feeds = target && !DEVICE_TYPES[target.device.type].endpoint && target.device.type !== "power-amp";
         const note = reached.length
           ? `<p class="port-msg ok">✓ Sound from: ${reached.map((id) => esc(rig.devices.find((d) => d.id === id).label)).join(", ")}</p>`
-          : `<p class="port-msg">No working speaker on this output yet.</p>`;
+          : feeds
+            ? `<p class="port-msg ok">→ Feeds ${esc(portLabel(rig, cable.to))}</p>`
+            : `<p class="port-msg">No working speaker on this output yet.</p>`;
         const label = !boardNames && terms[p.id] ? `${terms[p.id]} out` : p.name;
-        return `<li class="out-row">${this.portButton(p.ref, "out").replace(esc(p.name), esc(label))}${note}</li>`;
+        return { p, html: `<li class="out-row">${this.portButton(p.ref, "out").replace(esc(p.name), esc(label))}${note}</li>` };
+      });
+    // The 1604 has many outputs: the per-channel ones are folded away.
+    const perChannel = (r) => /^ch\d+-(direct|insert)$/.test(r.p.id);
+    const outList = boardNames
+      ? `<ul class="out-list">${outRows.filter((r) => !perChannel(r)).map((r) => r.html).join("")}</ul>
+        <details class="out-more"><summary>DIRECT OUTS (1–8) and INSERT sends (1–16)</summary><ul class="out-list">${outRows.filter(perChannel).map((r) => r.html).join("")}</ul></details>`
+      : `<ul class="out-list">${outRows.map((r) => r.html).join("")}</ul>`;
+
+    const reverbs = rig.devices.filter((d) => d.type === "reverb");
+    const reverbHtml = reverbs
+      .map(
+        (d) => `<li class="device-card" data-device-card="${esc(d.id)}">
+        <div class="device-top"><span class="dev-ico">${icon("role-source", { size: 40 })}</span><div class="source-names"><strong>${esc(d.label)}</strong><span>Fed from an aux send, back into an aux return</span></div></div>
+        ${listPorts(rig, d).map((p) => this.portButton(p.ref, p.dir)).join("")}
+        <div class="dev-settings"><label>DECAY <output data-readout="decay">${d.decay.toFixed(1)} s</output>
+          <input type="range" min="${REVERB.decayMin}" max="${REVERB.decayMax}" step="0.1" value="${d.decay}" data-device="${esc(d.id)}" data-device-key="decay" /></label></div>
+      </li>`,
+      )
+      .join("");
+
+    const recorders = rig.devices.filter((d) => DEVICE_TYPES[d.type].recorder);
+    const recHtml = recorders
+      .map((d) => {
+        const rt = this.getRecorder(d.id);
+        const card = cardStats(d, rt ? rt.usedBytes : 0);
+        const armed = d.tracks.map((t, i) => (t.arm ? i + 1 : 0)).filter(Boolean);
+        const state = rt && rt.recording ? "● Recording" : rt && rt.playing ? "▶ Playing" : "Stopped";
+        return `<li class="device-card">
+          <div class="device-top"><span class="dev-ico">${icon("role-destination", { size: 40 })}</span><div class="source-names"><strong>${esc(d.label)}</strong><span>${state} · armed: ${armed.length ? armed.join(", ") : "none"} · ${F8.cardGB} GB card${Number.isFinite(card.secondsLeft) ? `, ${formatHours(card.secondsLeft)} left` : ""}</span></div></div>
+          <div class="rec-jacks">${listPorts(rig, d).map((p) => this.portButton(p.ref, p.dir)).join("")}</div>
+          <button type="button" class="btn btn-start" data-open-recorder="${esc(d.id)}">Open the recorder</button>
+        </li>`;
       })
       .join("");
 
@@ -190,7 +285,9 @@ export class PatchView {
 
     this.outputsRoot.innerHTML = `
       <h3 class="group-title">${icon("role-source", { size: 22 })}Mixer outputs <small>line level</small></h3>
-      <ul class="out-list">${outRows}</ul>
+      ${outList}
+      ${reverbs.length ? `<h3 class="group-title">Effects</h3><ul class="device-list">${reverbHtml}</ul>` : ""}
+      ${recorders.length ? `<h3 class="group-title">Recorder</h3><ul class="device-list">${recHtml}</ul>` : ""}
       ${amps.length ? `<h3 class="group-title">Amplifier</h3><ul class="device-list">${ampHtml}</ul>` : ""}
       <h3 class="group-title">${icon("role-destination", { size: 22 })}Speakers — where is the amplifier?</h3>
       <ul class="device-list">${spkHtml}</ul>`;
@@ -332,6 +429,18 @@ class PatchDialog {
     this.el.close();
     this.view.toast("Unplugged.", "");
   }
+}
+
+function techniqueText(d) {
+  const t = techniqueOf(d);
+  if (t) return `✓ This is <strong>${esc(t.name)}</strong> (${t.spacingCm} cm, ${t.angleDeg}°).`;
+  return `Custom setting. For reference: ${TECHNIQUES.map((x) => `${esc(x.name)} ${x.spacingCm} cm / ${x.angleDeg}°`).join(" · ")}.`;
+}
+
+function formatHours(sec) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return `${h} h ${String(m).padStart(2, "0")} min`;
 }
 
 function cr1604Foot(empty) {
