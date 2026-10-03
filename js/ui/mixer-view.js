@@ -52,6 +52,7 @@ export class MixerView {
     const skin = this.skin;
     this.bindings = [];
     this.channelMeters = [];
+    this.vizComp = [];
     this.root.innerHTML = "";
     this.root.className = `mixer skin-${skin.id}`;
     this.root.dataset.skin = skin.id;

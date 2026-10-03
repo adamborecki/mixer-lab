@@ -36,6 +36,11 @@ export const PEQ_BANDS = [
   { id: "high", label: "HIGH", type: "highshelf", freq: 8000, min: 1500, max: 20000 },
 ];
 export const PEQ_Q = { min: 0.3, max: 8 };
+// The sweepable high-pass's frequency for a knob position, or 0 when off (the detent).
+export const hpfHz = (c, pos) => (c.hpf && pos > 0.02 ? c.hpf.min + (c.hpf.max - c.hpf.min) * Math.max(0, (pos - 0.05) / 0.95) : 0);
+// Whether a channel's parametric EQ and compressor are switched in.
+export const eqIsOn = (ch) => ch.eqOn !== false;
+export const compIsOn = (ch) => ch.compOn === true;
 export const DYN = { threshold: [-50, 0], ratio: [1, 20], makeup: [0, 24] };
 
 // What can feed a matrix: MAIN LR, M/C and the mix buses that aren't effects.
@@ -74,6 +79,11 @@ function createChannel(def, i) {
     mgrp: def.muteGroups ? Object.fromEntries(Array.from({ length: def.muteGroups }, (_, k) => [`g${k + 1}`, false])) : undefined,
     peq: c.peq ? Object.fromEntries(PEQ_BANDS.map((b) => [b.id, { gain: 0, freq: b.freq, q: 0.7 }])) : undefined,
     dyn: c.dyn ? { threshold: 0, ratio: 1, makeup: 0 } : undefined,
+    // The EQ and compressor each have an ON button. Desks start with the EQ
+    // on (flat) and the compressor off: dialling in a compressor without
+    // switching it on does nothing.
+    eqOn: c.peq ? true : undefined,
+    compOn: c.dyn ? false : undefined,
     pan: 0,
     enabled: true,
     solo: false,
@@ -153,6 +163,10 @@ export function sanitizeChannel(def, ch, key, value) {
       return (c.gain.switch || c.gain.lineSwitch) && (value === "mic" || value === "line") ? value : undefined;
     case "hpf":
       return c.hpf ? range(0, 1)(value) : undefined;
+    case "eqOn":
+      return c.peq ? bool(value) : undefined;
+    case "compOn":
+      return c.dyn ? bool(value) : undefined;
     case "polarity":
       return c.polarity ? bool(value) : undefined;
     case "lr":

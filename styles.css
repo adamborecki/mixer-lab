@@ -3714,3 +3714,180 @@ dialog::backdrop {
     --fader-h: 140px;
   }
 }
+
+/* ---------- processing graphs (js/ui/viz.js) ---------- */
+
+.dg-proc h5 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+.dg-proc h5 .lit-btn {
+  min-width: 0;
+  min-height: 26px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.6rem;
+}
+.viz {
+  position: relative;
+  margin: 0 0 0.35rem;
+  border-radius: 6px;
+  overflow: hidden;
+  --viz-bg: #10141b;
+  --viz-grid: rgba(255, 255, 255, 0.07);
+  --viz-grid-major: rgba(255, 255, 255, 0.16);
+  --viz-curve: #5fd3ff;
+  --viz-fill: rgba(95, 211, 255, 0.16);
+  --viz-text: rgba(255, 255, 255, 0.45);
+  --viz-dot: #ffcf5a;
+  --viz-gr: #ff9b3d;
+  background: var(--viz-bg);
+  border: 1px solid #2a303b;
+}
+.viz svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.viz-eq {
+  max-width: 420px;
+}
+.viz-comp svg {
+  width: 126px;
+}
+.viz-comp.viz-small svg {
+  width: 86px;
+}
+.viz .grid {
+  stroke: var(--viz-grid);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.viz .grid.major,
+.viz .grid.zero,
+.viz .grid.unity {
+  stroke: var(--viz-grid-major);
+}
+.viz .grid.unity {
+  stroke-dasharray: 3 3;
+}
+.viz .lbl {
+  fill: var(--viz-text);
+  font-size: 8px;
+  font-family: inherit;
+}
+.viz .curve {
+  fill: none;
+  stroke: var(--viz-curve);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+.viz .fill {
+  fill: var(--viz-fill);
+}
+.viz .thr {
+  stroke: var(--viz-dot);
+  stroke-dasharray: 2 3;
+  vector-effect: non-scaling-stroke;
+}
+.viz .band circle {
+  fill: var(--viz-bg);
+  stroke: var(--viz-dot);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.viz .band.sel circle {
+  fill: var(--viz-dot);
+}
+.viz .band text {
+  fill: var(--viz-dot);
+  font-size: 8px;
+  font-weight: 700;
+}
+.viz .band.sel text {
+  fill: var(--viz-bg);
+}
+.viz .gr-bg {
+  fill: rgba(255, 255, 255, 0.06);
+}
+.viz .gr {
+  fill: var(--viz-gr);
+}
+.viz-comp {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.viz-gr {
+  font-size: 0.6rem;
+  color: var(--viz-text);
+  padding: 0 0.3rem 0.15rem;
+  font-variant-numeric: tabular-nums;
+}
+.viz-tag {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #ff6b6b;
+}
+.viz-tag:empty {
+  display: none;
+}
+/* Switched off: the curve goes grey and flat, the settings stay visible. */
+.viz.is-off .curve {
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-dasharray: 4 3;
+}
+.viz.is-off .fill {
+  fill: transparent;
+}
+.viz.is-off .band circle {
+  stroke: rgba(255, 255, 255, 0.35);
+}
+.viz.is-off .band text {
+  fill: rgba(255, 255, 255, 0.45);
+}
+/* Behringer X32: the dark blue screen with a cyan curve. */
+.viz-x32 {
+  --viz-bg: #08131f;
+  --viz-curve: #3fd0ff;
+  --viz-fill: rgba(63, 208, 255, 0.2);
+  --viz-dot: #ffe066;
+  border-color: #2e4a63;
+}
+.x32-viz {
+  display: flex;
+  gap: 0.35rem;
+  align-items: stretch;
+}
+.x32-viz .viz-eq {
+  flex: 1;
+  min-width: 0;
+}
+.x32-viz .viz {
+  margin: 0;
+}
+/* Soundcraft Ui16: the tablet app's green EQ. */
+.viz-ui16 {
+  --viz-curve: #7ee07a;
+  --viz-fill: rgba(126, 224, 122, 0.16);
+  --viz-dot: #f2f2f2;
+}
+/* Yamaha 01V96: the display's monochrome LCD (matches .y96-lcd). */
+.viz-lcd {
+  --viz-bg: #0d1c13;
+  --viz-grid: rgba(184, 245, 198, 0.1);
+  --viz-grid-major: rgba(184, 245, 198, 0.24);
+  --viz-curve: #b8f5c6;
+  --viz-fill: rgba(184, 245, 198, 0.12);
+  --viz-text: rgba(184, 245, 198, 0.6);
+  --viz-dot: #e6ffe9;
+  --viz-gr: #b8f5c6;
+  border-radius: 2px;
+  border-color: #2c4434;
+}

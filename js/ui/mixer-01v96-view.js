@@ -13,7 +13,8 @@
 
 import { DYN, LAWS, PEQ_BANDS, PEQ_Q, levelLaw } from "../compact.js";
 import { formatDb, formatPan } from "../levels.js";
-import { button, el, fader, knob, meterBar, row } from "./mixer-digital-view.js";
+import { button, el, fader, knob, meterBar, procOn, row } from "./mixer-digital-view.js";
+import { compGraph, eqGraph } from "./viz.js";
 
 const lawFormat = (law) => (v) => formatDb(law.toDb(v), { unity: true });
 const hz = (f) => (f >= 1000 ? `${(f / 1000).toFixed(f >= 10000 ? 0 : 1)}k` : `${Math.round(f)}`);
@@ -182,7 +183,7 @@ function display(view, def, ui, rerender) {
   } else if (page(ui, "eq")) {
     const t = el("div", "x32-lines");
     view.bindings.push({ kind: "fn", run: (s) => (t.innerHTML = PEQ_BANDS.slice().reverse().map((b) => { const v = ch(s).peq[b.id]; return `<p>${b.label}: ${v.gain > 0 ? "+" : ""}${v.gain} dB @ ${hz(v.freq)} Hz${b.type === "peaking" ? ` Q ${v.q.toFixed(1)}` : ""}</p>`; }).join("")) });
-    body.append(t, el("p", "dg-note", "Edit with the SELECTED CHANNEL knobs: pick a band, then Q, FREQUENCY, GAIN."));
+    body.append(row("y96-row", procOn(view, def, i, "eqOn", "EQ ON", "EQ"), el("p", "dg-note", "Edit with the SELECTED CHANNEL knobs: pick a band, then Q, FREQUENCY, GAIN.")), eqGraph(view, def, i, { theme: "lcd", band: () => ui.band }), t);
   } else if (page(ui, "dyn")) {
     const gr = el("span", "c16-led led-comp");
     gr.innerHTML = '<i aria-hidden="true"></i><small>GR</small>';
@@ -190,6 +191,8 @@ function display(view, def, ui, rerender) {
     body.appendChild(
       row(
         "y96-row",
+        procOn(view, def, i, "compOn", "DYNAMICS ON", "compressor"),
+        compGraph(view, def, i, { theme: "lcd" }),
         knob(view, { label: "THRESHOLD", sheetLabel: `Ch ${c.label} compressor threshold`, min: DYN.threshold[0], max: DYN.threshold[1], step: 0.5, defaultValue: 0, tone: "gain", format: (v) => (v >= 0 ? "off" : `${v} dB`), onInput: (v) => store.setChannel(i, "dyn.threshold", v) }, (s) => ch(s).dyn.threshold),
         knob(view, { label: "RATIO", sheetLabel: `Ch ${c.label} compressor ratio`, min: DYN.ratio[0], max: DYN.ratio[1], step: 0.1, defaultValue: 1, tone: "gain", format: (v) => `${v.toFixed(1)}:1`, onInput: (v) => store.setChannel(i, "dyn.ratio", v) }, (s) => ch(s).dyn.ratio),
         knob(view, { label: "OUT GAIN", sheetLabel: `Ch ${c.label} compressor out gain`, min: DYN.makeup[0], max: DYN.makeup[1], step: 0.5, defaultValue: 0, tone: "gain", format: (v) => `+${v} dB`, onInput: (v) => store.setChannel(i, "dyn.makeup", v) }, (s) => ch(s).dyn.makeup),

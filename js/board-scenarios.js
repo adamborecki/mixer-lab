@@ -41,6 +41,63 @@ function ignoresFader(ctx, bus, src) {
 const goal = (id, label, test) => ({ id, kind: "goal", type: "custom", label, test });
 const keep = (id, label, test) => ({ id, kind: "keep", type: "custom", label, test });
 
+// Digital desks: the EQ (or compressor) was set up at soundcheck but never
+// switched on. Its knobs all look right; only the ON button and the graph
+// give it away. `hints` are the desk's own steps (after a common first one).
+const eqOff = (board, { hints, complete }) => ({
+  id: `${board}-eq-on`,
+  short: "EQ does nothing",
+  title: "The EQ that does nothing",
+  who: "Lead singer",
+  prompt: "“At soundcheck we took the boom and the harshness out of my vocal. Tonight it sounds exactly like it did before we started.”",
+  goal: "The vocal's EQ switched on, with the soundcheck settings kept.",
+  setup: {
+    tweak: (st, h) => {
+      h.set("lead-vocal", "peq.low.gain", -6);
+      h.set("lead-vocal", "peq.hiMid.gain", -5);
+      h.set("lead-vocal", "peq.hiMid.freq", 3000);
+      h.set("lead-vocal", "eqOn", false);
+    },
+  },
+  baseline: { main: { metric: "mainDbByChannel" } },
+  conditions: [
+    goal("on", "The vocal's EQ is switched on", (ctx) => sc(ctx, "lead-vocal")?.eqOn === true),
+    keep("kept", "The soundcheck EQ stays (LOW and the 3 kHz band still cut)", (ctx) => {
+      const p = sc(ctx, "lead-vocal")?.peq;
+      return !!p && p.low.gain <= -3 && p.hiMid.gain <= -3;
+    }),
+    { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The levels stay the same" },
+  ],
+  hints: ["The settings might be fine. Is the EQ actually doing anything? Look at its curve.", ...hints],
+  complete,
+});
+
+const compOff = (board, { hints, complete }) => ({
+  id: `${board}-comp-on`,
+  short: "Comp does nothing",
+  title: "The compressor that does nothing",
+  who: "Lead singer",
+  prompt: "“My loud lines still jump right out over the band. I thought you put a compressor on my vocal?”",
+  goal: "The vocal's compressor switched on, with its soundcheck settings kept.",
+  setup: {
+    tweak: (st, h) => {
+      h.set("lead-vocal", "dyn", { threshold: -18, ratio: 4, makeup: 4 });
+      h.set("lead-vocal", "compOn", false);
+    },
+  },
+  baseline: { main: { metric: "mainDbByChannel" } },
+  conditions: [
+    goal("on", "The vocal's compressor is switched on", (ctx) => sc(ctx, "lead-vocal")?.compOn === true),
+    keep("kept", "Its settings stay (threshold −10 dB or lower, ratio 2:1 or more)", (ctx) => {
+      const d = sc(ctx, "lead-vocal")?.dyn;
+      return !!d && d.threshold <= -10 && d.ratio >= 2;
+    }),
+    { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The levels stay the same" },
+  ],
+  hints: ["Threshold, ratio and make-up are all set. So why is nothing being turned down? Watch the GR meter.", ...hints],
+  complete,
+});
+
 // The common "doors open" scenario: the laptop is patched; get it into the house in stereo.
 const doors = (board, { who = "Stage manager", prompt, hints, complete }) => ({
   id: `${board}-doors`,
@@ -1717,14 +1774,19 @@ UI.push(
     title: "The jumpy bass",
     who: "Bassist",
     prompt: "“Some of my notes boom out and others disappear.”",
-    goal: "The bass compressed: THRESH at −8 dB or lower, RATIO at least 2.5:1.",
-    setup: { tweak: (st, h) => h.set("bass", "dyn", { threshold: 0, ratio: 1, makeup: 0 }) },
+    goal: "The bass compressed: COMP ON, THRESH at −8 dB or lower, RATIO at least 2.5:1.",
+    setup: {
+      tweak: (st, h) => {
+        h.set("bass", "dyn", { threshold: 0, ratio: 1, makeup: 0 });
+        h.set("bass", "compOn", false);
+      },
+    },
     conditions: [
-      goal("comp", "The bass is compressed", (ctx) => (sc(ctx, "bass")?.dyn.threshold ?? 0) <= -8 && (sc(ctx, "bass")?.dyn.ratio ?? 1) >= 2.5),
+      goal("comp", "The bass is compressed", (ctx) => sc(ctx, "bass")?.compOn === true && (sc(ctx, "bass")?.dyn.threshold ?? 0) <= -8 && (sc(ctx, "bass")?.dyn.ratio ?? 1) >= 2.5),
       { id: "bass", kind: "keep", type: "sourceHeardInMain", source: "bass", label: "The bass stays in the house" },
     ],
-    hints: ["Evening out loud and quiet notes is a compressor's job.", "SEL channel 2: COMPRESSOR has THRESH (where it starts), RATIO (how hard) and GAIN (make-up).", "THRESH around −15 dB, RATIO 3:1 to 4:1, then a little GAIN to get the level back. Watch the GR LED."],
-    complete: "THRESH decides which notes get turned down, RATIO how much, GAIN brings the whole thing back up. The GR LED shows it working.",
+    hints: ["Evening out loud and quiet notes is a compressor's job.", "SEL channel 2: COMPRESSOR has COMP ON, THRESH (where it starts), RATIO (how hard) and GAIN (make-up).", "Press COMP ON, then THRESH around −15 dB, RATIO 3:1 to 4:1 and a little GAIN to get the level back. Watch the curve bend and the GR bar move."],
+    complete: "COMP ON switches it in; THRESH decides which notes get turned down, RATIO how much, GAIN brings the whole thing back up. The GR meter shows it working.",
   },
   {
     id: "ui16-delay",
@@ -2383,13 +2445,13 @@ const Y96 = [
     title: "The jumpy bass",
     who: "Bassist",
     prompt: "“Some of my notes boom out and some disappear.”",
-    goal: "The bass compressed: THRESHOLD at −8 dB or lower, RATIO at least 2.5:1.",
+    goal: "The bass compressed: DYNAMICS ON, THRESHOLD at −8 dB or lower, RATIO at least 2.5:1.",
     setup: {},
     conditions: [
-      goal("comp", "The bass is compressed", (ctx) => (sc(ctx, "bass")?.dyn.threshold ?? 0) <= -8 && (sc(ctx, "bass")?.dyn.ratio ?? 1) >= 2.5),
+      goal("comp", "The bass is compressed", (ctx) => sc(ctx, "bass")?.compOn === true && (sc(ctx, "bass")?.dyn.threshold ?? 0) <= -8 && (sc(ctx, "bass")?.dyn.ratio ?? 1) >= 2.5),
       { id: "bass", kind: "keep", type: "sourceHeardInMain", source: "bass", label: "The bass stays in the house" },
     ],
-    hints: ["Evening out loud and quiet notes is a compressor's job.", "SEL channel 2, then DISPLAY ACCESS DYNAMICS: THRESHOLD, RATIO and OUT GAIN.", "THRESHOLD around −15 dB, RATIO 3:1 to 4:1, a little OUT GAIN. Watch the GR light."],
+    hints: ["Evening out loud and quiet notes is a compressor's job.", "SEL channel 2, then DISPLAY ACCESS DYNAMICS: DYNAMICS ON, THRESHOLD, RATIO and OUT GAIN.", "Press DYNAMICS ON, then THRESHOLD around −15 dB, RATIO 3:1 to 4:1, a little OUT GAIN. Watch the GR bar."],
     complete: "The compressor has no knobs of its own: SEL, then the DYNAMICS page. That's the central-screen way of working.",
   },
   {
@@ -2638,6 +2700,47 @@ X32F.at(-1).setup.tweak = ((orig) => (st, h) => {
 
 // ---------- each board's list, in teaching order ----------
 
+UI.push(
+  eqOff("ui16", {
+    hints: ["SEL channel 7 (VOX). The EQ graph is grey and dashed, marked EQ OFF: the bands are set but switched out.", "Press EQ ON in the corner of the EQ section. Leave the bands alone."],
+    complete: "EQ ON switches the whole EQ in or out. It's how you compare with and without (an A/B), and it's easy to leave off. Trust the curve, not the knobs.",
+  }),
+  compOff("ui16", {
+    hints: ["SEL channel 7 (VOX): the COMPRESSOR graph says COMP OFF and the GR bar never moves.", "Press COMP ON. The curve bends at the threshold and GR starts moving on the loud lines."],
+    complete: "A compressor dialled in but switched off does nothing at all. After setting one, check the GR meter moves.",
+  }),
+);
+X32.push(
+  eqOff("x32c", {
+    hints: ["SEL channel 07. The main display's HOME screen draws its EQ: flat, grey and marked EQ OFF.", "In the channel strip's EQ section, press EQ ON. Leave the bands alone."],
+    complete: "Every processing block on the X32 has its own on button. The display's curves show what's really switched in.",
+  }),
+  compOff("x32c", {
+    hints: ["SEL channel 07: the DYN graph on the main display says COMP OFF, and the GR bar never moves.", "In the channel strip's COMPRESSOR section, press COMP ON."],
+    complete: "A compressor dialled in but switched off does nothing at all. After setting one, check that the GR meter moves.",
+  }),
+);
+X32F.push(
+  eqOff("x32", {
+    hints: ["SEL channel 07. The main display's HOME screen draws its EQ: flat, grey and marked EQ OFF.", "In the channel strip's EQ section, press EQ ON. Leave the bands alone."],
+    complete: "Every processing block on the X32 has its own on button. The display's curves show what's really switched in.",
+  }),
+  compOff("x32", {
+    hints: ["SEL channel 07: the DYN graph on the main display says COMP OFF, and the GR bar never moves.", "In the channel strip's COMPRESSOR section, press COMP ON."],
+    complete: "A compressor dialled in but switched off does nothing at all. After setting one, check that the GR meter moves.",
+  }),
+);
+Y96.push(
+  eqOff("yam01v96", {
+    hints: ["SEL channel 7, then DISPLAY ACCESS EQ. The bands are set, but the curve is flat and marked EQ OFF.", "Press EQ ON on the EQ page. Leave the bands alone."],
+    complete: "On the 01V96 the EQ's ON lives on the EQ page. The SELECTED CHANNEL knobs still move the bands while it's off, so check the curve.",
+  }),
+  compOff("yam01v96", {
+    hints: ["SEL channel 7, then DISPLAY ACCESS DYNAMICS: COMP OFF, and the GR bar never moves.", "Press DYNAMICS ON on the DYNAMICS page."],
+    complete: "A compressor dialled in but switched off does nothing at all. After setting one, check the GR meter moves.",
+  }),
+);
+
 const ORDER = {
   mix8: ["doors", "phones", "ol", "boomy", "pan", "keys-wedge", "wedge-loud", "speech", "ballad", "overhead", "guest"],
   stagepas400bt: ["doors", "micline", "monitor", "speech", "speakers", "reverb", "hall", "mono", "overhead", "sub", "feedback"],
@@ -2645,11 +2748,11 @@ const ORDER = {
   vlz1202: ["doors", "trim", "nasal", "pad", "pfl", "wedge-quiet", "lowcut", "reverb", "prefader", "efx", "tape", "alt"],
   x1204usb: ["doors", "minus10", "overhead", "pfl", "comp", "fx", "slapback", "wedge", "pre", "ret-mon", "cdtape", "alt"],
   cr1604: ["doors", "phantom", "assign", "levelset", "sweep", "lowcut", "mute-pre", "drummer-quiet", "reverb", "efx-mon", "mono", "shift", "subgroup", "direct", "room"],
-  ui16: ["doors", "gain", "48v", "more-keys", "hpf", "harsh", "comp", "trumpet-reverb", "delay", "out-of-house", "post", "guitar-mix"],
+  ui16: ["doors", "gain", "48v", "more-keys", "hpf", "harsh", "eq-on", "comp", "comp-on", "trumpet-reverb", "delay", "out-of-house", "post", "guitar-mix"],
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
-  yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "eq", "to-st", "reverb", "pre-point", "comp", "new-mix"],
-  x32: ["doors", "room", "routing-house", "routing-wedge", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9"],
-  x32c: ["doors", "gain", "48v", "lowcut", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix"],
+  yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
+  x32: ["doors", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9"],
+  x32c: ["doors", "gain", "48v", "lowcut", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix"],
 };
 
 const LISTS = { mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: C16, x32c: X32, yam01v96: Y96, x32: X32F };

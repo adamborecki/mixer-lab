@@ -96,6 +96,16 @@ The third digital desk, and the classic "SEL + central screen" console (01V96i R
 
 **Patching (not the factory default):** the manual's default sends AUX 1–4 to both OMNI OUT 1–4 and effects 1–4. The lab uses the usual working patch instead: AUX 1–4 → OMNI OUT 1–4 only, AUX 7 → effect 1 (reverb) → ST IN 1, AUX 8 → effect 2 (delay) → ST IN 2. **Assumed:** sends start POST, PRE POINT starts POST ON. **Not built:** layer 17–32, buses 1–8, GATE, ATT, input delay, inserts, pairing, scenes, user-defined keys, the 2TR IN monitor selector.
 
+## EQ ON, COMP ON and the graphs
+
+Every digital desk here has an ON switch for each channel's EQ and compressor (`ch.eqOn`, `ch.compOn`). The EQ starts on (flat) and the compressor off, as on a freshly initialised desk, so a compressor that has been dialled in does nothing until it is switched on. That mistake is easy to make, and the scenarios "The EQ that does nothing" and "The compressor that does nothing" teach it. Switched off, the EQ's filters go flat and the compressor goes dry, but the settings stay.
+
+The desks draw what the processing is doing (`js/ui/viz.js`), in roughly their own style:
+
+- **EQ curve.** The frequency response of the four bands, plus the high-pass when it is in, worked out with the same biquad maths the Web Audio filters use. It has numbered band handles (on the 01V96, the selected band is filled in) and goes grey and dashed, marked EQ OFF, when the EQ is switched out.
+- **Compressor graph.** Input level across and output level up, with the threshold marked, and a GR bar plus readout that move with the music.
+- **Where the graphs appear.** On the Ui16 and the X32s, in the SEL panel next to the knobs. On both X32s, also on the main display's HOME screen (DYN and EQ thumbnails, like the console's home view). On the 01V96, on the display's EQ page (with EQ ON) and DYNAMICS page (with DYNAMICS ON).
+
 ## Where this could grow
 
 The same surface can carry a "proper" digital desk later: fader layers (1–16, 17–32), a central screen that changes with SEL, scenes, and mute groups. Next steps up would be a Yamaha CL or a full X32 with scenes and matrices.

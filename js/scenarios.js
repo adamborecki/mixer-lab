@@ -891,7 +891,10 @@ function buildCompactState(model, sourcesById) {
     for (const b of gig.preFor || []) if (ch.pres && b in ch.pres) ch.pres[b] = true;
     if (c.comp && gig.comp?.[s.id]) ch.comp = gig.comp[s.id];
     if (c.hpf && gig.hpf?.[s.id]) ch.hpf = gig.hpf[s.id];
-    if (c.dyn && gig.dyn?.[s.id]) ch.dyn = { ...gig.dyn[s.id] };
+    if (c.dyn && gig.dyn?.[s.id]) {
+      ch.dyn = { ...gig.dyn[s.id] };
+      ch.compOn = true;
+    }
     if (def.phantom.perChannel && s.phantom === "required") ch.phantom = true;
     if (c.gain.switch) ch.micLine = s.signalLevel === "line" ? "line" : "mic";
     else if (c.gain.min !== undefined) ch.gainDb = clamp(-s.outputDb - (channelGainDb(def, { ...ch, gainDb: 0 }, input)), c.gain.min, c.gain.max);

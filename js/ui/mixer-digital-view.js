@@ -9,8 +9,18 @@
 // Every control writes through MixerStore; nothing here knows about audio nodes.
 
 import { RangeControl, LitButton } from "./controls.js";
-import { DYN, LAWS, OL_DB, PEQ_BANDS, PEQ_Q, levelLaw } from "../compact.js";
+import { DYN, LAWS, OL_DB, PEQ_BANDS, PEQ_Q, compIsOn, eqIsOn, levelLaw } from "../compact.js";
 import { formatDb, formatPan } from "../levels.js";
+import { compGraph, eqGraph, updateViz } from "./viz.js";
+
+// How a desk draws its processing graphs.
+export const vizTheme = (def) => (def.id === "yam01v96" ? "lcd" : def.id.startsWith("x32") ? "x32" : "ui16");
+
+// The ON switch of a channel's EQ or compressor ("eqOn" / "compOn").
+export function procOn(view, def, i, key, label, what) {
+  const isOn = (s) => (key === "eqOn" ? eqIsOn(s.channels[i]) : compIsOn(s.channels[i]));
+  return button(view, { label, tone: "assign", get: isOn, onPress: () => view.store.setChannel(i, key, !isOn(view.store.state)), aria: (s) => `Channel ${def.channels[i].label} ${what}: ${isOn(s) ? "on" : "off, bypassed"}` });
+}
 
 const lawFormat = (law) => (v) => formatDb(law.toDb(v), { unity: true });
 export const FADER_MARKS = [10, 5, 0, -5, -10, -20, -30, -50].map((db) => ({ value: LAWS.level.toPos(db), label: db === 0 ? "U" : db > 0 ? `+${db}` : `${db}` }));
@@ -243,6 +253,15 @@ export function buildSelPanel(view, def, ui, rerender) {
     s.appendChild(row("dg-sec-body", ...els));
     return s;
   };
+  // A section with an ON switch in its header and a graph above its knobs.
+  const procSection = (name, on, graph, ...els) => {
+    const s = section(name, ...els);
+    s.classList.add("dg-proc");
+    s.firstChild.appendChild(on);
+    s.insertBefore(graph, s.lastChild);
+    return s;
+  };
+  const theme = vizTheme(def);
 
   // Input.
   panel.appendChild(
@@ -272,7 +291,7 @@ export function buildSelPanel(view, def, ui, rerender) {
     const flat = el("button", "dg-flat", "FLAT");
     flat.type = "button";
     flat.addEventListener("click", () => PEQ_BANDS.forEach((b) => store.setChannel(i, `peq.${b.id}.gain`, 0)));
-    panel.appendChild(section("EQ", ...bands, flat));
+    panel.appendChild(procSection("EQ", procOn(view, def, i, "eqOn", "EQ ON", "EQ"), eqGraph(view, def, i, { theme }), ...bands, flat));
   }
 
   // Dynamics.
@@ -281,8 +300,10 @@ export function buildSelPanel(view, def, ui, rerender) {
     gr.innerHTML = '<i aria-hidden="true"></i><small>GR</small>';
     view.dgGr = { index: i, el: gr.querySelector("i") };
     panel.appendChild(
-      section(
+      procSection(
         "COMPRESSOR",
+        procOn(view, def, i, "compOn", "COMP ON", "compressor"),
+        compGraph(view, def, i, { theme }),
         knob(view, { label: "THRESH", sheetLabel: `Ch ${n} compressor threshold`, min: DYN.threshold[0], max: DYN.threshold[1], step: 0.5, defaultValue: 0, tone: "gain", format: (v) => (v >= 0 ? "off" : `${v} dB`), onInput: set("dyn.threshold") }, (s) => ch(s).dyn.threshold),
         knob(view, { label: "RATIO", sheetLabel: `Ch ${n} compressor ratio`, min: DYN.ratio[0], max: DYN.ratio[1], step: 0.1, defaultValue: 1, tone: "gain", format: (v) => `${v.toFixed(1)}:1`, onInput: set("dyn.ratio") }, (s) => ch(s).dyn.ratio),
         knob(view, { label: "GAIN", sheetLabel: `Ch ${n} compressor make-up gain`, min: DYN.makeup[0], max: DYN.makeup[1], step: 0.5, defaultValue: 0, tone: "gain", format: (v) => `+${v} dB`, onInput: set("dyn.makeup") }, (s) => ch(s).dyn.makeup),
@@ -328,4 +349,5 @@ export function updateDigital(view, readings, now) {
     m.peak.classList.toggle("on", now < m.peakUntil);
   }
   if (view.dgGr) view.dgGr.el.classList.toggle("on", (readings.comp?.[view.dgGr.index] || 0) < -1);
+  updateViz(view, readings);
 }

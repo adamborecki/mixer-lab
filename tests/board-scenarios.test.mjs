@@ -44,6 +44,14 @@ const byId = Object.fromEntries(ALL_BOARD_SCENARIOS.map((s) => [s.id, s]));
 
 // The intended fix for each scenario.
 const SOLVE = {
+  "ui16-eq-on": (a) => a.set("lead-vocal", "eqOn", true),
+  "ui16-comp-on": (a) => a.set("lead-vocal", "compOn", true),
+  "x32c-eq-on": (a) => a.set("lead-vocal", "eqOn", true),
+  "x32c-comp-on": (a) => a.set("lead-vocal", "compOn", true),
+  "x32-eq-on": (a) => a.set("lead-vocal", "eqOn", true),
+  "x32-comp-on": (a) => a.set("lead-vocal", "compOn", true),
+  "yam01v96-eq-on": (a) => a.set("lead-vocal", "eqOn", true),
+  "yam01v96-comp-on": (a) => a.set("lead-vocal", "compOn", true),
   "mix8-doors": (a) => a.st.setChannel(a.tape(), "toCr", false),
   "mix8-keys-wedge": (a) => {
     a.st.setListen("aux1");
@@ -183,6 +191,66 @@ const SOLVE = {
 
 // Tempting wrong fixes: each must leave the scenario unsolved.
 const WRONG = {
+  "ui16-eq-on": [
+    ["re-dial the bands instead", (a) => {
+      a.set("lead-vocal", "peq.low.gain", -12);
+      a.set("lead-vocal", "peq.hiMid.gain", -10);
+    }],
+    ["EQ on, but flattened", (a) => {
+      a.set("lead-vocal", "eqOn", true);
+      a.set("lead-vocal", "peq.low.gain", 0);
+      a.set("lead-vocal", "peq.hiMid.gain", 0);
+    }],
+  ],
+  "ui16-comp-on": [
+    ["more ratio instead", (a) => a.set("lead-vocal", "dyn.ratio", 10)],
+    ["the vocal's fader down", (a) => a.nudge("lead-vocal", -4)],
+  ],
+  "x32c-eq-on": [
+    ["re-dial the bands instead", (a) => {
+      a.set("lead-vocal", "peq.low.gain", -12);
+      a.set("lead-vocal", "peq.hiMid.gain", -10);
+    }],
+    ["EQ on, but flattened", (a) => {
+      a.set("lead-vocal", "eqOn", true);
+      a.set("lead-vocal", "peq.low.gain", 0);
+      a.set("lead-vocal", "peq.hiMid.gain", 0);
+    }],
+  ],
+  "x32c-comp-on": [
+    ["more ratio instead", (a) => a.set("lead-vocal", "dyn.ratio", 10)],
+    ["the vocal's fader down", (a) => a.nudge("lead-vocal", -4)],
+  ],
+  "x32-eq-on": [
+    ["re-dial the bands instead", (a) => {
+      a.set("lead-vocal", "peq.low.gain", -12);
+      a.set("lead-vocal", "peq.hiMid.gain", -10);
+    }],
+    ["EQ on, but flattened", (a) => {
+      a.set("lead-vocal", "eqOn", true);
+      a.set("lead-vocal", "peq.low.gain", 0);
+      a.set("lead-vocal", "peq.hiMid.gain", 0);
+    }],
+  ],
+  "x32-comp-on": [
+    ["more ratio instead", (a) => a.set("lead-vocal", "dyn.ratio", 10)],
+    ["the vocal's fader down", (a) => a.nudge("lead-vocal", -4)],
+  ],
+  "yam01v96-eq-on": [
+    ["re-dial the bands instead", (a) => {
+      a.set("lead-vocal", "peq.low.gain", -12);
+      a.set("lead-vocal", "peq.hiMid.gain", -10);
+    }],
+    ["EQ on, but flattened", (a) => {
+      a.set("lead-vocal", "eqOn", true);
+      a.set("lead-vocal", "peq.low.gain", 0);
+      a.set("lead-vocal", "peq.hiMid.gain", 0);
+    }],
+  ],
+  "yam01v96-comp-on": [
+    ["more ratio instead", (a) => a.set("lead-vocal", "dyn.ratio", 10)],
+    ["the vocal's fader down", (a) => a.nudge("lead-vocal", -4)],
+  ],
   "mix8-doors": [["MAIN up", (a) => a.st.setBus("main", "level", 1)]],
   "mix8-keys-wedge": [["the keys' LEVEL instead", (a) => {
     a.st.setListen("aux1");
@@ -375,6 +443,7 @@ Object.assign(SOLVE, {
   },
   "ui16-harsh": (a) => a.set("lead-vocal", "peq.hiMid.gain", -4),
   "ui16-comp": (a) => {
+    a.set("bass", "compOn", true);
     a.set("bass", "dyn.threshold", -15);
     a.set("bass", "dyn.ratio", 4);
   },
@@ -481,7 +550,13 @@ Object.assign(WRONG, {
     a.set("lead-vocal", "peq.hiMid.gain", -4);
     a.set("lead-vocal", "peq.hiMid.freq", 600);
   }]],
-  "ui16-comp": [["RATIO only", (a) => a.set("bass", "dyn.ratio", 4)]],
+  "ui16-comp": [
+    ["RATIO only", (a) => a.set("bass", "dyn.ratio", 4)],
+    ["dialled in but not switched on", (a) => {
+      a.set("bass", "dyn.threshold", -15);
+      a.set("bass", "dyn.ratio", 4);
+    }],
+  ],
   "ui16-delay": [["into the wedge instead", (a) => a.sendDb("lead-vocal", "aux1", 6)]],
   "ui16-post": [["every channel POST", (a) => {
     for (const c of a.mix().channels.filter((c) => c.sourceId)) a.st.setChannel(c.index, "pres.aux2", false);
@@ -616,6 +691,7 @@ Object.assign(SOLVE, {
   },
   "yam01v96-pre-point": (a) => a.st.setBus("auxSetup", "prePoint", "preOn"),
   "yam01v96-comp": (a) => {
+    a.set("bass", "compOn", true);
     a.set("bass", "dyn.threshold", -15);
     a.set("bass", "dyn.ratio", 4);
   },
@@ -641,7 +717,13 @@ Object.assign(WRONG, {
   "yam01v96-to-st": [["the fader up", (a) => a.nudge("guitars", 6)]],
   "yam01v96-reverb": [["only the return", (a) => a.st.setBus("aux7", "level", LAWS.level.toPos(0))]],
   "yam01v96-pre-point": [["the channel back ON", (a) => a.set("backing-vocals", "enabled", true)], ["a bigger AUX 1 send", (a) => a.sendDb("backing-vocals", "aux1", 10)]],
-  "yam01v96-comp": [["only OUT GAIN", (a) => a.set("bass", "dyn.makeup", 6)]],
+  "yam01v96-comp": [
+    ["only OUT GAIN", (a) => a.set("bass", "dyn.makeup", 6)],
+    ["dialled in but not switched on", (a) => {
+      a.set("bass", "dyn.threshold", -15);
+      a.set("bass", "dyn.ratio", 4);
+    }],
+  ],
   "yam01v96-new-mix": [["sends left POST", (a) => {
     a.st.setListen("aux3");
     a.sendDb("guitars", "aux3", 0);

@@ -16,7 +16,7 @@
 //           MASTER ─► output limiter (ON / LINK) ─► [TONE replaces the mix] ─► XLR OUTPUT LEVEL;
 //           HEADPHONE selector OFF/L/R/M/ST (PFL replaces it; TONE ear-saver −20 dB).
 
-import { EQ_FOR, LAWS, PEQ_BANDS, channelControl, channelGainDb, muteCutsPre, fxPreset, levelLaw, linkOf, reverbSetting, tapeIndex } from "./compact.js";
+import { EQ_FOR, LAWS, PEQ_BANDS, compIsOn, eqIsOn, hpfHz, channelControl, channelGainDb, muteCutsPre, fxPreset, levelLaw, linkOf, reverbSetting, tapeIndex } from "./compact.js";
 import { HEADROOM_DB, dbToGain } from "./levels.js";
 import { DEVICE_TYPES } from "./connection-model.js";
 import { lowCutStage, popBuffer, shelfHz } from "./graph-kit.js";
@@ -639,7 +639,7 @@ export function buildCompactGraph(kit, def) {
         const s = strips[i];
         if (s.polarity) set(s.polarity.gain, ch.polarity ? -1 : 1);
         if (s.hpf) {
-          set(s.hpf.hp.frequency, c.hpf.min + (c.hpf.max - c.hpf.min) * Math.max(0, (ch.hpf - 0.05) / 0.95));
+          set(s.hpf.hp.frequency, hpfHz(c, ch.hpf) || c.hpf.min);
           set(s.hpf.dry.gain, on(ch.hpf <= 0.02));
           set(s.hpf.wet.gain, on(ch.hpf > 0.02));
         }
@@ -661,7 +661,7 @@ export function buildCompactGraph(kit, def) {
         }
         if (s.comp && c.dyn) {
           const d = ch.dyn;
-          const active = d.threshold < 0 && d.ratio > 1;
+          const active = compIsOn(ch) && d.threshold < 0 && d.ratio > 1;
           set(s.comp.dyn.threshold, d.threshold);
           set(s.comp.dyn.ratio, d.ratio);
           set(s.comp.makeup.gain, dbToGain(d.makeup));
@@ -680,7 +680,7 @@ export function buildCompactGraph(kit, def) {
         }
         for (const [id, f] of Object.entries(s.eq)) set(f.gain, ch.eq[id] || 0);
         for (const [id, f] of Object.entries(s.peq)) {
-          set(f.gain, ch.peq[id].gain);
+          set(f.gain, eqIsOn(ch) ? ch.peq[id].gain : 0);
           set(f.frequency, shelfHz(f.type, ch.peq[id].freq));
           if (f.type === "peaking") set(f.Q, ch.peq[id].q);
         }

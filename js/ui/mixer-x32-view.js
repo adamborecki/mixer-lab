@@ -16,6 +16,7 @@
 import { LAWS, levelLaw, matrixSources } from "../compact.js";
 import { formatDb, formatPan } from "../levels.js";
 import { button, buildSelPanel, el, fader, knob, meterBar, row } from "./mixer-digital-view.js";
+import { compGraph, eqGraph } from "./viz.js";
 
 const lawFormat = (law) => (v) => formatDb(law.toDb(v), { unity: true });
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -96,6 +97,8 @@ export function renderX32(view, def) {
   if (ui.page === "routing" && def.routing) display.appendChild(routingPage(view, def));
   else if (ui.page === "scenes" && def.scenes) display.appendChild(scenesPage(view, def));
   else {
+    // A selected channel's DYN and EQ, as the X32's HOME screen draws them.
+    if (ui.sel.kind === "ch" && def.channels[ui.sel.i].peq) display.appendChild(row("x32-viz", compGraph(view, def, ui.sel.i, { theme: "x32", small: true }), eqGraph(view, def, ui.sel.i, { theme: "x32", small: true })));
     const lines = el("div", "x32-lines");
     lines.setAttribute("aria-live", "polite");
     view.bindings.push({ kind: "fn", run: (s) => (lines.innerHTML = homeText(def, s, ui, view)) });
