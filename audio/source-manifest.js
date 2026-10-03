@@ -20,6 +20,22 @@ export const STEM_SET = {
   // quieter than the excerpt (the full song peaks hotter); the app adds it back
   // so levels and gain staging match the loop exactly.
   full: { basePath: "audio/persephone/full/", segmentSeconds: 20, overlap: 0.5, duration: 238.2222, segments: 12, trimDb: 2 },
+  // 8-bar loops from other parts of the song, so the scenarios don't all play
+  // the same 28 seconds. Each starts on the same bar grid as the excerpt
+  // (downbeat 158.204 s, bar 3.550625 s, loop starting 0.234 s before the
+  // downbeat) and is the same length, so it loops just as cleanly. The app
+  // stitches it from the full-song segments. "excerpt" is the original loop
+  // file. `start`: song time of the loop start. `plays`: stems heard in
+  // (nearly) every bar; `partly`: stems heard in some bars. Measured per bar
+  // from the segments (RMS above −48 dBFS).
+  sections: [
+    { id: "bars-5", bars: "5–12", start: 15.945, label: "Verse, no drums yet", plays: ["bass", "guitars", "piano", "lead-vocals"], partly: [] },
+    { id: "bars-17", bars: "17–24", start: 58.553, label: "Band in, no keys", plays: ["drums", "bass", "guitars", "lead-vocals"], partly: ["backing-vocals"] },
+    { id: "bars-25", bars: "25–32", start: 86.958, label: "Band with keys", plays: ["drums", "bass", "guitars", "piano", "lead-vocals"], partly: ["backing-vocals"] },
+    { id: "bars-37", bars: "37–44", start: 129.565, label: "Harmonies, no keys", plays: ["drums", "bass", "guitars", "backing-vocals", "lead-vocals"], partly: [] },
+    { id: "excerpt", bars: "45–52", start: 157.97, label: "Everyone, trumpets too", plays: ["drums", "bass", "guitars", "piano", "trumpets", "backing-vocals", "lead-vocals"], partly: [] },
+    { id: "bars-53", bars: "53–60", start: 186.375, label: "Everyone but trumpets", plays: ["drums", "bass", "guitars", "piano", "backing-vocals", "lead-vocals"], partly: [] },
+  ],
 };
 
 // monoPeakDb / monoRmsDb: the file after the mono fold-down the app performs.

@@ -62,6 +62,10 @@ export class AudioEngine {
     return this.transport ? this.transport.mode : "excerpt";
   }
 
+  get section() {
+    return this.transport ? this.transport.section : "excerpt";
+  }
+
   // Must be called from a user gesture (click/tap handler).
   start() {
     if (this.ctx) {
@@ -330,12 +334,12 @@ export class AudioEngine {
 
   // Loads the stems for these sources (excerpt loop or full song), then starts
   // them together. Nothing plays until the first audio is decoded.
-  async setSources(sourceIds, { mode = this.mode } = {}) {
+  async setSources(sourceIds, { mode = this.mode, section = "excerpt" } = {}) {
     // Band stems only: loop-player sources (preshow) have their own timeline.
     const ids = sourceIds.filter((id) => this.manifest.SOURCES_BY_ID[id] && this.manifest.SOURCES_BY_ID[id].stem);
     this.transport.prepare(ids);
     this.rewire();
-    if (await this.transport.load(mode)) await this.transport.play();
+    if (await this.transport.load(mode, section)) await this.transport.play();
   }
 
   play() {

@@ -9,6 +9,9 @@
 // Two modes:
 //   "excerpt"  one short synchronized loop per stem (AudioBufferSourceNode
 //              loop points), fully decoded up front. Used by the scenarios.
+//              Which 8 bars: `section` (STEM_SET.sections). "excerpt" is the
+//              original loop file; any other section is stitched from the
+//              full-song segments into a buffer laid out like that file.
 //   "full"     the whole song, streamed in segments: each segment is decoded
 //              just before it's needed and joined to the next with a short
 //              crossfade, so a phone never holds all seven full-length stems.
@@ -17,6 +20,7 @@ const XF = 0.02; // crossfade between full-song segments (s)
 const EDGE_FADE = 0.008; // fade at a fresh start, a seek, or the song's end (s)
 const LOOKAHEAD = 8; // schedule the next segment this far ahead (s)
 const TICK_MS = 250;
+const LOOP_XF = 0.03; // baked crossfade at a stitched section's loop point (s)
 
 export class StemTransport {
   constructor(ctx, manifest, emit) {
@@ -32,6 +36,8 @@ export class StemTransport {
     this.playing = false;
     this.buffering = false;
     this.excerpt = new Map(); // stemId → mono AudioBuffer
+    this.section = "excerpt";
+    this.windows = new Map(); // "sectionId|stemId" → mono AudioBuffer (current section only)
     this.segments = new Map(); // segment index → { ready, promise, buffers: Map<stemId, AudioBuffer> }
     this.segmentStems = "";
     this.errors = new Map();
@@ -71,13 +77,16 @@ export class StemTransport {
 
   // Loads what `mode` needs before anything plays. Resolves false if a newer
   // request replaced this one.
-  async load(mode) {
+  async load(mode, section = "excerpt") {
     const token = ++this.token;
     this.stopNodes();
     this.playing = false;
     this.mode = mode;
+    this.section = section;
     const stems = this.stems();
-    if (mode === "excerpt") {
+    if (mode === "excerpt" && section !== "excerpt") {
+      await this.loadSection(section, stems, token);
+    } else if (mode === "excerpt") {
       const missing = stems.filter((s) => !this.excerpt.has(s));
       let done = stems.length - missing.length;
       if (missing.length) this.emit({ type: "loading", done, total: stems.length });
@@ -97,6 +106,48 @@ export class StemTransport {
     if (token !== this.token) return false;
     this.emit({ type: "ready", errors: [...this.errors.entries()] });
     return true;
+  }
+
+  // Builds each stem's loop for a section from the 2–3 full-song segments
+  // under it: 0.5 s pre-roll, the 8 bars, 1 s post-roll, like the excerpt
+  // file, so the same loop points work.
+  async loadSection(id, stems, token) {
+    const { STEM_SET } = this.m;
+    const sec = STEM_SET.sections.find((s) => s.id === id);
+    if (!sec) throw new Error(`Unknown section ${id}`);
+    for (const key of [...this.windows.keys()]) if (!key.startsWith(id + "|")) this.windows.delete(key);
+    const missing = stems.filter((s) => !this.windows.has(`${id}|${s}`));
+    if (!missing.length) return;
+    const F = STEM_SET.full;
+    const { start: pre, end } = STEM_SET.loop;
+    const from = sec.start - pre;
+    const length = end + 1;
+    const ks = segmentsUnder(from, length, F);
+    let done = 0;
+    const total = missing.length * ks.length;
+    this.emit({ type: "loading", done, total, what: `bars ${sec.bars} of the song` });
+    await Promise.all(
+      missing.map(async (s) => {
+        const pieces = await Promise.all(
+          ks.map(async (k) => {
+            const buffer = await this.fetchStem(this.segmentUrl(s, k), s, F.trimDb, F.segmentSeconds + 2 * F.overlap);
+            done++;
+            if (token === this.token) this.emit({ type: "loading", done, total, what: `bars ${sec.bars} of the song` });
+            return { start: Math.max(0, k * F.segmentSeconds - F.overlap), boundary: k * F.segmentSeconds, data: buffer.getChannelData(0) };
+          }),
+        );
+        const sr = this.ctx.sampleRate;
+        const data = stitch(pieces, from, Math.ceil(length * sr), sr, XF);
+        bakeLoop(data, Math.round(pre * sr), Math.round((end - pre) * sr), Math.round(LOOP_XF * sr));
+        const buf = this.ctx.createBuffer(1, data.length, sr);
+        buf.getChannelData(0).set(data);
+        if (this.section === id) this.windows.set(`${id}|${s}`, buf);
+      }),
+    );
+  }
+
+  loopBuffer(stemId) {
+    return this.section === "excerpt" ? this.excerpt.get(stemId) : this.windows.get(`${this.section}|${stemId}`);
   }
 
   async fetchStem(url, stemId, trimDb, fallbackSeconds) {
@@ -185,7 +236,7 @@ export class StemTransport {
     const { start: ls, end: le } = this.m.STEM_SET.loop;
     const when = this.ctx.currentTime + 0.1;
     for (const id of this.sourceIds) {
-      const buffer = this.excerpt.get(this.stemOf(id));
+      const buffer = this.loopBuffer(this.stemOf(id));
       if (!buffer) continue;
       const src = this.ctx.createBufferSource();
       src.buffer = buffer;
@@ -339,6 +390,49 @@ export class StemTransport {
     const song = this.anchor.song + (this.ctx.currentTime - this.anchor.ctx);
     return { t: Math.max(0, song) % D, duration: D };
   }
+}
+
+// Full-song segment indices covering song time [from, from + length).
+export function segmentsUnder(from, length, F) {
+  const first = Math.max(0, Math.floor(from / F.segmentSeconds));
+  const last = Math.min(F.segments - 1, Math.floor((from + length) / F.segmentSeconds));
+  const ks = [];
+  for (let k = first; k <= last; k++) ks.push(k);
+  return ks;
+}
+
+// Joins segment buffers into one: `n` samples starting at song time `from`.
+// pieces: [{ start (song time of data[0]), boundary (song time where this
+// piece takes over from the previous one), data }], in song order. Pieces
+// overlap; each takes over with a linear crossfade `xf` s wide centred on its
+// boundary, as the full-song player does.
+export function stitch(pieces, from, n, sr, xf) {
+  const out = new Float32Array(n);
+  pieces.forEach((p, idx) => {
+    const off = Math.round((p.start - from) * sr); // out index of data[0]
+    const fadeFrom = idx === 0 ? -Infinity : Math.round((p.boundary - xf / 2 - from) * sr);
+    const fadeLen = Math.max(1, Math.round(xf * sr));
+    const i0 = Math.max(0, off, idx === 0 ? 0 : fadeFrom);
+    const i1 = Math.min(n, off + p.data.length);
+    for (let i = i0; i < i1; i++) {
+      const w = idx === 0 ? 1 : Math.min(1, (i - fadeFrom) / fadeLen);
+      out[i] = out[i] * (1 - w) + p.data[i - off] * w;
+    }
+  });
+  return out;
+}
+
+// Makes the jump from loop end back to loop start seamless: the last `fade`
+// samples before the loop end blend into the audio just before the loop start
+// (the pre-roll), so the waveform is continuous when it wraps.
+export function bakeLoop(data, start, len, fade) {
+  const end = start + len;
+  for (let j = 0; j < fade; j++) {
+    const i = end - fade + j;
+    const w = (j + 1) / fade;
+    data[i] = data[i] * (1 - w) + data[i - len] * w;
+  }
+  return data;
 }
 
 // Folds a decoded stereo buffer into the mono signal a live-sound input

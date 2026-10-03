@@ -10,6 +10,7 @@ import { DEFAULT_SKIN, SKINS } from "./mixer-models.js";
 import { MixerStore, computeMix, createMixerState } from "./mixer-state.js";
 import { ALL_BOARD_SCENARIOS, SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, captureBaseline, evaluateScenario, scenarioFor, scenariosFor } from "./scenarios.js";
 import { Progress, numberedScenarios } from "./progress.js";
+import { pickSection, sittingOut } from "./music.js";
 import { renderFlow } from "./ui/flow.js";
 import { ListenBar } from "./ui/listen-bar.js";
 import { MixerView } from "./ui/mixer-view.js";
@@ -31,7 +32,8 @@ const progress = new Progress([...numberedScenarios(SCENARIOS), ...ALL_BOARD_SCE
 const engine = new AudioEngine(store, M);
 
 let current = { def: SCENARIOS_BY_ID["free-play"], baseline: {}, session: { listened: new Set() } };
-// Free play can run the whole song instead of the 8-bar loop.
+// Free play picks the music: any 8-bar section (STEM_SET.sections id) or "full".
+// The scenarios each get a section of their own (js/music.js).
 let musicMode = "excerpt";
 let ready = false;
 let loadingText = "Press Start Audio to begin.";
@@ -86,7 +88,11 @@ const scenarioView = new ScenarioView($("#scenario"), {
     for (const c of [...store.state.rig.cables]) store.disconnect(c.id);
     toast("Everything unplugged. Rebuild it!", "");
   },
-  getMusic: () => ({ mode: musicMode, started: engine.started }),
+  getMusic: () => {
+    const m = musicFor(current.def);
+    const ids = store.state.rig.devices.filter((d) => d.sourceId).map((d) => d.sourceId);
+    return { mode: musicMode, started: engine.started, sections: manifest.STEM_SET.sections, section: m.section, out: m.section ? sittingOut(m.section, ids, manifest.SOURCES_BY_ID) : [] };
+  },
   onMusicMode: (mode) => {
     if (mode === musicMode) return;
     musicMode = mode;
@@ -166,12 +172,21 @@ function selectScenario(id) {
   if (engine.started) loadSources();
 }
 
+// What the band plays for a scenario: the full song (Free play only) or one
+// 8-bar section, looped.
+function musicFor(def) {
+  const sections = manifest.STEM_SET.sections;
+  if (def.id !== "free-play") return { mode: "excerpt", section: pickSection(def, sections, manifest.SOURCES_BY_ID) };
+  if (musicMode === "full") return { mode: "full", section: null };
+  return { mode: "excerpt", section: sections.find((s) => s.id === musicMode) || sections.find((s) => s.id === "excerpt") };
+}
+
 function loadSources() {
   const ids = store.state.rig.devices.filter((d) => d.sourceId).map((d) => d.sourceId);
-  const mode = current.def.id === "free-play" ? musicMode : "excerpt";
+  const { mode, section } = musicFor(current.def);
   ready = false;
   pending.any = true;
-  engine.setSources(ids, { mode }).catch((err) => {
+  engine.setSources(ids, { mode, section: section ? section.id : "excerpt" }).catch((err) => {
     loadingText = `Couldn't start audio: ${err.message}`;
     pending.any = true;
   });

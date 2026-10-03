@@ -48,6 +48,23 @@ All seven files are cut from the same span of the original timeline, so they sta
 - A 20 ms fade-in and 50 ms fade-out exist only at the file edges; they are never heard inside the loop.
 - The app starts playback at the loop start (0.5 s) and loops 0.5 s to 28.905 s. These numbers live in `STEM_SET` in `source-manifest.js`.
 
+## Other 8-bar sections
+
+So the scenarios don't all play the same 28 seconds, the app also loops other 8-bar stretches of the song (`STEM_SET.sections`). Each is stitched in the browser from the 2–3 full-song segments under it into a buffer laid out like an excerpt file (0.5 s pre-roll, the 8 bars, 1 s post-roll), so the same loop points work. A 30 ms crossfade into the pre-roll is baked in at the loop end, so the wrap is seamless. Stitching the excerpt's own span this way matches the excerpt file sample for sample, at the same level.
+
+Sections start on the excerpt's bar grid (downbeat 158.204 s, bar 3.550625 s, loop starting 0.234 s before a downbeat). Which stems play in each was measured per bar from the segments (RMS above −48 dBFS):
+
+| Section | Starts | Playing | Partly or not at all |
+|---|---|---|---|
+| bars 5–12 | 0:15.9 | bass, guitars, piano, lead vocal | no drums, backing vocals or trumpets |
+| bars 17–24 | 0:58.6 | drums, bass, guitars, lead vocal | backing vocals in some bars; no piano or trumpets |
+| bars 25–32 | 1:27.0 | drums, bass, guitars, piano, lead vocal | backing vocals in some bars; no trumpets |
+| bars 37–44 | 2:09.6 | drums, bass, guitars, backing vocals, lead vocal | no piano or trumpets |
+| bars 45–52 (the excerpt) | 2:38.0 | everyone, trumpets too | |
+| bars 53–60 | 3:06.4 | everyone but the trumpets | |
+
+Each scenario loops a section where every instrument it mentions (in its checks or its text) plays, chosen by its id so the choice is stable (`js/music.js`). A scenario can pin one with `music: "<section id>"`. Free play lets the student choose. The scenario card says which bars are looping and who sits out.
+
 ## Levels
 
 Each excerpt is peak-normalized (loudest channel) to -1 dBFS. `normalizeDb` is the gain that was applied; subtract it to recover the band's recorded balance. `monoPeakDb` and `monoRmsDb` are measured after the mono fold-down and feed the app's level model. Values below are from the manifest, which is authoritative.

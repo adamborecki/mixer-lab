@@ -122,6 +122,7 @@ export const SCENARIOS = [
     who: "Band leader",
     prompt: "“Soundcheck. Get at least two of us into the house speakers so the audience can hear the band.”",
     goal: "Two band sources patched, gain-staged and heard through the house speakers ({main} L/R).",
+    music: "excerpt", // any two sources: everyone has to be playing
     setup: {
       devices: ["spk-l", "spk-r"],
       patch: "none",

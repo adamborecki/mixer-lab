@@ -88,7 +88,7 @@ export class ScenarioView {
           ${isFree ? `<button type="button" class="chip" data-act="clear">Unplug everything</button>` : ""}
           <button type="button" class="linkish credits-link" data-open-credits>Credits</button>
         </div>
-        ${isFree ? `<section class="music" aria-label="Band audio"></section>` : ""}
+        <section class="music" aria-label="Band audio"></section>
       </article>`;
     this.renderMusic();
     this.renderHints();
@@ -155,17 +155,27 @@ export class ScenarioView {
     }
   }
 
-  // Free play only: choose the 8-bar loop or the whole song, and scrub the song.
+  // Which part of the song is playing. Free play: choose an 8-bar section or
+  // the whole song, and scrub the song. A scenario: say which section it
+  // loops and who sits out, so a silent channel isn't mistaken for a fault.
   renderMusic() {
     const box = this.root.querySelector(".music");
     if (!box) return;
-    const { mode } = this.getMusic();
+    const { mode, sections, section, out } = this.getMusic();
+    const resting = out.length ? ` Sitting out here: ${esc(listOf(out.map((s) => s.name.toLowerCase())))}.` : "";
+    if (!this.def || this.def.id !== "free-play") {
+      box.classList.add("music-now");
+      box.innerHTML = section ? `<p class="music-note">♪ The band loops bars ${esc(section.bars)} of the song (${clock(section.start)}): ${esc(section.label.toLowerCase())}.${resting}</p>` : "";
+      this.seekEl = this.timeEl = null;
+      return;
+    }
+    box.classList.remove("music-now");
     const opt = (m, label, sub) =>
-      `<button type="button" role="radio" class="chip music-chip ${mode === m ? "active" : ""}" aria-checked="${mode === m}" data-act="music" data-mode="${m}">${label} <small>${sub}</small></button>`;
+      `<button type="button" role="radio" class="chip music-chip ${mode === m ? "active" : ""}" aria-checked="${mode === m}" data-act="music" data-mode="${m}">${esc(label)} <small>${esc(sub)}</small></button>`;
     box.innerHTML = `
       <p class="music-title">Band audio</p>
       <div class="music-modes" role="radiogroup" aria-label="Band audio">
-        ${opt("excerpt", "8-bar loop", "28 s")}${opt("full", "Full song", "3:58")}
+        ${sections.map((s) => opt(s.id, s.label, `bars ${s.bars}`)).join("")}${opt("full", "Full song", "3:58")}
       </div>
       <div class="music-pos" ${mode === "full" ? "" : "hidden"}>
         <input type="range" class="seek" min="0" max="238" step="0.5" value="0" aria-label="Song position" />
@@ -174,7 +184,7 @@ export class ScenarioView {
       <p class="music-note">${
         mode === "full"
           ? "The whole song streams about 20 seconds ahead (~18 MB in total). Drag to jump to any part."
-          : "The scenarios use this loop: 8 bars where the whole band, trumpets included, is playing."
+          : `An 8-bar loop from ${clock(section.start)} into the song.${resting} Each scenario loops the part of the song that suits it.`
       }</p>`;
     this.seekEl = box.querySelector(".seek");
     this.timeEl = box.querySelector(".music-time");
@@ -209,4 +219,5 @@ export class ScenarioView {
   }
 }
 
+const listOf = (xs) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 const clock = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
