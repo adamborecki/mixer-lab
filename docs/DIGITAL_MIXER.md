@@ -114,7 +114,7 @@ A touring console (CL5/CL3/CL1 Reference Manual), built on the X32's model and s
 
 ## EQ ON, COMP ON and the graphs
 
-Every digital desk here has an ON switch for each channel's EQ and compressor (`ch.eqOn`, `ch.compOn`). The EQ starts on (flat) and the compressor off, as on a freshly initialised desk, so a compressor that has been dialled in does nothing until it is switched on. That mistake is easy to make, and the scenarios "The EQ that does nothing" and "The compressor that does nothing" teach it. Switched off, the EQ's filters go flat and the compressor goes dry, but the settings stay.
+Every digital desk here has an ON switch for each channel's EQ and compressor (`ch.eqOn`, `ch.compOn`). Both start off. That's a teaching choice: many real desks start with a flat EQ switched in. It means every EQ move needs EQ ON as well, which is the habit to build. Dialling in an EQ or compressor that's switched off is an easy mistake, and three scenarios on each desk teach it: "The muddy guitar" (EQ from scratch), "The EQ that does nothing" and "The compressor that does nothing". Switched off, the EQ's filters go flat and the compressor goes dry, but the settings stay.
 
 The desks draw what the processing is doing (`js/ui/viz.js`), in roughly their own style:
 

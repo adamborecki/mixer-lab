@@ -44,6 +44,31 @@ const byId = Object.fromEntries(ALL_BOARD_SCENARIOS.map((s) => [s.id, s]));
 
 // The intended fix for each scenario.
 const SOLVE = {
+  "ui16-mud": (a) => {
+    a.set("guitars", "eqOn", true);
+    a.set("guitars", "peq.lowMid.gain", -4);
+    a.set("guitars", "peq.lowMid.freq", 300);
+  },
+  "x32c-mud": (a) => {
+    a.set("guitars", "eqOn", true);
+    a.set("guitars", "peq.lowMid.gain", -4);
+    a.set("guitars", "peq.lowMid.freq", 300);
+  },
+  "x32-mud": (a) => {
+    a.set("guitars", "eqOn", true);
+    a.set("guitars", "peq.lowMid.gain", -4);
+    a.set("guitars", "peq.lowMid.freq", 300);
+  },
+  "yam01v96-mud": (a) => {
+    a.set("guitars", "eqOn", true);
+    a.set("guitars", "peq.lowMid.gain", -4);
+    a.set("guitars", "peq.lowMid.freq", 300);
+  },
+  "cl3-mud": (a) => {
+    a.set("guitars", "eqOn", true);
+    a.set("guitars", "peq.lowMid.gain", -4);
+    a.set("guitars", "peq.lowMid.freq", 300);
+  },
   "ui16-eq-on": (a) => a.set("lead-vocal", "eqOn", true),
   "ui16-comp-on": (a) => a.set("lead-vocal", "compOn", true),
   "x32c-eq-on": (a) => a.set("lead-vocal", "eqOn", true),
@@ -191,6 +216,56 @@ const SOLVE = {
 
 // Tempting wrong fixes: each must leave the scenario unsolved.
 const WRONG = {
+  "ui16-mud": [
+    ["the cut without EQ ON", (a) => {
+      a.set("guitars", "peq.lowMid.gain", -4);
+      a.set("guitars", "peq.lowMid.freq", 300);
+    }],
+    ["EQ ON but a boost", (a) => {
+      a.set("guitars", "eqOn", true);
+      a.set("guitars", "peq.lowMid.gain", 4);
+    }],
+  ],
+  "x32c-mud": [
+    ["the cut without EQ ON", (a) => {
+      a.set("guitars", "peq.lowMid.gain", -4);
+      a.set("guitars", "peq.lowMid.freq", 300);
+    }],
+    ["EQ ON but a boost", (a) => {
+      a.set("guitars", "eqOn", true);
+      a.set("guitars", "peq.lowMid.gain", 4);
+    }],
+  ],
+  "x32-mud": [
+    ["the cut without EQ ON", (a) => {
+      a.set("guitars", "peq.lowMid.gain", -4);
+      a.set("guitars", "peq.lowMid.freq", 300);
+    }],
+    ["EQ ON but a boost", (a) => {
+      a.set("guitars", "eqOn", true);
+      a.set("guitars", "peq.lowMid.gain", 4);
+    }],
+  ],
+  "yam01v96-mud": [
+    ["the cut without EQ ON", (a) => {
+      a.set("guitars", "peq.lowMid.gain", -4);
+      a.set("guitars", "peq.lowMid.freq", 300);
+    }],
+    ["EQ ON but a boost", (a) => {
+      a.set("guitars", "eqOn", true);
+      a.set("guitars", "peq.lowMid.gain", 4);
+    }],
+  ],
+  "cl3-mud": [
+    ["the cut without EQ ON", (a) => {
+      a.set("guitars", "peq.lowMid.gain", -4);
+      a.set("guitars", "peq.lowMid.freq", 300);
+    }],
+    ["EQ ON but a boost", (a) => {
+      a.set("guitars", "eqOn", true);
+      a.set("guitars", "peq.lowMid.gain", 4);
+    }],
+  ],
   "ui16-eq-on": [
     ["re-dial the bands instead", (a) => {
       a.set("lead-vocal", "peq.low.gain", -12);

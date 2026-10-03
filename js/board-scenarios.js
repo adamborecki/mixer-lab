@@ -72,6 +72,29 @@ const eqOff = (board, { hints, complete }) => ({
   complete,
 });
 
+// EQ from scratch: the channel's EQ starts off and flat, so the cut only
+// counts (and is only heard) once EQ ON is pressed too.
+const eqMud = (board, { hints, complete }) => ({
+  id: `${board}-mud`,
+  short: "Muddy guitar",
+  title: "The muddy guitar",
+  who: "Guitarist",
+  prompt: "“My guitar sounds muddy and thick, like a blanket over the band.”",
+  goal: "The guitar's EQ switched on, with a cut of at least 3 dB in the LOW-MID band between 150 and 500 Hz.",
+  setup: {},
+  baseline: { main: { metric: "mainDbByChannel" } },
+  conditions: [
+    goal("cut", "Mud cut: LOW-MID at least 3 dB down, between 150 and 500 Hz", (ctx) => {
+      const b = sc(ctx, "guitars")?.peq.lowMid;
+      return !!b && b.gain <= -3 && b.freq >= 150 && b.freq <= 500;
+    }),
+    goal("on", "The guitar's EQ is switched on", (ctx) => sc(ctx, "guitars")?.eqOn === true),
+    { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The levels stay the same" },
+  ],
+  hints: ["Mud lives in the low mids, roughly 200–400 Hz. Cut, don't boost.", ...hints],
+  complete,
+});
+
 const compOff = (board, { hints, complete }) => ({
   id: `${board}-comp-on`,
   short: "Comp does nothing",
@@ -1755,6 +1778,7 @@ UI.push(
       tweak: (st, h) => {
         h.set("lead-vocal", "peq.hiMid.gain", 8);
         h.set("lead-vocal", "peq.hiMid.freq", 3000);
+        h.set("lead-vocal", "eqOn", true);
       },
     },
     baseline: { main: { metric: "mainDbByChannel" } },
@@ -2369,6 +2393,7 @@ const Y96 = [
       tweak: (st, h) => {
         h.set("lead-vocal", "peq.hiMid.gain", 8);
         h.set("lead-vocal", "peq.hiMid.freq", 3000);
+        h.set("lead-vocal", "eqOn", true);
       },
     },
     baseline: { main: { metric: "mainDbByChannel" } },
@@ -2776,7 +2801,17 @@ const CL3 = [
   }),
 ];
 
+CL3.push(
+  eqMud("cl3", {
+    hints: ["SEL channel 3 (GTR). In the SELECTED CHANNEL section, turn LOW-MID's GAIN down a few dB with its FREQUENCY near 300 Hz.", "Nothing changed? The EQ starts switched off: open SELECTED CHANNEL on the screen and press EQ ON."],
+    complete: "Every EQ on this desk starts switched off. Knobs first or ON first, it doesn't matter, but check the curve before you trust your ears.",
+  }),
+);
 UI.push(
+  eqMud("ui16", {
+    hints: ["SEL channel 3 (GTR) and turn LO MID's GAIN down a few dB, FREQ near 300 Hz.", "Nothing changed? The EQ starts switched off: press EQ ON. The curve turns green."],
+    complete: "The EQ only works when it's switched in. The curve going from grey to coloured is your proof.",
+  }),
   eqOff("ui16", {
     hints: ["SEL channel 7 (VOX). The EQ graph is grey and dashed, marked EQ OFF: the bands are set but switched out.", "Press EQ ON in the corner of the EQ section. Leave the bands alone."],
     complete: "EQ ON switches the whole EQ in or out. It's how you compare with and without (an A/B), and it's easy to leave off. Trust the curve, not the knobs.",
@@ -2787,6 +2822,10 @@ UI.push(
   }),
 );
 X32.push(
+  eqMud("x32c", {
+    hints: ["SEL channel 03 and, in the channel strip's EQ, turn LO MID's GAIN down a few dB with FREQ near 300 Hz.", "Nothing changed? The EQ starts switched off: press EQ ON. The HOME screen's curve shows it."],
+    complete: "On the X32 every processing block has its own on button. Set it, switch it in, check the curve.",
+  }),
   eqOff("x32c", {
     hints: ["SEL channel 07. The main display's HOME screen draws its EQ: flat, grey and marked EQ OFF.", "In the channel strip's EQ section, press EQ ON. Leave the bands alone."],
     complete: "Every processing block on the X32 has its own on button. The display's curves show what's really switched in.",
@@ -2797,6 +2836,10 @@ X32.push(
   }),
 );
 X32F.push(
+  eqMud("x32", {
+    hints: ["SEL channel 03 and, in the channel strip's EQ, turn LO MID's GAIN down a few dB with FREQ near 300 Hz.", "Nothing changed? The EQ starts switched off: press EQ ON. The HOME screen's curve shows it."],
+    complete: "On the X32 every processing block has its own on button. Set it, switch it in, check the curve.",
+  }),
   eqOff("x32", {
     hints: ["SEL channel 07. The main display's HOME screen draws its EQ: flat, grey and marked EQ OFF.", "In the channel strip's EQ section, press EQ ON. Leave the bands alone."],
     complete: "Every processing block on the X32 has its own on button. The display's curves show what's really switched in.",
@@ -2807,6 +2850,10 @@ X32F.push(
   }),
 );
 Y96.push(
+  eqMud("yam01v96", {
+    hints: ["SEL channel 3, press the LOW-MID band key, then turn GAIN down a few dB with FREQUENCY near 300 Hz.", "Nothing changed? The EQ starts switched off: DISPLAY ACCESS EQ, then EQ ON."],
+    complete: "On the 01V96 the EQ's ON lives on the EQ page, away from the knobs. Check it whenever an EQ move does nothing.",
+  }),
   eqOff("yam01v96", {
     hints: ["SEL channel 7, then DISPLAY ACCESS EQ. The bands are set, but the curve is flat and marked EQ OFF.", "Press EQ ON on the EQ page. Leave the bands alone."],
     complete: "On the 01V96 the EQ's ON lives on the EQ page. The SELECTED CHANNEL knobs still move the bands while it's off, so check the curve.",
@@ -2824,12 +2871,12 @@ const ORDER = {
   vlz1202: ["doors", "trim", "nasal", "pad", "pfl", "wedge-quiet", "lowcut", "reverb", "prefader", "efx", "tape", "alt"],
   x1204usb: ["doors", "minus10", "overhead", "pfl", "comp", "fx", "slapback", "wedge", "pre", "ret-mon", "cdtape", "alt"],
   cr1604: ["doors", "phantom", "assign", "levelset", "sweep", "lowcut", "mute-pre", "drummer-quiet", "reverb", "efx-mon", "mono", "shift", "subgroup", "direct", "room"],
-  ui16: ["doors", "gain", "48v", "more-keys", "hpf", "harsh", "eq-on", "comp", "comp-on", "trumpet-reverb", "delay", "out-of-house", "post", "guitar-mix"],
+  ui16: ["doors", "gain", "48v", "more-keys", "hpf", "mud", "harsh", "eq-on", "comp", "comp-on", "trumpet-reverb", "delay", "out-of-house", "post", "guitar-mix"],
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
-  yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
-  x32: ["doors", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9"],
-  cl3: ["doors", "gain", "48v", "on", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "scene-recall", "scene-store"],
-  x32c: ["doors", "gain", "48v", "lowcut", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix"],
+  yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "mud", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
+  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9"],
+  cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "scene-recall", "scene-store"],
+  x32c: ["doors", "gain", "48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix"],
 };
 
 const LISTS = { cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: C16, x32c: X32, yam01v96: Y96, x32: X32F };

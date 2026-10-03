@@ -22,6 +22,7 @@ test("the EQ curve is flat when EQ ON is off; the high-pass still shows", () => 
   const ch = createState("ui16").channels[6];
   ch.peq.hiMid.gain = -6;
   ch.peq.hiMid.freq = 3000;
+  ch.eqOn = true;
   near(channelEqDb(def.channels[6], ch, 3000), -6, 0.2);
   ch.eqOn = false;
   near(channelEqDb(def.channels[6], ch, 3000), 0, 0.01);
@@ -37,10 +38,10 @@ test("the compressor's transfer curve", () => {
   assert.equal(compOutDb({ threshold: 0, ratio: 4, makeup: 0 }, true, -4), -4);
 });
 
-test("EQ ON starts on and COMP ON starts off, on every desk with them", () => {
-  for (const id of ["ui16", "x32c", "x32", "yam01v96"]) {
+test("EQ ON and COMP ON both start off, on every desk with them", () => {
+  for (const id of ["ui16", "x32c", "x32", "yam01v96", "cl3"]) {
     const ch = createState(id).channels[0];
-    assert.equal(ch.eqOn, true, id);
+    assert.equal(ch.eqOn, false, id);
     assert.equal(ch.compOn, false, id);
     assert.equal(sanitizeChannel(COMPACT[id], ch, "compOn", 1), true);
   }

@@ -79,10 +79,10 @@ function createChannel(def, i) {
     mgrp: def.muteGroups ? Object.fromEntries(Array.from({ length: def.muteGroups }, (_, k) => [`g${k + 1}`, false])) : undefined,
     peq: c.peq ? Object.fromEntries(PEQ_BANDS.map((b) => [b.id, { gain: 0, freq: b.freq, q: 0.7 }])) : undefined,
     dyn: c.dyn ? { threshold: 0, ratio: 1, makeup: 0 } : undefined,
-    // The EQ and compressor each have an ON button. Desks start with the EQ
-    // on (flat) and the compressor off: dialling in a compressor without
-    // switching it on does nothing.
-    eqOn: c.peq ? true : undefined,
+    // The EQ and compressor each have an ON button, and in the lab both start
+    // off (a teaching choice: many desks start with a flat EQ switched in).
+    // Turning the knobs of an EQ or compressor that's off does nothing.
+    eqOn: c.peq ? false : undefined,
     compOn: c.dyn ? false : undefined,
     pan: 0,
     enabled: true,
