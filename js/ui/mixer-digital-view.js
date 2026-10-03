@@ -304,6 +304,7 @@ export function buildSelPanel(view, def, ui, rerender) {
     section(
       "PAN & SENDS",
       def.lrSwitch ? button(view, { label: "MAIN LR", tone: "assign", get: (s) => ch(s).lr !== false, onPress: () => store.setChannel(i, "lr", ch(store.state).lr === false), aria: (s) => `Channel ${n} MAIN LR: ${ch(s).lr !== false ? "on, in the main mix" : "off, not in the main mix"}` }) : null,
+      def.mc && c.kind !== "stereo" ? knob(view, { label: "M/C", sheetLabel: `Ch ${n} MONO/CENTER send`, defaultValue: 0, tone: "aux1", format: lawFormat(LAWS.level), onInput: set("mc") }, (s) => ch(s).mc) : null,
       knob(view, { label: c.kind === "stereo" ? "BAL" : "PAN", sheetLabel: `Ch ${n} pan`, min: -1, max: 1, step: 0.02, defaultValue: 0, bipolar: true, tone: "pan", format: formatPan, onInput: set("pan") }, (s) => ch(s).pan),
       ...sendKnobs,
     ),

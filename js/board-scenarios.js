@@ -2420,6 +2420,222 @@ const Y96 = [
   },
 ];
 
+
+// ----- Behringer X32 (full size): the advanced console -----
+
+// The mixer's settings that a scene holds, compared loosely (channel ON and faders, bus levels).
+const sameAsScene = (ctx, n) => {
+  const sc = ctx.state.scenes?.[n];
+  if (!sc) return false;
+  return ctx.state.channels.every((c, i) => c.enabled === sc.settings.channels[i].enabled && Math.abs(c.level - sc.settings.channels[i].level) < 0.01) && Object.keys(COMPACT.x32.buses).every((b) => Math.abs(ctx.state[b].level - sc.settings[b].level) < 0.01);
+};
+
+const X32F = [
+  doors("x32", {
+    prompt: "“Doors in five. The laptop is on AUX IN 1/2 — preshow music, please.”",
+    hints: ["The 16 input faders show one layer at a time. Channels 1–32 aren't where the laptop is.", "Press the AUX IN / USB layer.", "Push AUX 1/2's fader up."],
+    complete: "Five input layers share 16 faders on the full X32. Check the lit layer key before every move.",
+  }),
+  {
+    id: "x32-room",
+    short: "Room mics (CH 17-32)",
+    title: "The room mics on 17 and 18",
+    who: "Recording engineer",
+    prompt: "“The audience mics are on inputs 17 and 18 and they're dead.”",
+    goal: "Both room mics heard in the house.",
+    setup: {
+      tweak: (st, h) => {
+        h.set("room-l", "phantom", false);
+        h.set("room-r", "phantom", false);
+      },
+    },
+    conditions: [
+      { id: "l", kind: "goal", type: "sourceHeardInMain", source: "room-l", label: "The left room mic is heard" },
+      { id: "r", kind: "goal", type: "sourceHeardInMain", source: "room-r", label: "The right room mic is heard" },
+      { id: "vox", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The vocal stays in the house" },
+    ],
+    hints: ["Inputs 17–32 live on their own layer.", "Press CH 17-32 and SEL channel 17: they're condensers.", "Switch 48V on for channels 17 and 18."],
+    complete: "Thirty-two inputs, sixteen faders: the CH 17-32 layer holds the second half. A dead condenser? 48V first.",
+  },
+  {
+    id: "x32-routing-house",
+    short: "Silent house (ROUTING)",
+    title: "The silent house",
+    who: "Venue tech",
+    prompt: "“After the last band's show file, the house speakers are silent. The meters move, the wedges work.”",
+    goal: "MAIN L/R back on the house speakers' outputs (XLR OUT 15/16), the wedges unchanged.",
+    setup: {
+      tweak: (st) => {
+        st.routing.out15 = "off";
+        st.routing.out16 = "off";
+      },
+    },
+    baseline: { singer: { metric: "monitorByChannel", bus: "mix1" } },
+    conditions: [
+      { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "lead-vocal", stereo: true, label: "The house plays, left and right" },
+      { id: "chain", kind: "goal", type: "validChain", output: "main", zone: "foh", label: "The house speakers are fed by MAIN" },
+      { id: "wedge", kind: "keep", type: "monitorMixUnchanged", bus: "mix1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge keeps working" },
+    ],
+    hints: ["The mix is fine and the speakers are plugged into XLR OUT 15 and 16. What do those outputs carry?", "On the X32 each XLR OUT carries whatever ROUTING says (main display, ROUTING page).", "Set XLR OUT 15 to MAIN L and 16 to MAIN R."],
+    complete: "A digital desk's jacks carry nothing until they're routed. When the mix meters fine but a speaker is silent, check ROUTING.",
+  },
+  {
+    id: "x32-routing-wedge",
+    short: "Wedge on OUT 9",
+    title: "The wedge on XLR OUT 9",
+    who: "Stage hand",
+    prompt: "“OUT 1's connector is broken, so I moved the singer's wedge cable to XLR OUT 9. It's silent now.”",
+    goal: "The singer's wedge fed MIX 1 again, from XLR OUT 9.",
+    setup: {
+      tweak: (st, h) => {
+        h.cut("mixer/out1");
+        h.cable("mixer/out9", "wedge/in", "xlr");
+        st.routing.out9 = "off";
+      },
+    },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "chain", kind: "goal", type: "validChain", output: "mix1", device: "wedge", label: "The singer's wedge is fed by MIX 1" },
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "mix1", label: "You listened to it" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["The wedge's mix is MIX 1. Which output carries MIX 1, and which output is the wedge on now?", "Open ROUTING on the main display.", "Set XLR OUT 9 to MIX 1."],
+    complete: "Moving a cable on a digital desk means moving the routing with it. The mix itself didn't change at all.",
+  },
+  {
+    id: "x32-mc",
+    short: "Front fill (M/C)",
+    title: "A front fill for the vocals",
+    who: "Venue tech",
+    prompt: "“The front rows can't understand the words. We've put a front-fill speaker on XLR OUT 11: vocals only, please.”",
+    goal: "The front fill fed from the MONO/CENTER bus, with both vocals in it and no drums or bass.",
+    setup: {
+      tweak: (st, h) => {
+        h.addDevice("ffill");
+        h.cable("mixer/out11", "ffill/in", "xlr");
+      },
+    },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "chain", kind: "goal", type: "validChain", output: "mc", device: "ffill", label: "The front fill is fed by M/C" },
+      { id: "vox", kind: "goal", type: "monitorPresent", bus: "mc", sources: ["lead-vocal", "backing-vocals"], minDb: -30, label: "Both vocals are in the front fill" },
+      { id: "no", kind: "keep", type: "monitorAbsent", bus: "mc", sources: ["drums", "bass"], label: "No drums or bass in it" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["The MONO/CENTER bus is a separate mono mix with its own send on every channel.", "SEL channels 06 and 07: each has an M/C send in its strip. M/C's fader is on the MATRIX layer.", "Turn up both vocals' M/C sends, then route XLR OUT 11 to M/C."],
+    complete: "M/C is a third main bus: a mono feed you build per channel, here for vocal clarity at the front without more band.",
+  },
+  {
+    id: "x32-matrix",
+    short: "Lobby (MATRIX)",
+    title: "The lobby speaker",
+    who: "Front of house manager",
+    prompt: "“The lobby speaker is on XLR OUT 12. Give it the house mix, and I want to set its level without touching the house.”",
+    goal: "The lobby speaker fed by MATRIX 1, which carries the MAIN mix; the house unchanged.",
+    setup: {
+      tweak: (st, h) => {
+        h.addDevice("lobby");
+        h.cable("mixer/out12", "lobby/in", "xlr");
+      },
+    },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "chain", kind: "goal", type: "validChain", output: "mtx1", device: "lobby", label: "The lobby speaker is fed by MATRIX 1" },
+      { id: "on", kind: "goal", type: "busAudible", bus: "mtx1", label: "The lobby hears the band" },
+      goal("main", "MATRIX 1 carries the main mix", (ctx) => LAWS.level.toDb(ctx.state.mtx1.main) >= -10),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["A matrix is a mix of mixes: MAIN, M/C and the MIX buses, each at its own level, with its own fader.", "SEL MAIN LR: its strip has a send to each MATRIX. Or SEL MATRIX 1 (MATRIX layer) to see its sources.", "Turn MAIN's send to MATRIX 1 up, then route XLR OUT 12 to MATRIX 1."],
+    complete: "Matrices feed the places that need the show but not their own mix: lobbies, delay speakers, recorders, broadcast. Each has its own fader.",
+  },
+  {
+    id: "x32-subgroup",
+    short: "Drum subgroup",
+    title: "A drum subgroup",
+    who: "Band leader",
+    prompt: "“Put drums and bass through MIX 9 as a subgroup into the house, then pull it down about 6 dB for the quiet song.”",
+    goal: "Drums and bass reaching MAIN LR only through MIX 9 (a subgroup), at least 4 dB down; everything else unchanged.",
+    setup: {},
+    baseline: { main: { metric: "mainDbByChannel" }, singer: { metric: "monitorByChannel", bus: "mix1" }, drummer: { metric: "monitorByChannel", bus: "mix2" } },
+    conditions: [
+      goal("sub", "Drums and bass reach the house only through MIX 9", (ctx) => ctx.state.mix9.lr && ["drums", "bass"].every((s) => sc(ctx, s)?.lr === false && into(ctx, "mix9", s) > -60 && house(ctx, s) >= AUDIBLE)),
+      { id: "drums", kind: "goal", type: "mainLowered", source: "drums", baseline: "main", minDb: 4, label: "The drums are down at least 4 dB" },
+      { id: "bass", kind: "goal", type: "mainLowered", source: "bass", baseline: "main", minDb: 4, label: "The bass is down at least 4 dB" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: ["drums", "bass"], toleranceDb: 1, label: "Everything else in the house stays the same" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "mix1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+      { id: "drummer", kind: "keep", type: "monitorMixUnchanged", bus: "mix2", baseline: "drummer", toleranceDb: 1, label: "The drummer's wedge stays the same" },
+    ],
+    hints: ["A subgroup is a MIX bus that goes into the main mix, with its own fader.", "Send channels 01 and 02 to MIX 9 at 0 dB (POST), switch their own MAIN LR off; SEL MIX 9 and switch its MAIN LR on.", "Then pull MIX 9's fader (BUS 9-16 layer) down about 6 dB."],
+    complete: "Unlike a DCA, a subgroup sums the signals: you could compress or EQ the whole rhythm section on MIX 9. Switching the channels' own MAIN LR off stops them reaching the house twice.",
+  },
+  {
+    id: "x32-fx",
+    short: "Chorus on the keys (FX 4)",
+    title: "Chorus on the keys",
+    who: "Keyboard player",
+    prompt: "“For the ballad, put a bit of chorus on the piano.”",
+    goal: "The keys sent to FX 4 (the chorus, fed by MIX 16), its return up; the dry mix and wedges unchanged.",
+    setup: { tweak: (st) => (st.mix16.level = 0) },
+    baseline: { main: { metric: "mainDbByChannel" }, singer: { metric: "monitorByChannel", bus: "mix1" } },
+    conditions: [
+      goal("send", "The keys are sent to the chorus (MIX 16)", (ctx) => into(ctx, "mix16", "keys") >= -35),
+      goal("return", "FX 4 RTN brings it back", (ctx) => (ctx.mix.busDb?.mix16 ?? -Infinity) >= -10),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The dry house mix stays the same" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "mix1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+    ],
+    hints: ["The FX rack is fed by MIX 13–16 and comes back on the FX RETURNS layer.", "FX 4 is the chorus, fed by MIX 16. SEL channel 04 and turn up its MIX 16 send.", "Then push FX 4 RTN up on the FX RETURNS layer."],
+    complete: "On the X32 the effects are fed by ordinary mix buses: the send is a MIX, the return is a channel. The routing is the same idea as an outboard rack.",
+  },
+  {
+    id: "x32-scene-recall",
+    short: "Recall the acoustic set",
+    title: "Recall the acoustic set",
+    who: "Band leader",
+    prompt: "“Acoustic set now! We saved it as scene 2 at soundcheck.”",
+    goal: "The mixer exactly as scene 2 has it.",
+    setup: {},
+    conditions: [goal("scene", "The mix matches scene 2 (Acoustic set)", (ctx) => sameAsScene(ctx, 1)), { id: "house", kind: "keep", type: "validChain", output: "main", zone: "foh", label: "The house keeps working" }],
+    hints: ["Rebuilding it by hand takes ages and you'll miss something.", "The main display's SCENES page lists the saved scenes.", "RECALL scene 02."],
+    complete: "One press: every channel, fader and bus back to how it was saved. Scenes are why digital desks rule festivals and theatre.",
+  },
+  {
+    id: "x32-scene-store",
+    short: "Save the encore mix",
+    title: "Save the encore mix",
+    who: "Band leader",
+    prompt: "“That's the encore mix: the vocal's up. Save it as scene 3 so we can get it back tomorrow.”",
+    goal: "Scene 3 holds the mix as it is now.",
+    setup: { tweak: (st, h) => h.moveFader("lead-vocal", 3) },
+    conditions: [goal("stored", "Scene 3 holds the current mix", (ctx) => sameAsScene(ctx, 2)), keep("old", "Scenes 1 and 2 are still there", (ctx) => !!ctx.state.scenes[0] && !!ctx.state.scenes[1])],
+    hints: ["The SCENES page has a STORE button for each slot.", "Scene 3 is empty: store into it, not over 1 or 2.", "Press STORE on scene 03 and name it (Encore)."],
+    complete: "STORE copies everything but the cables into the slot. Store into an empty slot, or the soundcheck scene is gone.",
+  },
+  masterFix({
+    id: "x32-bus9",
+    short: "Quiet in-ear (BUS 9-16)",
+    title: "The quiet in-ear mix",
+    who: "Guitarist",
+    prompt: "“My wedge on MIX 10 is way too quiet. The balance is fine.”",
+    bus: "mix10",
+    startDb: -20,
+    raise: true,
+    setLevel: (db) => LAWS.level.toPos(db),
+    hints: ["MIX 10 isn't on the BUS 1-8 layer.", "Press BUS 9-16 on the group section.", "Push MIX 10's fader up towards 0 dB."],
+    complete: "Sixteen buses, eight group faders: BUS 9-16 is a layer of its own. The master moves the whole mix and keeps its balance.",
+  }),
+];
+// The guitarist's wedge for MIX 10 (XLR OUT 10) is set up in the scenario itself.
+X32F.at(-1).setup.tweak = ((orig) => (st, h) => {
+  h.addDevice("gwedge");
+  h.cable("mixer/out10", "gwedge/in", "xlr");
+  st.routing.out10 = "mix10";
+  for (const [src, db] of [["guitars", 0], ["lead-vocal", -6], ["drums", -12]]) {
+    h.set(src, "pres.mix10", true);
+    h.sendDb(src, "mix10", db);
+  }
+  orig(st, h);
+})(X32F.at(-1).setup.tweak);
+
 // ---------- each board's list, in teaching order ----------
 
 const ORDER = {
@@ -2432,10 +2648,11 @@ const ORDER = {
   ui16: ["doors", "gain", "48v", "more-keys", "hpf", "harsh", "comp", "trumpet-reverb", "delay", "out-of-house", "post", "guitar-mix"],
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
   yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "eq", "to-st", "reverb", "pre-point", "comp", "new-mix"],
+  x32: ["doors", "room", "routing-house", "routing-wedge", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9"],
   x32c: ["doors", "gain", "48v", "lowcut", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix"],
 };
 
-const LISTS = { mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: C16, x32c: X32, yam01v96: Y96 };
+const LISTS = { mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: C16, x32c: X32, yam01v96: Y96, x32: X32F };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.
 function arrange(board) {
@@ -2460,5 +2677,6 @@ export const MIXER_ORDER = [
   { model: "ui16", skin: "ui16", why: "Digital: the same jobs through pages and SEL. Sends on faders, a parametric EQ and a compressor on every channel." },
   { model: "x32c", skin: "x32c", why: "A digital console laid out like the big ones: fader layers, a selected-channel strip, Sends on Faders, DCA and mute groups, a MAIN LR switch on every channel." },
   { model: "yam01v96", skin: "yam01v96", why: "The classic digital desk: analog GAIN and PAD on top, then LAYERs, FADER MODE for the aux sends, ON keys, and a display you page through for routing, EQ, dynamics and aux setup." },
+  { model: "x32", skin: "x32", why: "The full console: 32 inputs, 16 mix buses that can be subgroups, MONO/CENTER, six matrices, an FX rack, output ROUTING and SCENES." },
   { model: "sd442", skin: "sd442", why: "A different world: a field mixer feeding a camera. Output levels, tone, limiters and the mono check." },
 ];

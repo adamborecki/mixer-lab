@@ -5,11 +5,12 @@
 
 import { SOURCES_BY_ID, STEMS, sourcesForScenario } from "../audio/source-manifest.js";
 import { CABLES, DEVICE_TYPES, analyzeRig, cableEndFor, channelPortRef, getPort, plugFitsJack } from "./connection-model.js";
-import { BUSES, computeMix, createMixerState, dbToLevel, levelToDb, clamp } from "./mixer-state.js";
+import { BUSES, computeMix, createMixerState, dbToLevel, levelToDb, clamp, listenGroupOf } from "./mixer-state.js";
 import * as CR1604 from "./cr1604.js";
 import { createF8, createPair, createReverb } from "./devices.js";
 import { COMPACT, LAWS as COMPACT_LAWS, channelGainDb, compactModel, levelLaw } from "./compact.js";
 import { BOARD_SCENARIOS, MIXER_ORDER } from "./board-scenarios.js";
+const LAWS_LEVEL = COMPACT_LAWS.level;
 
 export { MIXER_ORDER };
 
@@ -45,6 +46,7 @@ export const PLAYBACK_DEVICES = {
   pwedge: { type: "passive-speaker", label: "Passive wedge · drummer", short: "drummer's wedge", zone: "stage", pan: 0 },
   // A third wedge, for scenarios that build a new monitor mix (Ui16 AUX 3).
   gwedge: { type: "powered-speaker", label: "Powered wedge · guitarist", short: "guitarist's wedge", zone: "stage", pan: -0.5 },
+  ffill: { type: "powered-speaker", label: "Powered speaker · front fill", short: "front fill", zone: "foh", pan: 0 },
   hwedge: { type: "powered-speaker", label: "Powered wedge · horns", short: "horns' wedge", zone: "stage", pan: 0.4 },
   sub: { type: "powered-speaker", label: "Powered subwoofer", short: "subwoofer", zone: "foh", pan: 0 },
   lobby: { type: "powered-speaker", label: "Powered speaker · lobby", short: "lobby", zone: "lobby", pan: 0 },
@@ -775,6 +777,43 @@ export const COMPACT_GIGS = {
     hpf: { guitars: 0.1, trumpets: 0.1, "backing-vocals": 0.15, "lead-vocal": 0.15 },
     dyn: { "lead-vocal": { threshold: -16, ratio: 3, makeup: 3 } },
   },
+  x32: {
+    prompt: "The whole band on a full-size Behringer X32: inputs 1–7 on the CH 1-16 layer, the room pair on 17 and 18 (CH 17-32), the laptop on AUX IN 1/2 (fader down). XLR OUT 1 carries MIX 1 to the singer's wedge, OUT 2 MIX 2 to the drummer's amp and wedge, OUT 15/16 MAIN L/R to the house: see the ROUTING page. MIX 13–15 feed the FX rack (room, plate, delay). Scene 1 is this mix, scene 2 the acoustic set.",
+    patch: { drums: [0, "mic"], bass: [1, "mic"], guitars: [2, "mic"], keys: [3, "mic"], trumpets: [4, "mic"], "backing-vocals": [5, "mic"], "lead-vocal": [6, "mic"], "room-l": [16, "mic"], "room-r": [17, "mic"], preshow: [32, "lr"] },
+    extraSources: ["room-l", "room-r"],
+    cableFor: { keys: "xlr-trs" },
+    devices: ["spk-l", "spk-r", "wedge", "amp", "pwedge"],
+    cables: [
+      { from: "mixer/out15", to: "spk-l/in", cable: "xlr" },
+      { from: "mixer/out16", to: "spk-r/in", cable: "xlr" },
+      { from: "mixer/out1", to: "wedge/in", cable: "xlr" },
+      { from: "mixer/out2", to: "amp/in-a", cable: "xlr" },
+      { from: "amp/out-a", to: "pwedge/in", cable: "speaker" },
+    ],
+    sends: {
+      mix1: { "lead-vocal": 0, "backing-vocals": -6, keys: -10, guitars: -12 },
+      mix2: { drums: -8, bass: -3, keys: -12, "lead-vocal": -8 },
+      mix13: { "lead-vocal": -12, "backing-vocals": -12, drums: -18 },
+      mix14: { trumpets: -12, "backing-vocals": -14 },
+      mix15: { "lead-vocal": -22 },
+    },
+    preFor: ["mix1", "mix2"],
+    pans: { "room-l": -1, "room-r": 1 },
+    hpf: { guitars: 0.1, trumpets: 0.1, "backing-vocals": 0.15, "lead-vocal": 0.15 },
+    dyn: { "lead-vocal": { threshold: -16, ratio: 3, makeup: 3 } },
+    // Scene 1 is the gig as it stands; scene 2 the acoustic set (drums, bass and trumpets off, room mics up).
+    scenes: [
+      { name: "Full band" },
+      {
+        name: "Acoustic set",
+        tweak: (st) => {
+          for (const i of [0, 1, 4]) st.channels[i].enabled = false;
+          for (const i of [16, 17]) st.channels[i].level = LAWS_LEVEL.toPos(-4);
+          st.mix13.level = LAWS_LEVEL.toPos(4);
+        },
+      },
+    ],
+  },
   yam01v96: {
     prompt: "The whole band on a Yamaha 01V96i: inputs 1–7 (the piano into channel 4's TRS jack with its PAD on), the laptop on 2TR IN (not yet in the mix). AUX 1 (OMNI OUT 1) feeds the singer's wedge, AUX 2 (OMNI OUT 2) the drummer's wedge through the amp, STEREO OUT the house. AUX 7 feeds the reverb (back on ST IN 1), AUX 8 the delay (ST IN 2). FADER MODE turns the faders into an aux's sends; SEL a channel and page through the display.",
     patch: { drums: [0, "mic"], bass: [1, "mic"], guitars: [2, "mic"], keys: [3, "line"], trumpets: [4, "mic"], "backing-vocals": [5, "mic"], "lead-vocal": [6, "mic"], preshow: ["tape"] },
@@ -880,6 +919,13 @@ function buildCompactState(model, sourcesById) {
     state.channels[def.link.pair[0]].pan = 0; // the balance, centred
   }
   if (gig.listen) state.listen = gig.listen;
+  // Preloaded scenes (full X32): each a copy of this gig, perhaps with changes.
+  for (const [n, sc] of (gig.scenes || []).entries()) {
+    const copy = structuredClone(state);
+    sc.tweak?.(copy);
+    const { rig, listen, scenes, ...settings } = copy;
+    state.scenes[n] = { name: sc.name, settings };
+  }
   return state;
 }
 
@@ -969,8 +1015,10 @@ export const CONDITIONS = {
   },
   // `device`: a specific speaker (e.g. the drummer's passive wedge) must be the one on the chain.
   validChain(ctx, c) {
+    // A routed output (full X32) counts by what it carries: "main", "mix1", "mtx1"…
     const ports = c.output === "main" ? ["main-l", "main-r"] : [c.output];
-    const ends = ctx.mix.rig.endpoints.filter((e) => e.valid && ports.includes(e.output) && (!c.zone || e.zone === c.zone) && (!c.device || e.deviceId === c.device));
+    const fits = (port) => ports.includes(port) || (ctx.state.routing?.[port] && listenGroupOf(ctx.state, port) === c.output);
+    const ends = ctx.mix.rig.endpoints.filter((e) => e.valid && fits(e.output) && (!c.zone || e.zone === c.zone) && (!c.device || e.deviceId === c.device));
     return { met: ends.length > 0 };
   },
   noBrokenChains(ctx, c) {
@@ -995,8 +1043,8 @@ export const CONDITIONS = {
     if (!c.stereo) return { met: ch.heardMainDb >= AUDIBLE_DB };
     // Main L and R: "main-l"/"main-r", or a powered mixer's speaker outs (STAGEPAS).
     const { buses } = ctx.mix.rig;
-    const works = (ports) => ports.some((p) => (buses[p] || []).length > 0);
-    const both = works(["main-l", "spk-l"]) && works(["main-r", "spk-r"]);
+    const works = (side) => Object.entries(buses).some(([p, ends]) => ends.length > 0 && (p === `main-${side}` || p === `spk-${side}` || ctx.state.routing?.[p] === `main-${side}`));
+    const both = works("l") && works("r");
     return { met: both && ch.mainDb.L >= AUDIBLE_DB && ch.mainDb.R >= AUDIBLE_DB };
   },
   // Some channel is audible through a working chain on that bus.

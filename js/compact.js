@@ -5,7 +5,7 @@
 
 import { COMPACT, EQ } from "./compact-defs.js";
 import { analyzeRig } from "./connection-model.js";
-import { FADER_LAW, HEADROOM_DB, gainToDb, inputBand, knobLaw, makeLaw, panGains } from "./levels.js";
+import { FADER_LAW, HEADROOM_DB, dbToGain, gainToDb, inputBand, knobLaw, makeLaw, panGains } from "./levels.js";
 
 export { COMPACT };
 export const EQ_RANGE_DB = 15;
@@ -38,6 +38,9 @@ export const PEQ_BANDS = [
 export const PEQ_Q = { min: 0.3, max: 8 };
 export const DYN = { threshold: [-50, 0], ratio: [1, 20], makeup: [0, 24] };
 
+// What can feed a matrix: MAIN LR, M/C and the mix buses that aren't effects.
+export const matrixSources = (def) => ["main", ...(def.mc ? ["mc"] : []), ...Object.keys(def.buses).filter((b) => !def.buses[b].fx)];
+
 export const isBipolar = (def, sendId) => !!def.sends[sendId]?.bipolar;
 export const tapeIndex = (def) => def.channels.length;
 
@@ -66,6 +69,7 @@ function createChannel(def, i) {
     // Ui16: each aux send is PRE (the default) or POST on each channel.
     pres: Object.fromEntries((c.sends || []).filter((s) => def.sends[s].tap === "each").map((s) => [s, def.sends[s].pre ?? true])),
     lr: def.lrSwitch ? true : undefined, // MAIN LR switch (X32)
+    mc: def.mc ? 0 : undefined, // MONO/CENTER send (full X32)
     dca: def.dca ? Object.fromEntries(Array.from({ length: def.dca }, (_, k) => [`d${k + 1}`, false])) : undefined,
     mgrp: def.muteGroups ? Object.fromEntries(Array.from({ length: def.muteGroups }, (_, k) => [`g${k + 1}`, false])) : undefined,
     peq: c.peq ? Object.fromEntries(PEQ_BANDS.map((b) => [b.id, { gain: 0, freq: b.freq, q: 0.7 }])) : undefined,
@@ -93,6 +97,12 @@ export function createState(id) {
   // Masters start at unity (U), whatever their law.
   for (const [b, bus] of Object.entries(def.buses)) state[b] = { level: bus.master ? LAWS[bus.master.law].toPos(0) : 1, pre: bus.preSwitch ? true : undefined, solo: bus.solo ? false : undefined, mute: bus.mute ? false : undefined };
   if (def.mainMute) state.main.mute = false;
+  // Full X32: bus masters into MAIN LR (subgroups), M/C, matrices, output routing, scenes.
+  if (def.busToMain) for (const [b, bus] of Object.entries(def.buses)) if (!bus.fx) Object.assign(state[b], { lr: false, pan: 0 });
+  if (def.mc) state.mc = { level: LAWS.level.toPos(0), mute: false };
+  for (let k = 1; k <= (def.matrix || 0); k++) state[`mtx${k}`] = { level: LAWS.level.toPos(0), mute: false, ...Object.fromEntries(matrixSources(def).map((src) => [src, 0])) };
+  if (def.routing) state.routing = Object.fromEntries(def.routing.outputs.map((o) => [o, def.routing.start[o] || "off"]));
+  if (def.scenes) state.scenes = Array.from({ length: def.scenes }, () => null);
   // DCA groups (a fader and a MUTE each, nothing summed) and mute groups (X32).
   for (let k = 1; k <= (def.dca || 0); k++) state[`dca${k}`] = { level: LAWS.level.toPos(0), mute: false };
   if (def.muteGroups) state.mgrp = Object.fromEntries(Array.from({ length: def.muteGroups }, (_, k) => [`g${k + 1}`, false]));
@@ -149,6 +159,8 @@ export function sanitizeChannel(def, ch, key, value) {
       return def.lrSwitch ? bool(value) : undefined;
     case "pad":
       return c.gain.pad ? bool(value) : undefined;
+    case "mc":
+      return def.mc && !ch.tape ? range(0, 1)(value) : undefined;
     case "lowCut":
       return c.lowCut ? bool(value) : undefined;
     case "comp":
@@ -178,7 +190,10 @@ export function sanitizeChannel(def, ch, key, value) {
 
 export function busKeys(def) {
   const keys = { main: { level: range(0, 1), ...(def.mainMute ? { mute: bool } : {}) } };
-  for (const [b, bus] of Object.entries(def.buses)) keys[b] = { ...(bus.master ? { level: range(0, 1) } : {}), ...(bus.preSwitch ? { pre: bool } : {}), ...(bus.solo ? { solo: bool } : {}), ...(bus.mute ? { mute: bool } : {}) };
+  for (const [b, bus] of Object.entries(def.buses)) keys[b] = { ...(bus.master ? { level: range(0, 1) } : {}), ...(bus.preSwitch ? { pre: bool } : {}), ...(bus.solo ? { solo: bool } : {}), ...(bus.mute ? { mute: bool } : {}), ...(def.busToMain && !bus.fx ? { lr: bool, pan: range(-1, 1) } : {}) };
+  if (def.mc) keys.mc = { level: range(0, 1), mute: bool };
+  for (let k = 1; k <= (def.matrix || 0); k++) keys[`mtx${k}`] = { level: range(0, 1), mute: bool, ...Object.fromEntries(matrixSources(def).map((src) => [src, range(0, 1)])) };
+  if (def.routing) keys.routing = Object.fromEntries(def.routing.outputs.map((o) => [o, (v) => (def.routing.sources.includes(v) ? v : undefined)]));
   for (let k = 1; k <= (def.dca || 0); k++) keys[`dca${k}`] = { level: range(0, 1), mute: bool };
   if (def.prePoint) keys.auxSetup = { prePoint: (v) => (v === "preOn" || v === "postOn" ? v : undefined) };
   if (def.muteGroups) keys.mgrp = Object.fromEntries(Array.from({ length: def.muteGroups }, (_, k) => [`g${k + 1}`, bool]));
@@ -218,7 +233,9 @@ export function fxPreset(def, program) {
 
 export function listenList(def) {
   const l = ["main"];
-  for (const b of Object.keys(def.buses)) if (/^(aux|mix)\d$/.test(b) && !def.buses[b].fx && !def.buses[b].noOut) l.push(b);
+  for (const b of Object.keys(def.buses)) if (/^(aux|mix)\d+$/.test(b) && !def.buses[b].fx && !def.buses[b].noOut) l.push(b);
+  if (def.mc) l.push("mc");
+  for (let k = 1; k <= (def.matrix || 0); k++) l.push(`mtx${k}`);
   if (def.alt) l.push("alt");
   if (def.monitorOut) l.push("monitor");
   def.channels.forEach((c, i) => c.insert && l.push(`insert${i + 1}`));
@@ -247,7 +264,10 @@ export function channelControl(def, state, i) {
   return { dcaDb, muted: (!!def.channels[i]?.mute && !ch.enabled) || dcaMuted || grouped, toMain: !def.lrSwitch || ch.lr !== false };
 }
 
-export function listenGroupOf(portId) {
+// With output ROUTING (full X32) a port carries whatever is patched to it.
+export function listenGroupOf(portId, state) {
+  const routed = state?.routing?.[portId];
+  if (routed) return routed === "main-l" || routed === "main-r" ? "main" : routed;
   if (/^(main|line|tape-out|rec-out|spk)-[lr]$/.test(portId) || portId === "sub-out" || portId === "tape-mini") return "main";
   if (portId === "mon-l" || portId === "mon-r") return "monitor";
   if (portId === "alt-l" || portId === "alt-r") return "alt";
@@ -285,12 +305,14 @@ export function balanceGains(pan) {
 
 const OFF = -Infinity;
 const powerSum = (list) => gainToDb(Math.sqrt(list.reduce((acc, db) => acc + Math.pow(10, db / 10), 0)));
+// The same signal by two paths (direct and through a subgroup) adds in amplitude.
+const ampSum = (list) => gainToDb(list.reduce((a, db) => a + dbToGain(db), 0));
 
 export function computeMix(def, state, sourcesById, stems, sourcePeakDb) {
   const rig = analyzeRig(state.rig, state.channels, sourcesById);
   const mainDb = def.mainMute && state.main.mute ? OFF : LAWS[def.main.law].toDb(state.main.level);
   const reachable = new Set(Object.entries(rig.buses).filter(([, ends]) => ends.length).map(([p]) => p));
-  const heardBus = (bus) => [...reachable].some((p) => listenGroupOf(p) === bus);
+  const heardBus = (bus) => [...reachable].some((p) => listenGroupOf(p, state) === bus);
   const masterDb = (b) => (def.buses[b]?.mute && state[b].mute ? OFF : def.buses[b]?.master ? LAWS[def.buses[b].master.law].toDb(state[b].level) : 0);
   const buses = Object.keys(def.buses);
 
@@ -340,8 +362,33 @@ export function computeMix(def, state, sourcesById, stems, sourcePeakDb) {
     const altDb = muted && c.mute === "alt" ? { L: side("L", levelled), R: side("R", levelled) } : { L: OFF, R: OFF };
     const toMainAlt = state.alt?.toMain ? altDb : { L: OFF, R: OFF };
     const toMainDb = ctl.toMain ? postDb : OFF; // MAIN LR off: still in the post-fader sends, not the main mix
-    const L = Math.max(side("L", toMainDb), toMainAlt.L) + mainDb;
-    const R = Math.max(side("R", toMainDb), toMainAlt.R) + mainDb;
+    // Subgroups (full X32): a MIX bus assigned to MAIN LR carries this channel there too.
+    const viaBus = { L: [], R: [] };
+    if (def.busToMain)
+      for (const b of buses) {
+        if (def.buses[b].fx || !state[b].lr || aux[b].monitorDb === OFF) continue;
+        const bp = panGains(state[b].pan);
+        viaBus.L.push(aux[b].monitorDb + gainToDb(bp.L));
+        viaBus.R.push(aux[b].monitorDb + gainToDb(bp.R));
+      }
+    const L = ampSum([Math.max(side("L", toMainDb), toMainAlt.L), ...viaBus.L]) + mainDb;
+    const R = ampSum([Math.max(side("R", toMainDb), toMainAlt.R), ...viaBus.R]) + mainDb;
+    // MONO/CENTER: a post-fader send and the M/C fader.
+    if (def.mc) {
+      const sendDb = LAWS.level.toDb(ch.mc);
+      const mcDb = postDb + sendDb + (state.mc.mute ? OFF : LAWS.level.toDb(state.mc.level));
+      aux.mc = { sendDb, monitorDb: mcDb, heardDb: heardBus("mc") ? mcDb : OFF };
+    }
+    // Matrices: each source (MAIN LR, M/C, a MIX) at the matrix's send level, then its fader.
+    for (let k = 1; k <= (def.matrix || 0); k++) {
+      const m = state[`mtx${k}`];
+      const parts = matrixSources(def).map((src) => {
+        const from = src === "main" ? Math.max(L, R) : aux[src]?.monitorDb ?? OFF;
+        return from + LAWS.level.toDb(m[src]);
+      });
+      const mtxDb = m.mute ? OFF : powerSum(parts) + LAWS.level.toDb(m.level);
+      aux[`mtx${k}`] = { sendDb: OFF, monitorDb: mtxDb, heardDb: heardBus(`mtx${k}`) ? mtxDb : OFF };
+    }
     const pflDb = ch.solo ? (state.soloBus?.mode === "sip" ? levelled : inputPeakDb) : OFF;
     return { ...base, inputPeakDb, band: inputBand(inputPeakDb), faderDb, mainDb: { L, R }, heardMainDb: heardBus("main") ? Math.max(L, R) : OFF, altDb, pflDb };
   });
@@ -351,7 +398,10 @@ export function computeMix(def, state, sourcesById, stems, sourcePeakDb) {
     "main-r": { peakDb: powerSum(channels.map((c) => c.mainDb.R)), endpoints: rig.buses["main-r"] || rig.buses["spk-r"] || [] },
     ...Object.fromEntries(buses.map((b) => [b, { peakDb: powerSum(channels.map((c) => c.aux[b].monitorDb)), endpoints: rig.buses[b] || [] }])),
   };
-  return { rig, channels, outputs, mainMasterDb: mainDb, busDb: Object.fromEntries(buses.map((b) => [b, masterDb(b)])), phones: phonesOf(def, state) };
+  const busDb = Object.fromEntries(buses.map((b) => [b, masterDb(b)]));
+  if (def.mc) busDb.mc = state.mc.mute ? OFF : LAWS.level.toDb(state.mc.level);
+  for (let k = 1; k <= (def.matrix || 0); k++) busDb[`mtx${k}`] = state[`mtx${k}`].mute ? OFF : LAWS.level.toDb(state[`mtx${k}`].level);
+  return { rig, channels, outputs, mainMasterDb: mainDb, busDb, phones: phonesOf(def, state) };
 }
 
 // Linked channels (442 1+2 LINK ON): who leads, and this channel's L/R gains.

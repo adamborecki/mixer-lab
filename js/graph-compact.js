@@ -47,7 +47,8 @@ export function buildCompactGraph(kit, def) {
   }
   const altBus = def.alt ? pair() : null;
   const pflBus = mono();
-  const sipBus = pair(); // SOLO in place (Xenyx MODE up)
+  const sipBus = pair();
+  const mcBus = def.mc ? mono() : null; // MONO/CENTER (full X32) // SOLO in place (Xenyx MODE up)
   const reverbBus = def.reverb ? mono() : null;
 
   // ---------- channels ----------
@@ -233,9 +234,14 @@ export function buildCompactGraph(kit, def) {
         (s.tap === "fader" ? level : post).connect(sends[sid].post).connect(dest);
       }
     }
+    let mcSend = null;
+    if (mcBus) {
+      mcSend = mono(0);
+      post.connect(mcSend).connect(mcBus);
+    }
     const pfl = mono(0);
     if (c.solo) tapEq.connect(pfl).connect(pflBus);
-    return { input, pre, popIn, polarity, hpf, limiter, lowCut, comp, peq, preMute, lrGate, eq, meter, stMono, level, mainGate, pan, sip, altGate, altPan, sends, pflGain: c.solo ? pfl : null, stereo };
+    return { input, pre, popIn, polarity, hpf, limiter, lowCut, comp, peq, preMute, lrGate, mcSend, eq, meter, stMono, level, mainGate, pan, sip, altGate, altPan, sends, pflGain: c.solo ? pfl : null, stereo };
   });
 
   // ---------- tape in ----------
@@ -476,6 +482,55 @@ export function buildCompactGraph(kit, def) {
     outputs[`${k}-r`] = masterOut.R;
   }
 
+  // ---------- full X32: subgroups, M/C, matrices, output routing ----------
+  const busToMain = {};
+  if (def.busToMain) {
+    for (const b of busIds) {
+      if (def.buses[b].fx) continue;
+      const gate = mono(0);
+      const panner = track(ctx.createStereoPanner());
+      const split = track(ctx.createChannelSplitter(2));
+      auxMaster[b].connect(gate).connect(panner).connect(split);
+      split.connect(mainBus.L, 0);
+      split.connect(mainBus.R, 1);
+      busToMain[b] = { gate, panner };
+    }
+  }
+  let mcMaster = null;
+  if (mcBus) {
+    mcMaster = mono(1);
+    mcBus.connect(mcMaster);
+  }
+  const matrices = [];
+  for (let k = 1; k <= (def.matrix || 0); k++) {
+    const bus = mono();
+    const master = mono(1);
+    bus.connect(master);
+    const sends = {};
+    const feed = (src, node, g = 1) => {
+      const s = mono(0);
+      node.connect(s).connect(bus);
+      (sends[src] ||= []).push({ s, g });
+    };
+    feed("main", masterOut.L, 0.5);
+    feed("main", masterOut.R, 0.5);
+    if (mcMaster) feed("mc", mcMaster);
+    for (const b of busIds) if (!def.buses[b].fx) feed(b, auxMaster[b]);
+    matrices.push({ id: `mtx${k}`, master, sends });
+  }
+  // XLR OUT 1–16 carry whatever the ROUTING page patches to them.
+  const routeSources = def.routing
+    ? { "main-l": masterOut.L, "main-r": masterOut.R, ...(mcMaster ? { mc: mcMaster } : {}), ...Object.fromEntries(busIds.filter((b) => !def.buses[b].fx).map((b) => [b, auxMaster[b]])), ...Object.fromEntries(matrices.map((m) => [m.id, m.master])) }
+    : null;
+  const routed = {};
+  if (def.routing) {
+    for (const o of def.routing.outputs) {
+      outputs[o] = mono(1);
+      routed[o] = null;
+    }
+    for (const b of busIds) delete outputs[b];
+  }
+
   // ---------- C-R / PHONES ----------
   const crSum = pair();
   const selector = !!def.phones?.selector;
@@ -639,6 +694,7 @@ export function buildCompactGraph(kit, def) {
         set(s.level.gain, dbToGain(lvl) * (link ? Math.max(link.gains.L, link.gains.R) : 1));
         const muted = ctl.muted;
         if (s.lrGate) set(s.lrGate.gain, on(ctl.toMain));
+        if (s.mcSend) set(s.mcSend.gain, dbToGain(LAWS.level.toDb(ch.mc)));
         set(s.mainGate.gain, on(!muted));
         if (s.preMute) set(s.preMute.gain, on(!(muted && muteCutsPre(def, state))));
         set(s.pan.pan, link ? (link.gains.L > 0 ? -1 : 1) : ch.pan);
@@ -711,6 +767,25 @@ export function buildCompactGraph(kit, def) {
       if (altToMain) for (const side of ["L", "R"]) set(altToMain[side].gain, on(!!state.alt.toMain));
       if (altOut !== altBus) for (const side of ["L", "R"]) set(altOut[side].gain, dbToGain(LAWS.level.toDb(state.alt.level)));
       for (const [b, g] of Object.entries(auxSolo)) set(g.gain, on(state[b].solo));
+      for (const [b, t] of Object.entries(busToMain)) {
+        set(t.gate.gain, on(state[b].lr));
+        set(t.panner.pan, state[b].pan);
+      }
+      if (mcMaster) set(mcMaster.gain, state.mc.mute ? 0 : dbToGain(LAWS.level.toDb(state.mc.level)));
+      for (const m of matrices) {
+        const st = state[m.id];
+        set(m.master.gain, st.mute ? 0 : dbToGain(LAWS.level.toDb(st.level)));
+        for (const [src, list] of Object.entries(m.sends)) for (const { s, g } of list) set(s.gain, g * dbToGain(LAWS.level.toDb(st[src])));
+      }
+      if (routeSources) {
+        for (const o of def.routing.outputs) {
+          const want = state.routing[o];
+          if (routed[o] === want) continue;
+          if (routed[o] && routeSources[routed[o]]) routeSources[routed[o]].disconnect(outputs[o]);
+          if (routeSources[want]) routeSources[want].connect(outputs[o]);
+          routed[o] = want;
+        }
+      }
       if (fx) {
         const used = rig.returns?.[def.fx.ret] || { L: false, R: false };
         const internal = !used.L && !used.R;

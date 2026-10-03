@@ -46,7 +46,7 @@ export const hardware = (model) => (model === "cr1604" ? CR1604 : compactModel(m
 export const listenDestinations = (state) => (modelOf(state) === "generic" ? LISTEN_DESTINATIONS : hardware(modelOf(state)).LISTEN);
 // The listening group a mixer output feeds (Main L and R are both "main").
 export function listenGroupOf(state, portId) {
-  if (modelOf(state) !== "generic") return hardware(modelOf(state)).listenGroupOf(portId);
+  if (modelOf(state) !== "generic") return hardware(modelOf(state)).listenGroupOf(portId, state);
   return portId === "main-l" || portId === "main-r" ? "main" : portId;
 }
 
@@ -176,6 +176,23 @@ export class MixerStore {
     this.state = state;
     this.rigVersion++;
     this.emit({ type: "replace" });
+  }
+
+  // SCENES (full X32): store the mixer's settings in a slot, or recall them.
+  // A scene holds everything but the cables, the listening position and the scenes.
+  storeScene(n, name) {
+    const scenes = this.state.scenes;
+    if (!scenes || !(n in scenes)) return;
+    const { rig, listen, scenes: _s, ...settings } = this.state;
+    scenes[n] = { name: String(name || scenes[n]?.name || `Scene ${n + 1}`).slice(0, 24), settings: structuredClone(settings) };
+    this.emit({ type: "scene", action: "store", n });
+  }
+
+  recallScene(n) {
+    const scene = this.state.scenes?.[n];
+    if (!scene) return;
+    Object.assign(this.state, structuredClone(scene.settings));
+    this.emit({ type: "scene", action: "recall", n });
   }
 
   setChannel(index, key, value) {

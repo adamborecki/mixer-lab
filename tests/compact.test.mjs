@@ -535,3 +535,52 @@ describe("Yamaha 01V96i", () => {
     assert.ok(!listenDestinations(createMixerState("yam01v96")).includes("aux5"));
   });
 });
+
+describe("Behringer X32 (full size)", () => {
+  it("ROUTING decides what an XLR OUT carries, and so what its speaker plays", () => {
+    const st = gig("x32");
+    assert.equal(listenGroupOf(st.state, "out15"), "main");
+    assert.equal(listenGroupOf(st.state, "out1"), "mix1");
+    st.setBus("routing", "out1", "mtx3");
+    assert.equal(listenGroupOf(st.state, "out1"), "mtx3");
+    assert.equal(ch(st, "lead-vocal").aux.mix1.heardDb, -Infinity, "MIX 1 no longer reaches the wedge");
+    st.setBus("routing", "out1", "nonsense");
+    assert.equal(st.state.routing.out1, "mtx3");
+  });
+
+  it("a subgroup carries its channels into MAIN LR at the bus fader's level", () => {
+    const st = gig("x32");
+    const drums = ch(st, "drums").mainDb.L;
+    st.setChannel(0, "sends.mix9", LAWS.level.toPos(0));
+    st.setChannel(0, "lr", false);
+    assert.equal(ch(st, "drums").mainDb.L, -Infinity);
+    st.setBus("mix9", "lr", true);
+    near(ch(st, "drums").mainDb.L, drums, 0.2);
+    st.setBus("mix9", "level", LAWS.level.toPos(-6));
+    near(ch(st, "drums").mainDb.L, drums - 6, 0.2);
+  });
+
+  it("M/C is a post-fader mono send with its own fader; a matrix mixes MAIN, M/C and the buses", () => {
+    const st = gig("x32");
+    st.setChannel(6, "mc", LAWS.level.toPos(0));
+    const v = ch(st, "lead-vocal");
+    near(v.aux.mc.monitorDb, v.inputPeakDb + v.faderDb);
+    assert.equal(v.aux.mtx1.monitorDb, -Infinity, "a matrix starts with nothing in it");
+    st.setBus("mtx1", "main", LAWS.level.toPos(0));
+    near(ch(st, "lead-vocal").aux.mtx1.monitorDb, Math.max(v.mainDb.L, v.mainDb.R), 0.2);
+    st.setBus("mtx1", "level", LAWS.level.toPos(-10));
+    near(ch(st, "lead-vocal").aux.mtx1.monitorDb, Math.max(v.mainDb.L, v.mainDb.R) - 10, 0.2);
+  });
+
+  it("scenes store and recall settings but leave the cables alone", () => {
+    const st = gig("x32");
+    const cables = st.state.rig.cables.length;
+    st.storeScene(4, "Test");
+    st.setChannel(6, "enabled", false);
+    st.disconnect(st.state.rig.cables[0].id);
+    st.recallScene(4);
+    assert.equal(st.state.channels[6].enabled, true);
+    assert.equal(st.state.rig.cables.length, cables - 1);
+    assert.equal(st.state.scenes[4].name, "Test");
+  });
+});

@@ -135,7 +135,8 @@ export class AudioEngine {
     }
     if (change.type === "replace" || change.type === "rig") this.syncDevices(state);
     if (this.mixer.pop) this.firePops(state, change);
-    if (change.type === "rig" || change.type === "replace") this.rewire();
+    // Output ROUTING and scene recalls change which speakers hear which bus.
+    if (change.type === "rig" || change.type === "replace" || change.type === "scene" || (change.type === "bus" && change.bus === "routing")) this.rewire();
     this.applyAll();
   }
 

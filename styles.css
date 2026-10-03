@@ -3650,3 +3650,67 @@ dialog::backdrop {
     --fader-h: 130px;
   }
 }
+
+/* Full-size X32: wider banks, ROUTING and SCENES pages on the main display */
+.skin-x32 .mixer-surface.x32-surface {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+  background: linear-gradient(180deg, #1d2026 0%, #131519 100%);
+  border: 1px solid #2c303a;
+  border-radius: var(--radius-md);
+  padding: 0.6rem;
+}
+.skin-x32 .fader {
+  --fader-h: 170px;
+  width: 30px;
+}
+.x32-full .x32-inputs {
+  flex: 1 1 100%;
+}
+.x32-full .x32-strip,
+.x32-full .x32-empty {
+  width: 58px;
+}
+.x32-routing,
+.x32-scenes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 340px;
+  overflow-y: auto;
+}
+.x32-route,
+.x32-scene {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  justify-content: space-between;
+}
+.x32-route select {
+  font: inherit;
+  font-size: 0.72rem;
+  background: #0b141c;
+  color: #cfe9ff;
+  border: 1px solid #2e4a63;
+  border-radius: 4px;
+  padding: 0.2rem;
+  min-height: 30px;
+}
+.x32-scene-name {
+  flex: 1;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.x32-scene .x32-layer:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+@media (max-width: 899px) {
+  .skin-x32 .mixer-surface.x32-surface {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .skin-x32 .fader {
+    --fader-h: 140px;
+  }
+}

@@ -650,10 +650,81 @@ Object.assign(WRONG, {
   }]],
 });
 
+
+// ----- Behringer X32 (full size) -----
+Object.assign(SOLVE, {
+  "x32-doors": (a) => a.faderDb("preshow", 0),
+  "x32-room": (a) => {
+    a.set("room-l", "phantom", true);
+    a.set("room-r", "phantom", true);
+  },
+  "x32-routing-house": (a) => {
+    a.st.setBus("routing", "out15", "main-l");
+    a.st.setBus("routing", "out16", "main-r");
+  },
+  "x32-routing-wedge": (a) => {
+    a.st.setBus("routing", "out9", "mix1");
+    a.st.setListen("mix1");
+  },
+  "x32-mc": (a) => {
+    a.set("lead-vocal", "mc", LAWS.level.toPos(0));
+    a.set("backing-vocals", "mc", LAWS.level.toPos(-3));
+    a.st.setBus("routing", "out11", "mc");
+  },
+  "x32-matrix": (a) => {
+    a.st.setBus("mtx1", "main", LAWS.level.toPos(0));
+    a.st.setBus("routing", "out12", "mtx1");
+  },
+  "x32-subgroup": (a) => {
+    for (const s of ["drums", "bass"]) {
+      a.sendDb(s, "mix9", 0);
+      a.set(s, "lr", false);
+    }
+    a.st.setBus("mix9", "lr", true);
+    a.st.setBus("mix9", "level", LAWS.level.toPos(-6));
+  },
+  "x32-fx": (a) => {
+    a.sendDb("keys", "mix16", -6);
+    a.st.setBus("mix16", "level", LAWS.level.toPos(0));
+  },
+  "x32-scene-recall": (a) => a.st.recallScene(1),
+  "x32-scene-store": (a) => a.st.storeScene(2, "Encore"),
+  "x32-bus9": (a) => {
+    a.st.setListen("mix10");
+    a.st.setBus("mix10", "level", LAWS.level.toPos(0));
+  },
+});
+
+Object.assign(WRONG, {
+  "x32-room": [["more GAIN", (a) => a.set("room-l", "gainDb", 60)]],
+  "x32-routing-house": [["MAIN LR fader up", (a) => a.st.setBus("main", "level", 1)], ["only one side", (a) => a.st.setBus("routing", "out15", "main-l")]],
+  "x32-routing-wedge": [["MAIN routed to the wedge", (a) => {
+    a.st.setBus("routing", "out9", "main-l");
+    a.st.setListen("mix1");
+  }]],
+  "x32-mc": [["M/C routed but nothing sent to it", (a) => a.st.setBus("routing", "out11", "mc")], ["the house routed to the front fill", (a) => {
+    a.st.setBus("routing", "out11", "main-l");
+  }]],
+  "x32-matrix": [["MAIN L straight to the lobby", (a) => a.st.setBus("routing", "out12", "main-l")]],
+  "x32-subgroup": [["subgroup, channels still in LR", (a) => {
+    for (const s of ["drums", "bass"]) a.sendDb(s, "mix9", 0);
+    a.st.setBus("mix9", "lr", true);
+    a.st.setBus("mix9", "level", LAWS.level.toPos(-6));
+  }], ["channel faders down", (a) => {
+    a.nudge("drums", -6);
+    a.nudge("bass", -6);
+  }]],
+  "x32-fx": [["only the return", (a) => a.st.setBus("mix16", "level", LAWS.level.toPos(0))]],
+  "x32-scene-recall": [["three mutes by hand", (a) => {
+    for (const s of ["drums", "bass", "trumpets"]) a.set(s, "enabled", false);
+  }]],
+  "x32-scene-store": [["stored over scene 2", (a) => a.st.storeScene(1, "Encore")]],
+});
+
 describe("board scenarios: data", () => {
   it("validate, and every board has at least nine, numbered from 1", () => {
     assert.deepEqual(validateScenarios(), []);
-    for (const board of ["mix8", "vlz1202", "mg102", "stagepas400bt", "x1204usb", "sd442", "ui16", "cr1604", "x32c", "yam01v96"]) {
+    for (const board of ["mix8", "vlz1202", "mg102", "stagepas400bt", "x1204usb", "sd442", "ui16", "cr1604", "x32c", "yam01v96", "x32"]) {
       const list = scenariosFor(board).filter((s) => s.number > 0);
       assert.ok(list.length >= 9, `${board}: ${list.length}`);
       assert.deepEqual(list.map((s) => s.number), list.map((_, i) => i + 1), board);

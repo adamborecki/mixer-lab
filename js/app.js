@@ -111,7 +111,7 @@ store.subscribe((state, change) => {
   pending.any = true;
   if (change.type !== "replace") countAction(change);
   if (change.type === "listen") current.session.listened.add(state.listen);
-  if (change.type === "rig" || change.type === "replace" || (change.type === "channel" && change.key === "phantom")) pending.patch = true;
+  if (change.type === "rig" || change.type === "replace" || change.type === "scene" || (change.type === "bus" && change.bus === "routing") || (change.type === "channel" && change.key === "phantom")) pending.patch = true;
   // Recorder settings show on its Outputs card (the mic pair and reverb update their own readouts);
   // a camera's MIC/LINE switch and the 442's OUTPUT LEVEL change what the camera cards say.
   if (change.type === "device" && ["zoom-f8", "camera-input"].includes(state.rig.devices.find((d) => d.id === change.id)?.type)) pending.patch = true;

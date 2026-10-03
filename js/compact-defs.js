@@ -347,6 +347,18 @@ export const COMPACT = {
     peakLabel: "CLIP",
     outputs: ["x32Outs"],
     layout: { kind: "x32" },
+    surface: {
+      inputLayers: [
+        { id: "ch1", label: "CH 1-8", channels: [0, 1, 2, 3, 4, 5, 6, 7] },
+        { id: "ch9", label: "CH 9-16", channels: [8, 9, 10, 11, 12, 13, 14, 15] },
+        { id: "aux", label: "AUX / FX", channels: [16], fx: ["fx1", "fx2"] },
+      ],
+      groupLayers: [
+        { id: "dca", label: "DCA 1-8" },
+        { id: "bus", label: "BUS 1-8", buses: ["mix1", "mix2", "mix3", "mix4", "mix5", "mix6"] },
+      ],
+      bank: 8,
+    },
   },
 
   // Yamaha 01V96i (Reference Manual): INPUT 1–12 (XLR A or TRS B, PAD, GAIN,
@@ -412,6 +424,83 @@ export const COMPACT = {
     outputs: ["omni"],
     layout: { kind: "01v96" },
   },
+
+  // Behringer X32 (full size, user manual): 32 local XLR inputs, 16 input
+  // faders on layers, 8 group faders (DCA, BUS 1-8, BUS 9-16, MATRIX), 16 mix
+  // buses (each can also feed MAIN LR as a subgroup), the MONO/CENTER bus,
+  // 6 matrices, an FX rack on buses 13–16 returning on FX RTN 1–4, output
+  // ROUTING for the 16 XLR outs, and SCENES. Drawn by js/ui/mixer-x32-view.js.
+  x32: {
+    id: "x32",
+    name: "Behringer X32",
+    blurb: "The full console: 32 inputs, 16 mix buses (also subgroups), MONO/CENTER, 6 matrices, an FX rack, output routing and scenes.",
+    digital: true,
+    phantom: { label: "48V", channels: Array.from({ length: 32 }, (_, i) => i), perChannel: true },
+    channels: [
+      ...Array.from({ length: 32 }, (_, i) => ({
+        label: String(i + 1).padStart(2, "0"),
+        kind: "mono",
+        jacks: ["mic"],
+        gain: { min: -12, max: 60 },
+        hpf: { min: 20, max: 400 },
+        peq: true,
+        dyn: true,
+        polarity: true,
+        sends: Array.from({ length: 16 }, (_, k) => `mix${k + 1}`),
+        mute: "mute",
+        solo: true,
+        peak: true,
+      })),
+      { label: "AUX 1/2", kind: "stereo", jacks: ["linePair"], gain: { min: -12, max: 20 }, peq: true, dyn: true, sends: Array.from({ length: 16 }, (_, k) => `mix${k + 1}`), mute: "mute", solo: true, peak: true },
+    ],
+    sends: Object.fromEntries(Array.from({ length: 16 }, (_, k) => [`mix${k + 1}`, { label: `MIX ${k + 1}`, bus: `mix${k + 1}`, tap: k < 12 ? "each" : "post", pre: false, law: "level" }])),
+    buses: {
+      ...Object.fromEntries(Array.from({ length: 12 }, (_, k) => [`mix${k + 1}`, { label: `MIX ${k + 1}`, master: { label: `MIX ${k + 1}`, law: "level" }, mute: true }])),
+      // The FX rack: MIX 13–16 feed FX 1–4; their returns (FX RTN 1–4) come back into MAIN LR.
+      mix13: { label: "MIX 13", master: { label: "FX 1 RTN", law: "level" }, fx: { name: "Vintage Room (FX 1)", kind: "reverb", seconds: 1.4, number: 1 } },
+      mix14: { label: "MIX 14", master: { label: "FX 2 RTN", law: "level" }, fx: { name: "Plate Reverb (FX 2)", kind: "reverb", seconds: 2.4, number: 5 } },
+      mix15: { label: "MIX 15", master: { label: "FX 3 RTN", law: "level" }, fx: { name: "Stereo Delay (FX 3)", kind: "delay", seconds: 0.375, feedback: 0.35, number: 8 } },
+      mix16: { label: "MIX 16", master: { label: "FX 4 RTN", law: "level" }, fx: { name: "Stereo Chorus (FX 4)", kind: "chorus", rate: 0.8, depth: 0.004, number: 11 } },
+    },
+    busToMain: true, // a MIX bus master can be assigned to MAIN LR (with its own PAN): a subgroup
+    mc: true, // MONO/CENTER bus: a post-fader send per channel, its own fader
+    matrix: 6, // MATRIX 1–6: fed from MAIN LR, M/C and MIX 1–12
+    scenes: 8,
+    routing: {
+      outputs: Array.from({ length: 16 }, (_, k) => `out${k + 1}`),
+      sources: ["off", "main-l", "main-r", "mc", ...Array.from({ length: 12 }, (_, k) => `mix${k + 1}`), ...Array.from({ length: 6 }, (_, k) => `mtx${k + 1}`)],
+      // The lab's starting patch: MIX 1–8 on XLR OUT 1–8, MAIN L/R on 15/16, the rest off.
+      start: { ...Object.fromEntries(Array.from({ length: 8 }, (_, k) => [`out${k + 1}`, `mix${k + 1}`])), out15: "main-l", out16: "main-r" },
+    },
+    muteCutsPre: true,
+    lrSwitch: true,
+    dca: 8,
+    muteGroups: 6,
+    mainMute: true,
+    main: { label: "MAIN LR", law: "level" },
+    phones: { label: "PHONES", sources: null },
+    solo: { mode: "pfl", label: "SOLO" },
+    meter: [-54, -48, -42, -36, -30, -24, -18, -12, -6, "CLIP"],
+    peakLabel: "CLIP",
+    outputs: ["routed"],
+    layout: { kind: "x32" },
+    surface: {
+      inputLayers: [
+        { id: "ch1", label: "CH 1-16", channels: Array.from({ length: 16 }, (_, i) => i) },
+        { id: "ch17", label: "CH 17-32", channels: Array.from({ length: 16 }, (_, i) => i + 16) },
+        { id: "aux", label: "AUX IN / USB", channels: [32] },
+        { id: "fx", label: "FX RETURNS", fx: ["mix13", "mix14", "mix15", "mix16"] },
+        { id: "bm", label: "BUS MASTER", buses: Array.from({ length: 16 }, (_, k) => `mix${k + 1}`) },
+      ],
+      groupLayers: [
+        { id: "dca", label: "DCA 1-8" },
+        { id: "bus", label: "BUS 1-8", buses: ["mix1", "mix2", "mix3", "mix4", "mix5", "mix6", "mix7", "mix8"] },
+        { id: "bus9", label: "BUS 9-16", buses: ["mix9", "mix10", "mix11", "mix12", "mix13", "mix14", "mix15", "mix16"] },
+        { id: "mtx", label: "MATRIX", buses: ["mtx1", "mtx2", "mtx3", "mtx4", "mtx5", "mtx6", "mc"] },
+      ],
+      bank: 16,
+    },
+  },
 };
 
 // ---------- rear panels (used by js/connection-model.js) ----------
@@ -451,6 +540,9 @@ export function compactPorts(def) {
   } else if (o.includes("xlrSwitched")) {
     // The level these carry is the mixer's OUTPUT LEVEL switch (rig device `outLevel`).
     ports.push(out("main-l", "xlr", "MASTER OUT L (XLR)", { bus: "main", side: "L", levelSwitch: true }), out("main-r", "xlr", "MASTER OUT R (XLR)", { bus: "main", side: "R", levelSwitch: true }));
+  } else if (o.includes("routed")) {
+    // 16 XLR outputs whose source is set on the ROUTING page (state.routing).
+    for (const id of def.routing.outputs) ports.push(out(id, "xlr", `XLR OUT ${id.slice(3)}`, { routed: true }));
   } else if (o.includes("omni")) {
     // STEREO OUT L/R (XLR) and OMNI OUT 1–4 (XLR), patched to AUX 1–4.
     ports.push(out("main-l", "xlr", "STEREO OUT L", { bus: "main", side: "L" }), out("main-r", "xlr", "STEREO OUT R", { bus: "main", side: "R" }));

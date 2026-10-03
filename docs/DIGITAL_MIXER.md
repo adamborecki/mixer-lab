@@ -60,6 +60,25 @@ The second digital mixer, laid out like a full console rather than a tablet app 
 
 **Assumptions to check on a real X32:** a channel's MUTE (and its mute groups, and a muted DCA) silences its bus sends too, pre-fader ones included; new mix-bus sends start POST; the effects are the lab's generic reverb and delay on two dedicated buses, not the X32's FX rack on buses 13–16. **Not built:** gate, inserts, matrices, MAIN C/MONO, layers 17-32 and BUS 9-16, scenes, routing pages, talkback, USB recording, the main display's pages (the display panel only reports what the faders are doing).
 
+## Behringer X32 (full size)
+
+The whole console, sharing the X32 Compact's model and surface (definition `x32`; the surface is data-driven through `def.surface`). What the Compact doesn't have:
+
+| On the desk | In the lab |
+|---|---|
+| 32 local XLR inputs; 16 input faders on layers CH 1-16, 17-32, AUX IN/USB, FX RETURNS, BUS MASTER | The same layers (the room pair lives on 17/18) |
+| Group faders: DCA 1-8, BUS 1-8, BUS 9-16, MATRIX 1-6 + MAIN C | The same four layers; MATRIX strips and M/C are selectable |
+| 16 mix buses; a bus can be a subgroup (its master assigned to MAIN LR with a PAN) | MIX 1–12 with MAIN LR and PAN on the bus master (`busToMain`): the model adds the bus path to the channel's main contribution in amplitude |
+| MONO/CENTER bus: a send per channel, its own fader | `ch.mc` (post-fader) and the M/C master |
+| 6 matrices, fed from MAIN LR, M/C and the buses | `mtx1`–`mtx6`, each with a send level per source and a fader; SEL MAIN, a MIX or M/C to see its matrix sends, or SEL a matrix to see its sources |
+| 8-slot FX rack, usually fed by MIX 13–16 and returning on FX RTN | MIX 13–16 feed FX 1–4 (room, plate, delay, chorus), back on the FX RETURNS layer |
+| ROUTING / analog out: any internal signal on any XLR OUT | The ROUTING page: XLR OUT 1–16, each OFF, MAIN L/R, M/C, MIX 1–12 or MATRIX 1–6 (`state.routing`). What a speaker hears follows the routing |
+| SCENES: store and recall | The SCENES page: 8 slots, STORE (with a name) and RECALL. A scene holds every setting but the cables, the listening position and the scenes |
+
+The lab's starting patch is MIX 1–8 on OUT 1–8 and MAIN L/R on OUT 15/16 (not necessarily the factory default). Scenes 1 (Full band) and 2 (Acoustic set) come preloaded.
+
+**Not built:** MAIN C/LCR panning, matrix pairing, bus-to-matrix taps other than post-fader, scene safes and recall filters, the rest of the FX models, AES50, talkback, user-assign controls.
+
 ## Yamaha 01V96i
 
 The third digital desk, and the classic "SEL + central screen" console (01V96i Reference Manual). Definition `yam01v96` in `js/compact-defs.js`; surface `js/ui/mixer-01v96-view.js` (skin layout `"01v96"`).

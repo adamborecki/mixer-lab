@@ -31,7 +31,7 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 | `js/progress.js`, `js/submission.js` | Solved-scenario tracking and per-scenario active time and action counts (localStorage) and the plain-text Canvas submission with its check code; pure, tested in `tests/submission.test.mjs`. `tools/verify-submission.mjs < file` re-checks a pasted submission |
 | `js/ui/icons.js` | Original SVG icon library (gear, plugs, jacks, signal and cable kinds) and the model → picture mapping (`deviceIconName`, `plugIconName`, `jackIconName`). Presentation only; tested in `tests/icons.test.mjs` |
 | `js/ui/mixer-01v96-view.js` | The Yamaha 01V96i surface: INPUT row, SELECTED CHANNEL, the display's pages, LAYER and FADER MODE ([DIGITAL_MIXER.md](DIGITAL_MIXER.md)) |
-| `js/ui/mixer-x32-view.js` | The Behringer X32 Compact surface: input and group layers, SEL, Sends on Faders, DCA and mute group assignment ([DIGITAL_MIXER.md](DIGITAL_MIXER.md)) |
+| `js/ui/mixer-x32-view.js` | The Behringer X32 and X32 Compact surface (from `def.surface`): input and group layers, SEL, Sends on Faders, DCA and mute group assignment, matrix and M/C panels, the ROUTING and SCENES pages ([DIGITAL_MIXER.md](DIGITAL_MIXER.md)) |
 | `js/ui/mixer-digital-view.js` | The digital mixer surface (Ui16): mix bar (sends on faders), SEL, the selected-channel panel ([DIGITAL_MIXER.md](DIGITAL_MIXER.md)) |
 | `js/ui/*.js` | `submission-view` (Canvas Submission dialog), `mixer-view` (renders a skin), `patch-view` (Sources/Outputs + patch dialog), `scenario-view`, `listen-bar`, `controls` (knob/fader/fine sheet), `flow` (signal-flow explainer) |
 | `js/meters.js` | Meter drawing and ballistics (levels come from AnalyserNodes) |
