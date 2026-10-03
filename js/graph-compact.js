@@ -16,7 +16,7 @@
 //           MASTER ─► output limiter (ON / LINK) ─► [TONE replaces the mix] ─► XLR OUTPUT LEVEL;
 //           HEADPHONE selector OFF/L/R/M/ST (PFL replaces it; TONE ear-saver −20 dB).
 
-import { EQ_FOR, LAWS, PEQ_BANDS, channelControl, channelGainDb, fxPreset, levelLaw, linkOf, reverbSetting, tapeIndex } from "./compact.js";
+import { EQ_FOR, LAWS, PEQ_BANDS, channelControl, channelGainDb, muteCutsPre, fxPreset, levelLaw, linkOf, reverbSetting, tapeIndex } from "./compact.js";
 import { HEADROOM_DB, dbToGain } from "./levels.js";
 import { DEVICE_TYPES } from "./connection-model.js";
 import { lowCutStage, popBuffer, shelfHz } from "./graph-kit.js";
@@ -177,7 +177,7 @@ export function buildCompactGraph(kit, def) {
     const level = chan(0);
     toLevel.connect(level);
     // With `muteCutsPre` the pre-fader sends come after the MUTE (Ui16).
-    const preMute = def.muteCutsPre ? chan(1) : null;
+    const preMute = def.muteCutsPre || def.prePoint ? chan(1) : null;
     if (preMute) tapEq.connect(preMute);
     const preTap = preMute || tapEq;
     const mainGate = chan(1);
@@ -640,7 +640,7 @@ export function buildCompactGraph(kit, def) {
         const muted = ctl.muted;
         if (s.lrGate) set(s.lrGate.gain, on(ctl.toMain));
         set(s.mainGate.gain, on(!muted));
-        if (s.preMute) set(s.preMute.gain, on(!muted));
+        if (s.preMute) set(s.preMute.gain, on(!(muted && muteCutsPre(def, state))));
         set(s.pan.pan, link ? (link.gains.L > 0 ? -1 : 1) : ch.pan);
         if (s.altGate) {
           set(s.altGate.gain, on(muted));

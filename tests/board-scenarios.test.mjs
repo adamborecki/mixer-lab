@@ -588,10 +588,72 @@ Object.assign(WRONG, {
   }]],
 });
 
+
+// ----- Yamaha 01V96i -----
+Object.assign(SOLVE, {
+  "yam01v96-doors": (a) => a.st.setChannel(a.tape(), "toMain", true),
+  "yam01v96-pad": (a) => {
+    a.set("keys", "pad", true);
+    a.set("keys", "gainDb", 30);
+  },
+  "yam01v96-phantom": (a) => {
+    for (const i of [0, 1, 2, 3]) a.st.setChannel(i, "phantom", true);
+  },
+  "yam01v96-on": (a) => a.set("bass", "enabled", true),
+  "yam01v96-fader-mode": (a) => {
+    a.st.setListen("aux1");
+    a.sendDb("lead-vocal", "aux1", 6);
+  },
+  "yam01v96-master": (a) => {
+    a.st.setListen("aux2");
+    a.st.setBus("aux2", "level", LAWS.level.toPos(0));
+  },
+  "yam01v96-eq": (a) => a.set("lead-vocal", "peq.hiMid.gain", -4),
+  "yam01v96-to-st": (a) => a.set("guitars", "lr", true),
+  "yam01v96-reverb": (a) => {
+    a.sendDb("lead-vocal", "aux7", -10);
+    a.st.setBus("aux7", "level", LAWS.level.toPos(0));
+  },
+  "yam01v96-pre-point": (a) => a.st.setBus("auxSetup", "prePoint", "preOn"),
+  "yam01v96-comp": (a) => {
+    a.set("bass", "dyn.threshold", -15);
+    a.set("bass", "dyn.ratio", 4);
+  },
+  "yam01v96-new-mix": (a) => {
+    a.st.setListen("aux3");
+    for (const s of ["guitars", "lead-vocal", "drums"]) a.set(s, "pres.aux3", true);
+    a.sendDb("guitars", "aux3", 0);
+    a.sendDb("lead-vocal", "aux3", 0);
+    a.sendDb("drums", "aux3", -8);
+  },
+});
+
+Object.assign(WRONG, {
+  "yam01v96-doors": [["the STEREO fader up", (a) => a.st.setBus("main", "level", 1)]],
+  "yam01v96-pad": [["GAIN down only", (a) => a.set("keys", "gainDb", 16)]],
+  "yam01v96-phantom": [["more GAIN", (a) => a.set("drums", "gainDb", 60)]],
+  "yam01v96-on": [["the fader up", (a) => a.nudge("bass", 6)]],
+  "yam01v96-fader-mode": [["the vocal's fader in HOME mode", (a) => {
+    a.st.setListen("aux1");
+    a.nudge("lead-vocal", 6);
+  }]],
+  "yam01v96-eq": [["a cut in the wrong band", (a) => a.set("lead-vocal", "peq.low.gain", -6)]],
+  "yam01v96-to-st": [["the fader up", (a) => a.nudge("guitars", 6)]],
+  "yam01v96-reverb": [["only the return", (a) => a.st.setBus("aux7", "level", LAWS.level.toPos(0))]],
+  "yam01v96-pre-point": [["the channel back ON", (a) => a.set("backing-vocals", "enabled", true)], ["a bigger AUX 1 send", (a) => a.sendDb("backing-vocals", "aux1", 10)]],
+  "yam01v96-comp": [["only OUT GAIN", (a) => a.set("bass", "dyn.makeup", 6)]],
+  "yam01v96-new-mix": [["sends left POST", (a) => {
+    a.st.setListen("aux3");
+    a.sendDb("guitars", "aux3", 0);
+    a.sendDb("lead-vocal", "aux3", 0);
+    a.sendDb("drums", "aux3", -8);
+  }]],
+});
+
 describe("board scenarios: data", () => {
   it("validate, and every board has at least nine, numbered from 1", () => {
     assert.deepEqual(validateScenarios(), []);
-    for (const board of ["mix8", "vlz1202", "mg102", "stagepas400bt", "x1204usb", "sd442", "ui16", "cr1604", "x32c"]) {
+    for (const board of ["mix8", "vlz1202", "mg102", "stagepas400bt", "x1204usb", "sd442", "ui16", "cr1604", "x32c", "yam01v96"]) {
       const list = scenariosFor(board).filter((s) => s.number > 0);
       assert.ok(list.length >= 9, `${board}: ${list.length}`);
       assert.deepEqual(list.map((s) => s.number), list.map((_, i) => i + 1), board);

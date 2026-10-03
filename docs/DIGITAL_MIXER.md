@@ -60,6 +60,23 @@ The second digital mixer, laid out like a full console rather than a tablet app 
 
 **Assumptions to check on a real X32:** a channel's MUTE (and its mute groups, and a muted DCA) silences its bus sends too, pre-fader ones included; new mix-bus sends start POST; the effects are the lab's generic reverb and delay on two dedicated buses, not the X32's FX rack on buses 13–16. **Not built:** gate, inserts, matrices, MAIN C/MONO, layers 17-32 and BUS 9-16, scenes, routing pages, talkback, USB recording, the main display's pages (the display panel only reports what the faders are doing).
 
+## Yamaha 01V96i
+
+The third digital desk, and the classic "SEL + central screen" console (01V96i Reference Manual). Definition `yam01v96` in `js/compact-defs.js`; surface `js/ui/mixer-01v96-view.js` (skin layout `"01v96"`).
+
+| On the desk | In the lab |
+|---|---|
+| INPUT 1–12 (XLR A / TRS B), PAD 20 dB, GAIN (sensitivity −60…−16 dB), PEAK/SIGNAL; INPUT 13–16 line (−26…+4) | The INPUT row: GAIN +16…+60 on 1–12 with PAD, −4…+26 on 13–16 |
+| Rear-panel PHANTOM +48V: CH1–4, 5–8, 9–12 | Three group switches in REAR PANEL |
+| 16 faders with SEL, SOLO, ON (lit = on); LAYER 1–16, 17–32, MASTER | LAYER 1–16 and MASTER (AUX 1–6 masters with ON) |
+| FADER MODE AUX 1–8, HOME | The same: AUX n turns the faders into that aux's sends |
+| SELECTED CHANNEL: PAN, band keys HIGH / HIGH-MID / LOW-MID / LOW, Q, FREQUENCY, GAIN | The same: one band at a time |
+| Display + DISPLAY ACCESS keys | Pages STATUS, PAN/ROUTING (TO ST, Ø, PAN), EQ (all four bands), DYNAMICS (THRESHOLD, RATIO, OUT GAIN), AUX (eight sends with PRE/POST), AUX SETUP (PRE POINT), PATCH (read only) |
+| AUX SETUP PRE POINT: PRE ON / POST ON | `auxSetup.prePoint`: with POST ON, a channel switched OFF also leaves its pre-fader sends |
+| ST IN 1–2 (effects returns), STEREO fader and ON, 2TR IN (AD 15/16 selector) | The same |
+
+**Patching (not the factory default):** the manual's default sends AUX 1–4 to both OMNI OUT 1–4 and effects 1–4. The lab uses the usual working patch instead: AUX 1–4 → OMNI OUT 1–4 only, AUX 7 → effect 1 (reverb) → ST IN 1, AUX 8 → effect 2 (delay) → ST IN 2. **Assumed:** sends start POST, PRE POINT starts POST ON. **Not built:** layer 17–32, buses 1–8, GATE, ATT, input delay, inserts, pairing, scenes, user-defined keys, the 2TR IN monitor selector.
+
 ## Where this could grow
 
-The same surface can carry a "proper" digital desk later: fader layers (1–16, 17–32), a central screen that changes with SEL, scenes, and mute groups. The Yamaha 01V96 would be the next step: the same SEL + central-screen idea, with fader layers and a fader mode for the aux sends.
+The same surface can carry a "proper" digital desk later: fader layers (1–16, 17–32), a central screen that changes with SEL, scenes, and mute groups. Next steps up would be a Yamaha CL or a full X32 with scenes and matrices.

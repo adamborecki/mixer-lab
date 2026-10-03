@@ -3530,3 +3530,123 @@ dialog::backdrop {
     max-width: none;
   }
 }
+
+/* ---------- Yamaha 01V96i: input row, selected channel + display, faders ---------- */
+
+.skin-yam01v96 .mixer-surface.y96-surface {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: linear-gradient(180deg, #2a2d33 0%, #1b1d22 100%);
+  border: 1px solid #3a3d45;
+  border-radius: var(--radius-md);
+  padding: 0.6rem;
+}
+.skin-yam01v96 .fader {
+  --fader-h: 160px;
+  width: 30px;
+}
+.y96-top,
+.y96-mid,
+.y96-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: stretch;
+  min-width: 0;
+}
+.y96-box {
+  background: #202329;
+  border: 1px solid #383c45;
+  border-radius: 8px;
+  padding: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.y96-inputs,
+.y96-faders {
+  flex: 1 1 520px;
+}
+.y96-gains {
+  display: flex;
+  overflow-x: auto;
+  gap: 0.15rem;
+  scrollbar-width: thin;
+}
+.y96-gain {
+  flex: none;
+  width: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+.y96-gain .lit-btn,
+.y96-row .lit-btn {
+  min-width: 0;
+  min-height: 28px;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.58rem;
+}
+.y96-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+.y96-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.y96-selch {
+  flex: 0 1 300px;
+}
+.y96-keys {
+  flex: 1 1 260px;
+}
+.y96-lcd {
+  flex: 1 1 300px;
+  min-width: 240px;
+  background: #0d1c13;
+  border: 3px solid #3c4a40;
+  border-radius: 6px;
+  padding: 0.5rem;
+  color: #b8f5c6;
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.y96-lcd-title {
+  margin: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-weight: 700;
+  color: #e6ffe9;
+  border-bottom: 1px solid #2c4434;
+  padding-bottom: 0.25rem;
+}
+.y96-lcd .x32-lines p {
+  margin: 0 0 0.3rem;
+}
+.y96-aux {
+  gap: 0.15rem;
+}
+.y96-stin,
+.y96-stereo {
+  flex: none;
+}
+.lit-btn.tone-on.lit,
+.lit-btn.tone-on[aria-pressed="true"] {
+  background: #3ddc84;
+  border-color: #3ddc84;
+  color: #0d1117;
+}
+@media (max-width: 899px) {
+  .skin-yam01v96 .fader {
+    --fader-h: 130px;
+  }
+}

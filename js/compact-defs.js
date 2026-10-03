@@ -348,6 +348,70 @@ export const COMPACT = {
     outputs: ["x32Outs"],
     layout: { kind: "x32" },
   },
+
+  // Yamaha 01V96i (Reference Manual): INPUT 1–12 (XLR A or TRS B, PAD, GAIN,
+  // phantom in groups of four on the rear panel), INPUT 13–16 (line), 2TR IN,
+  // 16 faders on LAYERs with ON / SOLO / SEL, FADER MODE (AUX 1–8), the SELECTED
+  // CHANNEL section, the display with DISPLAY ACCESS pages, ST IN 1–2 (effects
+  // returns), STEREO OUT, OMNI OUT 1–4. Drawn by js/ui/mixer-01v96-view.js.
+  yam01v96: {
+    id: "yam01v96",
+    name: "Yamaha 01V96i",
+    blurb: "Digital console: 16 faders on layers, FADER MODE for the aux sends, a SELECTED CHANNEL section and a display you page through.",
+    digital: true,
+    phantom: { label: "+48V", channels: Array.from({ length: 12 }, (_, i) => i), perChannel: true, groups: [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]] },
+    channels: [
+      ...Array.from({ length: 12 }, (_, i) => ({
+        label: String(i + 1),
+        kind: "mono",
+        jacks: ["mic", "line"],
+        gain: { min: 16, max: 60, linePad: 0, pad: 20 },
+        peq: true,
+        dyn: true,
+        polarity: true,
+        sends: ["aux1", "aux2", "aux3", "aux4", "aux5", "aux6", "aux7", "aux8"],
+        mute: "on",
+        solo: true,
+        peak: true,
+      })),
+      ...Array.from({ length: 4 }, (_, k) => ({
+        label: String(13 + k),
+        kind: "mono",
+        jacks: ["line"],
+        gain: { min: -4, max: 26, linePad: 0 },
+        peq: true,
+        dyn: true,
+        polarity: true,
+        sends: ["aux1", "aux2", "aux3", "aux4", "aux5", "aux6", "aux7", "aux8"],
+        mute: "on",
+        solo: true,
+        peak: true,
+      })),
+    ],
+    sends: {
+      ...Object.fromEntries([1, 2, 3, 4, 5, 6].map((n) => [`aux${n}`, { label: `AUX ${n}`, bus: `aux${n}`, tap: "each", pre: false, law: "level" }])),
+      aux7: { label: "AUX 7", bus: "aux7", tap: "each", pre: false, law: "level" },
+      aux8: { label: "AUX 8", bus: "aux8", tap: "each", pre: false, law: "level" },
+    },
+    buses: {
+      ...Object.fromEntries([1, 2, 3, 4].map((n) => [`aux${n}`, { label: `AUX ${n}`, master: { label: `AUX ${n}`, law: "level" }, mute: true }])),
+      ...Object.fromEntries([5, 6].map((n) => [`aux${n}`, { label: `AUX ${n}`, master: { label: `AUX ${n}`, law: "level" }, mute: true, noOut: true }])),
+      // AUX 7 and 8 feed effects 1 and 2, which return on ST IN 1 and 2.
+      aux7: { label: "AUX 7", master: { label: "ST IN 1", law: "level" }, fx: { name: "Reverb Hall (FX 1)", kind: "reverb", seconds: 2.6, number: 1 } },
+      aux8: { label: "AUX 8", master: { label: "ST IN 2", law: "level" }, fx: { name: "Mono Delay (FX 2)", kind: "delay", seconds: 0.4, feedback: 0.3, number: 2 } },
+    },
+    prePoint: true, // AUX SETUP: PRE POINT, pre-fader sends before (PRE ON) or after (POST ON) the [ON] key
+    lrSwitch: true, // ROUTING: TO ST (to the stereo bus)
+    mainMute: true, // STEREO [ON]
+    tape: { level: null, routing: "switch", label: "2TR" }, // 2TR IN, into AD 15/16 with its selector
+    main: { label: "STEREO", law: "level" },
+    phones: { label: "PHONES", sources: null },
+    solo: { mode: "pfl", label: "SOLO" },
+    meter: [-48, -36, -30, -24, -18, -15, -12, -9, -6, -3, 0, "OVER"],
+    peakLabel: "PEAK",
+    outputs: ["omni"],
+    layout: { kind: "01v96" },
+  },
 };
 
 // ---------- rear panels (used by js/connection-model.js) ----------
@@ -387,6 +451,10 @@ export function compactPorts(def) {
   } else if (o.includes("xlrSwitched")) {
     // The level these carry is the mixer's OUTPUT LEVEL switch (rig device `outLevel`).
     ports.push(out("main-l", "xlr", "MASTER OUT L (XLR)", { bus: "main", side: "L", levelSwitch: true }), out("main-r", "xlr", "MASTER OUT R (XLR)", { bus: "main", side: "R", levelSwitch: true }));
+  } else if (o.includes("omni")) {
+    // STEREO OUT L/R (XLR) and OMNI OUT 1–4 (XLR), patched to AUX 1–4.
+    ports.push(out("main-l", "xlr", "STEREO OUT L", { bus: "main", side: "L" }), out("main-r", "xlr", "STEREO OUT R", { bus: "main", side: "R" }));
+    for (const n of [1, 2, 3, 4]) ports.push(out(`aux${n}`, "xlr", `OMNI OUT ${n} (AUX ${n})`, { bus: `aux${n}` }));
   } else if (o.includes("x32Outs")) {
     // XLR OUT 1–6 carry MIX 1–6, XLR OUT 7–8 the MAIN L/R (the factory routing).
     for (const n of [1, 2, 3, 4, 5, 6]) ports.push(out(`mix${n}`, "xlr", `XLR OUT ${n} (MIX ${n})`, { bus: `mix${n}` }));

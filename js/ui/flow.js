@@ -11,6 +11,7 @@ export function renderFlow(root, skin) {
   if (skin.layout === "compact") return renderFlowCompact(root, skin, COMPACT[skin.hardware]);
   if (skin.layout === "digital") return renderFlowDigital(root, skin, COMPACT[skin.hardware]);
   if (skin.layout === "x32") return renderFlowX32(root, skin);
+  if (skin.layout === "01v96") return renderFlow01v96(root, skin);
   const t = skin.terms;
   const c = skin.enabledControl;
   const enableWord = c.litWhenEnabled ? `${c.label} (lit = in Main)` : `${c.label} (lit = out of Main)`;
@@ -132,6 +133,33 @@ function renderFlowDigital(root, skin, def) {
           <li><strong>MUTE</strong> takes a channel out of every mix, wedges included.</li>
           <li>REVERB, DELAY and CHORUS are built in: their pages set the sends, their master is how much comes back into the MASTER mix.</li>
           <li>The outputs are line level on XLR: ${Object.values(def.buses).filter((b) => !b.fx).length} AUX outs and MASTER L/R. A speaker only makes sound if an amplifier is somewhere in the chain.</li>
+        </ul>
+      </div>
+    </details>`;
+}
+
+// The 01V96: the same flow, reached through LAYER, FADER MODE and display pages.
+function renderFlow01v96(root, skin) {
+  root.innerHTML = `
+    <details class="flow">
+      <summary>How the signal flows on the ${esc(skin.name)}</summary>
+      <div class="flow-body">
+        <ol class="flow-trunk" aria-label="Every channel">
+          <li class="flow-node">INPUT (A XLR / B TRS)</li>
+          <li class="flow-node">PAD · GAIN</li>
+          <li class="flow-node">Ø · EQ · COMP</li>
+          <li class="flow-node">ON</li>
+          <li class="flow-node">FADER</li>
+          <li class="flow-node">PAN · TO ST</li>
+          <li class="flow-node flow-end">STEREO → STEREO OUT</li>
+        </ol>
+        <ul class="flow-notes">
+          <li>The analog part is still on top: <strong>GAIN</strong> knobs for inputs 1–16, a 20 dB <strong>PAD</strong> on 1–12 (for line-level sources), and <strong>+48V</strong> on the rear panel in groups of four.</li>
+          <li><strong>ON</strong> is lit while a channel is on: the opposite of a MUTE key.</li>
+          <li><strong>SEL</strong> a channel: the SELECTED CHANNEL knobs (PAN, one EQ band at a time) and the display act on it. The <strong>DISPLAY ACCESS</strong> keys choose the display page: ROUTING, EQ, DYNAMICS, AUX…</li>
+          <li><strong>FADER MODE AUX 1–8</strong> turns the 16 faders into that aux's sends; HOME turns them back into channel levels. The <strong>MASTER</strong> layer shows the aux masters.</li>
+          <li>Each send is PRE or POST (AUX page). <strong>PRE POINT</strong> (AUX SETUP) decides whether a channel switched OFF still feeds its pre-fader sends (PRE ON) or not (POST ON).</li>
+          <li>AUX 1–4 come out of OMNI OUT 1–4; AUX 7 and 8 feed the effects, which come back on <strong>ST IN</strong> 1 and 2.</li>
         </ul>
       </div>
     </details>`;

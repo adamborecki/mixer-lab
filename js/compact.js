@@ -52,6 +52,7 @@ function createChannel(def, i) {
     stereo: c.kind === "stereo",
     gainDb: g.min ?? g.fixed ?? 0,
     micLine: g.switch || g.lineSwitch ? "mic" : undefined,
+    pad: c.gain.pad ? false : undefined, // 20 dB PAD (01V96 inputs 1–12)
     hpf: 0, // sweepable high-pass: 0 = off (the detent), then 80 … 240 Hz (442)
     polarity: false,
     phantom: false,
@@ -103,6 +104,7 @@ export function createState(id) {
   if (def.tone) state.tone = { on: false };
   if (def.solo) state.soloBus = { mode: def.solo.mode === "switch" ? "sip" : def.solo.mode }; // "pfl" or "sip" (solo in place)
   if (def.fx) state.fx = { program: 0 };
+  if (def.prePoint) state.auxSetup = { prePoint: "postOn" }; // pre-fader sends after the [ON] key
   if (def.reverb) state.reverb = { on: false, type: 0.15 };
   if (def.monitorOut) state.monitor = { level: 0 };
   if (def.masterEq) state.masterEq = { pos: 0.5 };
@@ -145,6 +147,8 @@ export function sanitizeChannel(def, ch, key, value) {
       return c.polarity ? bool(value) : undefined;
     case "lr":
       return def.lrSwitch ? bool(value) : undefined;
+    case "pad":
+      return c.gain.pad ? bool(value) : undefined;
     case "lowCut":
       return c.lowCut ? bool(value) : undefined;
     case "comp":
@@ -176,6 +180,7 @@ export function busKeys(def) {
   const keys = { main: { level: range(0, 1), ...(def.mainMute ? { mute: bool } : {}) } };
   for (const [b, bus] of Object.entries(def.buses)) keys[b] = { ...(bus.master ? { level: range(0, 1) } : {}), ...(bus.preSwitch ? { pre: bool } : {}), ...(bus.solo ? { solo: bool } : {}), ...(bus.mute ? { mute: bool } : {}) };
   for (let k = 1; k <= (def.dca || 0); k++) keys[`dca${k}`] = { level: range(0, 1), mute: bool };
+  if (def.prePoint) keys.auxSetup = { prePoint: (v) => (v === "preOn" || v === "postOn" ? v : undefined) };
   if (def.muteGroups) keys.mgrp = Object.fromEntries(Array.from({ length: def.muteGroups }, (_, k) => [`g${k + 1}`, bool]));
   for (const r of def.returns || []) keys[r.id] = { ...(r.fixedDb === undefined ? { level: range(0, 1) } : {}), ...(r.efxToMonitor ? { efx: bool } : {}), ...(r.toMonitor ? { mon: range(0, 1) } : {}), ...(r.toAlt ? { toAlt: bool } : {}) };
   if (def.alt) keys.alt = def.alt.fader ? { level: range(0, 1) } : { toMain: bool };
@@ -213,7 +218,7 @@ export function fxPreset(def, program) {
 
 export function listenList(def) {
   const l = ["main"];
-  for (const b of Object.keys(def.buses)) if (/^(aux|mix)\d$/.test(b) && !def.buses[b].fx) l.push(b);
+  for (const b of Object.keys(def.buses)) if (/^(aux|mix)\d$/.test(b) && !def.buses[b].fx && !def.buses[b].noOut) l.push(b);
   if (def.alt) l.push("alt");
   if (def.monitorOut) l.push("monitor");
   def.channels.forEach((c, i) => c.insert && l.push(`insert${i + 1}`));
@@ -225,6 +230,10 @@ export function listenList(def) {
 // What the DCA groups, mute groups and MAIN LR switch do to one channel (X32):
 // a DCA adds its fader to the channel fader, a muted DCA or an active mute
 // group mutes the channel, MAIN LR off keeps it out of the main mix only.
+// Does turning a channel off (MUTE, ON, a mute group, a DCA) cut its pre-fader sends?
+// Ui16 and X32: always. 01V96: only with PRE POINT set to POST ON.
+export const muteCutsPre = (def, state) => !!def.muteCutsPre || (!!def.prePoint && state.auxSetup?.prePoint === "postOn");
+
 export function channelControl(def, state, i) {
   const ch = state.channels[i];
   let dcaDb = 0;
@@ -258,7 +267,7 @@ export function channelGainDb(def, ch, input) {
   const pad = (input && input.path === "line" && !input.stereo && !input.monoIn ? g.linePad || 0 : 0) + (g.lineSwitch && ch.micLine === "line" ? g.lineSwitch : 0);
   // A trimmed stereo channel's line inputs (MG10/2 3/4, 5/6) take the line pad too.
   const stereoPad = input && input.path === "line" && (input.stereo || input.monoIn) && g.min !== undefined ? g.linePad || 0 : 0;
-  return ch.gainDb + pad + stereoPad;
+  return ch.gainDb + pad + stereoPad - (g.pad && ch.pad ? g.pad : 0);
 }
 
 // L and R gains of a Web Audio StereoPannerNode for a stereo input whose two
@@ -311,7 +320,7 @@ export function computeMix(def, state, sourcesById, stems, sourcePeakDb) {
     const side = (k, db) => db + gainToDb(pg[k]);
     // "fader": after LEVEL, before MUTE; "channel": this channel's PRE switch.
     // "each": this channel's PRE/POST for that send (Ui16). With `muteCutsPre`, MUTE cuts pre sends too.
-    const preDb = def.muteCutsPre && muted ? OFF : inputPeakDb;
+    const preDb = muteCutsPre(def, state) && muted ? OFF : inputPeakDb;
     const tap = (t, sid) => (t === "pre" || (t === "channel" && ch.pre) || (t === "each" && ch.pres[sid]) ? preDb : t === "fader" ? levelled : postDb);
     for (const sid of c.sends || []) {
       const s = def.sends[sid];

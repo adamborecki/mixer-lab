@@ -2199,6 +2199,227 @@ const X32 = [
   },
 ];
 
+
+// ----- Yamaha 01V96i -----
+
+const Y96 = [
+  doors("yam01v96", {
+    prompt: "“Doors in five. The laptop is on 2TR IN — preshow music, please.”",
+    hints: ["2TR IN is a stereo RCA input on the rear panel. On its own it only reaches the monitor outputs.", "Its AD 15/16 selector sends 2TR IN into channels 15 and 16, so it reaches the stereo mix.", "Press AD 15/16 in the REAR PANEL section."],
+    complete: "2TR IN feeds the mix only through the AD 15/16 selector, which borrows input channels 15 and 16. Worth knowing before you plug something into 15 or 16!",
+  }),
+  {
+    id: "yam01v96-pad",
+    short: "Crunchy piano (PAD)",
+    title: "The crunchy piano",
+    who: "Keyboard player",
+    prompt: "“Someone turned off something on channel 4 and now my piano sounds crunchy. Its PEAK light is on.”",
+    goal: "The piano's input in Good with its GAIN off the bottom stop (use the PAD), nothing else changed.",
+    setup: { tweak: (st, h) => h.set("keys", "pad", false) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("good", "The piano's input sits in Good", (ctx) => mc(ctx, "keys")?.band === "good"),
+      keep("room", "Its GAIN stays off the bottom stop, with room to adjust", (ctx) => (sc(ctx, "keys")?.gainDb ?? 0) >= 22),
+      keep("heard", "The piano stays in the house", (ctx) => house(ctx, "keys") >= AUDIBLE),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: "keys", toleranceDb: 1, label: "Everything else in the house stays the same" },
+    ],
+    hints: ["A stage piano is line level. Channel 4's GAIN is already at its lowest, and it's still too hot.", "Inputs 1–12 have a 20 dB PAD switch next to the GAIN knob.", "Press PAD on input 4, then set its GAIN so the meter sits in Good."],
+    complete: "The 01V96's preamps are built for mics. The PAD takes 20 dB off before them, so a line-level source can be gain-staged.",
+  },
+  {
+    id: "yam01v96-phantom",
+    short: "Silent overhead",
+    title: "The silent overhead",
+    who: "Drummer",
+    prompt: "“My overhead mic is dead.”",
+    goal: "The overhead heard in the house again.",
+    setup: { tweak: (st) => [0, 1, 2, 3].forEach((i) => (st.channels[i].phantom = false)) },
+    conditions: [
+      { id: "drums", kind: "goal", type: "sourceHeardInMain", source: "drums", label: "The drums are heard in the house" },
+      { id: "vox", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The vocal stays in the house" },
+    ],
+    hints: ["The overhead is a condenser on input 1.", "Phantom power is on the rear panel: three switches, one for each group of four inputs.", "Switch PHANTOM +48V CH1–4 on."],
+    complete: "On the 01V96, +48V comes in groups of four: inputs 2–4 get it too. Dynamic mics and DIs don't mind; ribbon mics would.",
+  },
+  {
+    id: "yam01v96-on",
+    short: "Dark ON key",
+    title: "The dark ON key",
+    who: "Bassist",
+    prompt: "“I'm not in the house at all. My channel's button is dark.”",
+    goal: "The bass back in the house, nothing else changed.",
+    setup: { tweak: (st, h) => h.set("bass", "enabled", false) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "bass", kind: "goal", type: "sourceHeardInMain", source: "bass", label: "The bass is heard in the house" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: "bass", toleranceDb: 1, label: "Everything else in the house stays the same" },
+    ],
+    hints: ["Every fader has an ON key. Which way round does it work?", "ON is lit while the channel is on: dark means off. That's the opposite of a MUTE key.", "Press channel 2's ON key so it lights."],
+    complete: "ON keys light up when the channel plays; MUTE keys light up when it doesn't. Read the label, not the light.",
+  },
+  {
+    id: "yam01v96-fader-mode",
+    short: "More me (FADER MODE)",
+    title: "More me in my wedge",
+    who: "Lead singer",
+    prompt: "“I need more of my own voice in my wedge.”",
+    goal: "The vocal at least 4 dB louder in AUX 1 (the singer's wedge), everything else unchanged.",
+    setup: {},
+    baseline: {
+      send: { metric: "sendDb", bus: "aux1", source: "lead-vocal" },
+      vox: { metric: "heardMonitorDb", bus: "aux1", source: "lead-vocal" },
+      singer: { metric: "monitorByChannel", bus: "aux1" },
+      drummer: { metric: "monitorByChannel", bus: "aux2" },
+      main: { metric: "mainDbByChannel" },
+    },
+    conditions: [
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "aux1", label: "You listened to the singer's wedge" },
+      { id: "send", kind: "goal", type: "sendRaised", bus: "aux1", source: "lead-vocal", baseline: "send", minDb: 4, label: "The vocal's AUX 1 send is up" },
+      { id: "heard", kind: "goal", type: "monitorRaised", bus: "aux1", source: "lead-vocal", baseline: "vox", minDb: 4, label: "The singer hears more of herself" },
+      { id: "rest", kind: "keep", type: "monitorMixUnchanged", bus: "aux1", baseline: "singer", except: "lead-vocal", toleranceDb: 1, label: "The rest of the singer's wedge stays the same" },
+      { id: "drummer", kind: "keep", type: "monitorMixUnchanged", bus: "aux2", baseline: "drummer", toleranceDb: 1, label: "The drummer's wedge stays the same" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["The singer's wedge is AUX 1 (OMNI OUT 1).", "FADER MODE AUX 1 turns the 16 faders into AUX 1 sends.", "Press FADER MODE AUX 1, push channel 7's fader up, then press HOME."],
+    complete: "FADER MODE is the 01V96's sends on faders. HOME puts the faders back on the channel levels: check the mode before you grab a fader.",
+  },
+  masterFix({
+    id: "yam01v96-master",
+    short: "Drummer's wedge quiet",
+    title: "The drummer can't hear",
+    who: "Drummer",
+    prompt: "“My whole wedge is too quiet. The balance is fine.”",
+    bus: "aux2",
+    startDb: -20,
+    raise: true,
+    setLevel: (db) => LAWS.level.toPos(db),
+    hints: ["The drummer's wedge is AUX 2. One fader moves all of it.", "The aux masters are on the MASTER layer.", "Press LAYER MASTER and push AUX 2's fader up towards 0 dB."],
+    complete: "The MASTER layer holds the aux masters: the whole wedge moves, the balance stays.",
+  }),
+  {
+    id: "yam01v96-eq",
+    short: "Harsh vocal",
+    title: "The harsh vocal",
+    who: "Lead singer",
+    prompt: "“My voice sounds harsh, around the top of my range.”",
+    goal: "A cut (at least 2 dB) in the vocal's HIGH-MID band, between 2 and 5 kHz.",
+    setup: {
+      tweak: (st, h) => {
+        h.set("lead-vocal", "peq.hiMid.gain", 8);
+        h.set("lead-vocal", "peq.hiMid.freq", 3000);
+      },
+    },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("eq", "The harshness is cut", (ctx) => {
+        const b = sc(ctx, "lead-vocal")?.peq.hiMid;
+        return !!b && b.gain <= -2 && b.freq >= 2000 && b.freq <= 5000;
+      }),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The levels stay the same" },
+    ],
+    hints: ["SEL channel 7 first: the SELECTED CHANNEL knobs only ever work on one channel.", "The EQ knobs show one band at a time: press HIGH-MID. The EQ page on the display shows all four.", "With HIGH-MID chosen, turn GAIN below 0; leave FREQUENCY near 3 kHz."],
+    complete: "One set of knobs, four bands: the band keys choose which one you're turning. The display's EQ page shows them all.",
+  },
+  {
+    id: "yam01v96-to-st",
+    short: "Missing guitar",
+    title: "The missing guitar",
+    who: "Guitarist",
+    prompt: "“The singer hears me in her wedge, but there's no guitar in the house.”",
+    goal: "The guitar in the house, the rest of the house and the wedges unchanged.",
+    setup: { tweak: (st, h) => h.set("guitars", "lr", false) },
+    baseline: { main: { metric: "mainDbByChannel" }, singer: { metric: "monitorByChannel", bus: "aux1" } },
+    conditions: [
+      { id: "gtr", kind: "goal", type: "sourceHeardInMain", source: "guitars", label: "The guitar is heard in the house" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: "guitars", toleranceDb: 1, label: "Everything else in the house stays the same" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "aux1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+    ],
+    hints: ["It reaches the wedge, so the input and channel work. How does a channel get to the stereo bus?", "SEL channel 3 and open the display's PAN/ROUTING page.", "Switch TO ST on."],
+    complete: "Routing lives in the display: TO ST sends a channel to the stereo bus. Some settings have no key of their own, so you page to them.",
+  },
+  {
+    id: "yam01v96-reverb",
+    short: "Reverb on the vocal",
+    title: "Reverb on the vocal",
+    who: "Lead singer",
+    prompt: "“My voice sounds dry, and someone's turned the reverb return down too.”",
+    goal: "The vocal sent to AUX 7 (the reverb), and ST IN 1 (its return) back up.",
+    setup: {
+      tweak: (st, h) => {
+        h.sendDb("lead-vocal", "aux7", -Infinity);
+        st.aux7.level = 0;
+      },
+    },
+    baseline: { main: { metric: "mainDbByChannel" }, singer: { metric: "monitorByChannel", bus: "aux1" } },
+    conditions: [
+      goal("send", "The vocal is sent to the reverb (AUX 7)", (ctx) => into(ctx, "aux7", "lead-vocal") >= -35),
+      goal("return", "The reverb returns on ST IN 1", (ctx) => (ctx.mix.busDb?.aux7 ?? -Infinity) >= -10),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The dry house mix stays the same" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "aux1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+    ],
+    hints: ["Effects on the 01V96 are fed from an aux and come back on an ST IN channel. The PATCH page shows which.", "AUX 7 feeds the reverb; ST IN 1 brings it back.", "FADER MODE AUX 7 and push channel 7 up (or the AUX page of the display), then turn ST IN 1's level up."],
+    complete: "Send on an aux, return on ST IN: the 01V96's effects work like an outboard loop, all inside the desk.",
+  },
+  {
+    id: "yam01v96-pre-point",
+    short: "OFF but still in the wedge",
+    title: "OFF, but still in the wedge",
+    who: "Backing singer",
+    prompt: "“Between songs you switch my channel OFF so the audience doesn't hear me chatting. But then I vanish from the singer's wedge, and we need to hear each other to start the next song.”",
+    goal: "The backing vocal's channel OFF, out of the house, but still in the singer's wedge (AUX 1).",
+    setup: { tweak: (st, h) => h.set("backing-vocals", "enabled", false) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("wedge", "The backing vocal is in the singer's wedge", (ctx) => wedge(ctx, "aux1", "backing-vocals") >= -35),
+      keep("off", "The backing vocal's channel stays OFF", (ctx) => sc(ctx, "backing-vocals")?.enabled === false),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["Her AUX 1 send is pre-fader. So why does switching the channel OFF take her out of the wedge?", "AUX SETUP on the display has PRE POINT: pre-fader sends are taken after the ON key (POST ON) or before it (PRE ON).", "Open the AUX SETUP page and choose PRE ON."],
+    complete: "PRE POINT decides whether ON cuts the pre-fader sends. PRE ON lets you switch a channel off for the house while the band still hears it.",
+  },
+  {
+    id: "yam01v96-comp",
+    short: "Jumpy bass",
+    title: "The jumpy bass",
+    who: "Bassist",
+    prompt: "“Some of my notes boom out and some disappear.”",
+    goal: "The bass compressed: THRESHOLD at −8 dB or lower, RATIO at least 2.5:1.",
+    setup: {},
+    conditions: [
+      goal("comp", "The bass is compressed", (ctx) => (sc(ctx, "bass")?.dyn.threshold ?? 0) <= -8 && (sc(ctx, "bass")?.dyn.ratio ?? 1) >= 2.5),
+      { id: "bass", kind: "keep", type: "sourceHeardInMain", source: "bass", label: "The bass stays in the house" },
+    ],
+    hints: ["Evening out loud and quiet notes is a compressor's job.", "SEL channel 2, then DISPLAY ACCESS DYNAMICS: THRESHOLD, RATIO and OUT GAIN.", "THRESHOLD around −15 dB, RATIO 3:1 to 4:1, a little OUT GAIN. Watch the GR light."],
+    complete: "The compressor has no knobs of its own: SEL, then the DYNAMICS page. That's the central-screen way of working.",
+  },
+  {
+    id: "yam01v96-new-mix",
+    short: "Guitarist's mix (AUX 3)",
+    title: "A mix for the guitarist",
+    who: "Guitarist",
+    prompt: "“My wedge is on OMNI OUT 3. Lots of me, the vocal, a bit of drums, and it mustn't follow the house faders.”",
+    goal: "A new AUX 3 mix: guitar and vocal clear, drums under the guitar, those sends PRE; everything else unchanged.",
+    setup: {
+      tweak: (st, h) => {
+        h.addDevice("gwedge");
+        h.cable("mixer/aux3", "gwedge/in", "xlr");
+      },
+    },
+    baseline: { main: { metric: "mainDbByChannel" }, singer: { metric: "monitorByChannel", bus: "aux1" }, drummer: { metric: "monitorByChannel", bus: "aux2" } },
+    conditions: [
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "aux3", label: "You listened to the guitarist's wedge" },
+      { id: "core", kind: "goal", type: "monitorPresent", bus: "aux3", sources: ["guitars", "lead-vocal"], minDb: -30, label: "Guitar and vocal are clear in AUX 3" },
+      { id: "drums", kind: "goal", type: "monitorLittle", bus: "aux3", source: "drums", below: ["guitars"], byDb: 3, label: "A bit of drums, under the guitar" },
+      goal("pre", "The guitarist's mix ignores the house faders (PRE)", (ctx) => ["guitars", "lead-vocal", "drums"].every((s) => ignoresFader(ctx, "aux3", s))),
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "aux1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+      { id: "drummer", kind: "keep", type: "monitorMixUnchanged", bus: "aux2", baseline: "drummer", toleranceDb: 1, label: "The drummer's wedge stays the same" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["FADER MODE AUX 3 to build the mix; listen to AUX 3 as you go.", "Sends start POST here. Each channel's PRE is on the display's AUX page (SEL the channel first).", "SEL 1, 3 and 7 in turn, AUX page, PRE on AUX 3. Guitar and vocal near 0 dB, drums lower."],
+    complete: "FADER MODE for the levels, the AUX page for PRE/POST, OMNI OUT 3 already patched: a monitor mix built the 01V96 way.",
+  },
+];
+
 // ---------- each board's list, in teaching order ----------
 
 const ORDER = {
@@ -2210,10 +2431,11 @@ const ORDER = {
   cr1604: ["doors", "phantom", "assign", "levelset", "sweep", "lowcut", "mute-pre", "drummer-quiet", "reverb", "efx-mon", "mono", "shift", "subgroup", "direct", "room"],
   ui16: ["doors", "gain", "48v", "more-keys", "hpf", "harsh", "comp", "trumpet-reverb", "delay", "out-of-house", "post", "guitar-mix"],
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
+  yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "eq", "to-st", "reverb", "pre-point", "comp", "new-mix"],
   x32c: ["doors", "gain", "48v", "lowcut", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix"],
 };
 
-const LISTS = { mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: C16, x32c: X32 };
+const LISTS = { mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: C16, x32c: X32, yam01v96: Y96 };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.
 function arrange(board) {
@@ -2237,5 +2459,6 @@ export const MIXER_ORDER = [
   { model: "cr1604", skin: "mackie1604", why: "A full console: 16 channels, six auxes with SHIFT, four subgroups, mono out, four returns, direct outs to a recorder." },
   { model: "ui16", skin: "ui16", why: "Digital: the same jobs through pages and SEL. Sends on faders, a parametric EQ and a compressor on every channel." },
   { model: "x32c", skin: "x32c", why: "A digital console laid out like the big ones: fader layers, a selected-channel strip, Sends on Faders, DCA and mute groups, a MAIN LR switch on every channel." },
+  { model: "yam01v96", skin: "yam01v96", why: "The classic digital desk: analog GAIN and PAD on top, then LAYERs, FADER MODE for the aux sends, ON keys, and a display you page through for routing, EQ, dynamics and aux setup." },
   { model: "sd442", skin: "sd442", why: "A different world: a field mixer feeding a camera. Output levels, tone, limiters and the mono check." },
 ];

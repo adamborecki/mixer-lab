@@ -775,6 +775,26 @@ export const COMPACT_GIGS = {
     hpf: { guitars: 0.1, trumpets: 0.1, "backing-vocals": 0.15, "lead-vocal": 0.15 },
     dyn: { "lead-vocal": { threshold: -16, ratio: 3, makeup: 3 } },
   },
+  yam01v96: {
+    prompt: "The whole band on a Yamaha 01V96i: inputs 1–7 (the piano into channel 4's TRS jack with its PAD on), the laptop on 2TR IN (not yet in the mix). AUX 1 (OMNI OUT 1) feeds the singer's wedge, AUX 2 (OMNI OUT 2) the drummer's wedge through the amp, STEREO OUT the house. AUX 7 feeds the reverb (back on ST IN 1), AUX 8 the delay (ST IN 2). FADER MODE turns the faders into an aux's sends; SEL a channel and page through the display.",
+    patch: { drums: [0, "mic"], bass: [1, "mic"], guitars: [2, "mic"], keys: [3, "line"], trumpets: [4, "mic"], "backing-vocals": [5, "mic"], "lead-vocal": [6, "mic"], preshow: ["tape"] },
+    padFor: ["keys"],
+    devices: ["spk-l", "spk-r", "wedge", "amp", "pwedge"],
+    cables: [
+      { from: "mixer/main-l", to: "spk-l/in", cable: "xlr" },
+      { from: "mixer/main-r", to: "spk-r/in", cable: "xlr" },
+      { from: "mixer/aux1", to: "wedge/in", cable: "xlr" },
+      { from: "mixer/aux2", to: "amp/in-a", cable: "xlr" },
+      { from: "amp/out-a", to: "pwedge/in", cable: "speaker" },
+    ],
+    sends: {
+      aux1: { "lead-vocal": 0, "backing-vocals": -6, keys: -10, guitars: -12 },
+      aux2: { drums: -8, bass: -3, keys: -12, "lead-vocal": -8 },
+      aux7: { "lead-vocal": -10, "backing-vocals": -12, trumpets: -14 },
+      aux8: { "lead-vocal": -20 },
+    },
+    preFor: ["aux1", "aux2"],
+  },
 };
 
 // Free play on a real mixer describes that mixer's gig (the shared text names
@@ -826,6 +846,7 @@ function buildCompactState(model, sourcesById) {
     const c = def.channels[where[0]];
     const input = mix.channels[where[0]].input;
     if (c.gain.minus10) ch.minus10 = (gig.minus10 || []).includes(s.id);
+    if (c.gain.pad) ch.pad = (gig.padFor || []).includes(s.id);
     if (gig.pre) ch.pre = true;
     for (const b of gig.preFor || []) if (ch.pres && b in ch.pres) ch.pres[b] = true;
     if (c.comp && gig.comp?.[s.id]) ch.comp = gig.comp[s.id];
@@ -849,6 +870,8 @@ function buildCompactState(model, sourcesById) {
   if (laptop && laptop[0] === "tape") state.channels[tape].toCr = def.tape.routing === "toMainOrCr";
   else if (laptop) state.channels[laptop[0]].level = 0;
   if (!def.phantom.perChannel && sources.some((s) => gig.patch[s.id] && s.phantom === "required")) for (const i of def.phantom.channels) state.channels[i].phantom = true;
+  // Phantom switched in groups (01V96: CH1–4, 5–8, 9–12): one powered channel powers its group.
+  for (const g of def.phantom.groups || []) if (g.some((i) => state.channels[i].phantom)) for (const i of g) state.channels[i].phantom = true;
   for (const b of Object.keys(def.buses)) if (state[b].pre !== undefined) state[b].pre = true; // monitors pre-fader
   if (state.reverb) state.reverb.on = true;
   if (state.monitor) state.monitor.level = 0.5;

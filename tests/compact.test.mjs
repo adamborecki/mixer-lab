@@ -509,3 +509,29 @@ describe("Behringer X32 Compact", () => {
     assert.equal(DEVICE_TYPES.x32c.ports.find((p) => p.id === "main-l").name, "XLR OUT 7 (MAIN L)");
   });
 });
+
+describe("Yamaha 01V96i", () => {
+  it("the PAD takes 20 dB off before the GAIN; phantom comes in groups of four", () => {
+    const st = gig("yam01v96");
+    const k = ch(st, "keys").inputPeakDb;
+    st.setChannel(3, "pad", false);
+    near(ch(st, "keys").inputPeakDb, k + 20);
+    assert.deepEqual(st.state.channels.slice(0, 8).map((c) => c.phantom), [true, true, true, true, false, false, false, false]);
+  });
+
+  it("PRE POINT: with POST ON, switching a channel OFF cuts its pre-fader sends; with PRE ON it doesn't", () => {
+    const st = gig("yam01v96");
+    st.setChannel(6, "enabled", false);
+    assert.equal(ch(st, "lead-vocal").aux.aux1.monitorDb, -Infinity);
+    st.setBus("auxSetup", "prePoint", "preOn");
+    assert.ok(ch(st, "lead-vocal").aux.aux1.heardDb > -30);
+    assert.equal(ch(st, "lead-vocal").heardMainDb, -Infinity);
+  });
+
+  it("OMNI OUT 1–4 carry AUX 1–4; AUX 5 and 6 have no output and no listening position", () => {
+    const ids = portIds("yam01v96");
+    for (const p of ["aux1", "aux4", "main-l", "main-r", "tape-in"]) assert.ok(ids.includes(p), p);
+    assert.ok(!ids.includes("aux5"));
+    assert.ok(!listenDestinations(createMixerState("yam01v96")).includes("aux5"));
+  });
+});
