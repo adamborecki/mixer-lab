@@ -815,6 +815,42 @@ export const COMPACT_GIGS = {
       },
     ],
   },
+  cl3: {
+    prompt: "The whole band on a Yamaha CL3: the mics plug into a Rio3224-D stage box (Rio IN 1–7 feed channels 1–7, the room pair 17 and 18), the laptop into OMNI IN 1/2 on ST IN 1 (fader down). The OUTPUT PATCH sends MIX 1 to Rio OUT 1 (the singer's wedge), MIX 2 to Rio OUT 2 (the drummer's amp and wedge) and STEREO to Rio OUT 15/16 (the house). MIX 13–15 feed the effects rack, back on ST IN 2–4. SEL a channel and use the touch screen: OVERVIEW and SELECTED CHANNEL. Scene 1 is this mix, scene 2 the acoustic set.",
+    patch: { drums: [0, "mic"], bass: [1, "mic"], guitars: [2, "mic"], keys: [3, "mic"], trumpets: [4, "mic"], "backing-vocals": [5, "mic"], "lead-vocal": [6, "mic"], "room-l": [16, "mic"], "room-r": [17, "mic"], preshow: [32, "lr"] },
+    extraSources: ["room-l", "room-r"],
+    cableFor: { keys: "xlr-trs" },
+    devices: ["spk-l", "spk-r", "wedge", "amp", "pwedge"],
+    cables: [
+      { from: "mixer/out15", to: "spk-l/in", cable: "xlr" },
+      { from: "mixer/out16", to: "spk-r/in", cable: "xlr" },
+      { from: "mixer/out1", to: "wedge/in", cable: "xlr" },
+      { from: "mixer/out2", to: "amp/in-a", cable: "xlr" },
+      { from: "amp/out-a", to: "pwedge/in", cable: "speaker" },
+    ],
+    sends: {
+      mix1: { "lead-vocal": 0, "backing-vocals": -6, keys: -10, guitars: -12 },
+      mix2: { drums: -8, bass: -3, keys: -12, "lead-vocal": -8 },
+      mix13: { "lead-vocal": -12, "backing-vocals": -12, drums: -18 },
+      mix14: { trumpets: -12, "backing-vocals": -14 },
+      mix15: { "lead-vocal": -22 },
+    },
+    preFor: ["mix1", "mix2"],
+    pans: { "room-l": -1, "room-r": 1 },
+    hpf: { guitars: 0.1, trumpets: 0.1, "backing-vocals": 0.15, "lead-vocal": 0.15 },
+    dyn: { "lead-vocal": { threshold: -16, ratio: 3, makeup: 3 } },
+    scenes: [
+      { name: "Full band" },
+      {
+        name: "Acoustic set",
+        tweak: (st) => {
+          for (const i of [0, 1, 4]) st.channels[i].enabled = false;
+          for (const i of [16, 17]) st.channels[i].level = LAWS_LEVEL.toPos(-4);
+          st.mix13.level = LAWS_LEVEL.toPos(4);
+        },
+      },
+    ],
+  },
   yam01v96: {
     prompt: "The whole band on a Yamaha 01V96i: inputs 1–7 (the piano into channel 4's TRS jack with its PAD on), the laptop on 2TR IN (not yet in the mix). AUX 1 (OMNI OUT 1) feeds the singer's wedge, AUX 2 (OMNI OUT 2) the drummer's wedge through the amp, STEREO OUT the house. AUX 7 feeds the reverb (back on ST IN 1), AUX 8 the delay (ST IN 2). FADER MODE turns the faders into an aux's sends; SEL a channel and page through the display.",
     patch: { drums: [0, "mic"], bass: [1, "mic"], guitars: [2, "mic"], keys: [3, "line"], trumpets: [4, "mic"], "backing-vocals": [5, "mic"], "lead-vocal": [6, "mic"], preshow: ["tape"] },

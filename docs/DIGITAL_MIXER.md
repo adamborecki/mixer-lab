@@ -96,6 +96,22 @@ The third digital desk, and the classic "SEL + central screen" console (01V96i R
 
 **Patching (not the factory default):** the manual's default sends AUX 1–4 to both OMNI OUT 1–4 and effects 1–4. The lab uses the usual working patch instead: AUX 1–4 → OMNI OUT 1–4 only, AUX 7 → effect 1 (reverb) → ST IN 1, AUX 8 → effect 2 (delay) → ST IN 2. **Assumed:** sends start POST, PRE POINT starts POST ON. **Not built:** layer 17–32, buses 1–8, GATE, ATT, input delay, inserts, pairing, scenes, user-defined keys, the 2TR IN monitor selector.
 
+## Yamaha CL3
+
+A touring console (CL5/CL3/CL1 Reference Manual), built on the X32's model and strips. Definition `cl3` in `js/compact-defs.js`; surface `js/ui/mixer-cl-view.js` (skin layout `"cl"`), which reuses the X32 view's strips and panels with Yamaha words (`def.surface.terms`).
+
+| On the desk | In the lab |
+|---|---|
+| Rio3224-D stage boxes over Dante; the head amps (GAIN −6…+66 dB, +48V) are controlled from the console | Inputs are named RIO IN 1–32, and Rio IN n feeds channel n (no input patch) |
+| SELECTED CHANNEL section, left of the touch screen: GAIN, HPF, PAN, Q / FREQUENCY / GAIN for four EQ bands, DYNAMICS THRESHOLD | The same knobs. They keep moving the EQ while it's off, so the section warns "EQ is OFF" / "DYNAMICS is OFF" |
+| Touch screen: OVERVIEW (eight channels with gain, dynamics and EQ fields), SELECTED CHANNEL VIEW (one channel's every field) | OVERVIEW shows the eight channels on Centralogic with their compressor and EQ graphs (tap a name to open it). SELECTED CHANNEL holds the SEL panel plus the DCA and MUTE GROUP assignment fields |
+| INPUT section faders with SEL, CUE, ON (lit = on) | 16 faders, banks CH 1-16, CH 17-32, ST IN (the laptop on ST IN 1 and the effects returns) |
+| Centralogic: 8 faders under the screen; Bank Select keys load channels, DCAs, MIX or MATRIX | Banks CH 1-8, 9-16, 17-24, DCA 1-8, DCA 9-16, MIX 1-8, MIX 9-16, MATRIX |
+| Master section: STEREO, SENDS ON FADER, USER DEFINED keys | STEREO with ON, SENDS ON FADER, eight USER DEFINED keys set up as mute group masters |
+| OUTPUT PATCH; SCENE MEMORY | The OUTPUT PATCH page (Rio OUT 1–16) and the SCENE page (8 slots) |
+
+**Assumed / not built:** 32 of the 64 mono channels, 16 of the 24 MIX buses (MIX 13–16 feed a 4-unit effects rack returning on ST IN 2–5), no MONO bus or LCR mode, no input patch, Dante or second Rio, no per-send ON buttons, no gate (DYNAMICS 1), Premium Rack or inserts, no recall safe or focus, no GEQ. Sends start POST; the ON key cuts pre-fader sends too.
+
 ## EQ ON, COMP ON and the graphs
 
 Every digital desk here has an ON switch for each channel's EQ and compressor (`ch.eqOn`, `ch.compOn`). The EQ starts on (flat) and the compressor off, as on a freshly initialised desk, so a compressor that has been dialled in does nothing until it is switched on. That mistake is easy to make, and the scenarios "The EQ that does nothing" and "The compressor that does nothing" teach it. Switched off, the EQ's filters go flat and the compressor goes dry, but the settings stay.

@@ -3891,3 +3891,187 @@ dialog::backdrop {
   border-radius: 2px;
   border-color: #2c4434;
 }
+
+/* ---------- Yamaha CL3: SELECTED CHANNEL + touch screen on top, INPUT / Centralogic / master below ---------- */
+
+.skin-cl3 .mixer-surface.cl-surface {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background: linear-gradient(180deg, #2a2c30 0%, #1a1b1e 100%);
+  border: 1px solid #3a3c42;
+  border-radius: var(--radius-md);
+  padding: 0.6rem;
+}
+.skin-cl3 .fader {
+  --fader-h: 160px;
+  width: 30px;
+}
+.cl-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: stretch;
+}
+.cl-selch {
+  flex: 0 1 300px;
+  min-width: 0;
+  background: #202124;
+  border: 1px solid #3a3c42;
+  border-radius: 8px;
+  padding: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.cl-selch-row,
+.cl-eqband {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+.cl-eqknobs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  border-top: 1px solid #34363c;
+  padding-top: 0.3rem;
+}
+.cl-eqband .dg-band-name {
+  width: 4.2em;
+}
+.cl-warn {
+  margin: 0;
+  min-height: 1em;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #ff8a65;
+}
+.cl-screen {
+  flex: 1 1 420px;
+  min-width: 0;
+  background: #0e1726;
+  border: 3px solid #3b3e45;
+  border-radius: 6px;
+  padding: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: #dbe7f5;
+}
+.cl-access {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  justify-content: space-between;
+  border-bottom: 1px solid #23324a;
+  padding-bottom: 0.3rem;
+}
+.cl-selname {
+  font-weight: 800;
+  font-size: 0.8rem;
+  color: #ffffff;
+  background: #24569a;
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+}
+.cl-screen .x32-layer.on {
+  background: #4c8ee8;
+  border-color: #4c8ee8;
+  color: #fff;
+}
+.cl-screen .dg-panel {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.cl-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 0.35rem;
+}
+.cl-ovch {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  background: #142036;
+  border: 1px solid #23324a;
+  border-radius: 5px;
+  padding: 0.25rem;
+  min-width: 0;
+}
+.cl-ovch.is-sel {
+  border-color: #4c8ee8;
+  box-shadow: 0 0 0 1px #4c8ee8 inset;
+}
+.cl-ovch.is-off {
+  opacity: 0.55;
+}
+.cl-ovname {
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-align: left;
+  min-height: 30px;
+  color: #fff;
+  background: #1d3354;
+  border: 0;
+  border-radius: 3px;
+  padding: 0.2rem 0.3rem;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cl-ovinfo {
+  margin: 0;
+  font-size: 0.6rem;
+  color: #a9bdd6;
+}
+.cl-ovch .viz {
+  margin: 0;
+}
+.cl-ovch .viz-comp svg {
+  width: 100%;
+}
+.cl-centralogic .x32-bank {
+  max-width: 100%;
+}
+.cl-master {
+  flex: 0 0 auto;
+}
+.cl-udk {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem;
+}
+.cl-desk .x32-inputs {
+  flex: 1 1 100%;
+}
+.cl-desk .x32-strip,
+.cl-desk .x32-empty {
+  width: 58px;
+}
+/* The CL's touch screen: white curve on dark blue. */
+.viz-cl {
+  --viz-bg: #0b1322;
+  --viz-grid: rgba(150, 190, 255, 0.1);
+  --viz-grid-major: rgba(150, 190, 255, 0.24);
+  --viz-curve: #f2f6ff;
+  --viz-fill: rgba(90, 150, 255, 0.22);
+  --viz-dot: #ffc04d;
+  --viz-gr: #ff9b3d;
+  border-color: #23324a;
+}
+@media (max-width: 899px) {
+  .skin-cl3 .fader {
+    --fader-h: 130px;
+  }
+  .cl-selch,
+  .cl-screen {
+    flex-basis: 100%;
+  }
+}

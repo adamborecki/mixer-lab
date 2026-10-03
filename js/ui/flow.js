@@ -12,6 +12,7 @@ export function renderFlow(root, skin) {
   if (skin.layout === "digital") return renderFlowDigital(root, skin, COMPACT[skin.hardware]);
   if (skin.layout === "x32") return renderFlowX32(root, skin);
   if (skin.layout === "01v96") return renderFlow01v96(root, skin);
+  if (skin.layout === "cl") return renderFlowCL(root, skin);
   const t = skin.terms;
   const c = skin.enabledControl;
   const enableWord = c.litWhenEnabled ? `${c.label} (lit = in Main)` : `${c.label} (lit = out of Main)`;
@@ -166,6 +167,35 @@ function renderFlow01v96(root, skin) {
 }
 
 // The X32: the same signal flow, plus DCAs and mute groups that act on channels.
+function renderFlowCL(root, skin) {
+  root.innerHTML = `
+    <details class="flow">
+      <summary>How the signal flows on the ${esc(skin.name)}</summary>
+      <div class="flow-body">
+        <ol class="flow-trunk" aria-label="Every channel">
+          <li class="flow-node">Mic → Rio IN (HA GAIN, +48V)</li>
+          <li class="flow-node">Dante → channel</li>
+          <li class="flow-node">HPF</li>
+          <li class="flow-node">DYNAMICS (ON)</li>
+          <li class="flow-node">EQ (ON)</li>
+          <li class="flow-node">ON key</li>
+          <li class="flow-node">FADER (+ DCA)</li>
+          <li class="flow-node">PAN · ST/MONO</li>
+          <li class="flow-node flow-end">STEREO → OUTPUT PATCH → Rio OUT 15/16</li>
+        </ol>
+        <ul class="flow-notes">
+          <li>The mics plug into the <strong>Rio</strong> stage box; its preamps (GAIN, +48V) are set from the console. Rio IN 1 feeds channel 1, and so on.</li>
+          <li><strong>SEL</strong> a channel: the SELECTED CHANNEL knobs (left of the screen) and the screen's <strong>SELECTED CHANNEL VIEW</strong> edit it. <strong>OVERVIEW</strong> shows the eight Centralogic channels side by side.</li>
+          <li>The <strong>EQ</strong> and the compressor (<strong>DYNAMICS</strong>) each have an ON button. Their knobs move even while they're off, so check the curves.</li>
+          <li><strong>ON</strong> keys are lit when the channel is on. Off cuts the channel from the STEREO bus and every MIX, pre-fader sends too.</li>
+          <li><strong>Centralogic</strong>'s Bank Select keys put any eight channels, DCAs, MIX masters or matrices on the faders under the screen.</li>
+          <li><strong>SENDS ON FADER</strong>: SEL a MIX and the faders become each channel's send to it. MIX 13–16 feed the effects rack, which returns on ST IN 2–5.</li>
+          <li>Nothing leaves the Rio outputs until the <strong>OUTPUT PATCH</strong> puts a bus on them. A <strong>MATRIX</strong> mixes STEREO and the MIX buses for lobbies and fills.</li>
+        </ul>
+      </div>
+    </details>`;
+}
+
 function renderFlowX32(root, skin) {
   root.innerHTML = `
     <details class="flow">

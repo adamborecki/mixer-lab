@@ -14,7 +14,7 @@ import { formatDb, formatPan } from "../levels.js";
 import { compGraph, eqGraph, updateViz } from "./viz.js";
 
 // How a desk draws its processing graphs.
-export const vizTheme = (def) => (def.id === "yam01v96" ? "lcd" : def.id.startsWith("x32") ? "x32" : "ui16");
+export const vizTheme = (def) => (def.id === "yam01v96" ? "lcd" : def.id === "cl3" ? "cl" : def.id.startsWith("x32") ? "x32" : "ui16");
 
 // The ON switch of a channel's EQ or compressor ("eqOn" / "compOn").
 export function procOn(view, def, i, key, label, what) {
@@ -262,6 +262,7 @@ export function buildSelPanel(view, def, ui, rerender) {
     return s;
   };
   const theme = vizTheme(def);
+  const lrLabel = def.surface?.terms?.lr || "MAIN LR";
 
   // Input.
   panel.appendChild(
@@ -324,12 +325,18 @@ export function buildSelPanel(view, def, ui, rerender) {
   panel.appendChild(
     section(
       "PAN & SENDS",
-      def.lrSwitch ? button(view, { label: "MAIN LR", tone: "assign", get: (s) => ch(s).lr !== false, onPress: () => store.setChannel(i, "lr", ch(store.state).lr === false), aria: (s) => `Channel ${n} MAIN LR: ${ch(s).lr !== false ? "on, in the main mix" : "off, not in the main mix"}` }) : null,
+      def.lrSwitch ? button(view, { label: lrLabel, tone: "assign", get: (s) => ch(s).lr !== false, onPress: () => store.setChannel(i, "lr", ch(store.state).lr === false), aria: (s) => `Channel ${n} ${lrLabel}: ${ch(s).lr !== false ? "on, in the main mix" : "off, not in the main mix"}` }) : null,
       def.mc && c.kind !== "stereo" ? knob(view, { label: "M/C", sheetLabel: `Ch ${n} MONO/CENTER send`, defaultValue: 0, tone: "aux1", format: lawFormat(LAWS.level), onInput: set("mc") }, (s) => ch(s).mc) : null,
       knob(view, { label: c.kind === "stereo" ? "BAL" : "PAN", sheetLabel: `Ch ${n} pan`, min: -1, max: 1, step: 0.02, defaultValue: 0, bipolar: true, tone: "pan", format: formatPan, onInput: set("pan") }, (s) => ch(s).pan),
       ...sendKnobs,
     ),
   );
+  // CL: the SELECTED CHANNEL VIEW's DCA/MUTE field and the FADER field's ON button.
+  if (def.surface?.selAssign && c.kind !== "stereo") {
+    const toggle = (key, label, what) => button(view, { label, tone: "assign", get: (s) => !!ch(s)[key.split(".")[0]]?.[key.split(".")[1]], onPress: () => store.setChannel(i, key, !ch(store.state)[key.split(".")[0]]?.[key.split(".")[1]]), aria: (s) => `Channel ${n} ${what}: ${ch(s)[key.split(".")[0]]?.[key.split(".")[1]] ? "assigned" : "not assigned"}` });
+    panel.appendChild(section("DCA", ...Array.from({ length: def.dca }, (_, k) => toggle(`dca.d${k + 1}`, String(k + 1), `DCA ${k + 1}`))));
+    panel.appendChild(section("MUTE GROUP", ...Array.from({ length: def.muteGroups }, (_, k) => toggle(`mgrp.g${k + 1}`, String(k + 1), `mute group ${k + 1}`))));
+  }
   return panel;
 }
 

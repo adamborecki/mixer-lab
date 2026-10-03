@@ -10,6 +10,7 @@ import { renderCompact, updateCompact } from "./mixer-compact-view.js";
 import { renderDigital, updateDigital } from "./mixer-digital-view.js";
 import { renderX32 } from "./mixer-x32-view.js";
 import { render01v96 } from "./mixer-01v96-view.js";
+import { renderCL } from "./mixer-cl-view.js";
 import { COMPACT } from "../compact-defs.js";
 
 const FADER_MARKS = [10, 5, 0, -5, -10, -20, -30, -50].map((db) => ({ value: dbToLevel(db), label: db === 0 ? "U" : db > 0 ? `+${db}` : `${db}` }));
@@ -61,8 +62,8 @@ export class MixerView {
       this.sync();
       return;
     }
-    if (skin.layout === "digital" || skin.layout === "x32" || skin.layout === "01v96") {
-      ({ x32: renderX32, "01v96": render01v96 }[skin.layout] || renderDigital)(this, COMPACT[skin.hardware]);
+    if (skin.layout === "digital" || skin.layout === "x32" || skin.layout === "01v96" || skin.layout === "cl") {
+      ({ x32: renderX32, "01v96": render01v96, cl: renderCL }[skin.layout] || renderDigital)(this, COMPACT[skin.hardware]);
       // Re-rendering for a new page or SEL: reuse the last mix, unless it belongs to the previous mixer.
       this.sync(this.lastMix?.channels.length === this.store.state.channels.length ? this.lastMix : undefined);
       return;
@@ -411,7 +412,7 @@ export class MixerView {
     const s = this.store.state;
     const { SOURCES_BY_ID } = this.manifest;
     if (mix) this.lastMix = mix;
-    if (mix && (this.skin.layout === "cr1604" || this.skin.layout === "compact" || this.skin.layout === "digital" || this.skin.layout === "x32" || this.skin.layout === "01v96")) {
+    if (mix && (this.skin.layout === "cr1604" || this.skin.layout === "compact" || this.skin.layout === "digital" || this.skin.layout === "x32" || this.skin.layout === "01v96" || this.skin.layout === "cl")) {
       // The TRIM scale depends on which jack (MIC or LINE) is in use.
       const key = mix.channels.map((c) => c.input.path || "").join();
       if (key !== this.pathKey) {
@@ -459,7 +460,7 @@ export class MixerView {
     if (!readings) return;
     if (this.skin.layout === "cr1604") return update1604(this, readings, now);
     if (this.skin.layout === "compact") return updateCompact(this, readings, now);
-    if (["digital", "x32", "01v96"].includes(this.skin.layout)) return updateDigital(this, readings, now);
+    if (["digital", "x32", "01v96", "cl"].includes(this.skin.layout)) return updateDigital(this, readings, now);
     this.channelMeters.forEach((m, i) => m && m.update(readings.channels[i], now));
     const mm = this.masterMeters || {};
     if (mm.mainL) mm.mainL.update(readings.mainL, now);

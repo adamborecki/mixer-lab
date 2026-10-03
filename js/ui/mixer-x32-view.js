@@ -21,6 +21,17 @@ import { compGraph, eqGraph } from "./viz.js";
 const lawFormat = (law) => (v) => formatDb(law.toDb(v), { unity: true });
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
+// The desk's words: the X32's by default, a Yamaha's from def.surface.terms.
+export const termsOf = (def) => ({ onKey: false, solo: "SOLO", main: "MAIN LR", mainL: "MAIN L", mainR: "MAIN R", lr: "MAIN LR", sof: "SENDS ON FADERS", inputs: "INPUT CHANNELS", groups: "GROUP / BUS CHANNELS", display: "MAIN DISPLAY", ...(def.surface?.terms || {}) });
+
+// A channel's or bus's on/off key: MUTE (lit = muted) on the X32, ON (lit = on) on a Yamaha.
+export function muteKey(view, def, name, muted, setMuted, note = "") {
+  const T = termsOf(def);
+  return T.onKey
+    ? button(view, { label: "ON", tone: "assign", small: false, get: (s) => !muted(s), onPress: () => setMuted(!muted(view.store.state)), aria: (s) => `${name} ON key: ${muted(s) ? `off${note}` : "on"}` })
+    : button(view, { label: "MUTE", tone: "mute", small: false, get: muted, onPress: () => setMuted(!muted(view.store.state)), aria: (s) => `${name} MUTE: ${muted(s) ? `on${note}` : "off"}` });
+}
+
 export function renderX32(view, def) {
   const sf = def.surface;
   if (!view.x32 || view.x32.id !== def.id) view.x32 = { id: def.id, layer: sf.inputLayers[0].id, glayer: "bus", sel: { kind: "ch", i: 6 }, sof: false, assign: null, mgrpEdit: false, page: "home" };
@@ -117,8 +128,7 @@ export function renderX32(view, def) {
   // ---------- group / bus section ----------
   const gLayer = sf.groupLayers.find((l) => l.id === ui.glayer) || sf.groupLayers[0];
   const grBank = el("div", "mixer-strips x32-bank");
-  if (gLayer.id === "dca") for (let k = 1; k <= 8; k++) grBank.appendChild(dcaStrip(view, def, k, ui, rerender));
-  else for (let k = 0; k < 8; k++) grBank.appendChild(gLayer.buses[k] ? groupStrip(view, def, gLayer.buses[k], ui, rerender) : emptyStrip());
+  grBank.append(...groupSlots(view, def, gLayer, ui, rerender));
   grBank.appendChild(mainStrip(view, def, ui, rerender));
   const groups = row(
     "x32-section x32-groups",
@@ -135,7 +145,19 @@ export function renderX32(view, def) {
   view.root.appendChild(surface);
 }
 
-function layerBar(layers, active, onPick, label) {
+// The strips of a group-section layer: DCAs, channels or buses, padded to the bank.
+export function groupSlots(view, def, gLayer, ui, rerender) {
+  const n = def.surface.groupBank || 8;
+  const slots = gLayer.channels
+    ? gLayer.channels.map((i) => channelStrip(view, def, i, ui, rerender))
+    : gLayer.dcas || gLayer.id === "dca"
+      ? (gLayer.dcas || [1, 2, 3, 4, 5, 6, 7, 8]).map((k) => dcaStrip(view, def, k, ui, rerender))
+      : gLayer.buses.map((b) => groupStrip(view, def, b, ui, rerender));
+  while (slots.length < n) slots.push(emptyStrip());
+  return slots;
+}
+
+export function layerBar(layers, active, onPick, label) {
   const bar = el("div", "x32-layers");
   bar.setAttribute("role", "radiogroup");
   bar.setAttribute("aria-label", label);
@@ -150,7 +172,7 @@ function layerBar(layers, active, onPick, label) {
   return bar;
 }
 
-const emptyStrip = () => {
+export const emptyStrip = () => {
   const s = el("section", "strip dg-strip x32-empty");
   s.setAttribute("aria-hidden", "true");
   return s;
@@ -173,10 +195,12 @@ function outsOf(def, s, id) {
   const outs = def.routing.outputs.filter((o) => s.routing[o] === id || (id === "main" && /^main-/.test(s.routing[o]))).map((o) => o.slice(3));
   return outs.length ? `OUT ${outs.join(", ")}` : "not routed";
 }
+const outName = (def, o) => def.routing.names?.[o] || `XLR OUT ${o.slice(3)}`;
 
 // ---------- strips ----------
 
-function channelStrip(view, def, i, ui, rerender) {
+export function channelStrip(view, def, i, ui, rerender) {
+  const T = termsOf(def);
   const store = view.store;
   const c = def.channels[i];
   const n = c.label;
@@ -209,8 +233,8 @@ function channelStrip(view, def, i, ui, rerender) {
   const control = sofBus
     ? fader(view, { label: "", sheetLabel: `Ch ${n} send to ${def.buses[sofBus].label}`, defaultValue: 0, tone: "aux1", format: lawFormat(LAWS[def.sends[sofBus].law]), get: (s) => ch(s).sends[sofBus], onInput: (v) => store.setChannel(i, `sends.${sofBus}`, v) })
     : fader(view, { label: "", sheetLabel: `Ch ${n} fader`, format: lawFormat(levelLaw(def)), get: (s) => ch(s).level, onInput: (v) => store.setChannel(i, "level", v) });
-  const mute = button(view, { label: "MUTE", tone: "mute", small: false, get: (s) => !ch(s).enabled, onPress: () => store.setChannel(i, "enabled", !ch(store.state).enabled), aria: (s) => `Channel ${n} MUTE: ${ch(s).enabled ? "off" : "on"}` });
-  const solo = button(view, { label: "SOLO", tone: "pfl", get: (s) => ch(s).solo, onPress: () => store.setChannel(i, "solo", !ch(store.state).solo), aria: (s) => `Channel ${n} SOLO: ${ch(s).solo ? "on" : "off"}` });
+  const mute = muteKey(view, def, `Channel ${n}`, (s) => !ch(s).enabled, (m) => store.setChannel(i, "enabled", !m));
+  const solo = button(view, { label: T.solo, tone: "pfl", get: (s) => ch(s).solo, onPress: () => store.setChannel(i, "solo", !ch(store.state).solo), aria: (s) => `Channel ${n} ${T.solo}: ${ch(s).solo ? "on" : "off"}` });
   const tag = el("span", "x32-tag");
   view.bindings.push({
     kind: "fn",
@@ -218,14 +242,14 @@ function channelStrip(view, def, i, ui, rerender) {
       strip.classList.toggle("is-muted", !ch(s).enabled);
       const dcas = Object.entries(ch(s).dca || {}).filter(([, on]) => on).map(([d]) => d.replace("d", "D"));
       const grps = Object.entries(ch(s).mgrp || {}).filter(([, on]) => on).map(([g]) => g.replace("g", "M"));
-      tag.textContent = [ch(s).lr === false ? "no LR" : "", ...dcas, ...grps].filter(Boolean).join(" ");
+      tag.textContent = [ch(s).lr === false ? (T.onKey ? "no ST" : "no LR") : "", ...dcas, ...grps].filter(Boolean).join(" ");
     },
   });
   strip.append(head, sel, row("dg-extra", tag), row("dg-fader", control, meterBar(view, i)), row("dg-btns", mute, solo));
   return strip;
 }
 
-function fxReturnStrip(view, def, b) {
+export function fxReturnStrip(view, def, b) {
   const store = view.store;
   const bus = def.buses[b];
   const strip = el("section", "strip dg-strip x32-strip x32-fxret");
@@ -239,7 +263,8 @@ function fxReturnStrip(view, def, b) {
 }
 
 // A strip in the group section (or the BUS MASTER input layer): a MIX, an FX send bus, a MATRIX or M/C.
-function groupStrip(view, def, id, ui, rerender) {
+export function groupStrip(view, def, id, ui, rerender) {
+  const T = termsOf(def);
   const store = view.store;
   if (def.buses[id]?.fx) {
     const strip = el("section", "strip dg-strip x32-strip x32-fxret");
@@ -267,14 +292,14 @@ function groupStrip(view, def, id, ui, rerender) {
     sofCh !== null
       ? fader(view, { label: "", sheetLabel: `Ch ${def.channels[sofCh].label} send to ${label}`, defaultValue: 0, tone: "aux1", format: lawFormat(LAWS[def.sends[id].law]), get: (s) => s.channels[sofCh].sends[id], onInput: (v) => store.setChannel(sofCh, `sends.${id}`, v) })
       : fader(view, { label: "", sheetLabel: `${label} fader`, format: lawFormat(LAWS.level), get: (s) => s[id].level, onInput: (v) => store.setBus(id, "level", v) });
-  const mute = button(view, { label: "MUTE", tone: "mute", small: false, get: (s) => !!s[id].mute, onPress: () => store.setBus(id, "mute", !store.state[id].mute), aria: (s) => `${label} MUTE: ${s[id].mute ? "on" : "off"}` });
+  const mute = muteKey(view, def, label, (s) => !!s[id].mute, (m) => store.setBus(id, "mute", m));
   const out = el("p", "dg-note");
-  view.bindings.push({ kind: "fn", run: (s) => (out.textContent = [outsOf(def, s, id), kind === "bus" && s[id].lr ? "→ LR" : ""].filter(Boolean).join(" · ")) });
+  view.bindings.push({ kind: "fn", run: (s) => (out.textContent = [outsOf(def, s, id), kind === "bus" && s[id].lr ? (T.onKey ? "→ ST" : "→ LR") : ""].filter(Boolean).join(" · ")) });
   strip.append(el("div", "dg-master-name", label), sel, row("dg-extra", out), row("dg-fader", control), row("dg-btns", mute));
   return strip;
 }
 
-function dcaStrip(view, def, k, ui, rerender) {
+export function dcaStrip(view, def, k, ui, rerender) {
   const store = view.store;
   const id = `dca${k}`;
   const assigning = ui.assign?.type === "dca" && ui.assign.n === k;
@@ -291,21 +316,22 @@ function dcaStrip(view, def, k, ui, rerender) {
       rerender();
     },
   });
-  const mute = button(view, { label: "MUTE", tone: "mute", small: false, get: (s) => s[id].mute, onPress: () => store.setBus(id, "mute", !store.state[id].mute), aria: (s) => `DCA ${k} MUTE: ${s[id].mute ? "on, its channels are muted" : "off"}` });
+  const mute = muteKey(view, def, `DCA ${k}`, (s) => s[id].mute, (m) => store.setBus(id, "mute", m), ", its channels are muted");
   strip.append(el("div", "dg-master-name", `DCA ${k}`), sel, row("dg-extra", members), row("dg-fader", fader(view, { label: "", sheetLabel: `DCA ${k} fader`, format: lawFormat(LAWS.level), get: (s) => s[id].level, onInput: (v) => store.setBus(id, "level", v) })), row("dg-btns", mute));
   return strip;
 }
 
-function mainStrip(view, def, ui, rerender) {
+export function mainStrip(view, def, ui, rerender) {
   const store = view.store;
+  const T = termsOf(def);
   const strip = el("section", `strip dg-strip dg-master x32-main${isSel(ui, "main") ? " is-sel" : ""}`);
-  strip.setAttribute("aria-label", "MAIN LR");
-  const mute = button(view, { label: "MUTE", tone: "mute", small: false, get: (s) => !!s.main.mute, onPress: () => store.setBus("main", "mute", !store.state.main.mute), aria: (s) => `MAIN LR MUTE: ${s.main.mute ? "on, the house is silent" : "off"}` });
+  strip.setAttribute("aria-label", T.main);
+  const mute = muteKey(view, def, T.main, (s) => !!s.main.mute, (m) => store.setBus("main", "mute", m), ", the house is silent");
   const phones = knob(view, { label: "PHONES", sheetLabel: "Headphone level", defaultValue: 0.5, tone: "level", format: lawFormat(LAWS.master), onInput: (v) => store.setBus("cr", "level", v) }, (s) => s.cr.level);
   const sel = def.matrix
     ? selButton({
         lit: isSel(ui, "main"),
-        label: "Select MAIN LR",
+        label: `Select ${T.main}`,
         onPress: () => {
           ui.sel = { kind: "main" };
           rerender();
@@ -313,16 +339,16 @@ function mainStrip(view, def, ui, rerender) {
       })
     : el("div", "dg-extra");
   strip.append(
-    el("div", "dg-master-name", "MAIN LR"),
+    el("div", "dg-master-name", T.main),
     sel,
-    row("dg-fader", fader(view, { label: "", sheetLabel: "MAIN LR fader", format: lawFormat(LAWS[def.main.law]), get: (s) => s.main.level, onInput: (v) => store.setBus("main", "level", v) }), row("dg-master-meters", meterBar(view, "L"), meterBar(view, "R"))),
+    row("dg-fader", fader(view, { label: "", sheetLabel: `${T.main} fader`, format: lawFormat(LAWS[def.main.law]), get: (s) => s.main.level, onInput: (v) => store.setBus("main", "level", v) }), row("dg-master-meters", meterBar(view, "L"), meterBar(view, "R"))),
     row("dg-btns", mute, phones),
   );
   return strip;
 }
 
 // MUTE GRP: off, the six buttons mute their groups; on, they pick a group to assign.
-function muteGroupBar(view, def, ui, rerender) {
+export function muteGroupBar(view, def, ui, rerender) {
   const store = view.store;
   const barEl = el("div", "x32-mgrp");
   const edit = el("button", `x32-layer${ui.mgrpEdit ? " on" : ""}`, "MUTE GRP");
@@ -375,33 +401,35 @@ const matrixSends = (view, def, src, name) =>
     return knob(view, { label: `MTX ${k + 1}`, sheetLabel: `${name} to MATRIX ${k + 1}`, defaultValue: 0, tone: "aux1", format: lawFormat(LAWS.level), onInput: (v) => view.store.setBus(m, src, v) }, (s) => s[m][src]);
   });
 
-function busPanel(view, def, b) {
+export function busPanel(view, def, b) {
+  const T = termsOf(def);
   const store = view.store;
   const bus = def.buses[b];
   const sections = [
     [
       "BUS MASTER",
       knob(view, { label: "LEVEL", sheetLabel: `${bus.label} master`, defaultValue: 0.75, tone: "level", size: undefined, format: lawFormat(LAWS[bus.master.law]), onInput: (v) => store.setBus(b, "level", v) }, (s) => s[b].level),
-      button(view, { label: "MUTE", tone: "mute", get: (s) => !!s[b].mute, onPress: () => store.setBus(b, "mute", !store.state[b].mute), aria: (s) => `${bus.label} MUTE: ${s[b].mute ? "on" : "off"}` }),
+      muteKey(view, def, bus.label, (s) => !!s[b].mute, (m) => store.setBus(b, "mute", m)),
     ],
   ];
   if (def.busToMain)
     sections.push([
-      "MAIN BUS (subgroup)",
-      button(view, { label: "MAIN LR", tone: "assign", get: (s) => !!s[b].lr, onPress: () => store.setBus(b, "lr", !store.state[b].lr), aria: (s) => `${bus.label} to MAIN LR: ${s[b].lr ? "on, it is a subgroup" : "off"}` }),
-      knob(view, { label: "PAN", sheetLabel: `${bus.label} pan into MAIN LR`, min: -1, max: 1, step: 0.02, defaultValue: 0, bipolar: true, tone: "pan", format: formatPan, onInput: (v) => store.setBus(b, "pan", v) }, (s) => s[b].pan),
+      T.onKey ? "TO STEREO (group)" : "MAIN BUS (subgroup)",
+      button(view, { label: T.lr, tone: "assign", get: (s) => !!s[b].lr, onPress: () => store.setBus(b, "lr", !store.state[b].lr), aria: (s) => `${bus.label} to ${T.main}: ${s[b].lr ? "on, it is a subgroup" : "off"}` }),
+      knob(view, { label: "PAN", sheetLabel: `${bus.label} pan into ${T.main}`, min: -1, max: 1, step: 0.02, defaultValue: 0, bipolar: true, tone: "pan", format: formatPan, onInput: (v) => store.setBus(b, "pan", v) }, (s) => s[b].pan),
     ]);
   if (def.matrix) sections.push(["MATRIX SENDS", ...matrixSends(view, def, b, bus.label)]);
   const panel = panelShell(`${bus.label}`, ...sections);
-  panel.appendChild(el("p", "dg-hint", `Press SENDS ON FADERS: the input faders become each channel's send to ${bus.label}. Each channel's PRE/POST for it is in that channel's strip.`));
+  panel.appendChild(el("p", "dg-hint", `Press ${T.sof}: the input faders become each channel's send to ${bus.label}. Each channel's PRE/POST for it is in that channel's strip.`));
   return panel;
 }
 
-function mainPanel(view, def) {
-  return panelShell("MAIN LR", ["MATRIX SENDS (the main mix into each matrix)", ...matrixSends(view, def, "main", "MAIN LR")]);
+export function mainPanel(view, def) {
+  const T = termsOf(def);
+  return panelShell(T.main, ["MATRIX SENDS (the main mix into each matrix)", ...matrixSends(view, def, "main", T.main)]);
 }
 
-function mcPanel(view, def) {
+export function mcPanel(view, def) {
   const store = view.store;
   return panelShell(
     "M/C (MONO/CENTER)",
@@ -415,16 +443,16 @@ function mcPanel(view, def) {
   );
 }
 
-function matrixPanel(view, def, m) {
+export function matrixPanel(view, def, m) {
   const store = view.store;
   const k = m.slice(3);
-  const label = (src) => (src === "main" ? "MAIN" : src === "mc" ? "M/C" : def.buses[src].label.replace("MIX ", "MIX"));
+  const label = (src) => (src === "main" ? termsOf(def).main.replace(" LR", "") : src === "mc" ? "M/C" : def.buses[src].label.replace("MIX ", "MIX"));
   return panelShell(
     `MATRIX ${k}`,
     [
       "MATRIX MASTER",
       knob(view, { label: "LEVEL", sheetLabel: `MATRIX ${k} master`, defaultValue: 0.75, tone: "level", size: undefined, format: lawFormat(LAWS.level), onInput: (v) => store.setBus(m, "level", v) }, (s) => s[m].level),
-      button(view, { label: "MUTE", tone: "mute", get: (s) => s[m].mute, onPress: () => store.setBus(m, "mute", !store.state[m].mute), aria: (s) => `MATRIX ${k} MUTE: ${s[m].mute ? "on" : "off"}` }),
+      muteKey(view, def, `MATRIX ${k}`, (s) => s[m].mute, (v) => store.setBus(m, "mute", v)),
     ],
     ["SOURCES (what feeds this matrix)", ...matrixSources(def).map((src) => knob(view, { label: label(src), sheetLabel: `${label(src)} into MATRIX ${k}`, defaultValue: 0, tone: "aux1", format: lawFormat(LAWS.level), onInput: (v) => store.setBus(m, src, v) }, (s) => s[m][src]))],
   );
@@ -432,19 +460,20 @@ function matrixPanel(view, def, m) {
 
 // ---------- display pages ----------
 
-const SOURCE_NAMES = (src) => (src === "off" ? "OFF" : src === "main-l" ? "MAIN L" : src === "main-r" ? "MAIN R" : src === "mc" ? "M/C" : src.startsWith("mtx") ? `MATRIX ${src.slice(3)}` : `MIX ${src.slice(3)}`);
+const SOURCE_NAMES = (src, T) => (src === "off" ? "OFF" : src === "main-l" ? T.mainL : src === "main-r" ? T.mainR : src === "mc" ? "M/C" : src.startsWith("mtx") ? `MATRIX ${src.slice(3)}` : `MIX ${src.slice(3)}`);
 
-function routingPage(view, def) {
+export function routingPage(view, def, note = "Analog out: what each rear-panel XLR OUT carries.") {
   const store = view.store;
+  const T = termsOf(def);
   const box = el("div", "x32-routing");
-  box.appendChild(el("p", "dg-note", "Analog out: what each rear-panel XLR OUT carries."));
+  box.appendChild(el("p", "dg-note", note));
   for (const o of def.routing.outputs) {
     const lab = el("label", "x32-route");
-    lab.append(el("span", "", `XLR OUT ${o.slice(3)}`));
+    lab.append(el("span", "", outName(def, o)));
     const sel = el("select");
-    sel.setAttribute("aria-label", `XLR OUT ${o.slice(3)} source`);
+    sel.setAttribute("aria-label", `${outName(def, o)} source`);
     for (const src of def.routing.sources) {
-      const opt = el("option", "", SOURCE_NAMES(src));
+      const opt = el("option", "", SOURCE_NAMES(src, T));
       opt.value = src;
       sel.appendChild(opt);
     }
@@ -456,7 +485,7 @@ function routingPage(view, def) {
   return box;
 }
 
-function scenesPage(view, def) {
+export function scenesPage(view, def) {
   const store = view.store;
   const box = el("div", "x32-scenes");
   box.appendChild(el("p", "dg-note", "RECALL loads a scene's settings (not the cables). STORE saves the current mix into the slot."));
@@ -497,7 +526,7 @@ function homeText(def, s, ui, view) {
   else if (ui.sof && ui.sel.kind === "ch") lines.push(`<p class="x32-warn">SENDS ON FADERS: on a BUS layer, the bus faders are channel ${esc(s.channels[ui.sel.i].label)}'s sends to each MIX.</p>`);
   else if (ui.sof) lines.push(`<p class="x32-warn">SENDS ON FADERS: select a MIX (or a channel) to see its sends on the faders.</p>`);
   else lines.push(`<p>Input faders: channel levels into MAIN LR.</p>`);
-  const dcaUsed = [1, 2, 3, 4, 5, 6, 7, 8].filter((k) => s.channels.some((c) => c.dca?.[`d${k}`]));
+  const dcaUsed = Array.from({ length: def.dca || 0 }, (_, k) => k + 1).filter((k) => s.channels.some((c) => c.dca?.[`d${k}`]));
   if (dcaUsed.length) lines.push(`<p>${dcaUsed.map((k) => `DCA ${k}: ${s.channels.filter((c) => c.dca[`d${k}`]).map((c) => esc(c.label)).join(", ")}${s[`dca${k}`].mute ? " (muted)" : ""}`).join("<br>")}</p>`);
   const groups = Object.keys(s.mgrp).filter((g) => s.channels.some((c) => c.mgrp?.[g]));
   if (groups.length) lines.push(`<p>${groups.map((g) => `Mute group ${g.slice(1)}: ${s.channels.filter((c) => c.mgrp[g]).map((c) => esc(c.label)).join(", ")}${s.mgrp[g] ? " (muted)" : ""}`).join("<br>")}</p>`);

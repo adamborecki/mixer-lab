@@ -501,6 +501,88 @@ export const COMPACT = {
       bank: 16,
     },
   },
+  // Yamaha CL3 (CL5/CL3/CL1 Reference Manual): 64 mono + 8 stereo inputs on
+  // the real desk, Rio3224-D stage boxes over Dante; the lab uses 32 of them.
+  // 16 faders in the INPUT section, 8 in Centralogic, STEREO in the master
+  // section. SELECTED CHANNEL knobs left of the touch screen.
+  cl3: {
+    id: "cl3",
+    name: "Yamaha CL3",
+    blurb: "A touring console: Rio stage box inputs, Centralogic, a touch screen with OVERVIEW and SELECTED CHANNEL VIEW, 16 DCAs, 8 matrices, scenes.",
+    digital: true,
+    phantom: { label: "+48V", channels: Array.from({ length: 32 }, (_, i) => i), perChannel: true },
+    channels: [
+      ...Array.from({ length: 32 }, (_, i) => ({
+        label: String(i + 1),
+        kind: "mono",
+        jacks: ["mic"],
+        portName: `RIO IN ${i + 1} (CH ${i + 1})`,
+        gain: { min: -6, max: 66 },
+        hpf: { min: 20, max: 600 },
+        peq: true,
+        dyn: true,
+        polarity: true,
+        sends: Array.from({ length: 16 }, (_, k) => `mix${k + 1}`),
+        mute: "mute",
+        solo: true,
+        peak: true,
+      })),
+      { label: "ST IN 1", kind: "stereo", jacks: ["linePair"], portName: "OMNI IN 1/2 (ST IN 1)", gain: { min: -6, max: 20 }, peq: true, dyn: true, sends: Array.from({ length: 16 }, (_, k) => `mix${k + 1}`), mute: "mute", solo: true, peak: true },
+    ],
+    sends: Object.fromEntries(Array.from({ length: 16 }, (_, k) => [`mix${k + 1}`, { label: `MIX ${k + 1}`, bus: `mix${k + 1}`, tap: k < 12 ? "each" : "post", pre: false, law: "level" }])),
+    buses: {
+      ...Object.fromEntries(Array.from({ length: 12 }, (_, k) => [`mix${k + 1}`, { label: `MIX ${k + 1}`, master: { label: `MIX ${k + 1}`, law: "level" }, mute: true }])),
+      // The virtual rack: MIX 13–16 feed effects 1–4, which return on ST IN 2–5.
+      mix13: { label: "MIX 13", master: { label: "ST IN 2 (FX 1)", law: "level" }, fx: { name: "REV-X Hall (FX 1)", kind: "reverb", seconds: 1.8, number: 1 } },
+      mix14: { label: "MIX 14", master: { label: "ST IN 3 (FX 2)", law: "level" }, fx: { name: "REV-X Plate (FX 2)", kind: "reverb", seconds: 2.4, number: 2 } },
+      mix15: { label: "MIX 15", master: { label: "ST IN 4 (FX 3)", law: "level" }, fx: { name: "Mono Delay (FX 3)", kind: "delay", seconds: 0.375, feedback: 0.35, number: 3 } },
+      mix16: { label: "MIX 16", master: { label: "ST IN 5 (FX 4)", law: "level" }, fx: { name: "Chorus (FX 4)", kind: "chorus", rate: 0.8, depth: 0.004, number: 4 } },
+    },
+    busToMain: true, // a FIXED-type MIX can go to the STEREO bus: a group
+    matrix: 8,
+    scenes: 8,
+    routing: {
+      outputs: Array.from({ length: 16 }, (_, k) => `out${k + 1}`),
+      names: Object.fromEntries(Array.from({ length: 16 }, (_, k) => [`out${k + 1}`, `RIO OUT ${k + 1}`])),
+      sources: ["off", "main-l", "main-r", ...Array.from({ length: 12 }, (_, k) => `mix${k + 1}`), ...Array.from({ length: 8 }, (_, k) => `mtx${k + 1}`)],
+      // The lab's starting patch: MIX 1–8 on RIO OUT 1–8, STEREO L/R on 15/16.
+      start: { ...Object.fromEntries(Array.from({ length: 8 }, (_, k) => [`out${k + 1}`, `mix${k + 1}`])), out15: "main-l", out16: "main-r" },
+    },
+    muteCutsPre: true,
+    lrSwitch: true,
+    dca: 16,
+    muteGroups: 8,
+    mainMute: true,
+    main: { label: "STEREO", law: "level" },
+    phones: { label: "PHONES", sources: null },
+    solo: { mode: "pfl", label: "CUE" },
+    meter: [-60, -48, -40, -30, -24, -18, -12, -6, 0, "OVER"],
+    peakLabel: "OVER",
+    outputs: ["routed"],
+    layout: { kind: "cl" },
+    surface: {
+      // Yamaha keys: ON (lit = the channel is on), CUE; TO ST is the channel's switch to the STEREO bus.
+      terms: { onKey: true, solo: "CUE", main: "STEREO", mainL: "ST L", mainR: "ST R", lr: "ST/MONO", sof: "SENDS ON FADER", inputs: "INPUT", groups: "CENTRALOGIC", display: "TOUCH SCREEN" },
+      inputLayers: [
+        { id: "ch1", label: "CH 1-16", channels: Array.from({ length: 16 }, (_, i) => i) },
+        { id: "ch17", label: "CH 17-32", channels: Array.from({ length: 16 }, (_, i) => i + 16) },
+        { id: "stin", label: "ST IN", channels: [32], fx: ["mix13", "mix14", "mix15", "mix16"] },
+      ],
+      groupLayers: [
+        { id: "c1", label: "CH 1-8", channels: [0, 1, 2, 3, 4, 5, 6, 7] },
+        { id: "c9", label: "CH 9-16", channels: [8, 9, 10, 11, 12, 13, 14, 15] },
+        { id: "c17", label: "CH 17-24", channels: [16, 17, 18, 19, 20, 21, 22, 23] },
+        { id: "dca", label: "DCA 1-8", dcas: [1, 2, 3, 4, 5, 6, 7, 8] },
+        { id: "dca9", label: "DCA 9-16", dcas: [9, 10, 11, 12, 13, 14, 15, 16] },
+        { id: "bus", label: "MIX 1-8", buses: ["mix1", "mix2", "mix3", "mix4", "mix5", "mix6", "mix7", "mix8"] },
+        { id: "bus9", label: "MIX 9-16", buses: ["mix9", "mix10", "mix11", "mix12", "mix13", "mix14", "mix15", "mix16"] },
+        { id: "mtx", label: "MATRIX", buses: ["mtx1", "mtx2", "mtx3", "mtx4", "mtx5", "mtx6", "mtx7", "mtx8"] },
+      ],
+      bank: 16,
+      groupBank: 8,
+      selAssign: true, // DCA and mute-group assignment in the SELECTED CHANNEL VIEW
+    },
+  },
 };
 
 // ---------- rear panels (used by js/connection-model.js) ----------
@@ -515,12 +597,12 @@ export function compactPorts(def) {
     const base = { dir: "in", role: "channel-input", channel: i };
     const phantom = def.phantom.channels.includes(i);
     for (const j of ch.jacks) {
-      if (j === "mic") ports.push({ ...base, id: `ch${i + 1}-mic`, jack: "xlr", level: "mic", path: "mic", phantom, name: `Ch ${n} MIC` });
+      if (j === "mic") ports.push({ ...base, id: `ch${i + 1}-mic`, jack: "xlr", level: "mic", path: "mic", phantom, name: ch.portName || `Ch ${n} MIC` });
       if (j === "line") ports.push({ ...base, id: `ch${i + 1}-line`, jack: "quarter", level: "line", path: "line", name: `Ch ${n} LINE` });
       if (j === "xlrMicLine") ports.push({ ...base, id: `ch${i + 1}-in`, jack: "xlr", level: "mic-or-line", path: "mic", phantom, name: `Ch ${n} input (XLR, MIC/LINE)` });
       if (j === "combo") ports.push({ ...base, id: `ch${i + 1}-in`, jack: "combo", level: "mic-or-line", phantom, name: `Ch ${n} input` });
       if (j === "lineMono") ports.push({ ...base, id: `ch${i + 1}-l`, jack: "quarter", level: "line", path: "line", pad: false, monoIn: true, name: `Ch ${n} L (MONO)` });
-      if (j === "linePair") ports.push({ ...base, id: `ch${i + 1}-lr`, jack: "linepair", level: "line", path: "line", pad: false, stereo: true, name: `Ch ${n} L+R (1/4")` });
+      if (j === "linePair") ports.push({ ...base, id: `ch${i + 1}-lr`, jack: "linepair", level: "line", path: "line", pad: false, stereo: true, name: ch.portName || `Ch ${n} L+R (1/4")` });
       if (j === "rcaPair") ports.push({ ...base, id: `ch${i + 1}-rca`, jack: "rcapair", level: "line", path: "line", pad: false, stereo: true, name: `Ch ${n} RCA L/R` });
       if (j === "miniPair") ports.push({ ...base, id: `ch${i + 1}-mini`, jack: "mini", level: "line", path: "line", pad: false, stereo: true, name: `Ch ${n} stereo mini` });
     }
@@ -542,7 +624,7 @@ export function compactPorts(def) {
     ports.push(out("main-l", "xlr", "MASTER OUT L (XLR)", { bus: "main", side: "L", levelSwitch: true }), out("main-r", "xlr", "MASTER OUT R (XLR)", { bus: "main", side: "R", levelSwitch: true }));
   } else if (o.includes("routed")) {
     // 16 XLR outputs whose source is set on the ROUTING page (state.routing).
-    for (const id of def.routing.outputs) ports.push(out(id, "xlr", `XLR OUT ${id.slice(3)}`, { routed: true }));
+    for (const id of def.routing.outputs) ports.push(out(id, "xlr", def.routing.names?.[id] || `XLR OUT ${id.slice(3)}`, { routed: true }));
   } else if (o.includes("omni")) {
     // STEREO OUT L/R (XLR) and OMNI OUT 1–4 (XLR), patched to AUX 1–4.
     ports.push(out("main-l", "xlr", "STEREO OUT L", { bus: "main", side: "L" }), out("main-r", "xlr", "STEREO OUT R", { bus: "main", side: "R" }));

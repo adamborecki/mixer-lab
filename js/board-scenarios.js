@@ -2206,7 +2206,7 @@ const X32 = [
     baseline: { main: { metric: "mainDbByChannel" }, levels: { metric: "channelLevels" }, singer: { metric: "monitorByChannel", bus: "mix1" } },
     conditions: [
       goal("dca", "The five band channels share one DCA (the vocals aren't on it)", (ctx) =>
-        [1, 2, 3, 4, 5, 6, 7, 8].some((k) => BAND.every((s) => sc(ctx, s)?.dca[`d${k}`]) && !["lead-vocal", "backing-vocals"].some((s) => sc(ctx, s)?.dca[`d${k}`])),
+        Object.keys(sc(ctx, "drums")?.dca || {}).some((d) => BAND.every((s) => sc(ctx, s)?.dca[d]) && !["lead-vocal", "backing-vocals"].some((s) => sc(ctx, s)?.dca[d])),
       ),
       goal("down", "The band is at least 4 dB down in the house", (ctx) => BAND.every((s) => ctx.baseline.main[mc(ctx, s).index] - house(ctx, s) >= 4)),
       { id: "vox", kind: "keep", type: "mainUnchanged", baseline: "main", except: BAND, toleranceDb: 1, label: "The vocals stay where they are" },
@@ -2225,7 +2225,7 @@ const X32 = [
     goal: "Drums, guitar and trumpets in one mute group, that group muting them; vocals still live.",
     setup: {},
     conditions: [
-      goal("group", "Drums, guitar and trumpets are in one mute group, and it's on", (ctx) => [1, 2, 3, 4, 5, 6].some((k) => ctx.state.mgrp[`g${k}`] && ["drums", "guitars", "trumpets"].every((s) => sc(ctx, s)?.mgrp[`g${k}`]))),
+      goal("group", "Drums, guitar and trumpets are in one mute group, and it's on", (ctx) => Object.keys(ctx.state.mgrp).some((g) => ctx.state.mgrp[g] && ["drums", "guitars", "trumpets"].every((s) => sc(ctx, s)?.mgrp[g]))),
       goal("out", "They're out of the house", (ctx) => ["drums", "guitars", "trumpets"].every((s) => house(ctx, s) < AUDIBLE)),
       { id: "vox", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The lead vocal stays live" },
       { id: "bv", kind: "keep", type: "sourceHeardInMain", source: "backing-vocals", label: "The backing vocal stays live" },
@@ -2700,6 +2700,82 @@ X32F.at(-1).setup.tweak = ((orig) => (st, h) => {
 
 // ---------- each board's list, in teaching order ----------
 
+// ---------- Yamaha CL3 ----------
+// Most of the jobs are the X32's, done the CL way: the same checks with new
+// words. `like` copies another board's scenario under a CL id.
+const like = (srcId, over) => {
+  const src = [...X32, ...X32F, ...Y96].find((s) => s.id === srcId);
+  if (!src) throw new Error(`no scenario ${srcId}`);
+  return { ...src, id: `cl3-${srcId.replace(/^[a-z0-9]+-/, "")}`, ...over };
+};
+const CL3 = [
+  doors("cl3", {
+    prompt: "“Doors in five. The laptop is on OMNI IN 1/2, channel ST IN 1. Preshow music, please.”",
+    hints: ["The INPUT section shows one bank at a time. Channels 1–32 aren't where the laptop is.", "Press the ST IN bank key above the INPUT faders.", "Push ST IN 1's fader up."],
+    complete: "On a CL the stereo inputs live on their own bank, next to the effects returns. Check the lit bank key before every move.",
+  }),
+  like("x32c-gain", {
+    hints: ["Gain first. The vocal's preamp is in the Rio stage box, but you set it from the console.", "Press SEL on channel 7: the SELECTED CHANNEL knobs left of the screen now edit it.", "Turn the SELECTED CHANNEL GAIN up until the meter sits around the middle."],
+    complete: "The mic preamps are on stage in the Rio, controlled over Dante. SEL decides which channel the SELECTED CHANNEL knobs turn.",
+  }),
+  like("x32c-48v", {
+    hints: ["A condenser needs phantom power, and on a CL it comes from the Rio input it's plugged into.", "SEL channel 1 and open SELECTED CHANNEL on the touch screen: the INPUT field has +48V.", "Press +48V for channel 1."],
+    complete: "+48V is switched per input from the console, even though the preamp is on stage. Switch the channel off first to keep the pop out of the speakers.",
+  }),
+  like("yam01v96-on", {
+    hints: ["Every fader has an ON key. Which way round does it work?", "ON is lit while the channel is on: dark means off. That's the opposite of a MUTE key.", "Press channel 2's ON key so it lights."],
+    complete: "Yamaha keys light when the channel plays. Read the label, not the light.",
+  }),
+  eqOff("cl3", {
+    hints: ["Open OVERVIEW: channel 7's EQ curve is flat and grey, marked EQ OFF. The SELECTED CHANNEL knobs moved the bands anyway.", "SEL channel 7, open SELECTED CHANNEL on the screen and press EQ ON."],
+    complete: "On a CL the EQ knobs keep working while the EQ is off, which makes this easy to miss. The OVERVIEW curves show it at a glance.",
+  }),
+  compOff("cl3", {
+    hints: ["The SELECTED CHANNEL section warns DYNAMICS is OFF, and the GR bar on OVERVIEW never moves.", "SEL channel 7, open SELECTED CHANNEL on the screen and press COMP ON."],
+    complete: "A compressor dialled in but switched off does nothing at all. After setting one, check that GR moves.",
+  }),
+  like("x32c-sof", {
+    hints: ["The singer's wedge is MIX 1 (Rio OUT 1). Listen to it.", "Put MIX 1-8 on Centralogic, SEL MIX 1, then press SENDS ON FADER in the master section: the INPUT faders become sends to MIX 1.", "With SENDS ON FADER lit, push channel 7's fader up. Then switch SENDS ON FADER off."],
+    complete: "SENDS ON FADER turns the faders into one MIX's sends. Switch it off afterwards, or your next fader move changes a wedge instead of the house.",
+  }),
+  like("x32-routing-house", {
+    goal: "STEREO back on the house speakers' outputs (Rio OUT 15/16), the wedges unchanged.",
+    hints: ["The mix meters fine and the speakers are on Rio OUT 15 and 16. What do those outputs carry?", "Outputs carry what the OUTPUT PATCH says (touch screen, OUTPUT PATCH).", "Set Rio OUT 15 to ST L and 16 to ST R."],
+    complete: "A stage box's outputs carry nothing until they're patched. When the mix meters fine but a speaker is silent, check the OUTPUT PATCH.",
+  }),
+  like("x32-routing-wedge", {
+    prompt: "“Rio OUT 1's connector is broken, so I moved the singer's wedge cable to Rio OUT 9. It's silent now.”",
+    goal: "The singer's wedge fed MIX 1 again, from Rio OUT 9.",
+    hints: ["The wedge's mix is MIX 1. Which output carries MIX 1, and which output is the wedge on now?", "Open OUTPUT PATCH on the touch screen.", "Set Rio OUT 9 to MIX 1."],
+    complete: "Moving a cable on the stage box means moving the patch with it. The mix itself didn't change at all.",
+  }),
+  like("x32c-dca", {
+    hints: ["A DCA moves other faders' levels without touching them. Centralogic can show DCA 1-8.", "SEL each band channel (1–5) and, in SELECTED CHANNEL on the screen, press DCA 1 in its DCA field.", "Put DCA 1-8 on Centralogic and pull DCA 1 down about 6 dB."],
+    complete: "The DCA moved five channels at once and kept their balance. On the CL you assign DCAs from the channel's own SELECTED CHANNEL VIEW, and there are sixteen of them.",
+  }),
+  like("x32c-mute-group", {
+    hints: ["Muting three channels one by one works once, but you'll do it after every song.", "SEL channels 1, 3 and 5 in turn and, in SELECTED CHANNEL on the screen, press MUTE GROUP 1 for each.", "Then press MUTE 1 in the master section (a USER DEFINED key)."],
+    complete: "A mute group mutes several channels with one key and leaves each channel's own ON key alone. On a CL the master keys are USER DEFINED keys you set up yourself.",
+  }),
+  like("x32-matrix", {
+    goal: "The lobby speaker fed by MATRIX 1, which carries the STEREO mix; the house unchanged.",
+    prompt: "“The lobby speaker is on Rio OUT 12. Give it the house mix, and I want to set its level without touching the house.”",
+    hints: ["A matrix is a mix of mixes: STEREO and the MIX buses, each at its own level, with its own fader.", "SEL STEREO in the master section: SELECTED CHANNEL shows its sends to each MATRIX. Or put MATRIX on Centralogic and SEL MATRIX 1.", "Turn STEREO's send to MATRIX 1 up, then patch Rio OUT 12 to MATRIX 1."],
+    complete: "Matrices feed the places that need the show but not their own mix: lobbies, delay speakers, recorders, broadcast. The CL has eight.",
+  }),
+  like("x32-fx", {
+    goal: "The keys sent to FX 4 (the chorus, fed by MIX 16), its return (ST IN 5) up; the dry mix and wedges unchanged.",
+    hints: ["The effects rack is fed by MIX 13–16 and comes back on ST IN 2–5.", "FX 4 is the chorus, fed by MIX 16. SEL channel 4 and turn up its MIX 16 send in SELECTED CHANNEL.", "Then push ST IN 5 (FX 4) up on the ST IN bank."],
+    complete: "The CL's effects are fed by ordinary MIX buses and return on ST IN channels: the same idea as an outboard rack.",
+  }),
+  like("x32-scene-recall", {
+    hints: ["Rebuilding it by hand takes ages and you'll miss something.", "The touch screen's SCENE page lists the saved scenes.", "RECALL scene 02."],
+  }),
+  like("x32-scene-store", {
+    hints: ["The SCENE page has a STORE button for each slot.", "Scene 3 is empty: store into it, not over 1 or 2.", "Press STORE on scene 03 and name it (Encore)."],
+  }),
+];
+
 UI.push(
   eqOff("ui16", {
     hints: ["SEL channel 7 (VOX). The EQ graph is grey and dashed, marked EQ OFF: the bands are set but switched out.", "Press EQ ON in the corner of the EQ section. Leave the bands alone."],
@@ -2752,10 +2828,11 @@ const ORDER = {
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
   yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
   x32: ["doors", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9"],
+  cl3: ["doors", "gain", "48v", "on", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "scene-recall", "scene-store"],
   x32c: ["doors", "gain", "48v", "lowcut", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix"],
 };
 
-const LISTS = { mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: C16, x32c: X32, yam01v96: Y96, x32: X32F };
+const LISTS = { cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: C16, x32c: X32, yam01v96: Y96, x32: X32F };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.
 function arrange(board) {
@@ -2781,5 +2858,6 @@ export const MIXER_ORDER = [
   { model: "x32c", skin: "x32c", why: "A digital console laid out like the big ones: fader layers, a selected-channel strip, Sends on Faders, DCA and mute groups, a MAIN LR switch on every channel." },
   { model: "yam01v96", skin: "yam01v96", why: "The classic digital desk: analog GAIN and PAD on top, then LAYERs, FADER MODE for the aux sends, ON keys, and a display you page through for routing, EQ, dynamics and aux setup." },
   { model: "x32", skin: "x32", why: "The full console: 32 inputs, 16 mix buses that can be subgroups, MONO/CENTER, six matrices, an FX rack, output ROUTING and SCENES." },
+  { model: "cl3", skin: "cl3", why: "A touring console: mics on a Rio stage box, OUTPUT PATCH over Dante, Centralogic under a touch screen (OVERVIEW and SELECTED CHANNEL VIEW), ON keys, 16 DCAs, 8 matrices and scenes." },
   { model: "sd442", skin: "sd442", why: "A different world: a field mixer feeding a camera. Output levels, tone, limiters and the mono check." },
 ];
