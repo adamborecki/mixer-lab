@@ -60,7 +60,8 @@ export class MixerView {
     }
     if (skin.layout === "digital") {
       renderDigital(this, COMPACT[skin.hardware]);
-      this.sync(this.lastMix);
+      // Re-rendering for a new page or SEL: reuse the last mix, unless it belongs to the previous mixer.
+      this.sync(this.lastMix?.channels.length === this.store.state.channels.length ? this.lastMix : undefined);
       return;
     }
     if (skin.layout === "cr1604") {
