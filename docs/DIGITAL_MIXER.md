@@ -96,6 +96,24 @@ The third digital desk, and the classic "SEL + central screen" console (01V96i R
 
 **Patching (not the factory default):** the manual's default sends AUX 1–4 to both OMNI OUT 1–4 and effects 1–4. The lab uses the usual working patch instead: AUX 1–4 → OMNI OUT 1–4 only, AUX 7 → effect 1 (reverb) → ST IN 1, AUX 8 → effect 2 (delay) → ST IN 2. **Assumed:** sends start POST, PRE POINT starts POST ON. **Not built:** layer 17–32, buses 1–8, GATE, ATT, input delay, inserts, pairing, scenes, user-defined keys, the 2TR IN monitor selector.
 
+## Yamaha DM2000
+
+The 01V96's big brother (DM2000 V2 Quick Start Guide). Definition `dm2000` in `js/compact-defs.js`; surface `js/ui/mixer-dm2000-view.js` (skin layout `"dm2000"`).
+
+| On the desk | In the lab |
+|---|---|
+| 24 analog inputs: GAIN, PAD, INSERT and +48V on the top panel | GAIN, PAD and +48V for inputs 1–24 (no insert) |
+| 9 fader layers: 1-24, 25-48, 49-72, 73-96, MASTER (BUS 1-8, AUX 1-12, MATRIX 1-4), 4 remote | LAYER 1–24 (the analog inputs), 73–96 (effects returns 73–76 and 2TR IN on 89/90), MASTER (BUS 1–8, AUX 1–8, MATRIX 1–4) |
+| Each strip: encoder, SEL, SOLO, ON, fader, a name display | The same. ENCODER MODE PAN or AUX, FADER MODE FADER or AUX, AUX SELECT picks which aux; the display line shows routing and groups |
+| SELECTED CHANNEL: EQUALIZER (4 bands), DYNAMICS, AUX/MATRIX SEND with BANK, PAN, ROUTING keys 1–8, STEREO | The same, with EQ ON and COMP ON keys; AUX SEND banks 1–4 / 5–8 with PRE |
+| LCD + DISPLAY ACCESS | EQUALIZER (curve), DYNAMICS (graph), AUX SEND, ROUTING (BUS TO ST with pan), MATRIX, OUTPUT PATCH, GROUP, SCENE |
+| Buses 1–8 are routed to STEREO on the BUS TO ST page (subgroups) | `sends.busN` (0/1, the `assign` law) plus `busN.lr` / `busN.pan` |
+| Only STEREO OUT has its own jacks; AUX, BUS and MATRIX reach OMNI OUT 1–8 through the OUTPUT PATCH | STEREO OUT L/R, and OMNI OUT 1–8 routed (`outputs: ["stereoRouted"]`); AUX 1–6 start on OMNI 1–6 |
+| Fader groups A–H, mute groups I–P: no masters, the members' faders and ON keys are linked | `ch.fgrp`, `ch.mgrp` store membership; the surface moves the linked faders (same travel) and ON keys |
+| 8 effects, AUX 1–8 into FX 1–8, returns on channels 73–88 | AUX 7 → REV-X Hall → CH 73/74, AUX 8 → delay → CH 75/76 |
+
+**Assumed / not built:** channels 25–72, AUX 9–12, matrix sends from individual buses on the surface (the MATRIX page has them all), the LOW band as HPF (no separate high-pass), GATE, inserts, delay, pairing, surround and the joystick, automix, GEQs, recall safe, the input patch. Sends start POST; the ON key cuts pre-fader sends too. On the real desk the default patch sends AUX 1–8 to both OMNI 1–8 and the effects.
+
 ## Yamaha CL3
 
 A touring console (CL5/CL3/CL1 Reference Manual), built on the X32's model and strips. Definition `cl3` in `js/compact-defs.js`; surface `js/ui/mixer-cl-view.js` (skin layout `"cl"`), which reuses the X32 view's strips and panels with Yamaha words (`def.surface.terms`).

@@ -21,6 +21,8 @@ export const LAWS = {
   // Sound Devices 442: channel faders off … 0 at the centre … +15; MASTER off … 0 … +6.
   sdFader: makeLaw([[0, -Infinity], [0.04, -60], [0.25, -20], [0.5, 0], [0.75, 8], [1, 15]]),
   master6: makeLaw([[0, -Infinity], [0.05, -50], [0.35, -20], [0.75, 0], [1, 6]]),
+  // A routing key (DM2000 BUS 1–8): off, or on at unity. Stored as 0 or 1.
+  assign: { toDb: (pos) => (pos >= 0.5 ? 0 : -Infinity), toPos: (db) => (db > -Infinity ? 1 : 0) },
 };
 
 // The channel fader/LEVEL law of a mixer.
@@ -77,6 +79,8 @@ function createChannel(def, i) {
     mc: def.mc ? 0 : undefined, // MONO/CENTER send (full X32)
     dca: def.dca ? Object.fromEntries(Array.from({ length: def.dca }, (_, k) => [`d${k + 1}`, false])) : undefined,
     mgrp: def.muteGroups ? Object.fromEntries(Array.from({ length: def.muteGroups }, (_, k) => [`g${k + 1}`, false])) : undefined,
+    // Fader groups (DM2000 A–H): moving one member's fader moves the others (done by the surface).
+    fgrp: def.faderGroups ? Object.fromEntries(def.faderGroups.map((g) => [g, false])) : undefined,
     peq: c.peq ? Object.fromEntries(PEQ_BANDS.map((b) => [b.id, { gain: 0, freq: b.freq, q: 0.7 }])) : undefined,
     dyn: c.dyn ? { threshold: 0, ratio: 1, makeup: 0 } : undefined,
     // The EQ and compressor each have an ON button, and in the lab both start
@@ -146,6 +150,7 @@ export function sanitizeChannel(def, ch, key, value) {
   const c = def.channels[ch.index];
   const [a, b, k] = key.split(".");
   if (a === "dca") return def.dca && /^d\d+$/.test(b) && Number(b.slice(1)) <= def.dca ? bool(value) : undefined;
+  if (a === "fgrp") return def.faderGroups?.includes(b) ? bool(value) : undefined;
   if (a === "mgrp") return def.muteGroups && /^g\d+$/.test(b) && Number(b.slice(1)) <= def.muteGroups ? bool(value) : undefined;
   if (a === "pres") return def.sends[b]?.tap === "each" && (c.sends || []).includes(b) ? bool(value) : undefined;
   if (a === "peq") {
@@ -247,7 +252,7 @@ export function fxPreset(def, program) {
 
 export function listenList(def) {
   const l = ["main"];
-  for (const b of Object.keys(def.buses)) if (/^(aux|mix)\d+$/.test(b) && !def.buses[b].fx && !def.buses[b].noOut) l.push(b);
+  for (const b of Object.keys(def.buses)) if (/^(aux|mix|bus)\d+$/.test(b) && !def.buses[b].fx && !def.buses[b].noOut) l.push(b);
   if (def.mc) l.push("mc");
   for (let k = 1; k <= (def.matrix || 0); k++) l.push(`mtx${k}`);
   if (def.alt) l.push("alt");

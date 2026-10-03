@@ -851,6 +851,37 @@ export const COMPACT_GIGS = {
       },
     ],
   },
+  dm2000: {
+    prompt: "The whole band on a Yamaha DM2000: inputs 1–7 on the top-panel analog inputs (the piano into channel 4's TRS jack with its PAD on), the laptop on 2TR IN, channel 89/90 (layer 73-96, fader down). STEREO OUT feeds the house. The OUTPUT PATCH puts AUX 1 on OMNI OUT 1 (the singer's wedge) and AUX 2 on OMNI OUT 2 (the drummer's amp and wedge). AUX 7 feeds the reverb (back on CH 73/74), AUX 8 the delay (CH 75/76). BUS 1–8 are empty. SEL a channel: the SELECTED CHANNEL section and the display follow it. Scene 1 is this mix, scene 2 the acoustic set.",
+    patch: { drums: [0, "mic"], bass: [1, "mic"], guitars: [2, "mic"], keys: [3, "line"], trumpets: [4, "mic"], "backing-vocals": [5, "mic"], "lead-vocal": [6, "mic"], preshow: [24, "lr"] },
+    padFor: ["keys"],
+    devices: ["spk-l", "spk-r", "wedge", "amp", "pwedge"],
+    cables: [
+      { from: "mixer/main-l", to: "spk-l/in", cable: "xlr" },
+      { from: "mixer/main-r", to: "spk-r/in", cable: "xlr" },
+      { from: "mixer/out1", to: "wedge/in", cable: "xlr-trs" },
+      { from: "mixer/out2", to: "amp/in-a", cable: "xlr-trs" },
+      { from: "amp/out-a", to: "pwedge/in", cable: "speaker" },
+    ],
+    sends: {
+      aux1: { "lead-vocal": 0, "backing-vocals": -6, keys: -10, guitars: -12 },
+      aux2: { drums: -8, bass: -3, keys: -12, "lead-vocal": -8 },
+      aux7: { "lead-vocal": -10, "backing-vocals": -12, trumpets: -14 },
+      aux8: { "lead-vocal": -20 },
+    },
+    preFor: ["aux1", "aux2"],
+    dyn: { "lead-vocal": { threshold: -16, ratio: 3, makeup: 3 } },
+    scenes: [
+      { name: "Full band" },
+      {
+        name: "Acoustic set",
+        tweak: (st) => {
+          for (const i of [0, 1, 4]) st.channels[i].enabled = false;
+          st.aux7.level = LAWS_LEVEL.toPos(4);
+        },
+      },
+    ],
+  },
   yam01v96: {
     prompt: "The whole band on a Yamaha 01V96i: inputs 1–7 (the piano into channel 4's TRS jack with its PAD on), the laptop on 2TR IN (not yet in the mix). AUX 1 (OMNI OUT 1) feeds the singer's wedge, AUX 2 (OMNI OUT 2) the drummer's wedge through the amp, STEREO OUT the house. AUX 7 feeds the reverb (back on ST IN 1), AUX 8 the delay (ST IN 2). FADER MODE turns the faders into an aux's sends; SEL a channel and page through the display.",
     patch: { drums: [0, "mic"], bass: [1, "mic"], guitars: [2, "mic"], keys: [3, "line"], trumpets: [4, "mic"], "backing-vocals": [5, "mic"], "lead-vocal": [6, "mic"], preshow: ["tape"] },

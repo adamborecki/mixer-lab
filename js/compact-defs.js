@@ -425,6 +425,71 @@ export const COMPACT = {
     layout: { kind: "01v96" },
   },
 
+  // Yamaha DM2000 (DM2000 V2 Quick Start Guide): 96 input channels on layers
+  // of 24 faders, 24 analog inputs with GAIN, PAD and +48V on the top panel,
+  // 8 buses (ROUTING keys 1–8, BUS TO ST), 12 auxes, 4 matrices, STEREO with
+  // its own outputs, OMNI OUT 1–8 set by the OUTPUT PATCH, 8 effects (default
+  // AUX → FX → channels 73–88), fader groups A–H and mute groups I–P, 99 scenes.
+  // The lab builds the 24 analog inputs, 2TR IN on 89/90, AUX 1–8, BUS 1–8.
+  dm2000: {
+    id: "dm2000",
+    name: "Yamaha DM2000",
+    blurb: "A large-format digital console: 24 analog inputs, layers of 24 faders with encoders, a full SELECTED CHANNEL section, 8 buses with BUS TO ST, OUTPUT PATCH, fader and mute groups.",
+    digital: true,
+    phantom: { label: "+48V", channels: Array.from({ length: 24 }, (_, i) => i), perChannel: true },
+    channels: [
+      ...Array.from({ length: 24 }, (_, i) => ({
+        label: String(i + 1),
+        kind: "mono",
+        jacks: ["mic", "line"],
+        gain: { min: 16, max: 60, linePad: 0, pad: 20 },
+        peq: true,
+        dyn: true,
+        polarity: true,
+        sends: ["aux1", "aux2", "aux3", "aux4", "aux5", "aux6", "aux7", "aux8", "bus1", "bus2", "bus3", "bus4", "bus5", "bus6", "bus7", "bus8"],
+        mute: "on",
+        solo: true,
+        peak: true,
+      })),
+      { label: "89/90", kind: "stereo", jacks: ["linePair"], portName: "2TR IN 1 (CH 89/90)", gain: { min: -6, max: 20 }, peq: true, dyn: true, sends: ["aux1", "aux2", "aux3", "aux4", "aux5", "aux6", "aux7", "aux8", "bus1", "bus2", "bus3", "bus4", "bus5", "bus6", "bus7", "bus8"], mute: "on", solo: true, peak: true },
+    ],
+    sends: {
+      ...Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8].map((n) => [`aux${n}`, { label: `AUX ${n}`, bus: `aux${n}`, tap: "each", pre: false, law: "level" }])),
+      // ROUTING keys 1–8: the channel goes to the bus at unity, after its fader.
+      ...Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8].map((n) => [`bus${n}`, { label: `BUS ${n}`, bus: `bus${n}`, tap: "post", law: "assign", routing: true }])),
+    },
+    buses: {
+      ...Object.fromEntries([1, 2, 3, 4, 5, 6].map((n) => [`aux${n}`, { label: `AUX ${n}`, master: { label: `AUX ${n}`, law: "level" }, mute: true }])),
+      // AUX 7 and 8 feed effects 1 and 2, which return on channels 73/74 and 75/76.
+      aux7: { label: "AUX 7", master: { label: "CH 73/74 (FX 1)", law: "level" }, fx: { name: "REV-X Hall (FX 1)", kind: "reverb", seconds: 2.2, number: 1 } },
+      aux8: { label: "AUX 8", master: { label: "CH 75/76 (FX 2)", law: "level" }, fx: { name: "Mono Delay (FX 2)", kind: "delay", seconds: 0.4, feedback: 0.3, number: 2 } },
+      ...Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8].map((n) => [`bus${n}`, { label: `BUS ${n}`, master: { label: `BUS ${n}`, law: "level" }, mute: true }])),
+    },
+    busToMain: true, // BUS TO ST: a bus into the STEREO bus with its own pan (a subgroup)
+    matrix: 4,
+    scenes: 8,
+    routing: {
+      outputs: Array.from({ length: 8 }, (_, k) => `out${k + 1}`),
+      names: Object.fromEntries(Array.from({ length: 8 }, (_, k) => [`out${k + 1}`, `OMNI OUT ${k + 1}`])),
+      sources: ["off", "main-l", "main-r", ...[1, 2, 3, 4, 5, 6].map((n) => `aux${n}`), ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `bus${n}`), "mtx1", "mtx2", "mtx3", "mtx4"],
+      // The lab's patch: AUX 1–6 on OMNI OUT 1–6 (the factory default also puts AUX 7–8 there).
+      start: Object.fromEntries([1, 2, 3, 4, 5, 6].map((n) => [`out${n}`, `aux${n}`])),
+    },
+    muteCutsPre: true,
+    lrSwitch: true, // ROUTING: STEREO
+    mainMute: true, // STEREO [ON]
+    faderGroups: ["a", "b", "c", "d", "e", "f", "g", "h"],
+    muteGroups: 8, // shown as I–P; the ON keys of a group's channels are linked (no master)
+    main: { label: "STEREO", law: "level" },
+    phones: { label: "PHONES", sources: null },
+    solo: { mode: "pfl", label: "SOLO" },
+    meter: [-60, -48, -36, -24, -18, -12, -6, 0, "OVER"],
+    peakLabel: "OVER",
+    outputs: ["stereoRouted"],
+    layout: { kind: "dm2000" },
+    surface: { terms: { onKey: true, main: "STEREO", mainL: "ST L", mainR: "ST R", lr: "STEREO" } }, // words for the shared panels
+  },
+
   // Behringer X32 (full size, user manual): 32 local XLR inputs, 16 input
   // faders on layers, 8 group faders (DCA, BUS 1-8, BUS 9-16, MATRIX), 16 mix
   // buses (each can also feed MAIN LR as a subgroup), the MONO/CENTER bus,
@@ -622,6 +687,10 @@ export function compactPorts(def) {
   } else if (o.includes("xlrSwitched")) {
     // The level these carry is the mixer's OUTPUT LEVEL switch (rig device `outLevel`).
     ports.push(out("main-l", "xlr", "MASTER OUT L (XLR)", { bus: "main", side: "L", levelSwitch: true }), out("main-r", "xlr", "MASTER OUT R (XLR)", { bus: "main", side: "R", levelSwitch: true }));
+  } else if (o.includes("stereoRouted")) {
+    // DM2000: STEREO OUT has its own jacks; OMNI OUT 1–8 carry whatever the OUTPUT PATCH says.
+    ports.push(out("main-l", "xlr", "STEREO OUT L", { bus: "main", side: "L" }), out("main-r", "xlr", "STEREO OUT R", { bus: "main", side: "R" }));
+    for (const id of def.routing.outputs) ports.push(out(id, "quarter", def.routing.names?.[id] || id, { routed: true }));
   } else if (o.includes("routed")) {
     // 16 XLR outputs whose source is set on the ROUTING page (state.routing).
     for (const id of def.routing.outputs) ports.push(out(id, "xlr", def.routing.names?.[id] || `XLR OUT ${id.slice(3)}`, { routed: true }));

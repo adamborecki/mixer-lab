@@ -13,6 +13,7 @@ export function renderFlow(root, skin) {
   if (skin.layout === "x32") return renderFlowX32(root, skin);
   if (skin.layout === "01v96") return renderFlow01v96(root, skin);
   if (skin.layout === "cl") return renderFlowCL(root, skin);
+  if (skin.layout === "dm2000") return renderFlowDM2000(root, skin);
   const t = skin.terms;
   const c = skin.enabledControl;
   const enableWord = c.litWhenEnabled ? `${c.label} (lit = in Main)` : `${c.label} (lit = out of Main)`;
@@ -167,6 +168,33 @@ function renderFlow01v96(root, skin) {
 }
 
 // The X32: the same signal flow, plus DCAs and mute groups that act on channels.
+function renderFlowDM2000(root, skin) {
+  root.innerHTML = `
+    <details class="flow">
+      <summary>How the signal flows on the ${esc(skin.name)}</summary>
+      <div class="flow-body">
+        <ol class="flow-trunk" aria-label="Every channel">
+          <li class="flow-node">INPUT (GAIN, PAD, +48V)</li>
+          <li class="flow-node">Ø</li>
+          <li class="flow-node">EQ (EQ ON)</li>
+          <li class="flow-node">COMP (COMP ON)</li>
+          <li class="flow-node">ON key</li>
+          <li class="flow-node">FADER</li>
+          <li class="flow-node">PAN · ROUTING</li>
+          <li class="flow-node flow-end">STEREO → STEREO OUT · BUS 1–8 → BUS TO ST</li>
+        </ol>
+        <ul class="flow-notes">
+          <li><strong>SEL</strong> a channel: the whole SELECTED CHANNEL section (EQ, dynamics, aux sends, pan, routing) and the display follow it.</li>
+          <li><strong>ROUTING</strong> keys send the channel to <strong>STEREO</strong> and/or <strong>BUS 1–8</strong>. A bus reaches the house only through <strong>BUS TO ST</strong> (the ROUTING display page): a subgroup.</li>
+          <li>The <strong>encoder</strong> above each fader is PAN or an AUX send (ENCODER MODE). <strong>FADER MODE</strong> AUX turns the faders into that aux's sends.</li>
+          <li><strong>AUX 1–6</strong> reach the stage only through the <strong>OUTPUT PATCH</strong> (OMNI OUT 1–8). AUX 7 and 8 feed the effects, back on channels 73–76.</li>
+          <li><strong>Fader groups</strong> (A–H): move one fader, the others follow. <strong>Mute groups</strong> (I–P): press one ON key, the others follow. No masters, unlike DCAs.</li>
+          <li>Layers: 1-24 (the analog inputs), 73-96 (effects returns and 2TR IN), MASTER (BUS, AUX, MATRIX masters).</li>
+        </ul>
+      </div>
+    </details>`;
+}
+
 function renderFlowCL(root, skin) {
   root.innerHTML = `
     <details class="flow">

@@ -885,6 +885,82 @@ for (const [k, src] of Object.entries(CL3_FROM)) {
   if (WRONG[src]) WRONG[`cl3-${k}`] = WRONG[src];
 }
 
+// The DM2000 reuses the 01V96's and X32's jobs where the fix is the same.
+const DM_FROM = { doors: "x32-doors", pad: "yam01v96-pad", "48v": "x32c-48v", on: "yam01v96-on", "fader-mode": "yam01v96-fader-mode", "to-st": "yam01v96-to-st", reverb: "yam01v96-reverb", "scene-recall": "x32-scene-recall", "new-mix": "yam01v96-new-mix" };
+for (const [k, src] of Object.entries(DM_FROM)) {
+  SOLVE[`dm2000-${k}`] = SOLVE[src];
+  if (WRONG[src]) WRONG[`dm2000-${k}`] = WRONG[src];
+}
+for (const k of ["mud", "eq-on", "comp-on"]) {
+  SOLVE[`dm2000-${k}`] = SOLVE[`x32-${k}`];
+  WRONG[`dm2000-${k}`] = WRONG[`x32-${k}`];
+}
+Object.assign(SOLVE, {
+  "dm2000-encoder": (a) => {
+    a.st.setListen("aux2");
+    a.sendDb("bass", "aux2", 4);
+  },
+  "dm2000-subgroup": (a) => {
+    for (const s of ["drums", "bass"]) {
+      a.set(s, "sends.bus1", 1);
+      a.set(s, "lr", false);
+    }
+    a.st.setBus("bus1", "lr", true);
+    a.st.setBus("bus1", "level", LAWS.level.toPos(-6));
+  },
+  "dm2000-bus-to-st": (a) => a.st.setBus("bus1", "lr", true),
+  "dm2000-fader-group": (a) => {
+    a.set("trumpets", "fgrp.a", true);
+    a.set("backing-vocals", "fgrp.a", true);
+    a.nudge("trumpets", -4);
+    a.nudge("backing-vocals", -4);
+  },
+  "dm2000-mute-group": (a) => {
+    for (const s of ["drums", "guitars", "trumpets"]) {
+      a.set(s, "mgrp.g1", true);
+      a.set(s, "enabled", false);
+    }
+  },
+  "dm2000-output-patch": (a) => {
+    a.st.setBus("routing", "out7", "aux1");
+    a.st.setListen("aux1");
+  },
+  "dm2000-matrix": (a) => {
+    a.st.setBus("mtx1", "main", LAWS.level.toPos(0));
+    a.st.setBus("routing", "out8", "mtx1");
+  },
+});
+Object.assign(WRONG, {
+  "dm2000-encoder": [["the bass's fader up", (a) => {
+    a.st.setListen("aux2");
+    a.nudge("bass", 6);
+  }]],
+  "dm2000-subgroup": [["the channel faders down", (a) => {
+    a.nudge("drums", -6);
+    a.nudge("bass", -6);
+  }], ["routed to BUS 1 but still on STEREO", (a) => {
+    for (const s of ["drums", "bass"]) a.set(s, "sends.bus1", 1);
+    a.st.setBus("bus1", "lr", true);
+    a.st.setBus("bus1", "level", LAWS.level.toPos(-6));
+  }]],
+  "dm2000-bus-to-st": [["STEREO back on the channels", (a) => {
+    a.set("drums", "lr", true);
+    a.set("bass", "lr", true);
+  }]],
+  "dm2000-fader-group": [["both faders down, not grouped", (a) => {
+    a.nudge("trumpets", -4);
+    a.nudge("backing-vocals", -4);
+  }]],
+  "dm2000-mute-group": [["three ON keys by hand", (a) => {
+    for (const s of ["drums", "guitars", "trumpets"]) a.set(s, "enabled", false);
+  }]],
+  "dm2000-output-patch": [["STEREO on OMNI 7", (a) => {
+    a.st.setBus("routing", "out7", "main-l");
+    a.st.setListen("aux1");
+  }]],
+  "dm2000-matrix": [["ST L straight to the lobby", (a) => a.st.setBus("routing", "out8", "main-l")]],
+});
+
 describe("board scenarios: data", () => {
   it("validate, and every board has at least nine, numbered from 1", () => {
     assert.deepEqual(validateScenarios(), []);

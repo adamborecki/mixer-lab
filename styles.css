@@ -4075,3 +4075,120 @@ dialog::backdrop {
     flex-basis: 100%;
   }
 }
+
+/* ---------- Yamaha DM2000 ---------- */
+
+.skin-dm2000 .mixer-surface.dm-surface {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: linear-gradient(180deg, #2b2f36 0%, #1b1d22 100%);
+  border: 1px solid #3a3d45;
+  border-radius: var(--radius-md);
+  padding: 0.6rem;
+}
+.dm-keys {
+  flex-direction: row;
+}
+.dm-faders {
+  flex: 1 1 400px;
+}
+.skin-dm2000 .fader {
+  --fader-h: 150px;
+  width: 30px;
+}
+.dm-inputs .y96-gains {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.dm-mid {
+  align-items: stretch;
+}
+.dm-selch {
+  flex: 1 1 380px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.dm-block {
+  border-top: 1px solid #34373e;
+  padding-top: 0.3rem;
+}
+.dm-block h5 {
+  margin: 0 0 0.25rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+.dm-block-body,
+.dm-band,
+.dm-route,
+.dm-bank,
+.dm-bus2st,
+.dm-grp {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+.dm-band .dg-band-name {
+  width: 4.2em;
+}
+.dm-lcd {
+  flex: 1 1 340px;
+  background: #0f2440;
+  border-color: #33506e;
+  color: #d6e8ff;
+}
+.dm-lcd .y96-lcd-title {
+  color: #ffffff;
+  border-bottom-color: #2b4a6b;
+}
+.dm-lcd .dg-panel {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.dm-groups h5 {
+  margin: 0.4rem 0 0.2rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+}
+.dm-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+.dm-keygroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.dm-faders .x32-strip {
+  width: 58px;
+}
+/* The DM2000's LCD: white on blue. */
+.viz-dm {
+  --viz-bg: #0b1c33;
+  --viz-grid: rgba(190, 215, 255, 0.1);
+  --viz-grid-major: rgba(190, 215, 255, 0.24);
+  --viz-curve: #ffffff;
+  --viz-fill: rgba(170, 205, 255, 0.18);
+  --viz-text: rgba(214, 232, 255, 0.6);
+  --viz-dot: #ffe08a;
+  --viz-gr: #ffe08a;
+  border-color: #2b4a6b;
+}
+@media (max-width: 899px) {
+  .skin-dm2000 .fader {
+    --fader-h: 130px;
+  }
+}
+.dm-surface > .dm-inputs,
+.dm-surface > .dm-keys {
+  flex: none;
+}
+.dm-inputs .y96-gains {
+  flex-wrap: nowrap;
+}

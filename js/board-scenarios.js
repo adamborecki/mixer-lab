@@ -2514,7 +2514,7 @@ const Y96 = [
 const sameAsScene = (ctx, n) => {
   const sc = ctx.state.scenes?.[n];
   if (!sc) return false;
-  return ctx.state.channels.every((c, i) => c.enabled === sc.settings.channels[i].enabled && Math.abs(c.level - sc.settings.channels[i].level) < 0.01) && Object.keys(COMPACT.x32.buses).every((b) => Math.abs(ctx.state[b].level - sc.settings[b].level) < 0.01);
+  return ctx.state.channels.every((c, i) => c.enabled === sc.settings.channels[i].enabled && Math.abs(c.level - sc.settings.channels[i].level) < 0.01) && Object.keys(COMPACT[ctx.state.model].buses).every((b) => Math.abs(ctx.state[b].level - sc.settings[b].level) < 0.01);
 };
 
 const X32F = [
@@ -2727,11 +2727,11 @@ X32F.at(-1).setup.tweak = ((orig) => (st, h) => {
 
 // ---------- Yamaha CL3 ----------
 // Most of the jobs are the X32's, done the CL way: the same checks with new
-// words. `like` copies another board's scenario under a CL id.
-const like = (srcId, over) => {
+// words. `like` copies another board's scenario under this board's id.
+const like = (board, srcId, over) => {
   const src = [...X32, ...X32F, ...Y96].find((s) => s.id === srcId);
   if (!src) throw new Error(`no scenario ${srcId}`);
-  return { ...src, id: `cl3-${srcId.replace(/^[a-z0-9]+-/, "")}`, ...over };
+  return { ...src, id: `${board}-${srcId.replace(/^[a-z0-9]+-/, "")}`, ...over };
 };
 const CL3 = [
   doors("cl3", {
@@ -2739,15 +2739,15 @@ const CL3 = [
     hints: ["The INPUT section shows one bank at a time. Channels 1–32 aren't where the laptop is.", "Press the ST IN bank key above the INPUT faders.", "Push ST IN 1's fader up."],
     complete: "On a CL the stereo inputs live on their own bank, next to the effects returns. Check the lit bank key before every move.",
   }),
-  like("x32c-gain", {
+  like("cl3", "x32c-gain", {
     hints: ["Gain first. The vocal's preamp is in the Rio stage box, but you set it from the console.", "Press SEL on channel 7: the SELECTED CHANNEL knobs left of the screen now edit it.", "Turn the SELECTED CHANNEL GAIN up until the meter sits around the middle."],
     complete: "The mic preamps are on stage in the Rio, controlled over Dante. SEL decides which channel the SELECTED CHANNEL knobs turn.",
   }),
-  like("x32c-48v", {
+  like("cl3", "x32c-48v", {
     hints: ["A condenser needs phantom power, and on a CL it comes from the Rio input it's plugged into.", "SEL channel 1 and open SELECTED CHANNEL on the touch screen: the INPUT field has +48V.", "Press +48V for channel 1."],
     complete: "+48V is switched per input from the console, even though the preamp is on stage. Switch the channel off first to keep the pop out of the speakers.",
   }),
-  like("yam01v96-on", {
+  like("cl3", "yam01v96-on", {
     hints: ["Every fader has an ON key. Which way round does it work?", "ON is lit while the channel is on: dark means off. That's the opposite of a MUTE key.", "Press channel 2's ON key so it lights."],
     complete: "Yamaha keys light when the channel plays. Read the label, not the light.",
   }),
@@ -2759,45 +2759,244 @@ const CL3 = [
     hints: ["The SELECTED CHANNEL section warns DYNAMICS is OFF, and the GR bar on OVERVIEW never moves.", "SEL channel 7, open SELECTED CHANNEL on the screen and press COMP ON."],
     complete: "A compressor dialled in but switched off does nothing at all. After setting one, check that GR moves.",
   }),
-  like("x32c-sof", {
+  like("cl3", "x32c-sof", {
     hints: ["The singer's wedge is MIX 1 (Rio OUT 1). Listen to it.", "Put MIX 1-8 on Centralogic, SEL MIX 1, then press SENDS ON FADER in the master section: the INPUT faders become sends to MIX 1.", "With SENDS ON FADER lit, push channel 7's fader up. Then switch SENDS ON FADER off."],
     complete: "SENDS ON FADER turns the faders into one MIX's sends. Switch it off afterwards, or your next fader move changes a wedge instead of the house.",
   }),
-  like("x32-routing-house", {
+  like("cl3", "x32-routing-house", {
     goal: "STEREO back on the house speakers' outputs (Rio OUT 15/16), the wedges unchanged.",
     hints: ["The mix meters fine and the speakers are on Rio OUT 15 and 16. What do those outputs carry?", "Outputs carry what the OUTPUT PATCH says (touch screen, OUTPUT PATCH).", "Set Rio OUT 15 to ST L and 16 to ST R."],
     complete: "A stage box's outputs carry nothing until they're patched. When the mix meters fine but a speaker is silent, check the OUTPUT PATCH.",
   }),
-  like("x32-routing-wedge", {
+  like("cl3", "x32-routing-wedge", {
     prompt: "“Rio OUT 1's connector is broken, so I moved the singer's wedge cable to Rio OUT 9. It's silent now.”",
     goal: "The singer's wedge fed MIX 1 again, from Rio OUT 9.",
     hints: ["The wedge's mix is MIX 1. Which output carries MIX 1, and which output is the wedge on now?", "Open OUTPUT PATCH on the touch screen.", "Set Rio OUT 9 to MIX 1."],
     complete: "Moving a cable on the stage box means moving the patch with it. The mix itself didn't change at all.",
   }),
-  like("x32c-dca", {
+  like("cl3", "x32c-dca", {
     hints: ["A DCA moves other faders' levels without touching them. Centralogic can show DCA 1-8.", "SEL each band channel (1–5) and, in SELECTED CHANNEL on the screen, press DCA 1 in its DCA field.", "Put DCA 1-8 on Centralogic and pull DCA 1 down about 6 dB."],
     complete: "The DCA moved five channels at once and kept their balance. On the CL you assign DCAs from the channel's own SELECTED CHANNEL VIEW, and there are sixteen of them.",
   }),
-  like("x32c-mute-group", {
+  like("cl3", "x32c-mute-group", {
     hints: ["Muting three channels one by one works once, but you'll do it after every song.", "SEL channels 1, 3 and 5 in turn and, in SELECTED CHANNEL on the screen, press MUTE GROUP 1 for each.", "Then press MUTE 1 in the master section (a USER DEFINED key)."],
     complete: "A mute group mutes several channels with one key and leaves each channel's own ON key alone. On a CL the master keys are USER DEFINED keys you set up yourself.",
   }),
-  like("x32-matrix", {
+  like("cl3", "x32-matrix", {
     goal: "The lobby speaker fed by MATRIX 1, which carries the STEREO mix; the house unchanged.",
     prompt: "“The lobby speaker is on Rio OUT 12. Give it the house mix, and I want to set its level without touching the house.”",
     hints: ["A matrix is a mix of mixes: STEREO and the MIX buses, each at its own level, with its own fader.", "SEL STEREO in the master section: SELECTED CHANNEL shows its sends to each MATRIX. Or put MATRIX on Centralogic and SEL MATRIX 1.", "Turn STEREO's send to MATRIX 1 up, then patch Rio OUT 12 to MATRIX 1."],
     complete: "Matrices feed the places that need the show but not their own mix: lobbies, delay speakers, recorders, broadcast. The CL has eight.",
   }),
-  like("x32-fx", {
+  like("cl3", "x32-fx", {
     goal: "The keys sent to FX 4 (the chorus, fed by MIX 16), its return (ST IN 5) up; the dry mix and wedges unchanged.",
     hints: ["The effects rack is fed by MIX 13–16 and comes back on ST IN 2–5.", "FX 4 is the chorus, fed by MIX 16. SEL channel 4 and turn up its MIX 16 send in SELECTED CHANNEL.", "Then push ST IN 5 (FX 4) up on the ST IN bank."],
     complete: "The CL's effects are fed by ordinary MIX buses and return on ST IN channels: the same idea as an outboard rack.",
   }),
-  like("x32-scene-recall", {
+  like("cl3", "x32-scene-recall", {
     hints: ["Rebuilding it by hand takes ages and you'll miss something.", "The touch screen's SCENE page lists the saved scenes.", "RECALL scene 02."],
   }),
-  like("x32-scene-store", {
+  like("cl3", "x32-scene-store", {
     hints: ["The SCENE page has a STORE button for each slot.", "Scene 3 is empty: store into it, not over 1 or 2.", "Press STORE on scene 03 and name it (Encore)."],
+  }),
+];
+
+
+// ---------- Yamaha DM2000 ----------
+// The 01V96's jobs on the bigger desk, plus what's new: encoders, BUS 1–8 with
+// BUS TO ST, the OUTPUT PATCH, and Yamaha fader and mute groups.
+const DM = [
+  doors("dm2000", {
+    prompt: "“Doors in five. The laptop is on 2TR IN, channel 89/90. Preshow music, please.”",
+    hints: ["The faders show one LAYER at a time, and 1–24 are the analog inputs.", "Channels 89–96 are on LAYER 73–96, with the effects returns.", "Press LAYER 73–96 and push channel 89/90's fader up."],
+    complete: "96 channels, 24 faders: always check which LAYER is lit before you reach for a fader.",
+  }),
+  like("dm2000", "yam01v96-pad", {
+    hints: ["A stage piano is line level. Channel 4's GAIN is already at its lowest, and it's still too hot.", "Every analog input on the top panel has a 20 dB PAD next to its GAIN knob.", "Press PAD on input 4, then bring its GAIN up so the meter sits in the middle."],
+  }),
+  like("dm2000", "x32c-48v", {
+    hints: ["A condenser needs phantom power.", "The DM2000 has a +48V switch for each analog input, on the top panel under its GAIN and PAD.", "Press +48V on input 1."],
+    complete: "+48V lives with the preamp on the top panel, one switch per input. Switch the channel's ON key off first to keep the pop out of the speakers.",
+  }),
+  like("dm2000", "yam01v96-on", {
+    hints: ["Every channel strip has an ON key. Which way round does it work?", "ON is lit while the channel is on: dark means off.", "Press channel 2's ON key so it lights."],
+  }),
+  eqMud("dm2000", {
+    hints: ["SEL channel 3. In the SELECTED CHANNEL EQUALIZER, turn L-MID's G down a few dB with F near 300 Hz.", "Nothing changed? The EQ starts switched off: press EQ ON in the EQUALIZER block (or on the display's EQUALIZER page)."],
+    complete: "On the DM2000 the EQ knobs are always there for the selected channel, switched in or not. EQ ON and the display's curve tell you which.",
+  }),
+  eqOff("dm2000", {
+    hints: ["SEL channel 7 and press DISPLAY ACCESS EQUALIZER: the curve is flat and grey, marked EQ OFF.", "Press EQ ON. Leave the bands alone."],
+    complete: "A set-up EQ that's switched off looks perfect on the knobs and does nothing. The display's curve shows what's really happening.",
+  }),
+  compOff("dm2000", {
+    hints: ["SEL channel 7 and press DISPLAY ACCESS DYNAMICS: COMP OFF, and the GR bar never moves.", "Press COMP ON in the SELECTED CHANNEL DYNAMICS block."],
+    complete: "A compressor dialled in but switched off does nothing at all. After setting one, check that GR moves.",
+  }),
+  like("dm2000", "yam01v96-fader-mode", {
+    hints: ["The singer's wedge is AUX 1. Listen to it first.", "FADER MODE AUX turns the faders into the sends of the aux picked with AUX SELECT.", "FADER MODE AUX, AUX SELECT 1, push channel 7's fader up, then FADER MODE FADER again."],
+    complete: "FADER MODE puts one aux's sends on the faders. Switch back to FADER afterwards, or your next move changes a wedge instead of the house.",
+  }),
+  {
+    id: "dm2000-encoder",
+    short: "More bass for the drummer (encoders)",
+    title: "More bass for the drummer",
+    who: "Drummer",
+    prompt: "“I can't lock in with the bass. More bass in my wedge, please — leave the rest alone.”",
+    goal: "The bass at least 4 dB louder in AUX 2 (the drummer's wedge), everything else unchanged.",
+    setup: {},
+    baseline: {
+      send: { metric: "sendDb", bus: "aux2", source: "bass" },
+      bass: { metric: "heardMonitorDb", bus: "aux2", source: "bass" },
+      drummer: { metric: "monitorByChannel", bus: "aux2" },
+      singer: { metric: "monitorByChannel", bus: "aux1" },
+      main: { metric: "mainDbByChannel" },
+    },
+    conditions: [
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "aux2", label: "You listened to the drummer's wedge" },
+      { id: "send", kind: "goal", type: "sendRaised", bus: "aux2", source: "bass", baseline: "send", minDb: 4, label: "The bass's AUX 2 send is up" },
+      { id: "heard", kind: "goal", type: "monitorRaised", bus: "aux2", source: "bass", baseline: "bass", minDb: 4, label: "The drummer hears more bass" },
+      { id: "rest", kind: "keep", type: "monitorMixUnchanged", bus: "aux2", baseline: "drummer", except: "bass", toleranceDb: 1, label: "The rest of the drummer's wedge stays the same" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "aux1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["Each channel has an encoder above its fader. ENCODER MODE decides what it turns.", "Press ENCODER MODE AUX and AUX SELECT 2: every encoder is now that channel's AUX 2 send.", "Turn channel 2's encoder up. The faders still run the house."],
+    complete: "Encoders on AUX keep the faders on the house while you build a wedge: the classic way to work on a big Yamaha.",
+  },
+  like("dm2000", "yam01v96-to-st", {
+    hints: ["The guitar's meter moves and its fader is up. Where does channel 3 go?", "SEL channel 3: the SELECTED CHANNEL ROUTING keys show which buses it feeds.", "Press STEREO in channel 3's ROUTING."],
+    complete: "ROUTING decides where a channel goes: STEREO, any of BUS 1–8, or both. A channel on no bus is heard nowhere but the auxes.",
+  }),
+  like("dm2000", "yam01v96-reverb", {
+    goal: "The vocal sent to the reverb (AUX 7), its return (CH 73/74) up; the dry mix and the wedges unchanged.",
+    hints: ["AUX 7 feeds effect 1, the reverb. It comes back on channels 73/74.", "SEL channel 7 and turn up its AUX 7 send (SELECTED CHANNEL AUX SEND, BANK 5–8).", "Then LAYER 73–96: push CH 73/74 (FX 1) up."],
+    complete: "Send on an aux, return on a channel: the DM2000's built-in effects patch like an outboard rack.",
+  }),
+  {
+    id: "dm2000-subgroup",
+    short: "Drum subgroup (BUS 1)",
+    title: "A drum subgroup",
+    who: "Band leader",
+    prompt: "“Put drums and bass through BUS 1 into the house, then pull that bus down about 6 dB for the quiet song.”",
+    goal: "Drums and bass reaching STEREO only through BUS 1, at least 4 dB down; everything else unchanged.",
+    setup: {},
+    baseline: { main: { metric: "mainDbByChannel" }, singer: { metric: "monitorByChannel", bus: "aux1" }, drummer: { metric: "monitorByChannel", bus: "aux2" } },
+    conditions: [
+      goal("sub", "Drums and bass reach the house only through BUS 1", (ctx) => ctx.state.bus1.lr && ["drums", "bass"].every((s) => sc(ctx, s)?.lr === false && sc(ctx, s)?.sends.bus1 >= 0.5 && house(ctx, s) >= AUDIBLE)),
+      { id: "drums", kind: "goal", type: "mainLowered", source: "drums", baseline: "main", minDb: 4, label: "The drums are down at least 4 dB" },
+      { id: "bass", kind: "goal", type: "mainLowered", source: "bass", baseline: "main", minDb: 4, label: "The bass is down at least 4 dB" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: ["drums", "bass"], toleranceDb: 1, label: "Everything else in the house stays the same" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "aux1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+      { id: "drummer", kind: "keep", type: "monitorMixUnchanged", bus: "aux2", baseline: "drummer", toleranceDb: 1, label: "The drummer's wedge stays the same" },
+    ],
+    hints: ["A subgroup is a bus that feeds the stereo mix, with its own fader.", "SEL channel 1: in ROUTING press 1 and switch STEREO off. The same on channel 2. Then DISPLAY ACCESS ROUTING: BUS 1 TO ST on.", "LAYER MASTER: pull BUS 1 down about 6 dB."],
+    complete: "Exactly how an analog console's subgroups work: channels to a bus, the bus to the stereo mix. Switching the channels' own STEREO off stops them arriving twice.",
+  },
+  {
+    id: "dm2000-bus-to-st",
+    short: "Silent drums (BUS TO ST)",
+    title: "The drums went missing",
+    who: "Drummer",
+    prompt: "“Last night's engineer put my kit and the bass through BUS 1. Tonight neither of us is in the house.”",
+    goal: "Drums and bass back in the house, still through BUS 1.",
+    setup: {
+      tweak: (st, h) => {
+        for (const s of ["drums", "bass"]) {
+          h.set(s, "lr", false);
+          h.set(s, "sends.bus1", 1);
+        }
+      },
+    },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("heard", "Drums and bass are heard in the house", (ctx) => ["drums", "bass"].every((s) => house(ctx, s) >= AUDIBLE)),
+      keep("bus", "They still go through BUS 1 (not straight to STEREO)", (ctx) => ["drums", "bass"].every((s) => sc(ctx, s)?.lr === false && sc(ctx, s)?.sends.bus1 >= 0.5)),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: ["drums", "bass"], toleranceDb: 1, label: "Everything else in the house stays the same" },
+    ],
+    hints: ["Their meters move and their faders are up. Follow the signal: channel → BUS 1 → ?", "A bus only reaches the house if it's routed to the STEREO bus: DISPLAY ACCESS ROUTING, BUS TO ST.", "Switch BUS 1 TO ST on."],
+    complete: "A bus is a dead end until it's routed somewhere: the STEREO bus (BUS TO ST) or an output.",
+  },
+  {
+    id: "dm2000-fader-group",
+    short: "Ride the horns (FADER GROUP)",
+    title: "Ride the horns and harmonies",
+    who: "Band leader",
+    prompt: "“Trumpets and backing vocals go up and down together all night. Link them so one fader moves both, and pull them down a few dB now.”",
+    goal: "Trumpets and backing vocals in one fader group, both at least 3 dB down in the house; everything else unchanged.",
+    setup: {},
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("group", "Trumpets and backing vocals share a fader group", (ctx) => Object.keys(sc(ctx, "trumpets")?.fgrp || {}).some((g) => sc(ctx, "trumpets").fgrp[g] && sc(ctx, "backing-vocals")?.fgrp[g])),
+      { id: "tpt", kind: "goal", type: "mainLowered", source: "trumpets", baseline: "main", minDb: 3, label: "The trumpets are down at least 3 dB" },
+      { id: "bv", kind: "goal", type: "mainLowered", source: "backing-vocals", baseline: "main", minDb: 3, label: "The backing vocals are down at least 3 dB" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: ["trumpets", "backing-vocals"], toleranceDb: 1, label: "Everything else in the house stays the same" },
+    ],
+    hints: ["A fader group links faders: move one and the others follow, keeping their balance.", "DISPLAY ACCESS GROUP: press fader group A, then SEL channels 5 and 6. Press A again to finish.", "Now pull channel 5's fader down a few dB: channel 6 follows."],
+    complete: "Fader groups move real faders together; there's no master fader as with a DCA. Hold a channel's SEL while you move its fader to move it alone.",
+  },
+  {
+    id: "dm2000-mute-group",
+    short: "One ON key (MUTE GROUP)",
+    title: "One key between songs",
+    who: "MC",
+    prompt: "“Between songs I talk. One key should switch off the drums, guitar and trumpet mics. The vocal mics stay live.”",
+    goal: "Drums, guitar and trumpets in one mute group, all three switched off; vocals still live.",
+    setup: {},
+    conditions: [
+      goal("group", "Drums, guitar and trumpets share a mute group", (ctx) => Object.keys(ctx.state.mgrp).some((g) => ["drums", "guitars", "trumpets"].every((s) => sc(ctx, s)?.mgrp[g]))),
+      goal("out", "They're out of the house", (ctx) => ["drums", "guitars", "trumpets"].every((s) => house(ctx, s) < AUDIBLE)),
+      { id: "vox", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The lead vocal stays live" },
+      { id: "bv", kind: "keep", type: "sourceHeardInMain", source: "backing-vocals", label: "The backing vocal stays live" },
+    ],
+    hints: ["Switching three ON keys after every song is slow and easy to get wrong.", "DISPLAY ACCESS GROUP: press mute group I, then SEL channels 1, 3 and 5. Press I again to finish.", "Press channel 1's ON key: 3 and 5 go off with it."],
+    complete: "On the DM2000 a mute group links ON keys: no master, any member's key switches them all. Press it again after the talking to bring them all back.",
+  },
+  {
+    id: "dm2000-output-patch",
+    short: "Wedge on OMNI 7",
+    title: "The wedge on OMNI OUT 7",
+    who: "Stage hand",
+    prompt: "“OMNI OUT 1's jack is crackling, so I moved the singer's wedge to OMNI OUT 7. Now it's silent.”",
+    goal: "The singer's wedge fed AUX 1 again, from OMNI OUT 7.",
+    setup: {
+      tweak: (st, h) => {
+        h.cut("mixer/out1");
+        h.cable("mixer/out7", "wedge/in", "xlr-trs");
+      },
+    },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "chain", kind: "goal", type: "validChain", output: "aux1", device: "wedge", label: "The singer's wedge is fed by AUX 1" },
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "aux1", label: "You listened to it" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["The wedge's mix is AUX 1. Which OMNI OUT carries AUX 1, and which is the wedge on now?", "DISPLAY ACCESS OUTPUT PATCH.", "Set OMNI OUT 7 to AUX 1."],
+    complete: "Only STEREO OUT has its own jacks on the DM2000. Every other output goes wherever the OUTPUT PATCH sends it.",
+  },
+  like("dm2000", "x32-matrix", {
+    prompt: "“The lobby speaker is on OMNI OUT 8. Give it the house mix, and I want to set its level without touching the house.”",
+    goal: "The lobby speaker fed by MATRIX 1, which carries the STEREO mix; the house unchanged.",
+    setup: {
+      tweak: (st, h) => {
+        h.addDevice("lobby");
+        h.cable("mixer/out8", "lobby/in", "xlr-trs");
+      },
+    },
+    hints: ["A matrix mixes the STEREO bus, the buses and the auxes, each at its own level, with its own master.", "DISPLAY ACCESS MATRIX, MATRIX 1: turn STEREO up.", "Then OUTPUT PATCH: set OMNI OUT 8 to MATRIX 1."],
+    complete: "Matrices feed the places that need the show but not their own mix: lobbies, delays, recorders. The DM2000 has four, on the MASTER layer.",
+  }),
+  like("dm2000", "x32-scene-recall", {
+    hints: ["Rebuilding it by hand takes ages and you'll miss something.", "DISPLAY ACCESS SCENE lists the saved scenes.", "RECALL scene 02."],
+  }),
+  like("dm2000", "yam01v96-new-mix", {
+    prompt: "“My wedge is on OMNI OUT 3. Lots of me, the vocal, a bit of drums, and it mustn't follow the house faders.”",
+    setup: {
+      tweak: (st, h) => {
+        h.addDevice("gwedge");
+        h.cable("mixer/out3", "gwedge/in", "xlr-trs");
+      },
+    },
+    hints: ["OMNI OUT 3 carries AUX 3 (OUTPUT PATCH). Listen to AUX 3: it's empty.", "SEL the guitar, the vocal and the drums in turn: in AUX SEND (BANK 1–4) turn AUX 3 up and press its PRE.", "Guitar and vocal near 0 dB, drums lower. Or use ENCODER MODE AUX with AUX SELECT 3 for all of them at once."],
   }),
 ];
 
@@ -2875,11 +3074,12 @@ const ORDER = {
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
   yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "mud", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
   x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9"],
+  dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
   cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "scene-recall", "scene-store"],
   x32c: ["doors", "gain", "48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix"],
 };
 
-const LISTS = { cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: C16, x32c: X32, yam01v96: Y96, x32: X32F };
+const LISTS = { dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: C16, x32c: X32, yam01v96: Y96, x32: X32F };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.
 function arrange(board) {
@@ -2904,6 +3104,7 @@ export const MIXER_ORDER = [
   { model: "ui16", skin: "ui16", why: "Digital: the same jobs through pages and SEL. Sends on faders, a parametric EQ and a compressor on every channel." },
   { model: "x32c", skin: "x32c", why: "A digital console laid out like the big ones: fader layers, a selected-channel strip, Sends on Faders, DCA and mute groups, a MAIN LR switch on every channel." },
   { model: "yam01v96", skin: "yam01v96", why: "The classic digital desk: analog GAIN and PAD on top, then LAYERs, FADER MODE for the aux sends, ON keys, and a display you page through for routing, EQ, dynamics and aux setup." },
+  { model: "dm2000", skin: "dm2000", why: "The 01V96's big brother: 24 faders with an encoder each, a SELECTED CHANNEL section with every knob, 8 buses routed with keys and BUS TO ST, an OUTPUT PATCH, and Yamaha fader and mute groups." },
   { model: "x32", skin: "x32", why: "The full console: 32 inputs, 16 mix buses that can be subgroups, MONO/CENTER, six matrices, an FX rack, output ROUTING and SCENES." },
   { model: "cl3", skin: "cl3", why: "A touring console: mics on a Rio stage box, OUTPUT PATCH over Dante, Centralogic under a touch screen (OVERVIEW and SELECTED CHANNEL VIEW), ON keys, 16 DCAs, 8 matrices and scenes." },
   { model: "sd442", skin: "sd442", why: "A different world: a field mixer feeding a camera. Output levels, tone, limiters and the mono check." },
