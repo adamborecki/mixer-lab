@@ -119,23 +119,42 @@ Free play also has a **Band audio** control: the 8-bar loop (28 s) or the **Full
 
 ## Practice scenarios on the real mixers
 
-Every real mixer has its own practice list (`js/board-scenarios.js`), five or six scenarios each, easiest first. They are **not** part of the Canvas assignment: the submission still reports the ten scenarios above. Solving one is remembered in the browser like any scenario, and the picker says they're extra.
+Every real mixer has its own practice list (`js/board-scenarios.js`), nine to fifteen scenarios each (91 in all), so every control on the board gets a real job. They are **not** part of the Canvas assignment: the submission still reports the ten scenarios above. Solving one is remembered in the browser like any scenario, and the picker says they're extra.
 
 - **Setup.** A board scenario starts from that mixer's Free play gig (`COMPACT_GIGS`, or the CR1604's Free play), then `setup.tweak(state, h)` makes the problem. `h` is `boardHelpers()` in `js/scenarios.js`: `set(source, key, value)`, `faderDb`, `moveFader`, `sendDb(source, send, dB)` (in each mixer's own laws), `bus`, `dev`, `cut(portRef)`, `unplug(source)`, `cable`, `addDevice`. `setup.listen` sets the starting listen position.
 - **Conditions.** The library above, now model-agnostic: channels are found by where a source is patched (`ctx.patch`, captured with the baseline), masters are read from `mix.busDb`, `except` takes a list, and `sourceHeardInMain` with `stereo` accepts a powered mixer's SPEAKERS L/R. Plus `custom`: `{ type: "custom", test: (ctx) => boolean }` for outcomes only one board has (a send that ignores its fader, a camera input that matches its level, a channel on ALT 3-4).
 - **Numbering.** Each list is numbered from 1 within its mixer (`board`, `number`), `short` is the picker label, and "Next" stays on the same mixer.
 - **Tests.** `tests/board-scenarios.test.mjs`: every scenario starts with all goals unmet and all keeps met, the intended fix (driven through `MixerStore`) solves it, and at least one tempting wrong fix doesn't.
 
-| Mixer | 1 | 2 | 3 | 4 | 5 | 6 |
-|---|---|---|---|---|---|---|
-| Mackie Mix8 | Doors music (TAPE IN to MAIN) | Keys in the wedge | Cue it in the phones (TO CR/PHONES) | The ballad (post-fader AUX) | Guest guitarist (two mic channels) | |
-| Mackie 1202-VLZ | Doors music | Check the singer first (PFL on a muted channel) | Reverb on the harmonies (send + return) | The wedge follows the faders (AUX 1 PRE) | Drums for the video crew (MUTE/ALT + ASSIGN TO MAIN) | |
-| Yamaha MG10/2 | Doors music | Silent overhead (+48V) | Too much drums in my wedge | One knob, two jobs (AUX1 or AUX2) | Stage rumble (80 Hz HPF choices) | |
-| Yamaha STAGEPAS 400BT | Doors music | Weak bass (MIC/LINE is the gain) | Silent monitor (MONITOR OUT) | Silent speakers (the amp is in the mixer) | Reverb on the voices only | |
-| Behringer Xenyx X1204USB | Doors music | Reverb on the vocal (FX + RET 2) | What's in my wedge? (AUX SOLO) | The guitar vanishes (per-channel PRE) | The MC break (MUTE/ALT 3-4, C-R ALT) | |
-| Sound Devices 442 | The distorted camera (MIC vs LINE) | Line up with tone | Silent room mics (P48) | The mono check (Ø, HEADPHONE M) | Two tracks for the editor (unlink, pan, LIM ON) | |
-| Soundcraft Ui16 | Doors music (MIX page) | The tiny vocal (GAIN) | More keys for the drummer (sends on faders) | Reverb on the horns (REVERB page) | Out of the house, still in the wedge (MUTE vs fader) | A mix for the guitarist (AUX 3 from scratch) |
-| Mackie CR1604-VLZ | Doors music (TAPE TO MAIN MIX) | The missing vocal (L-R assign) | Mute it, keep the wedges (PRE) | The lost reverb (AUX 3 + RETURN 1) | One fader for the rhythm section (SUB 1-2) | |
+### Recommended order of mixers
+
+Students arrive knowing the basics from Mixer A/B (GAIN, faders, AUX sends, Main, PFL). The Real mixers menu is numbered in this order (`MIXER_ORDER` in `js/board-scenarios.js`), and each mixer's Scenario page says where it sits and what comes next:
+
+1. **Mackie Mix8**: four channels, one post-fader AUX, no mute or solo. The basics with nowhere to hide.
+2. **Yamaha STAGEPAS 400BT**: a powered mixer. MIC/LINE instead of GAIN, the amp inside, MONITOR OUT is the whole mix.
+3. **Yamaha MG10/2**: GAIN, HPF and PEAK on every mic; one AUX knob that has to choose between wedge and reverb.
+4. **Mackie 1202-VLZ**: two auxes with a PRE switch, an effects loop, MUTE/ALT 3-4, solo, a C-R SOURCE matrix.
+5. **Behringer Xenyx X1204USB**: faders, compressors, built-in effects, PRE per channel, PFL or solo in place, an ALT bus with its own fader.
+6. **Mackie CR1604-VLZ**: a full console. Six auxes with SHIFT, four subgroups, mono out, four returns, direct outs to a recorder.
+7. **Soundcraft Ui16**: digital. The same jobs through pages and SEL: sends on faders, parametric EQ and a compressor on every channel.
+8. **Sound Devices 442**: a different world. A field mixer feeding a camera: output levels, tone, limiters, the mono check.
+
+### Each mixer's list (teaching order)
+
+Every list goes: get sound, gain and tone, the wedges, that mixer's own controls, then fault-finding and bigger jobs. `ORDER` in `js/board-scenarios.js` sets it; `arrange()` throws if a scenario is missing from it.
+
+| Mixer | Scenarios | Controls covered |
+|---|---|---|
+| Mix8 (11) | Doors music · Silent headphones · The OL light · Boomy vocal · Spread the stage · Keys in the wedge · Wedge too loud · Cue it in the phones · The ballad · Acoustic set · Guest guitarist | TAPE IN TO CR/PHONES, CR/PHONES level, GAIN + OL, LOW EQ, PAN and BAL, AUX, AUX MASTER, post-fader AUX, 48V on 1–2, mic vs line channels |
+| STAGEPAS 400BT (11) | Doors music · Weak bass · Silent monitor · Speech mode · Silent speakers · Reverb on the voices · A long hall · Half the song is missing · Overhead on channel 3 · Add the subwoofer · Squealing wedge | channel LEVEL, MIC/LINE, MONITOR OUT, MASTER EQ, SPEAKERS L/R (amp inside), REVERB sends, TYPE/TIME, ST/MONO, PHANTOM on CH1/2 only, SUBWOOFER OUT, FEEDBACK SUPP. |
+| MG10/2 (9) | Doors music · Silent overhead · PEAK light · Too much drums · One knob, two jobs · Thin bass · Stage rumble · Too much reverb · Free up 9/10 (2TR IN) | stereo LEVEL, +48V, GAIN + PEAK, AUX (AUX1 left / AUX2 right), LOW EQ, 80 Hz HPF, RETURN, 2TR IN |
+| 1202-VLZ (12) | Doors music · Clipping drums · Nasal vocal · Quiet house · Check the singer first · Quiet wedge · Low cut · Reverb on the harmonies · Wedge follows the faders · Reverb in the wedge · Cue the next song · Drums for the video crew | TRIM + OL, MID EQ, XLR −30 dB PAD, SOLO (PFL) on a muted channel, AUX 1 MASTER, LOW CUT, AUX 2 + RET 1, AUX 1 PRE, EFX TO MON, C-R SOURCE TAPE, MUTE/ALT 3-4 + ASSIGN TO MAIN |
+| Xenyx X1204USB (12) | Doors music · Consumer level · Overhead for the ballad · Set the gain with PFL · Jumpy vocal · Reverb on the vocal · Slapback · What's in my wedge? · The guitar vanishes · Reverb in the wedge · Walk-in on CD/TAPE · The MC break | faders, −10 dBV switch, PHANTOM 1–4, SOLO MODE (PFL), COMP, FX send + RET 2, PROGRAM, AUX SOLO, per-channel PRE, RET 1 MON, CD/TAPE TO MAIN, MUTE/ALT 3-4 + C-R ALT |
+| CR1604-VLZ (15) | Doors music · Silent overhead · Missing vocal · Level-set the vocal · Honky horns · Low cut · Mute, keep the wedges · Drummer can't hear · Lost reverb · Reverb in the wedge · Lobby speaker · Horn wedge on AUX 6 · Rhythm section sub · Record the vocal · Record the audience | TAPE TO MAIN MIX, rear PHANTOM, L-R assign, SOLO MODE (LEVEL SET) + TRIM, MID sweep (MID + FREQ), LOW CUT, PRE vs MUTE, AUX SOLO + AUX SEND master, AUX 3 + RETURN 1, EFFECTS TO MONITORS, MONO OUT + MONO LEVEL, 5/6 SHIFT, SUB 1-2 + ASSIGN TO MAIN, DIRECT OUT → Zoom F8 (arm), recorder 48V |
+| Ui16 (12) | Doors music · Tiny vocal · Silent overhead · More keys for the drummer · Rumble through the vocals · Harsh vocal · Jumpy bass · Reverb on the horns · An echo on the last line · Out of the house · Follow my fader · A mix for the guitarist | MIX page, GAIN page, per-channel 48V, AUX pages (sends on faders), HPF, PEQ (GAIN/FREQ/Q), COMPRESSOR (THRESH/RATIO/GAIN), REVERB and DELAY pages, MUTE vs fader, PRE/POST per send, a new aux mix |
+| Sound Devices 442 (9) | Distorted camera · Line up with tone · Silent room mics · Distorting vocal · Camera level too low · A line feed · Wind on the vocal mics · The mono check · Two tracks for the editor | camera MIC/LINE vs XLR OUTPUT LEVEL, TONE, per-channel P48, GAIN vs fader (and the limiter), MASTER, input MIC/LINE switch, HPF, Ø + HEADPHONE M, 1+2 LINK, PAN as track select, LIM ON vs LINK |
+
+Some controls aren't in the level model (EQ, HPF, compression, effects, limiters), so those scenarios check the setting itself, with the house levels as a keep. Templates in `js/board-scenarios.js` cover the recurring shapes: `gainFix`, `eqFix`, `masterFix`, `swapToPhantom`.
 
 Some pairs are deliberately set against each other: MUTE spares PRE sends on the 1604 but cuts everything on the Ui16; the Mix8's post-fader AUX needs a send move where the 1202 and Xenyx have PRE switches.
 

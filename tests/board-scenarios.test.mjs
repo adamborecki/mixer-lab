@@ -280,12 +280,247 @@ const WRONG = {
   }]],
 };
 
+
+// ----- the scenarios added to cover every control -----
+Object.assign(SOLVE, {
+  "mix8-phones": (a) => {
+    a.st.setBus("cr", "level", 0.5);
+    a.st.setListen("phones");
+  },
+  "mix8-ol": (a) => a.set("keys", "gainDb", 28),
+  "mix8-boomy": (a) => a.set("lead-vocal", "eq.low", 0),
+  "mix8-pan": (a) => {
+    a.set("backing-vocals", "pan", -1);
+    a.set("keys", "pan", 1);
+  },
+  "mix8-wedge-loud": (a) => {
+    a.st.setListen("aux1");
+    a.st.setBus("aux1", "level", 0.5);
+  },
+  "mix8-overhead": (a) => {
+    a.unplugAt("src-backing-vocals/out");
+    assert.ok(a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr").ok);
+    a.st.setAllPhantom(true);
+    a.set("drums", "gainDb", 34);
+  },
+  "stagepas400bt-speech": (a) => a.st.setBus("masterEq", "pos", 0.2),
+  "stagepas400bt-hall": (a) => a.st.setBus("reverb", "type", 0.24),
+  "stagepas400bt-mono": (a) => a.set("preshow", "stMono", true),
+  "stagepas400bt-overhead": (a) => {
+    a.unplugAt("src-drums/out");
+    a.unplugAt("src-backing-vocals/out");
+    assert.ok(a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr").ok);
+    assert.ok(a.st.connect("src-backing-vocals/out", "mixer/ch3-in", "xlr").ok);
+  },
+  "stagepas400bt-sub": (a) => assert.ok(a.st.connect("mixer/sub-out", "sub/in", "trs").ok),
+  "stagepas400bt-feedback": (a) => a.st.setBus("fbs", "on", true),
+  "mg102-peak": (a) => a.set("drums", "gainDb", 34),
+  "mg102-thin-bass": (a) => a.set("bass", "eq.low", 3),
+  "mg102-reverb-loud": (a) => a.st.setBus("ret1", "level", 0.5),
+  "mg102-2tr": (a) => assert.ok(a.st.connect("src-preshow/out", "mixer/tape-in", "mini-rca").ok),
+  "vlz1202-trim": (a) => a.set("drums", "gainDb", 34),
+  "vlz1202-nasal": (a) => a.set("lead-vocal", "eq.mid", 0),
+  "vlz1202-pad": (a) => a.st.setBus("xlrPad", "on", false),
+  "vlz1202-wedge-quiet": (a) => {
+    a.st.setListen("aux1");
+    a.st.setBus("aux1", "level", 0.5);
+  },
+  "vlz1202-lowcut": (a) => {
+    a.set("lead-vocal", "lowCut", true);
+    a.set("backing-vocals", "lowCut", true);
+    a.set("drums", "lowCut", false);
+    a.set("bass", "lowCut", false);
+  },
+  "vlz1202-efx": (a) => a.st.setBus("ret2", "efx", true),
+  "vlz1202-tape": (a) => {
+    a.st.setBus("cr", "tape", true);
+    a.st.setListen("phones");
+  },
+  "x1204usb-minus10": (a) => a.set("preshow", "minus10", true),
+  "x1204usb-overhead": (a) => {
+    assert.ok(a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr").ok);
+    a.st.setAllPhantom(true);
+    a.set("drums", "gainDb", 34);
+  },
+  "x1204usb-pfl": (a) => {
+    a.st.setBus("soloBus", "mode", "pfl");
+    a.set("guitars", "solo", true);
+    a.st.setListen("phones");
+    a.set("guitars", "gainDb", 36);
+  },
+  "x1204usb-comp": (a) => a.set("lead-vocal", "comp", 0.4),
+  "x1204usb-slapback": (a) => a.st.setBus("fx", "program", 9),
+  "x1204usb-ret-mon": (a) => {
+    a.st.setBus("ret1", "mon", 0.5);
+    a.st.setListen("aux1");
+  },
+  "x1204usb-cdtape": (a) => {
+    assert.ok(a.st.connect("src-preshow/out", "mixer/tape-in", "mini-rca").ok);
+    a.st.setChannel(a.tape(), "toMain", true);
+  },
+  "sd442-hot-vocal": (a) => a.set("lead-vocal", "gainDb", 46),
+  "sd442-master": (a) => a.st.setBus("main", "level", LAWS.master6.toPos(0)),
+  "sd442-line": (a) => {
+    a.set("keys", "micLine", "line");
+    a.set("keys", "gainDb", 52);
+  },
+  "sd442-hpf": (a) => {
+    a.set("lead-vocal", "hpf", 0.2);
+    a.set("backing-vocals", "hpf", 0.2);
+  },
+  "ui16-48v": (a) => a.set("drums", "phantom", true),
+  "ui16-hpf": (a) => {
+    a.set("lead-vocal", "hpf", 0.2);
+    a.set("backing-vocals", "hpf", 0.2);
+  },
+  "ui16-harsh": (a) => a.set("lead-vocal", "peq.hiMid.gain", -4),
+  "ui16-comp": (a) => {
+    a.set("bass", "dyn.threshold", -15);
+    a.set("bass", "dyn.ratio", 4);
+  },
+  "ui16-delay": (a) => a.sendDb("lead-vocal", "fx2", -10),
+  "ui16-post": (a) => a.set("keys", "pres.aux2", false),
+  "cr1604-phantom": (a) => a.st.setAllPhantom(true),
+  "cr1604-levelset": (a) => {
+    a.st.setBus("soloBus", "mode", "pfl");
+    a.set("lead-vocal", "solo", true);
+    a.st.setListen("phones");
+    a.set("lead-vocal", "gainDb", 46);
+  },
+  "cr1604-sweep": (a) => a.set("trumpets", "eq.mid", -6),
+  "cr1604-lowcut": (a) => {
+    a.set("lead-vocal", "lowCut", true);
+    a.set("backing-vocals", "lowCut", true);
+    a.set("drums", "lowCut", false);
+    a.set("bass", "lowCut", false);
+  },
+  "cr1604-drummer-quiet": (a) => {
+    a.st.setBus("aux2", "solo", true);
+    a.st.setListen("phones");
+    a.st.setBus("aux2", "level", CR1604.LAWS.master.toPos(0));
+  },
+  "cr1604-efx-mon": (a) => a.st.setBus("ret1", "toAux", 0.5),
+  "cr1604-mono": (a) => {
+    assert.ok(a.st.connect("mixer/mono", "lobby/in", "trs").ok);
+    a.st.setBus("mono", "level", 0.67);
+  },
+  "cr1604-shift": (a) => {
+    a.st.setListen("aux6");
+    a.set("trumpets", "shift", true);
+    a.sendDb("trumpets", "aux4", 0);
+  },
+  "cr1604-direct": (a) => {
+    assert.ok(a.st.connect("mixer/ch7-direct", "rec/in1", "trs").ok);
+    a.st.setDevice("rec", "tracks.0.arm", true);
+  },
+  "cr1604-room": (a) => {
+    assert.ok(a.st.connect("room-pair/out-l", "rec/in3", "xlr").ok);
+    assert.ok(a.st.connect("room-pair/out-r", "rec/in4", "xlr").ok);
+    for (const t of [2, 3]) {
+      a.st.setDevice("rec", `tracks.${t}.phantom`, true);
+      a.st.setDevice("rec", `tracks.${t}.arm`, true);
+    }
+  },
+});
+
+Object.assign(WRONG, {
+  "mix8-ol": [["the keys' LEVEL down", (a) => a.set("keys", "level", 0.4)]],
+  "mix8-boomy": [["the vocal's LEVEL down", (a) => a.nudge("lead-vocal", -6)]],
+  "mix8-pan": [["only the backing vocal", (a) => a.set("backing-vocals", "pan", -1)]],
+  "mix8-wedge-loud": [["only the vocal's AUX", (a) => {
+    a.st.setListen("aux1");
+    a.sendDb("lead-vocal", "aux", -10);
+  }]],
+  "mix8-overhead": [["no phantom", (a) => {
+    a.unplugAt("src-backing-vocals/out");
+    a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr");
+    a.set("drums", "gainDb", 34);
+  }]],
+  "stagepas400bt-speech": [["MASTER LEVEL down", (a) => a.st.setBus("main", "level", 0.3)]],
+  "stagepas400bt-hall": [["the ECHO end", (a) => a.st.setBus("reverb", "type", 0.9)]],
+  "stagepas400bt-overhead": [["PHANTOM pressed again", (a) => a.st.setAllPhantom(true)]],
+  "stagepas400bt-sub": [["the sub on MONITOR OUT", (a) => a.st.connect("mixer/mon-r", "sub/in", "trs")]],
+  "stagepas400bt-feedback": [["the wedge off", (a) => a.st.setBus("monitor", "level", 0)]],
+  "mg102-peak": [["the drums' LEVEL down", (a) => a.set("drums", "level", 0.4)]],
+  "mg102-reverb-loud": [["the reverb off completely", (a) => a.st.setBus("ret1", "level", 0)]],
+  "mg102-2tr": [["back on channel 9/10", (a) => a.st.connect("src-preshow/out", "mixer/ch6-rca", "mini-rca")]],
+  "vlz1202-trim": [["the LEVEL down", (a) => a.set("drums", "level", 0.4)]],
+  "vlz1202-pad": [["MAIN MIX up", (a) => a.st.setBus("main", "level", 1)]],
+  "vlz1202-wedge-quiet": [["only the vocal's AUX 1", (a) => {
+    a.st.setListen("aux1");
+    a.sendDb("lead-vocal", "aux1", 15);
+  }]],
+  "vlz1202-efx": [["more vocal in the wedge", (a) => a.sendDb("lead-vocal", "aux1", 8)]],
+  "vlz1202-tape": [["only listening", (a) => a.st.setListen("phones")]],
+  "x1204usb-minus10": [["the fader up", (a) => a.faderDb("preshow", 6)]],
+  "x1204usb-overhead": [["no phantom", (a) => {
+    a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr");
+    a.set("drums", "gainDb", 34);
+  }]],
+  "x1204usb-pfl": [["gain without listening", (a) => a.set("guitars", "gainDb", 36)]],
+  "x1204usb-comp": [["COMP all the way", (a) => a.set("lead-vocal", "comp", 1)]],
+  "x1204usb-slapback": [["a hall", (a) => a.st.setBus("fx", "program", 1)]],
+  "x1204usb-ret-mon": [["RET 1 louder in the house", (a) => {
+    a.st.setBus("ret1", "level", 0.8);
+    a.st.setListen("aux1");
+  }]],
+  "x1204usb-cdtape": [["patched, not sent to MAIN", (a) => a.st.connect("src-preshow/out", "mixer/tape-in", "mini-rca")]],
+  "sd442-hot-vocal": [["the fader down", (a) => a.set("lead-vocal", "level", 0.3)]],
+  "sd442-master": [["every fader up", (a) => {
+    for (const s of ["room-l", "lead-vocal", "backing-vocals"]) a.nudge(s, 15);
+  }]],
+  "sd442-line": [["GAIN all the way down", (a) => a.set("keys", "gainDb", 22)]],
+  "sd442-hpf": [["the HPF on everything", (a) => {
+    for (const s of ["lead-vocal", "backing-vocals", "room-l", "room-r"]) a.set(s, "hpf", 0.2);
+  }]],
+  "ui16-48v": [["more gain", (a) => a.set("drums", "gainDb", 57)]],
+  "ui16-hpf": [["the HPF on the bass too", (a) => {
+    for (const s of ["lead-vocal", "backing-vocals", "bass"]) a.set(s, "hpf", 0.2);
+  }]],
+  "ui16-harsh": [["a cut in the wrong place", (a) => {
+    a.set("lead-vocal", "peq.hiMid.gain", -4);
+    a.set("lead-vocal", "peq.hiMid.freq", 600);
+  }]],
+  "ui16-comp": [["RATIO only", (a) => a.set("bass", "dyn.ratio", 4)]],
+  "ui16-delay": [["into the wedge instead", (a) => a.sendDb("lead-vocal", "aux1", 6)]],
+  "ui16-post": [["every channel POST", (a) => {
+    for (const c of a.mix().channels.filter((c) => c.sourceId)) a.st.setChannel(c.index, "pres.aux2", false);
+  }]],
+  "cr1604-phantom": [["the drums' fader up", (a) => a.nudge("drums", 8)]],
+  "cr1604-levelset": [["TRIM up in NORMAL mode", (a) => {
+    a.set("lead-vocal", "solo", true);
+    a.st.setListen("phones");
+    a.set("lead-vocal", "gainDb", 46);
+  }]],
+  "cr1604-sweep": [["cut, but somewhere else", (a) => {
+    a.set("trumpets", "eq.mid", -6);
+    a.set("trumpets", "eq.freq", 4000);
+  }]],
+  "cr1604-drummer-quiet": [["every AUX 2 knob up", (a) => {
+    a.st.setListen("aux2");
+    for (const c of a.mix().channels.filter((c) => c.sourceId && c.aux.aux2.sendDb > -60)) a.st.setSend(c.index, "aux2", CR1604.LAWS.send.toPos(c.aux.aux2.sendDb + 10));
+  }]],
+  "cr1604-efx-mon": [["RETURN 1 up in the house", (a) => a.st.setBus("ret1", "level", 0.8)]],
+  "cr1604-mono": [["patched, MONO LEVEL still down", (a) => a.st.connect("mixer/mono", "lobby/in", "trs")]],
+  "cr1604-shift": [["AUX 4 up without SHIFT", (a) => {
+    a.st.setListen("aux6");
+    a.sendDb("trumpets", "aux4", 0);
+  }]],
+  "cr1604-direct": [["patched but not armed", (a) => a.st.connect("mixer/ch7-direct", "rec/in1", "trs")]],
+  "cr1604-room": [["no 48V on the recorder", (a) => {
+    a.st.connect("room-pair/out-l", "rec/in3", "xlr");
+    a.st.connect("room-pair/out-r", "rec/in4", "xlr");
+    a.st.setDevice("rec", "tracks.2.arm", true);
+    a.st.setDevice("rec", "tracks.3.arm", true);
+  }]],
+});
+
 describe("board scenarios: data", () => {
-  it("validate, and every board has at least five, numbered from 1", () => {
+  it("validate, and every board has at least nine, numbered from 1", () => {
     assert.deepEqual(validateScenarios(), []);
     for (const board of ["mix8", "vlz1202", "mg102", "stagepas400bt", "x1204usb", "sd442", "ui16", "cr1604"]) {
       const list = scenariosFor(board).filter((s) => s.number > 0);
-      assert.ok(list.length >= 5, `${board}: ${list.length}`);
+      assert.ok(list.length >= 9, `${board}: ${list.length}`);
       assert.deepEqual(list.map((s) => s.number), list.map((_, i) => i + 1), board);
       assert.equal(scenariosFor(board).at(-1).id, "free-play");
     }

@@ -1,4 +1,5 @@
-// Practice scenarios for the real mixers, five or six per board, easiest first.
+// Practice scenarios for the real mixers, nine to fifteen per board, in teaching
+// order (ORDER at the end), so every control gets a real job.
 // Each starts from that mixer's Free play gig (js/scenarios.js COMPACT_GIGS, or
 // the CR1604-VLZ's), then `setup.tweak(state, h)` makes the problem; `h` is
 // boardHelpers() in js/scenarios.js. Conditions are the usual library
@@ -7,7 +8,7 @@
 // These are practice, not the Canvas assignment: the numbered scenarios on
 // Mixer A/B are what the submission reports. See docs/SCENARIOS.md.
 
-import { LAWS } from "./compact.js";
+import { COMPACT, LAWS, fxPreset, reverbSetting } from "./compact.js";
 import * as CR1604 from "./cr1604.js";
 
 const AUDIBLE = -45; // as AUDIBLE_DB in js/scenarios.js
@@ -968,16 +969,1032 @@ const C16 = [
   },
 ];
 
-// Number each board's list from 1 and tag it with its mixer.
-const number = (board, list) => list.map((s, i) => ({ board, number: i + 1, ...s }));
+// ---------- more scenarios: one for every control that matters ----------
+//
+// Students reach these after Mixer A/B, so they know GAIN, faders, AUX sends and
+// Main. Each board's list (ORDER, below) goes: get sound, gain and tone, the
+// wedges, that board's own buttons, then fault-finding and bigger jobs.
 
-export const BOARD_SCENARIOS = {
-  mix8: number("mix8", MIX8),
-  vlz1202: number("vlz1202", VLZ),
-  mg102: number("mg102", MG),
-  stagepas400bt: number("stagepas400bt", SP),
-  x1204usb: number("x1204usb", XEN),
-  sd442: number("sd442", SD),
-  ui16: number("ui16", UI),
-  cr1604: number("cr1604", C16),
+// A channel's input level is too hot: bring it into Good with GAIN, change nothing else.
+const gainFix = ({ id, short, title, who, prompt, source, gainDb, tweak, label, hints, complete }) => ({
+  id,
+  short,
+  title,
+  who,
+  prompt,
+  goal: "That channel's input in the Good band (not Hot, not clipping), still in the house, nothing else changed.",
+  setup: { tweak: tweak || ((st, h) => h.set(source, "gainDb", gainDb)) },
+  baseline: { main: { metric: "mainDbByChannel" } },
+  conditions: [
+    goal("good", label, (ctx) => mc(ctx, source)?.band === "good"),
+    keep("heard", "It stays in the house", (ctx) => house(ctx, source) >= AUDIBLE && mc(ctx, source)?.input.status === "ok"),
+    { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: source, toleranceDb: 1, label: "Everything else in the house stays the same" },
+  ],
+  hints,
+  complete,
+});
+
+// An EQ problem on one channel. The level model leaves EQ out, so the house "levels" can't move.
+const eqFix = ({ id, short, title, who, prompt, goalText, source, start, label, check, hints, complete }) => ({
+  id,
+  short,
+  title,
+  who,
+  prompt,
+  goal: goalText,
+  setup: { tweak: (st, h) => Object.entries(start).forEach(([k, v]) => h.set(source, k, v)) },
+  baseline: { main: { metric: "mainDbByChannel" } },
+  conditions: [
+    goal("eq", label, (ctx) => !!sc(ctx, source) && check(sc(ctx, source))),
+    { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The levels in the house stay the same (EQ, not faders)" },
+  ],
+  hints,
+  complete,
+});
+
+// "Turn the whole wedge down/up" with its master, keeping the balance.
+const masterFix = ({ id, short, title, who, prompt, bus, startDb, raise, listenAlt, hints, complete, setLevel }) => ({
+  id,
+  short,
+  title,
+  who,
+  prompt,
+  goal: `The whole wedge ${raise ? "up" : "down"} by at least 8 dB, its balance unchanged.`,
+  setup: { tweak: (st, h) => h.bus(bus, "level", setLevel(startDb)) },
+  baseline: { master: { metric: "busDb", bus }, sends: { metric: "sendDbByChannel", bus }, main: { metric: "mainDbByChannel" } },
+  conditions: [
+    goal("listen", listenAlt ? "You listened to the wedge (or soloed its master in your headphones)" : "You listened to the wedge", (ctx) => heard(ctx, bus) || (listenAlt && ctx.state[bus].solo && heard(ctx, "phones"))),
+    goal("master", raise ? "The whole wedge is louder" : "The whole wedge is quieter", (ctx) => (raise ? 1 : -1) * ((ctx.mix.busDb?.[bus] ?? 0) - ctx.baseline.master) >= 8),
+    { id: "balance", kind: "keep", type: "sendBalanceKept", bus, baseline: "sends", toleranceDb: 1, label: "The balance inside the wedge stays the same" },
+    { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+  ],
+  hints,
+  complete,
+});
+
+// A condenser mic moves to a channel that can power it.
+const swapToPhantom = ({ id, short, title, who, prompt, out, cable = "xlr", wrongPort, extra, hints, complete, keepSource = "lead-vocal" }) => ({
+  id,
+  short,
+  title,
+  who,
+  prompt,
+  goal: "The drum overhead (a condenser) heard in the house, the lead vocal still there.",
+  setup: {
+    tweak: (st, h) => {
+      if (out) h.unplug(out);
+      if (wrongPort) h.cable("src-drums/out", wrongPort, cable);
+      if (extra) extra(st, h);
+    },
+  },
+  conditions: [
+    { id: "drums", kind: "goal", type: "sourceHeardInMain", source: "drums", label: "The overhead is heard in the house" },
+    { id: "vox", kind: "keep", type: "sourceHeardInMain", source: keepSource, label: "The lead vocal stays in the house" },
+  ],
+  hints,
+  complete,
+});
+
+const hpfHz = (board, i, pos) => {
+  const c = COMPACT[board].channels[i].hpf;
+  return pos <= 0.02 ? 0 : c.min + (c.max - c.min) * Math.max(0, (pos - 0.05) / 0.95);
 };
+const fadersKept = (ctx) => {
+  const now = ctx.mix.channels.map((c) => c.faderDb ?? -Infinity);
+  return now.every((v, i) => (v === -Infinity && ctx.baseline.faders[i] === -Infinity) || Math.abs(v - ctx.baseline.faders[i]) <= 1);
+};
+const cableFrom = (ctx, from) => ctx.state.rig.cables.find((c) => c.from === from) || null;
+
+// ----- Mix8 -----
+
+MIX8.push(
+  {
+    id: "mix8-phones",
+    short: "Silent headphones",
+    title: "Silent headphones",
+    who: "You",
+    prompt: "“Your headphones are plugged into CR/PHONES, but you hear nothing.”",
+    goal: "The main mix in your headphones.",
+    setup: { tweak: (st) => (st.cr.level = 0) },
+    conditions: [
+      goal("level", "The CR/PHONES level is up", (ctx) => LAWS.master.toDb(ctx.state.cr.level) >= -10),
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "phones", label: "You listened in your headphones" },
+    ],
+    hints: ["The headphones have their own level, separate from MAIN.", "It's in the CR / PHONES section of the master.", "Turn CR / PHONES LEVEL up, and switch Listen to PHONES."],
+    complete: "CR/PHONES has its own level: what you hear in the headphones never changes what the audience hears.",
+  },
+  gainFix({
+    id: "mix8-ol",
+    short: "OL light",
+    title: "The OL light",
+    who: "You",
+    prompt: "“The backing singer went home, so the keyboard moved to channel 2's LINE input. Now the OL light is on and the piano sounds crunchy.”",
+    source: "keys",
+    tweak: (st, h) => {
+      h.unplug("backing-vocals");
+      h.unplug("keys");
+      h.cable("src-keys/out", "mixer/ch2-line", "ts");
+    },
+    label: "The keys' input sits in Good, under the OL light",
+    hints: ["OL means the input is close to clipping. Channel 2's GAIN is still where the backing singer's mic needed it.", "A keyboard is line level, far hotter than a mic. Which knob sets how hot the input is?", "Turn channel 2's GAIN down until the meter sits in Good; leave its LEVEL alone."],
+    complete: "OL warns you before the preamp clips. Fix it at the GAIN, the first knob, not with the LEVEL: the LEVEL comes after the distortion.",
+  }),
+  eqFix({
+    id: "mix8-boomy",
+    short: "Boomy vocal",
+    title: "The boomy vocal",
+    who: "Lead singer",
+    prompt: "“My voice sounds boomy and muddy in the house.”",
+    goalText: "Take the boom out of the vocal with its EQ: LOW at or below 0 dB.",
+    source: "lead-vocal",
+    start: { "eq.low": 12 },
+    label: "The vocal's LOW EQ isn't boosting any more",
+    check: (c) => c.eq.low <= 0,
+    hints: ["Boom is low frequencies. Which part of the channel shapes the tone?", "The 3-band EQ: HI (12 kHz), MID (2.5 kHz), LOW (80 Hz).", "Turn channel 1's LOW back to the centre or below."],
+    complete: "Boom lives in the LOW band. Cutting what's too much usually sounds better than boosting what's missing.",
+  }),
+  {
+    id: "mix8-pan",
+    short: "Spread the stage",
+    title: "Spread the stage",
+    who: "Band leader",
+    prompt: "“The backing singer stands stage left and the piano stage right. Make the house sound like that.”",
+    goal: "The backing vocal clearly left of centre, the keys clearly right, in the house.",
+    setup: {},
+    conditions: [
+      goal("bv", "The backing vocal is left of centre", (ctx) => mc(ctx, "backing-vocals")?.mainDb.L - mc(ctx, "backing-vocals")?.mainDb.R >= 6),
+      goal("keys", "The keys are right of centre", (ctx) => mc(ctx, "keys")?.mainDb.R - mc(ctx, "keys")?.mainDb.L >= 6),
+      { id: "vox", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The lead vocal stays in the house" },
+    ],
+    hints: ["Left and right in the house are set per channel.", "Mono channel 2 has PAN; stereo channel 3/4 has BAL.", "Turn channel 2's PAN left and channel 3/4's BAL right."],
+    complete: "PAN places a mono channel between the speakers; BAL tips a stereo channel one way. Both only touch the main mix.",
+  },
+  masterFix({
+    id: "mix8-wedge-loud",
+    short: "Wedge too loud",
+    title: "The wedge is too loud",
+    who: "Lead singer",
+    prompt: "“My whole wedge is way too loud. The balance is fine, it's just too much.”",
+    bus: "aux1",
+    startDb: 12,
+    raise: false,
+    setLevel: (db) => LAWS.send15.toPos(db),
+    hints: ["Every channel's AUX would have to move by the same amount. Is there one control for the whole wedge?", "The AUX MASTER in the master section.", "Turn AUX MASTER down; leave the channel AUX knobs alone."],
+    complete: "The AUX MASTER moves the whole wedge without changing what's in it. Channel knobs set the balance, the master sets the level.",
+  }),
+  swapToPhantom({
+    id: "mix8-overhead",
+    short: "Acoustic set",
+    title: "The acoustic set",
+    who: "Band leader",
+    prompt: "“Acoustic set: no backing vocals. Put the drum overhead mic on, to catch the cajón.”",
+    out: null,
+    hints: ["The overhead is a condenser mic: XLR, mic level, and it needs phantom power. Which channels have a mic preamp?", "Only 1 and 2. The backing singer is off, so channel 2 is free. 48V on the Mix8 is one switch for 1 and 2.", "Unplug the backing vocal, plug the overhead into channel 2's MIC, press 48V and check its GAIN."],
+    complete: "A condenser needs a mic preamp and phantom power; on the Mix8 only channels 1 and 2 have either.",
+  }),
+);
+
+// ----- STAGEPAS 400BT -----
+
+SP.push(
+  {
+    id: "stagepas400bt-speech",
+    short: "Speech mode",
+    title: "Speech mode",
+    who: "Event host",
+    prompt: "“Before the band, the principal gives a speech. Make the PA sound clear for talking.”",
+    goal: "The whole PA set for speech (MASTER EQ towards SPEECH), the mic still live.",
+    setup: {},
+    conditions: [
+      goal("eq", "The PA is voiced for speech", (ctx) => ctx.state.masterEq.pos <= 0.35),
+      { id: "vox", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The mic on channel 1 stays in the house" },
+    ],
+    hints: ["Speech needs clarity, not bass. There's a knob for the whole PA's tone.", "MASTER EQ, in the MASTER section: SPEECH at one end, MUSIC in the middle, more bass at the other.", "Turn MASTER EQ towards SPEECH."],
+    complete: "MASTER EQ shapes everything at once: SPEECH trims the lows that make talking boomy. Turn it back to MUSIC for the band.",
+  },
+  {
+    id: "stagepas400bt-hall",
+    short: "A long hall",
+    title: "A long hall for the ballad",
+    who: "Lead singer",
+    prompt: "“For the ballad I want a big, long hall on my voice.”",
+    goal: "The reverb set to a HALL of at least 3 seconds, still on the vocals.",
+    setup: {},
+    conditions: [
+      goal("hall", "The reverb is a long HALL", (ctx) => {
+        const r = reverbSetting(COMPACT.stagepas400bt, ctx.state.reverb.type);
+        return r.type === "HALL" && r.seconds >= 3;
+      }),
+      keep("on", "The vocals keep their reverb", (ctx) => ctx.state.reverb.on && LAWS.send15.toDb(sc(ctx, "lead-vocal")?.sends.reverb ?? 0) >= -20),
+    ],
+    hints: ["The STAGEPAS reverb has one knob for its type and length.", "TYPE/TIME: four types (HALL, PLATE, ROOM, ECHO), each from short to long.", "Turn TYPE/TIME towards the long end of HALL (about 3 s or more)."],
+    complete: "One knob chooses both the kind of space and its length. Long halls suit ballads; short rooms and plates suit busy songs.",
+  },
+  {
+    id: "stagepas400bt-mono",
+    short: "Mono laptop",
+    title: "Half the song is missing",
+    who: "Audience member (stage left)",
+    prompt: "“Over here by the left speaker, half the music is missing — I only hear the drums.”",
+    goal: "The laptop's music the same from both speakers (mono), still playing.",
+    setup: { tweak: (st, h) => h.faderDb("preshow", -4) },
+    conditions: [
+      goal("mono", "The laptop channel is summed to mono", (ctx) => !!sc(ctx, "preshow")?.stMono),
+      keep("heard", "The music keeps playing", (ctx) => house(ctx, "preshow") >= AUDIBLE),
+    ],
+    hints: ["Some songs are mixed hard left and right. Near one speaker you only hear one side.", "Stereo channels 5/6 and 7/8 have an ST/MONO switch.", "Press MONO on channel 7/8."],
+    complete: "In a room, people near one speaker hear mostly that side. MONO sends both sides everywhere, which is often right for background music.",
+  },
+  swapToPhantom({
+    id: "stagepas400bt-overhead",
+    short: "Overhead on ch 3",
+    title: "The overhead on channel 3",
+    who: "Drummer",
+    prompt: "“I plugged my overhead mic into channel 3 and pressed PHANTOM, but it's silent.”",
+    out: "guitars",
+    wrongPort: "mixer/ch3-in",
+    extra: (st) => [0, 1].forEach((i) => (st.channels[i].phantom = true)), // PHANTOM (CH1/2) is on
+    keepSource: "backing-vocals",
+    hints: ["Phantom is on. Does it reach channel 3?", "On the STAGEPAS, PHANTOM only powers channels 1 and 2. The backing singer's dynamic mic doesn't need it.", "Swap them: overhead into channel 2, backing vocal mic into channel 3."],
+    complete: "Not every channel gets phantom. On the STAGEPAS it's only CH1/2, so condensers go there and dynamic mics go anywhere.",
+  }),
+  {
+    id: "stagepas400bt-sub",
+    short: "Add the sub",
+    title: "Add the subwoofer",
+    who: "Venue tech",
+    prompt: "“We brought a powered subwoofer for the dance set. Hook it up.”",
+    goal: "The subwoofer working from the mixer's SUBWOOFER OUT, the main speakers still working.",
+    setup: { tweak: (st, h) => h.addDevice("sub") },
+    conditions: [
+      { id: "sub", kind: "goal", type: "validChain", output: "sub-out", device: "sub", label: "The subwoofer is fed from SUBWOOFER OUT" },
+      keep("main", "Both STAGEPAS speakers keep working", (ctx) => ["sp-l", "sp-r"].every((id) => endpoint(ctx, id)?.valid)),
+      { id: "wedge", kind: "keep", type: "validChain", output: "mon-l", device: "wedge", label: "The wedge keeps working" },
+    ],
+    hints: ["A powered sub has its own amp, so it takes line level.", "The STAGEPAS has a SUBWOOFER OUT; with something plugged in, the speakers stop reproducing below 120 Hz.", "Run a cable from SUBWOOFER OUT to the subwoofer's input."],
+    complete: "SUBWOOFER OUT carries the lows; with it patched, the main speakers hand everything under 120 Hz to the sub (a crossover) and get cleaner.",
+  },
+  {
+    id: "stagepas400bt-feedback",
+    short: "Squealing wedge",
+    title: "The squealing wedge",
+    who: "Lead singer",
+    prompt: "“My wedge squeals when I step back from the mic during the loud chorus.”",
+    goal: "The feedback suppressor on, the wedge still loud enough.",
+    setup: {},
+    conditions: [
+      goal("fbs", "The feedback suppressor is on", (ctx) => !!ctx.state.fbs.on),
+      keep("wedge", "The wedge stays up", (ctx) => LAWS.master.toDb(ctx.state.monitor.level) >= -10),
+    ],
+    hints: ["Feedback is a loop: speaker into mic into speaker. Turning the wedge down works but the singer loses it.", "The STAGEPAS has a FEEDBACK SUPPRESSOR.", "Press FEEDBACK SUPP. in the MASTER section."],
+    complete: "A feedback suppressor finds a ringing frequency and notches it out. It helps, but mic placement and wedge level matter more.",
+  },
+);
+
+// ----- MG10/2 -----
+
+MG.push(
+  gainFix({
+    id: "mg102-peak",
+    short: "PEAK light",
+    title: "The flashing PEAK light",
+    who: "You",
+    prompt: "“The drum channel's PEAK light is flashing on every hit.”",
+    source: "drums",
+    gainDb: 52,
+    label: "The drums' input sits in Good, under the PEAK light",
+    hints: ["PEAK lights before the preamp clips. Where is the preamp's level set?", "The GAIN knob at the top of channel 3/4.", "Turn channel 3/4's GAIN down until the drums sit in Good."],
+    complete: "Fix a hot input at the GAIN. The LEVEL and the master come after the preamp, so they can't fix distortion that's already happened.",
+  }),
+  eqFix({
+    id: "mg102-thin-bass",
+    short: "Thin bass",
+    title: "The thin bass",
+    who: "Bassist",
+    prompt: "“My bass sounds thin and small. Somebody cut all my low end.”",
+    goalText: "Give the bass its low end back with its EQ: LOW at 0 dB or above.",
+    source: "bass",
+    start: { "eq.low": -12 },
+    label: "The bass's LOW EQ is back to flat or boosted",
+    check: (c) => c.eq.low >= 0,
+    hints: ["Thin means missing lows. Which band is that?", "Channel 5/6's EQ: HIGH 10 kHz, MID 2.5 kHz, LOW 100 Hz.", "Bring channel 5/6's LOW back up to the centre or a little above."],
+    complete: "The LOW band at 100 Hz is where a bass's weight lives. A big cut there turns a bass into a guitar.",
+  }),
+  {
+    id: "mg102-reverb-loud",
+    short: "Too much reverb",
+    title: "Too much reverb",
+    who: "Band leader",
+    prompt: "“The backing vocals sound like they're in a cathedral. Way too much reverb.”",
+    goal: "The reverb return down to a normal level (U or below), still audible.",
+    setup: { tweak: (st) => (st.ret1.level = 1) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("ret", "The reverb return is back to U or below", (ctx) => LAWS.ret20.toDb(ctx.state.ret1.level) <= 0),
+      keep("on", "There's still some reverb", (ctx) => LAWS.ret20.toDb(ctx.state.ret1.level) >= -30),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The dry mix stays the same" },
+    ],
+    hints: ["The reverb unit comes back into the mixer somewhere. Find where.", "The RETURN knob in the master section sets how much reverb is in the mix.", "Turn RETURN down towards U."],
+    complete: "The RETURN level is the overall amount of reverb; the channel's AUX knob (turned right) decides who's in it.",
+  },
+  {
+    id: "mg102-2tr",
+    short: "Laptop to 2TR IN",
+    title: "Free up channel 9/10",
+    who: "Keyboard player",
+    prompt: "“I need channel 9/10 for my second keyboard. Move the walk-in music somewhere else.”",
+    goal: "The laptop playing through the house from 2TR IN, with channel 9/10 left empty.",
+    setup: { tweak: (st, h) => h.unplug("preshow") },
+    conditions: [
+      goal("2tr", "The laptop is on 2TR IN", (ctx) => mc(ctx, "preshow")?.index === COMPACT.mg102.channels.length),
+      { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "preshow", stereo: true, label: "The music plays through both house speakers" },
+    ],
+    hints: ["Besides the channels, the MG10/2 has a stereo input in the master section.", "2TR IN: an RCA pair that goes straight into the stereo mix, with its own level knob.", "Plug the laptop into 2TR IN with the 3.5 mm ↔ RCA cable and set the 2TR IN level."],
+    complete: "2TR IN adds a stereo source without using a channel: no EQ or AUX, just a level into the mix. Perfect for walk-in music.",
+  },
+);
+
+// ----- 1202-VLZ -----
+
+VLZ.push(
+  gainFix({
+    id: "vlz1202-trim",
+    short: "Hot kick",
+    title: "The clipping drums",
+    who: "You",
+    prompt: "“The drum channel's OL light is lit on every hit, and it sounds crunchy.”",
+    source: "drums",
+    gainDb: 52,
+    label: "The drums' input sits in Good",
+    hints: ["Crunchy plus a red light means the preamp is overloaded.", "The TRIM knob at the top of channel 1.", "Turn channel 1's TRIM down until the meter sits in Good."],
+    complete: "TRIM sets the preamp. Fix overload there: nothing after it can remove distortion.",
+  }),
+  eqFix({
+    id: "vlz1202-nasal",
+    short: "Nasal vocal",
+    title: "The nasal vocal",
+    who: "Lead singer",
+    prompt: "“I sound honky and nasal, like I'm singing through a phone.”",
+    goalText: "Take the honk out of the vocal with its MID EQ (at or below 0 dB).",
+    source: "lead-vocal",
+    start: { "eq.mid": 12 },
+    label: "The vocal's MID isn't boosting any more",
+    check: (c) => c.eq.mid <= 0,
+    hints: ["Honky, telephone-like tone sits in the middle frequencies.", "Channel 3's EQ: HI 12 kHz, MID 2.5 kHz, LOW 80 Hz.", "Turn channel 3's MID back to the centre or a little below."],
+    complete: "A big MID boost makes voices honky and phone-like. Small cuts in the mids often make a voice sound more natural.",
+  }),
+  {
+    id: "vlz1202-pad",
+    short: "Quiet house",
+    title: "The quiet house",
+    who: "Venue tech",
+    prompt: "“The house is barely audible, even with MAIN MIX all the way up.”",
+    goal: "The house at full level again, with the mix untouched.",
+    setup: { tweak: (st) => (st.xlrPad.on = true) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("pad", "The XLR main outputs aren't padded down", (ctx) => !ctx.state.xlrPad.on),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The mix stays the same" },
+    ],
+    hints: ["The mix is fine, so look at the very last thing before the speakers: the XLR main outputs.", "The XLR outs have a −30 dB PAD, for feeding a mic input (a camera, another mixer).", "Release the −30 dB PAD in the XLR OUT section."],
+    complete: "The XLR output PAD drops 30 dB: right for a mic input, nearly silent for powered speakers. When everything looks right but it's quiet, check the last switch in the chain.",
+  },
+  masterFix({
+    id: "vlz1202-wedge-quiet",
+    short: "Wedge too quiet",
+    title: "The quiet wedge",
+    who: "Lead singer",
+    prompt: "“My whole wedge is too quiet. The balance is right, I just need more of all of it.”",
+    bus: "aux1",
+    startDb: -20,
+    raise: true,
+    setLevel: (db) => LAWS.send15.toPos(db),
+    hints: ["Turning up every channel's AUX 1 would take ages and change the balance.", "AUX 1 has a master knob in the AUX SENDS section.", "Turn AUX 1 MASTER up."],
+    complete: "One master moves the whole wedge. Keep the channel AUX knobs for the balance.",
+  }),
+  {
+    id: "vlz1202-lowcut",
+    short: "Low cut",
+    title: "Rumble through the vocals",
+    who: "Venue tech",
+    prompt: "“The stage is rumbling through the vocal mics. Fix it without thinning out the drums and bass.”",
+    goal: "LOW CUT on both vocal channels, off on the drums and bass.",
+    setup: {
+      tweak: (st, h) => {
+        h.set("lead-vocal", "lowCut", false);
+        h.set("backing-vocals", "lowCut", false);
+        h.set("drums", "lowCut", true);
+        h.set("bass", "lowCut", true);
+      },
+    },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("vox", "Both vocal mics lose the rumble", (ctx) => !!sc(ctx, "lead-vocal")?.lowCut && !!sc(ctx, "backing-vocals")?.lowCut),
+      goal("low", "The drums and bass keep their low end", (ctx) => !sc(ctx, "drums")?.lowCut && !sc(ctx, "bass")?.lowCut),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The levels stay the same" },
+    ],
+    hints: ["Rumble is very low. Voices don't need it; kick and bass do.", "Channels 1–4 have a LOW CUT button: 75 Hz, steep (18 dB/octave).", "LOW CUT on 3 and 4, off on 1 and 2."],
+    complete: "LOW CUT on every vocal mic is a habit worth keeping. The 1202's is steep, so it removes rumble without thinning the voice.",
+  },
+  {
+    id: "vlz1202-efx",
+    short: "Reverb in the wedge",
+    title: "Reverb in the wedge",
+    who: "Lead singer",
+    prompt: "“The house has lovely reverb on my voice, but my wedge is bone dry. I sing flat without it.”",
+    goal: "The reverb (now on AUX RETURN 2) in the singer's wedge as well as the house.",
+    setup: {
+      tweak: (st, h) => {
+        h.cut("mixer/ret1-l");
+        h.cut("mixer/ret1-r");
+        h.cable("reverb/out-l", "mixer/ret2-l", "trs");
+        h.cable("reverb/out-r", "mixer/ret2-r", "trs");
+      },
+      listen: "aux1",
+    },
+    baseline: { main: { metric: "mainDbByChannel" }, wedge: { metric: "monitorByChannel", bus: "aux1" } },
+    conditions: [
+      goal("efx", "The reverb is in the singer's wedge", (ctx) => !!ctx.state.ret2.efx),
+      keep("house", "The reverb stays in the house", (ctx) => LAWS.ret20.toDb(ctx.state.ret2.level) >= -10),
+      { id: "wedge", kind: "keep", type: "monitorMixUnchanged", bus: "aux1", baseline: "wedge", toleranceDb: 1, label: "The dry wedge mix stays the same" },
+    ],
+    hints: ["The reverb comes back on AUX RETURN 2. Can a return reach a wedge?", "AUX RETURN 2 has an EFX TO MON switch: it sends the return into AUX 1.", "Press EFX TO MON in the AUX RETURNS section."],
+    complete: "EFX TO MON feeds the effect into the monitor mix too: singers often pitch better with a little reverb in the wedge.",
+  },
+  {
+    id: "vlz1202-tape",
+    short: "Cue the next song",
+    title: "Cue the next song",
+    who: "Stage manager",
+    prompt: "“The intro track for the next set is on the laptop, now plugged into TAPE IN. Check it's cued up — in your headphones only.”",
+    goal: "The laptop in your headphones through the C-R/PHONES SOURCE, never in the house.",
+    setup: {
+      tweak: (st, h) => {
+        h.unplug("preshow");
+        h.cable("src-preshow/out", "mixer/tape-in", "mini-rca");
+      },
+    },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("tape", "TAPE is in your headphones", (ctx) => !!ctx.mix.phones?.sources.includes("tape")),
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "phones", label: "You listened in your headphones" },
+      keep("out", "The track stays out of the house", (ctx) => house(ctx, "preshow") < AUDIBLE),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["On the 1202, TAPE IN only reaches the C-R/PHONES.", "The C-R/PHONES SOURCE buttons: MAIN, ALT 3-4, TAPE. You can press more than one.", "Press TAPE in the C-R/PHONES SOURCE and Listen to the PHONES."],
+    complete: "The C-R SOURCE matrix chooses what your headphones hear (MAIN, ALT 3-4, TAPE), without changing the house.",
+  },
+);
+
+// ----- Xenyx X1204USB -----
+
+XEN.push(
+  {
+    id: "x1204usb-minus10",
+    short: "Consumer level",
+    title: "The consumer-level laptop",
+    who: "You",
+    prompt: "“Someone switched channel 7/8 to +4 dBu. The laptop is a consumer device: set the channel to match.”",
+    goal: "Channel 7/8 set for consumer (−10 dBV) gear, the music still playing.",
+    setup: {
+      tweak: (st, h) => {
+        h.set("preshow", "minus10", false);
+        h.faderDb("preshow", -6);
+      },
+    },
+    conditions: [
+      goal("level", "Channel 7/8 is set for −10 dBV gear", (ctx) => !!sc(ctx, "preshow")?.minus10),
+      keep("heard", "The music keeps playing", (ctx) => house(ctx, "preshow") >= AUDIBLE),
+    ],
+    hints: ["Pro gear runs at +4 dBu, consumer gear (laptops, phones, players) at −10 dBV: about 12 dB lower.", "The stereo channels have a LEVEL switch for that.", "Press the −10 dBV switch on channel 7/8."],
+    complete: "The −10 dBV switch adds about 12 dB for consumer gear, so the fader can sit near U instead of at the top.",
+  },
+  swapToPhantom({
+    id: "x1204usb-overhead",
+    short: "Overhead on ch 2",
+    title: "The overhead for the ballad",
+    who: "Band leader",
+    prompt: "“The backing singer sits out the ballad. Use channel 2 for the drum overhead.”",
+    out: "backing-vocals",
+    hints: ["The overhead is a condenser: XLR into a mic channel, plus phantom.", "Channel 2 is free once the backing vocal is unplugged. PHANTOM is one switch on the rear panel for channels 1–4.", "Plug the overhead into channel 2's MIC, switch PHANTOM on and check its GAIN."],
+    complete: "One phantom switch powers channels 1–4. Dynamic mics and DIs don't mind, so it can stay on.",
+  }),
+  {
+    id: "x1204usb-pfl",
+    short: "Set gain with PFL",
+    title: "Set the gain with PFL",
+    who: "You",
+    prompt: "“The guitar is barely registering. Set its GAIN properly, listening to it alone in your headphones before the fader.”",
+    goal: "The guitar's input in Good, set using SOLO in PFL mode.",
+    setup: {
+      tweak: (st, h) => {
+        h.set("guitars", "gainDb", 14);
+        st.soloBus.mode = "sip";
+      },
+    },
+    conditions: [
+      goal("pfl", "The guitar is soloed in PFL mode", (ctx) => ctx.state.soloBus.mode === "pfl" && !!sc(ctx, "guitars")?.solo),
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "phones", label: "You listened in your headphones" },
+      goal("good", "The guitar's input sits in Good", (ctx) => mc(ctx, "guitars")?.band === "good"),
+    ],
+    hints: ["Gain is set looking at the input, before the fader. The Xenyx SOLO has two modes.", "MODE pressed = PFL (before the fader, for setting gain). Up = SOLO in place.", "Press MODE (PFL), SOLO channel 3, Listen to the PHONES, and raise its GAIN to Good."],
+    complete: "PFL listens before the fader, so it shows the preamp level whatever the fader does: the right tool for gain. Solo in place is for hearing a channel as it sits in the mix.",
+  },
+  {
+    id: "x1204usb-comp",
+    short: "Jumpy vocal",
+    title: "The jumpy vocal",
+    who: "Lead singer",
+    prompt: "“My loud notes jump out and my quiet ones disappear.”",
+    goal: "Some compression on the lead vocal: COMP up, but not all the way.",
+    setup: { tweak: (st, h) => h.set("lead-vocal", "comp", 0) },
+    conditions: [
+      goal("comp", "The vocal is compressed, moderately", (ctx) => (sc(ctx, "lead-vocal")?.comp ?? 0) >= 0.2 && (sc(ctx, "lead-vocal")?.comp ?? 1) <= 0.75),
+      { id: "vox", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The vocal stays in the house" },
+    ],
+    hints: ["A compressor narrows the gap between loud and quiet.", "Channels 1–4 have a one-knob COMP; its LED lights while it's working.", "Turn channel 1's COMP up until the LED flickers on the loud notes, around a third to a half."],
+    complete: "One-knob compression lowers the loud peaks and lifts the rest. Too much sounds squashed and brings up noise, so stop when the LED just flickers.",
+  },
+  {
+    id: "x1204usb-slapback",
+    short: "Slapback",
+    title: "Slapback for the rockabilly song",
+    who: "Lead singer",
+    prompt: "“Next song is rockabilly. Give me that short slapback echo instead of the reverb.”",
+    goal: "The built-in effects set to SLAPBACK, the vocal still sent to it.",
+    setup: {},
+    conditions: [
+      goal("prog", "The effects program is SLAPBACK", (ctx) => fxPreset(COMPACT.x1204usb, ctx.state.fx.program).name === "SLAPBACK"),
+      keep("send", "The vocal stays in the effects", (ctx) => into(ctx, "aux2", "lead-vocal") >= -40 && LAWS.ret20.toDb(ctx.state.ret2.level) >= -10),
+    ],
+    hints: ["The sends and return stay as they are. Only the effect changes.", "The PROGRAM knob picks one of 16 presets.", "Turn PROGRAM to SLAPBACK (number 10)."],
+    complete: "PROGRAM swaps the effect without touching the routing: the FX sends and RET 2 keep working whatever the preset.",
+  },
+  {
+    id: "x1204usb-ret-mon",
+    short: "Reverb in the wedge",
+    title: "Reverb in the wedge",
+    who: "Lead singer",
+    prompt: "“We've plugged in our own reverb unit on AUX SEND 2 and RETURN 1. Can I have some of it in my wedge?”",
+    goal: "The external reverb on RETURN 1 also fed into the wedge (AUX 1).",
+    setup: {
+      tweak: (st, h) => {
+        h.addGear("reverb");
+        h.cable("mixer/aux2", "reverb/in-l", "trs");
+        h.cable("reverb/out-l", "mixer/ret1-l", "trs");
+        h.cable("reverb/out-r", "mixer/ret1-r", "trs");
+        st.ret1.mon = 0;
+      },
+    },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("mon", "RETURN 1 feeds the wedge", (ctx) => LAWS.ret20.toDb(ctx.state.ret1.mon) >= -15),
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "aux1", label: "You listened to the wedge" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["The reverb comes back on STEREO AUX RETURN 1. Is there a way from a return to a wedge?", "RETURN 1 has a MON knob: how much of the return goes into AUX 1.", "Turn up the MON knob under RET 1."],
+    complete: "RETURN 1's MON knob feeds the effect into the monitor mix, separate from how much is in the house.",
+  },
+  {
+    id: "x1204usb-cdtape",
+    short: "Walk-in on CD/TAPE",
+    title: "Walk-in music on CD/TAPE IN",
+    who: "Keyboard player",
+    prompt: "“I need channel 7/8 for my synth. Put the walk-in music somewhere else.”",
+    goal: "The laptop playing through the house from CD/TAPE IN, channel 7/8 left empty.",
+    setup: { tweak: (st, h) => h.unplug("preshow") },
+    conditions: [
+      goal("tape", "The laptop is on CD/TAPE IN", (ctx) => mc(ctx, "preshow")?.index === COMPACT.x1204usb.channels.length),
+      { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "preshow", stereo: true, label: "The music plays through both house speakers" },
+    ],
+    hints: ["The Xenyx has a stereo input that isn't a channel.", "CD/TAPE INPUT (RCA). By itself it only reaches the C-R/PHONES; CD/TAPE TO MAIN sends it to the house.", "Plug the laptop into CD/TAPE IN (3.5 mm ↔ RCA) and press CD/TAPE TO MAIN."],
+    complete: "CD/TAPE IN plays straight into the mix with no channel: good for walk-in music and playback, and it frees a channel for a real instrument.",
+  },
+);
+
+// ----- Sound Devices 442 -----
+
+SD.push(
+  gainFix({
+    id: "sd442-hot-vocal",
+    short: "Distorting vocal",
+    title: "The distorting vocal",
+    who: "Producer",
+    prompt: "“The singer's mic crackles on loud notes. The PEAK light is flashing and the limiter LED is busy.”",
+    source: "lead-vocal",
+    gainDb: 60,
+    label: "The vocal's input sits in Good",
+    hints: ["The limiter is catching it, which means the input is far too hot. Fix the cause.", "Each channel has two gain stages: GAIN (coarse, the preamp) and the fader (fine).", "Turn channel 3's GAIN down until the meter sits in Good. Leave the fader at about 0."],
+    complete: "On a field mixer, GAIN is set once, then you mix on the faders. The limiter is a safety net, not a level control.",
+  }),
+  {
+    id: "sd442-master",
+    short: "Low camera level",
+    title: "The camera level is too low",
+    who: "Camera operator",
+    prompt: "“Your level to my camera is way too low, everything at once. Can you send more?”",
+    goal: "MASTER back to about 0 (unity), the channel faders left alone.",
+    setup: { tweak: (st) => (st.main.level = LAWS.master6.toPos(-20)) },
+    baseline: { faders: { metric: "fadersByChannel" } },
+    conditions: [
+      goal("master", "MASTER is back at unity (within 3 dB)", (ctx) => Math.abs(ctx.mix.mainMasterDb) <= 3),
+      keep("faders", "The channel faders stay where they are", fadersKept),
+      keep("cam", "The camera inputs match the level they're fed", camerasOk),
+    ],
+    hints: ["Everything is too low by the same amount: one control does that.", "The MASTER knob sets both outputs at once, from off up to +6.", "Turn MASTER back up to its 0 mark."],
+    complete: "When everything is off by the same amount, fix it at the master. The faders hold the balance.",
+  },
+  {
+    id: "sd442-line",
+    short: "A line feed",
+    title: "A line feed from the band",
+    who: "Producer",
+    prompt: "“The keyboard player wants their piano on the video. It's plugged into input 4 now, and it's horribly distorted.”",
+    goal: "The keys on input 4 at a healthy level, heard at the camera.",
+    setup: {
+      tweak: (st, h) => {
+        h.unplug("backing-vocals");
+        h.cable("src-keys/out", "mixer/ch4-in", "xlr-trs");
+        st.channels[3].gainDb = 22;
+      },
+    },
+    conditions: [
+      goal("good", "The keys' input sits in Good", (ctx) => mc(ctx, "keys")?.band === "good"),
+      { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "keys", label: "The keys are heard at the camera" },
+      keep("vox", "The lead vocal stays on", (ctx) => house(ctx, "lead-vocal") >= AUDIBLE),
+    ],
+    hints: ["A keyboard is line level, about 40 dB hotter than a mic. Even the lowest GAIN is too much for a mic preamp.", "Every 442 input has a MIC/LINE switch on the input panel: LINE takes 40 dB off.", "Set input 4 to LINE, then bring its GAIN up until the meter sits in Good."],
+    complete: "MIC/LINE changes what the input expects. Line level into a mic setting overloads; set LINE, then set GAIN as usual.",
+  },
+  {
+    id: "sd442-hpf",
+    short: "Wind rumble",
+    title: "Wind on the vocal mics",
+    who: "Producer",
+    prompt: "“We're outdoors and the wind is rumbling through both vocal mics.”",
+    goal: "The high-pass on both vocal mics (at least 100 Hz), not on the room pair.",
+    setup: {
+      tweak: (st, h) => {
+        h.set("lead-vocal", "hpf", 0);
+        h.set("backing-vocals", "hpf", 0);
+      },
+    },
+    conditions: [
+      goal("vox", "Both vocal mics are high-passed at 100 Hz or more", (ctx) => ["lead-vocal", "backing-vocals"].every((s) => hpfHz("sd442", mc(ctx, s)?.index ?? 0, sc(ctx, s)?.hpf ?? 0) >= 100)),
+      keep("room", "The room pair keeps its low end", (ctx) => ["room-l", "room-r"].every((s) => (sc(ctx, s)?.hpf ?? 0) <= 0.02)),
+      keep("cam", "The camera inputs match the level they're fed", camerasOk),
+    ],
+    hints: ["Wind rumble is very low frequency.", "Each channel's HPF knob sweeps from 80 to 240 Hz; fully left (the detent) is off.", "Turn the HPF on channels 3 and 4 to about 100–150 Hz."],
+    complete: "The 442's high-pass sits before the preamp, so wind can't overload it. A windshield on the mic is still the first fix.",
+  },
+);
+
+// ----- Ui16 -----
+
+UI.push(
+  {
+    id: "ui16-48v",
+    short: "Silent overhead",
+    title: "The silent overhead",
+    who: "Drummer",
+    prompt: "“My overhead mic's dead. It worked at soundcheck.”",
+    goal: "The overhead heard in the house again.",
+    setup: { tweak: (st, h) => h.set("drums", "phantom", false) },
+    conditions: [
+      { id: "drums", kind: "goal", type: "sourceHeardInMain", source: "drums", label: "The drums are heard in the house" },
+      { id: "vox", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The vocal stays in the house" },
+    ],
+    hints: ["A condenser mic needs phantom power. On a digital mixer it's set per channel.", "SEL channel 1: its INPUT section has 48V. (The GAIN page has it too.)", "SEL channel 1 and press 48V."],
+    complete: "On the Ui16, 48V is per channel and remote-controlled, so it's easy to switch off by mistake. A silent condenser? Check 48V first.",
+  },
+  {
+    id: "ui16-hpf",
+    short: "Vocal HPF",
+    title: "Rumble through the vocals",
+    who: "Venue tech",
+    prompt: "“Stage rumble is coming through both vocal mics.”",
+    goal: "A high-pass of at least 80 Hz on both vocal channels, none on the bass.",
+    setup: {
+      tweak: (st, h) => {
+        h.set("lead-vocal", "hpf", 0);
+        h.set("backing-vocals", "hpf", 0);
+      },
+    },
+    conditions: [
+      goal("vox", "Both vocals are high-passed at 80 Hz or more", (ctx) => ["lead-vocal", "backing-vocals"].every((s) => hpfHz("ui16", mc(ctx, s)?.index ?? 0, sc(ctx, s)?.hpf ?? 0) >= 80)),
+      keep("bass", "The bass keeps its low end", (ctx) => (sc(ctx, "bass")?.hpf ?? 0) <= 0.02),
+    ],
+    hints: ["SEL each vocal channel in turn.", "The INPUT section has an HPF knob (off, then 20–600 Hz).", "Set HPF to about 100 Hz on channels 6 and 7."],
+    complete: "The HPF is the first tone control on every vocal. On a digital desk it's in the channel's SEL panel.",
+  },
+  {
+    id: "ui16-harsh",
+    short: "Harsh vocal",
+    title: "The harsh vocal",
+    who: "Lead singer",
+    prompt: "“My voice sounds harsh and piercing around the top of my range.”",
+    goal: "A cut (at least 2 dB) in the vocal's HI MID band, somewhere between 2 and 5 kHz.",
+    setup: {
+      tweak: (st, h) => {
+        h.set("lead-vocal", "peq.hiMid.gain", 8);
+        h.set("lead-vocal", "peq.hiMid.freq", 3000);
+      },
+    },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("eq", "The harshness is cut", (ctx) => {
+        const b = sc(ctx, "lead-vocal")?.peq.hiMid;
+        return !!b && b.gain <= -2 && b.freq >= 2000 && b.freq <= 5000;
+      }),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The levels stay the same" },
+    ],
+    hints: ["Harsh, piercing tone lives around 2–5 kHz.", "SEL channel 7: its EQ has four bands, each with GAIN, FREQ and Q. HI MID is boosting right now.", "Turn HI MID's GAIN below 0 (a few dB) and keep its FREQ around 3 kHz."],
+    complete: "A parametric EQ picks the exact frequency (FREQ) and width (Q). Find the problem with a boost, then cut it.",
+  },
+  {
+    id: "ui16-comp",
+    short: "Jumpy bass",
+    title: "The jumpy bass",
+    who: "Bassist",
+    prompt: "“Some of my notes boom out and others disappear.”",
+    goal: "The bass compressed: THRESH at −8 dB or lower, RATIO at least 2.5:1.",
+    setup: { tweak: (st, h) => h.set("bass", "dyn", { threshold: 0, ratio: 1, makeup: 0 }) },
+    conditions: [
+      goal("comp", "The bass is compressed", (ctx) => (sc(ctx, "bass")?.dyn.threshold ?? 0) <= -8 && (sc(ctx, "bass")?.dyn.ratio ?? 1) >= 2.5),
+      { id: "bass", kind: "keep", type: "sourceHeardInMain", source: "bass", label: "The bass stays in the house" },
+    ],
+    hints: ["Evening out loud and quiet notes is a compressor's job.", "SEL channel 2: COMPRESSOR has THRESH (where it starts), RATIO (how hard) and GAIN (make-up).", "THRESH around −15 dB, RATIO 3:1 to 4:1, then a little GAIN to get the level back. Watch the GR LED."],
+    complete: "THRESH decides which notes get turned down, RATIO how much, GAIN brings the whole thing back up. The GR LED shows it working.",
+  },
+  {
+    id: "ui16-delay",
+    short: "Delay on the vocal",
+    title: "An echo on the last line",
+    who: "Lead singer",
+    prompt: "“For the last line of the song, I want an echo on my voice.”",
+    goal: "The vocal sent to the built-in DELAY, everything else unchanged.",
+    setup: { tweak: (st, h) => h.sendDb("lead-vocal", "fx2", -Infinity) },
+    baseline: { main: { metric: "mainDbByChannel" }, singer: { metric: "monitorByChannel", bus: "aux1" } },
+    conditions: [
+      goal("send", "The vocal is sent to the delay", (ctx) => into(ctx, "fx2", "lead-vocal") >= -35),
+      keep("return", "The delay comes back into the MASTER", (ctx) => (ctx.mix.busDb?.fx2 ?? -Infinity) >= -20),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The dry house mix stays the same" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "aux1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+    ],
+    hints: ["Each built-in effect has a page in the mix bar.", "On the DELAY page, the faders are sends into the delay.", "Pick DELAY and push channel 7's fader up (or SEL 7 and turn up DELAY)."],
+    complete: "Same pattern as the reverb: sends choose who goes in, the master sets how much comes back.",
+  },
+  {
+    id: "ui16-post",
+    short: "A POST send",
+    title: "Follow my fader",
+    who: "Keyboard player",
+    prompt: "“When you ride the piano up for my solo, I want it to come up in the drummer's wedge too.”",
+    goal: "The keys' send to AUX 2 switched to POST, so it follows the keys' fader.",
+    setup: {},
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("post", "The keys in AUX 2 now follow the keys' fader", (ctx) => !sc(ctx, "keys")?.pres.aux2 && into(ctx, "aux2", "keys") > -Infinity),
+      keep("pres", "The other channels' AUX 2 sends stay PRE", (ctx) => ctx.mix.channels.filter((c) => c.sourceId && c.sourceId !== "keys" && c.sourceId !== "preshow").every((c) => ctx.state.channels[c.index].pres.aux2)),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["PRE sends ignore the MIX fader; POST sends follow it.", "On the AUX 2 page each channel has a PRE button. Lit means PRE.", "On the AUX 2 page, press channel 4's PRE so it goes out (POST)."],
+    complete: "PRE or POST is chosen per channel, per mix. POST is right when a monitor should follow what you do in the house.",
+  },
+);
+
+// ----- CR1604-VLZ -----
+
+C16.push(
+  {
+    id: "cr1604-phantom",
+    short: "Silent overhead",
+    title: "The silent overhead",
+    who: "Drummer",
+    prompt: "“My overhead mic isn't working.”",
+    goal: "The overhead heard in the house.",
+    setup: { tweak: (st) => st.channels.forEach((c) => !c.tape && (c.phantom = false)) },
+    conditions: [
+      { id: "drums", kind: "goal", type: "sourceHeardInMain", source: "drums", label: "The drums are heard in the house" },
+      { id: "vox", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The vocal stays in the house" },
+    ],
+    hints: ["The overhead is a condenser.", "The 1604's PHANTOM is one switch on the rear panel, for every MIC input.", "Switch PHANTOM on (expect a thump)."],
+    complete: "One rear-panel PHANTOM switch powers all 16 MIC inputs. Dynamic mics and DIs are unaffected.",
+  },
+  {
+    id: "cr1604-levelset",
+    short: "Level-set the vocal",
+    title: "Level-set the vocal",
+    who: "You",
+    prompt: "“The vocal mic was swapped and its TRIM is way off. Level-set it the proper way, with SOLO in LEVEL SET mode.”",
+    goal: "The vocal's input in Good, set using SOLO in LEVEL SET (PFL) mode.",
+    setup: {
+      tweak: (st, h) => {
+        h.set("lead-vocal", "gainDb", 20);
+        st.soloBus.mode = "afl";
+      },
+    },
+    conditions: [
+      goal("pfl", "The vocal is soloed in LEVEL SET (PFL) mode", (ctx) => ctx.state.soloBus.mode === "pfl" && !!sc(ctx, "lead-vocal")?.solo),
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "phones", label: "You listened in your headphones" },
+      goal("good", "The vocal's input sits in Good", (ctx) => mc(ctx, "lead-vocal")?.band === "good"),
+    ],
+    hints: ["Mackie's level-set: SOLO the channel in LEVEL SET mode and watch the meters.", "MODE switch near the SOLO level: LEVEL SET (PFL) or NORMAL (AFL). PFL shows the input before the fader.", "MODE to LEVEL SET, SOLO channel 7, Listen to the PHONES, then TRIM up to Good (about 0 on the meter)."],
+    complete: "In LEVEL SET mode the meters show the soloed channel before its fader: the way to set TRIM on any analog console.",
+  },
+  eqFix({
+    id: "cr1604-sweep",
+    short: "Honky horns",
+    title: "The honky horns",
+    who: "Trumpet player",
+    prompt: "“We sound honky, all nose. Someone boosted something around 1 kHz.”",
+    goalText: "Cut (at least 3 dB) the trumpets' MID at the problem frequency, around 1 kHz (700 Hz–1.5 kHz).",
+    source: "trumpets",
+    start: { "eq.mid": 12, "eq.freq": 1000 },
+    label: "The honk around 1 kHz is cut",
+    check: (c) => c.eq.mid <= -3 && c.eq.freq >= 700 && c.eq.freq <= 1500,
+    hints: ["The 1604's MID EQ has two knobs: how much (MID) and where (FREQ).", "MID is boosting +12 at 1 kHz now. Keep FREQ there.", "Turn channel 5's MID below centre (−3 to −6 dB), FREQ near 1 kHz."],
+    complete: "A sweepable MID picks the frequency to fix. Boost to find the ugly spot, then cut it there.",
+  }),
+  {
+    id: "cr1604-lowcut",
+    short: "Low cut",
+    title: "Rumble through the vocals",
+    who: "Venue tech",
+    prompt: "“There's stage rumble coming through the vocal mics. Keep the kick and bass full.”",
+    goal: "LOW CUT on both vocal channels, off on the drums and bass.",
+    setup: {
+      tweak: (st, h) => {
+        h.set("lead-vocal", "lowCut", false);
+        h.set("backing-vocals", "lowCut", false);
+        h.set("drums", "lowCut", true);
+        h.set("bass", "lowCut", true);
+      },
+    },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("vox", "Both vocal mics lose the rumble", (ctx) => !!sc(ctx, "lead-vocal")?.lowCut && !!sc(ctx, "backing-vocals")?.lowCut),
+      goal("low", "The drums and bass keep their low end", (ctx) => !sc(ctx, "drums")?.lowCut && !sc(ctx, "bass")?.lowCut),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The levels stay the same" },
+    ],
+    hints: ["Rumble is very low. Voices don't need it; kick and bass do.", "Each channel has a LOW CUT switch (75 Hz, 18 dB/octave).", "LOW CUT on channels 6 and 7, off on 1 and 2."],
+    complete: "Mackie's manual recommends LOW CUT on everything except kick and bass. It also protects the speakers from thumps.",
+  },
+  masterFix({
+    id: "cr1604-drummer-quiet",
+    short: "Drummer's wedge quiet",
+    title: "The drummer can't hear",
+    who: "Drummer",
+    prompt: "“My whole wedge is too quiet. Check it, then turn the whole thing up.”",
+    bus: "aux2",
+    startDb: -20,
+    raise: true,
+    listenAlt: true,
+    setLevel: (db) => CR1604.LAWS.master.toPos(db),
+    hints: ["You can listen to a wedge from the console: each AUX SEND master has a SOLO button.", "SOLO the AUX SEND 2 master and Listen to the PHONES (or Listen to AUX 2).", "Then turn the AUX SEND 2 master up; leave the channel AUX 2 knobs alone."],
+    complete: "AUX SOLO puts a whole monitor mix in your headphones: check it without leaving the desk, then move the master, not every send.",
+  }),
+  {
+    id: "cr1604-efx-mon",
+    short: "Reverb in the wedge",
+    title: "Reverb in the singer's wedge",
+    who: "Lead singer",
+    prompt: "“Can I have some of that reverb in my wedge?”",
+    goal: "AUX RETURN 1 (the reverb) also feeding the singer's wedge.",
+    setup: { listen: "aux1" },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("toaux", "The reverb reaches the singer's wedge", (ctx) => ctx.state.ret1.toAux >= 0.3),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["The reverb comes back on STEREO AUX RETURN 1.", "RETURNS 1 and 2 have an EFFECTS TO MONITORS control: how much of the return goes into AUX SEND 1 (or 2).", "Turn RETURN 1's EFFECTS TO MONITORS (to AUX 1) up."],
+    complete: "EFFECTS TO MONITORS feeds a return into a wedge, separate from the house reverb level.",
+  },
+  {
+    id: "cr1604-mono",
+    short: "Lobby speaker",
+    title: "The lobby speaker",
+    who: "Front of house manager",
+    prompt: "“The people queuing in the lobby want to hear the show. There's a powered speaker out there.”",
+    goal: "The lobby speaker fed a mono mix of the house from the MONO output, at a sensible level.",
+    setup: {
+      tweak: (st, h) => {
+        h.addDevice("lobby");
+        st.mono.level = 0;
+      },
+    },
+    conditions: [
+      { id: "chain", kind: "goal", type: "validChain", output: "mono", device: "lobby", label: "The lobby speaker is fed from MONO OUT" },
+      goal("level", "MONO LEVEL is up", (ctx) => CR1604.LAWS.mono.toDb(ctx.state.mono.level) >= -10),
+      { id: "house", kind: "keep", type: "validChain", output: "main", zone: "foh", label: "The house speakers keep working" },
+    ],
+    hints: ["One speaker should get left and right together: mono. The 1604 has a mono output.", "MONO OUT on the rear panel, with its own MONO LEVEL knob.", "Cable MONO OUT to the lobby speaker and turn MONO LEVEL up."],
+    complete: "MONO OUT sums L and R for a single speaker (a lobby, a backstage feed) with its own level, so the house doesn't change.",
+  },
+  {
+    id: "cr1604-shift",
+    short: "Horn wedge on AUX 6",
+    title: "The horns' wedge on AUX 6",
+    who: "Trumpet player",
+    prompt: "“We've got our own wedge now, patched to AUX SEND 6. Just us in it, please.”",
+    goal: "The trumpets in the horns' wedge (AUX 6), the other wedges unchanged.",
+    setup: {
+      tweak: (st, h) => {
+        h.addDevice("hwedge");
+        h.cable("mixer/aux6", "hwedge/in", "trs");
+      },
+    },
+    baseline: { singer: { metric: "monitorByChannel", bus: "aux1" }, drummer: { metric: "monitorByChannel", bus: "aux2" }, main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "aux6", label: "You listened to the horns' wedge" },
+      { id: "tpt", kind: "goal", type: "monitorPresent", bus: "aux6", sources: ["trumpets"], minDb: -35, label: "The trumpets are in their wedge" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "aux1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+      { id: "drummer", kind: "keep", type: "monitorMixUnchanged", bus: "aux2", baseline: "drummer", toleranceDb: 1, label: "The drummer's wedge stays the same" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["Each channel has four AUX knobs but the 1604 has six AUX SENDs. How do knobs 3 and 4 reach 5 and 6?", "The 5/6 SHIFT switch: with it down, the AUX 3 knob feeds AUX 5 and AUX 4 feeds AUX 6.", "On channel 5: press SHIFT and turn up the AUX 4 knob."],
+    complete: "SHIFT moves a channel's AUX 3/4 knobs to sends 5/6. (Here it also moved the trumpets' AUX 3 reverb send to AUX 5; on a real gig, plan which sends need shifting.)",
+  },
+  {
+    id: "cr1604-direct",
+    short: "Record the vocal",
+    title: "Record the vocal on its own track",
+    who: "Band manager",
+    prompt: "“We want the lead vocal on its own track of the Zoom F8, clean, for a remix later.”",
+    goal: "Channel 7's DIRECT OUT into a Zoom F8 input, that track armed.",
+    setup: {},
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("direct", "Channel 7's DIRECT OUT feeds an armed recorder track", (ctx) => {
+        const c = cableFrom(ctx, "mixer/ch7-direct");
+        const m = c && /^rec\/in(\d)$/.exec(c.to);
+        const dev = ctx.state.rig.devices.find((d) => d.id === "rec");
+        return !!m && !!dev?.tracks[Number(m[1]) - 1].arm;
+      }),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["A per-channel output carries one channel on its own. The 1604 has them on channels 1–8.", "DIRECT OUT 7 (rear panel) → a 1/4\" cable → one of the Zoom F8's inputs. Then open the recorder.", "Cable ch 7 DIRECT OUT to F8 input 1 (TRS) and arm track 1 in the recorder's panel."],
+    complete: "DIRECT OUTs feed a multitrack: each channel on its own track, after the fader on the 1604, so the recording follows your mix moves.",
+  },
+  {
+    id: "cr1604-room",
+    short: "Record the audience",
+    title: "Record the audience",
+    who: "Band manager",
+    prompt: "“For the live album we need the audience: put the room pair on F8 tracks 3 and 4.”",
+    goal: "The room pair's left and right mics on two recorder tracks, powered and armed.",
+    setup: {},
+    conditions: [
+      goal("room", "Both room mics reach armed, working recorder tracks", (ctx) => {
+        const dev = ctx.state.rig.devices.find((d) => d.id === "rec");
+        const tracks = ctx.mix.rig.recorders?.rec || [];
+        return ["room-l", "room-r"].every((s) => {
+          const t = tracks.findIndex((x) => x && x.sourceId === s);
+          return t >= 0 && tracks[t].status === "ok" && tracks[t].signal && dev.tracks[t].arm;
+        });
+      }),
+      { id: "house", kind: "keep", type: "validChain", output: "main", zone: "foh", label: "The house keeps working" },
+    ],
+    hints: ["The room pair plugs straight into the recorder, not the mixer.", "Two XLR cables into F8 inputs 3 and 4. They're condensers: the F8's own +48 V, per input.", "Patch the pair into F8 inputs 3 and 4, then in the recorder turn on 48V and arm tracks 3 and 4."],
+    complete: "A recorder has its own preamps and phantom. Mics can go straight in for an ambient record, independent of the house mix.",
+  },
+);
+
+// ---------- each board's list, in teaching order ----------
+
+const ORDER = {
+  mix8: ["doors", "phones", "ol", "boomy", "pan", "keys-wedge", "wedge-loud", "speech", "ballad", "overhead", "guest"],
+  stagepas400bt: ["doors", "micline", "monitor", "speech", "speakers", "reverb", "hall", "mono", "overhead", "sub", "feedback"],
+  mg102: ["doors", "phantom", "peak", "less-drums", "one-knob", "thin-bass", "rumble", "reverb-loud", "2tr"],
+  vlz1202: ["doors", "trim", "nasal", "pad", "pfl", "wedge-quiet", "lowcut", "reverb", "prefader", "efx", "tape", "alt"],
+  x1204usb: ["doors", "minus10", "overhead", "pfl", "comp", "fx", "slapback", "wedge", "pre", "ret-mon", "cdtape", "alt"],
+  cr1604: ["doors", "phantom", "assign", "levelset", "sweep", "lowcut", "mute-pre", "drummer-quiet", "reverb", "efx-mon", "mono", "shift", "subgroup", "direct", "room"],
+  ui16: ["doors", "gain", "48v", "more-keys", "hpf", "harsh", "comp", "trumpet-reverb", "delay", "out-of-house", "post", "guitar-mix"],
+  sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
+};
+
+const LISTS = { mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: C16 };
+
+// Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.
+function arrange(board) {
+  const byId = Object.fromEntries(LISTS[board].map((s) => [s.id, s]));
+  const ids = ORDER[board].map((k) => `${board}-${k}`);
+  const missing = ids.filter((id) => !byId[id]);
+  const extra = Object.keys(byId).filter((id) => !ids.includes(id));
+  if (missing.length || extra.length) throw new Error(`${board}: missing ${missing}, unordered ${extra}`);
+  return ids.map((id, i) => ({ board, number: i + 1, ...byId[id] }));
+}
+
+export const BOARD_SCENARIOS = Object.fromEntries(Object.keys(ORDER).map((b) => [b, arrange(b)]));
+
+// The order to learn the real mixers in, simplest first (each builds on the last).
+export const MIXER_ORDER = [
+  { model: "mix8", skin: "mix8", why: "Four channels, one post-fader AUX, no mute or solo: the basics with nowhere to hide." },
+  { model: "stagepas400bt", skin: "stagepas400bt", why: "A powered mixer: MIC/LINE instead of GAIN, the amp inside, MONITOR OUT as the whole mix." },
+  { model: "mg102", skin: "mg102", why: "GAIN, HPF and PEAK on every mic, and one AUX knob that has to choose between wedge and reverb." },
+  { model: "vlz1202", skin: "vlz1202", why: "Two auxes with a PRE switch, effects send and return, MUTE/ALT 3-4, solo and a C-R SOURCE matrix." },
+  { model: "x1204usb", skin: "x1204usb", why: "Faders, compressors, built-in effects, PRE per channel, PFL or solo-in-place, an ALT bus with its own fader." },
+  { model: "cr1604", skin: "mackie1604", why: "A full console: 16 channels, six auxes with SHIFT, four subgroups, mono out, four returns, direct outs to a recorder." },
+  { model: "ui16", skin: "ui16", why: "Digital: the same jobs through pages and SEL. Sends on faders, a parametric EQ and a compressor on every channel." },
+  { model: "sd442", skin: "sd442", why: "A different world: a field mixer feeding a camera. Output levels, tone, limiters and the mono check." },
+];

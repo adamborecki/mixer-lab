@@ -1,7 +1,8 @@
 // Scenario picker, prompt, live checklist, progressive hints and completion.
 // Success is decided by js/scenarios.js from state — this only displays it.
 
-import { fillTerms, shortTitle } from "../scenarios.js";
+import { MIXER_ORDER, fillTerms, shortTitle } from "../scenarios.js";
+import { SKINS } from "../mixer-models.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
@@ -69,7 +70,7 @@ export class ScenarioView {
     this.root.innerHTML = `
       <nav class="scenario-picker" aria-label="Choose a scenario">${picker}</nav>
       ${onlyFree ? `<p class="scenario-note">The numbered scenarios run on Mixer A and Mixer B. Scenarios for the ${esc(this.getMixerName())} are still being written, so it opens in Free play.</p>` : ""}
-      ${practice ? `<p class="scenario-note">Practice scenarios for the ${esc(this.getMixerName())}, easiest first. They're extra: the Canvas Submission counts the ten scenarios on Mixer A and Mixer B.</p>` : ""}
+      ${practice ? `<p class="scenario-note">${this.orderNote(available.find((s) => s.board).board)} Practice only: the Canvas Submission counts the ten scenarios on Mixer A and Mixer B.</p>` : ""}
       <article class="scenario-card">
         <p class="kicker">${def.number ? `${def.board ? `${esc(this.getMixerName())} · ` : ""}Scenario ${def.number}` : "Sandbox"}${def.who ? ` · ${esc(def.who)}` : ""}</p>
         <h2>${esc(def.title)}</h2>
@@ -189,6 +190,15 @@ export class ScenarioView {
   showTime(t, duration) {
     if (this.timeEl) this.timeEl.textContent = `${clock(t)} / ${clock(duration)}`;
     if (this.seekEl) this.seekEl.setAttribute("aria-valuetext", clock(t));
+  }
+
+  // Where this mixer sits in the recommended order, and which one comes next.
+  orderNote(model) {
+    const i = MIXER_ORDER.findIndex((m) => m.model === model);
+    if (i < 0) return "";
+    const next = MIXER_ORDER[i + 1];
+    const n = this.getScenarios().filter((s) => s.number > 0).length;
+    return `Mixer ${i + 1} of ${MIXER_ORDER.length} in the recommended order: ${esc(MIXER_ORDER[i].why)} ${n} scenarios, easiest first.${next ? ` Next mixer: ${esc(SKINS[next.skin].name)}.` : ""}`;
   }
 
   // The next one on this mixer's list (Free play after the last).

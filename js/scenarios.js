@@ -9,7 +9,9 @@ import { BUSES, computeMix, createMixerState, dbToLevel, levelToDb, clamp } from
 import * as CR1604 from "./cr1604.js";
 import { createF8, createPair, createReverb } from "./devices.js";
 import { COMPACT, LAWS as COMPACT_LAWS, channelGainDb, compactModel, levelLaw } from "./compact.js";
-import { BOARD_SCENARIOS } from "./board-scenarios.js";
+import { BOARD_SCENARIOS, MIXER_ORDER } from "./board-scenarios.js";
+
+export { MIXER_ORDER };
 
 // Outboard gear for the CR1604 gig: a reverb on AUX 3 → AUX RETURN 1, and a
 // field recorder with a stereo room pair for recording the show.
@@ -43,6 +45,9 @@ export const PLAYBACK_DEVICES = {
   pwedge: { type: "passive-speaker", label: "Passive wedge · drummer", short: "drummer's wedge", zone: "stage", pan: 0 },
   // A third wedge, for scenarios that build a new monitor mix (Ui16 AUX 3).
   gwedge: { type: "powered-speaker", label: "Powered wedge · guitarist", short: "guitarist's wedge", zone: "stage", pan: -0.5 },
+  hwedge: { type: "powered-speaker", label: "Powered wedge · horns", short: "horns' wedge", zone: "stage", pan: 0.4 },
+  sub: { type: "powered-speaker", label: "Powered subwoofer", short: "subwoofer", zone: "foh", pan: 0 },
+  lobby: { type: "powered-speaker", label: "Powered speaker · lobby", short: "lobby", zone: "lobby", pan: 0 },
   // A video camera's two XLR audio inputs (each with a MIC/LINE switch, starting at LINE).
   "cam-1": { type: "camera-input", label: "Camera · input 1 (XLR)", short: "camera ch 1", zone: "cam", pan: -1, inputLevel: 1 },
   "cam-2": { type: "camera-input", label: "Camera · input 2 (XLR)", short: "camera ch 2", zone: "cam", pan: 1, inputLevel: 1 },
@@ -636,6 +641,7 @@ export function boardHelpers(state, model, sourcesById = SOURCES_BY_ID) {
       if (info) h.cut(info.fromPort);
     },
     cable: (from, to, cable) => state.rig.cables.push({ id: `t${++n}`, from, to, cable }),
+    addGear: (kind) => state.rig.devices.push(STAGE_GEAR[kind]()),
     addDevice: (id) => {
       const d = PLAYBACK_DEVICES[id];
       state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan });
@@ -863,6 +869,8 @@ const METRICS = {
   },
   // What each channel contributes to a wedge that actually makes sound.
   monitorByChannel: (ctx, p) => ctx.mix.channels.map((c) => c.aux[p.bus].heardDb),
+  // Every channel fader (dB), for "use the master, not the faders".
+  fadersByChannel: (ctx) => ctx.mix.channels.map((c) => c.faderDb ?? -Infinity),
 };
 
 export function captureBaseline(def, state, sourcesById = SOURCES_BY_ID, stems = STEMS) {
