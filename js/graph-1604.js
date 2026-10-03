@@ -14,7 +14,7 @@
 
 import * as CR from "./cr1604.js";
 import { HEADROOM_DB, dbToGain } from "./levels.js";
-import { lowCutStage, popBuffer } from "./graph-kit.js";
+import { lowCutStage, popBuffer, shelfHz } from "./graph-kit.js";
 import { DEVICE_TYPES } from "./connection-model.js";
 
 // MID EQ bandwidth of 1.5 octaves as a peaking-filter Q.
@@ -93,9 +93,9 @@ export function buildCr1604Graph(kit) {
     const lowCut = lowCutStage(kit, clip, mono);
     const tapPre = lowCut.out;
     const eq = {
-      low: biquad("lowshelf", CR.EQ_FREQ.low),
+      low: biquad("lowshelf", shelfHz("lowshelf", CR.EQ_FREQ.low)),
       mid: biquad("peaking", 1000, MID_Q),
-      high: biquad("highshelf", CR.EQ_FREQ.high),
+      high: biquad("highshelf", shelfHz("highshelf", CR.EQ_FREQ.high)),
     };
     const tapEq = mono(1);
     tapPre.connect(eq.low).connect(eq.mid).connect(eq.high).connect(tapEq);

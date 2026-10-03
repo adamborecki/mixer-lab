@@ -473,3 +473,12 @@ describe("Soundcraft Ui16 (digital)", () => {
     assert.equal(st.state.channels[VOX].dyn.threshold, 0);
   });
 });
+
+describe("EQ shelves", () => {
+  it("a shelf filter sits an octave inside its printed frequency, so its boost lands where there is audio", async () => {
+    const { shelfHz } = await import("../js/graph-kit.js");
+    assert.equal(shelfHz("highshelf", 12000), 6000);
+    assert.equal(shelfHz("lowshelf", 80), 160);
+    assert.equal(shelfHz("peaking", 2500), 2500);
+  });
+});

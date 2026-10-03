@@ -54,6 +54,17 @@ export function nodeKit(ctx) {
   };
 }
 
+// A console's "12 kHz shelf" is quoted where the boost is (nearly) all there.
+// A Web Audio shelf's frequency is its half-gain point, about an octave short
+// of that, so the filter sits an octave inside the printed frequency: 6 kHz
+// for a 12 kHz HI shelf, 160 Hz for an 80 Hz LOW shelf. Without this the boost
+// lands where the stems (and laptop speakers) have almost nothing.
+export function shelfHz(type, hz) {
+  if (type === "highshelf") return hz / 2;
+  if (type === "lowshelf") return hz * 2;
+  return hz;
+}
+
 // A phantom-power pop: a hard step that decays, with a short click on top.
 // Low cut and the speakers turn the step into a thump. One buffer per context.
 const popBuffers = new WeakMap();

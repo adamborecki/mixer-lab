@@ -19,7 +19,7 @@
 import { EQ_FOR, LAWS, PEQ_BANDS, channelGainDb, fxPreset, levelLaw, linkOf, reverbSetting, tapeIndex } from "./compact.js";
 import { HEADROOM_DB, dbToGain } from "./levels.js";
 import { DEVICE_TYPES } from "./connection-model.js";
-import { lowCutStage, popBuffer } from "./graph-kit.js";
+import { lowCutStage, popBuffer, shelfHz } from "./graph-kit.js";
 import { makeImpulse } from "./outboard-audio.js";
 
 const MID_Q = 0.9;
@@ -137,7 +137,7 @@ export function buildCompactGraph(kit, def) {
       for (const band of PEQ_BANDS) {
         const f = track(ctx.createBiquadFilter());
         f.type = band.type;
-        f.frequency.value = band.freq;
+        f.frequency.value = shelfHz(band.type, band.freq);
         f.gain.value = 0;
         node.connect(f);
         node = f;
@@ -147,7 +147,7 @@ export function buildCompactGraph(kit, def) {
     for (const band of EQ_FOR(c.eq)) {
       const f = track(ctx.createBiquadFilter());
       f.type = band.type;
-      f.frequency.value = band.hz;
+      f.frequency.value = shelfHz(band.type, band.hz);
       if (band.type === "peaking") f.Q.value = MID_Q;
       f.gain.value = 0;
       node.connect(f);
@@ -623,7 +623,7 @@ export function buildCompactGraph(kit, def) {
         for (const [id, f] of Object.entries(s.eq)) set(f.gain, ch.eq[id] || 0);
         for (const [id, f] of Object.entries(s.peq)) {
           set(f.gain, ch.peq[id].gain);
-          set(f.frequency, ch.peq[id].freq);
+          set(f.frequency, shelfHz(f.type, ch.peq[id].freq));
           if (f.type === "peaking") set(f.Q, ch.peq[id].q);
         }
         if (s.stMono) {

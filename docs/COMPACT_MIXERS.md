@@ -66,6 +66,7 @@ The Free play gig on each one shows its limits:
   - **Internal effects off:** a plug in either RETURN 2 jack mutes the built-in effects, as the manual says.
   - **COMP:** a Web Audio compressor: threshold −6 → −36 dBFS and ratio 1:1 → 8:1 as the knob turns, with some make-up gain. The LED lights above 1 dB of gain reduction.
   - **USB** audio and the footswitch aren't modelled. CD/TAPE TO MAIN doesn't break the tape-out link.
+- **EQ shelves:** a printed "12 kHz" HI or "80 Hz" LOW shelf is taken as where the boost is (nearly) complete, so the Web Audio shelf (whose frequency is its half-gain point) sits an octave inside: 6 kHz and 160 Hz (`shelfHz` in `js/graph-kit.js`, also used by the CR1604-VLZ and the Ui16's EQ). Placed at the printed frequency, the boost fell where the MP3 stems and laptop speakers have almost nothing, and HI and LOW seemed to do nothing.
 - **The scenario checks' level model** leaves EQ, low cut, compression and effects out, as everywhere else.
 
 ## Sound Devices 442 (field mixer)
