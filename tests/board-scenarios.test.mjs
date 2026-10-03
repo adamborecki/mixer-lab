@@ -961,6 +961,57 @@ Object.assign(WRONG, {
   "dm2000-matrix": [["ST L straight to the lobby", (a) => a.st.setBus("routing", "out8", "main-l")]],
 });
 
+Object.assign(SOLVE, {
+  "f8n-track": (a) => a.set("lead-vocal", "enabled", true),
+  "f8n-trim": (a) => a.set("lead-vocal", "gainDb", 46),
+  "f8n-room": (a) => {
+    a.set("room-l", "phantom", true);
+    a.set("room-r", "phantom", true);
+  },
+  "f8n-hpf": (a) => {
+    a.set("lead-vocal", "hpf", 0.4);
+    a.set("backing-vocals", "hpf", 0.4);
+  },
+  "f8n-pfl": (a) => {
+    a.set("guitars", "solo", true);
+    a.st.setListen("phones");
+  },
+  "f8n-balance": (a) => a.nudge("drums", -14),
+  "f8n-link": (a) => a.st.setBus("link", "mode", "on"),
+  "f8n-camera": (a) => ["cam-1", "cam-2"].forEach((id) => a.st.setDevice(id, "inputLevel", 1)),
+  "f8n-dslr": (a) => a.st.setDevice("mixer", "subLevel", 1),
+  "f8n-iso-safety": (a) => {
+    a.set("lead-vocal", "pres.bus2", true);
+    a.set("lead-vocal", "sends.bus2", 1);
+    a.st.setBus("routing", "out2", "bus2");
+  },
+});
+Object.assign(WRONG, {
+  "f8n-track": [["the knob up", (a) => a.nudge("lead-vocal", 10)]],
+  "f8n-trim": [["the track knob up instead", (a) => a.nudge("lead-vocal", 20)]],
+  "f8n-room": [["only one mic", (a) => a.set("room-l", "phantom", true)]],
+  "f8n-hpf": [["HPF on everything", (a) => {
+    for (const s of ["lead-vocal", "backing-vocals", "bass"]) a.set(s, "hpf", 0.4);
+  }]],
+  "f8n-pfl": [["the other knobs down", (a) => {
+    for (const s of ["drums", "bass", "keys", "backing-vocals", "lead-vocal"]) a.set(s, "level", 0);
+    a.st.setListen("phones");
+  }]],
+  "f8n-balance": [["the drum TRIM down", (a) => a.set("drums", "gainDb", a.st.state.channels[a.idx("drums")].gainDb - 14)]],
+  "f8n-camera": [["the faders down", (a) => {
+    for (const s of ["drums", "bass", "guitars", "keys", "backing-vocals", "lead-vocal"]) a.nudge(s, -20);
+  }]],
+  "f8n-dslr": [["MAIN OUT to NORMAL", (a) => a.st.setDevice("mixer", "mainLevel", 1)]],
+  "f8n-iso-safety": [["the vocal postfader", (a) => {
+    a.set("lead-vocal", "pres.bus2", false);
+    a.set("lead-vocal", "sends.bus2", 1);
+    a.st.setBus("routing", "out2", "bus2");
+  }], ["the vocal on MAIN OUT 1 instead", (a) => {
+    a.set("lead-vocal", "sends.bus1", 1);
+    a.st.setBus("routing", "out1", "bus1");
+  }]],
+});
+
 describe("board scenarios: data", () => {
   it("validate, and every board has at least nine, numbered from 1", () => {
     assert.deepEqual(validateScenarios(), []);

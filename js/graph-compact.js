@@ -465,6 +465,17 @@ export function buildCompactGraph(kit, def) {
     tape.R.connect(m, 0, 1);
     outputs["tape-mini"] = m;
   }
+  // Zoom F8n SUB OUT: the L/R mix on a stereo 3.5 mm jack, at NORMAL or MIC level.
+  let f8sub = null;
+  if (def.outputs.includes("f8")) {
+    f8sub = pair(1);
+    masterOut.L.connect(f8sub.L);
+    masterOut.R.connect(f8sub.R);
+    const m = track(ctx.createChannelMerger(2));
+    f8sub.L.connect(m, 0, 0);
+    f8sub.R.connect(m, 0, 1);
+    outputs["sub-out"] = m;
+  }
   if (def.outputs.includes("mainXlr")) {
     xlr = pair(1); // the XLR outs have a 30 dB PAD switch
     masterOut.L.connect(xlr.L);
@@ -816,6 +827,17 @@ export function buildCompactGraph(kit, def) {
       if (tone) {
         set(tone.level.gain, state.tone.on ? dbToGain(-18) : 0);
         for (const side of ["L", "R"]) set(tone.program[side].gain, on(!state.tone.on));
+      }
+      // Output Level switches (F8n): each sets the gain of the outputs it covers.
+      for (const w of def.outSwitches || []) {
+        const dev = state.rig.devices.find((d) => d.id === "mixer");
+        const g = dbToGain(w.db[dev?.[w.key] ?? 0]);
+        for (const p of w.ports) {
+          if (p === "sub-out" && f8sub) {
+            set(f8sub.L.gain, g);
+            set(f8sub.R.gain, g);
+          } else if (outputs[p]) set(outputs[p].gain, g);
+        }
       }
       if (switched) {
         const dev = state.rig.devices.find((d) => d.id === "mixer");

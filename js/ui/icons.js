@@ -161,6 +161,7 @@ const TYPE_ICONS = {
   cr1604: "mixer",
   "power-amp": "power-amp",
   "camera-input": "camera",
+  "dslr-input": "camera",
 };
 
 // A device's icon. Speakers depend on powered/passive and on where they sit (stage = wedge).

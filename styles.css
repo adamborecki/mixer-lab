@@ -4192,3 +4192,180 @@ dialog::backdrop {
 .dm-inputs .y96-gains {
   flex-wrap: nowrap;
 }
+
+/* ---------- Zoom F8n Pro: LCD on top, eight track columns below ---------- */
+
+.skin-f8n .mixer-surface.f8-surface {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: linear-gradient(180deg, #2a2b2e 0%, #161719 100%);
+  border: 1px solid #3a3c40;
+  border-radius: var(--radius-md);
+  padding: 0.6rem;
+}
+.f8-lcd {
+  background: #0c1116;
+  border: 3px solid #3d4046;
+  border-radius: 6px;
+  padding: 0.45rem;
+  color: #e6edf5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.f8-tabs {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+.f8-tab,
+.f8-key {
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  min-height: 32px;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  border: 1px solid #39404b;
+  background: #1a2029;
+  color: #b9c4d2;
+  cursor: pointer;
+}
+.f8-tab.on {
+  background: #f2f2f2;
+  color: #111;
+  border-color: #f2f2f2;
+}
+.f8-key.on {
+  background: #ff4d4d;
+  border-color: #ff4d4d;
+  color: #fff;
+}
+.f8-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.f8-mixer {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 0.25rem;
+}
+.f8-mixcol {
+  font: inherit;
+  font-size: 0.64rem;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.3rem;
+  min-height: 44px;
+  border-radius: 4px;
+  border: 1px solid #2a313b;
+  background: #121921;
+  color: #dbe5f0;
+  cursor: pointer;
+}
+.f8-mixcol b {
+  font-size: 0.8rem;
+}
+.f8-mixcol.is-sel {
+  border-color: #ff4d4d;
+}
+.f8-mixcol.is-off {
+  opacity: 0.45;
+}
+.f8-mixcol.is-pfl {
+  box-shadow: 0 0 0 2px #ffb547 inset;
+}
+.f8-name {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.f8-flags {
+  color: #ffb547;
+}
+.f8-head,
+.f8-row,
+.f8-out {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.f8-title {
+  margin: 0;
+  flex: 1;
+  text-align: center;
+  font-weight: 800;
+}
+.f8-outname {
+  font-size: 0.68rem;
+  font-weight: 800;
+  min-width: 7.5em;
+}
+.f8-sep {
+  font-size: 0.62rem;
+  color: #8b97a6;
+}
+.f8-note {
+  margin: 0;
+  font-size: 0.68rem;
+  color: #9fb0c2;
+  line-height: 1.4;
+}
+.f8-front {
+  background: #1d1e21;
+  border: 1px solid #36383d;
+  border-radius: 8px;
+  padding: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.f8-front-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+.f8-tracks {
+  display: flex;
+  overflow-x: auto;
+  gap: 0.2rem;
+  scrollbar-width: thin;
+  min-width: 0;
+  max-width: 100%;
+}
+.f8-track {
+  flex: none;
+  width: 66px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.1rem;
+  border-radius: 6px;
+}
+.f8-track.is-sel {
+  background: rgba(255, 77, 77, 0.08);
+}
+.f8-meterrow .dg-meter {
+  height: 70px;
+}
+.f8-master {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.4rem;
+}
+.f8-lr {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-dim);
+}
+.f8-master .dg-meter {
+  height: 90px;
+}

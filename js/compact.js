@@ -21,6 +21,8 @@ export const LAWS = {
   // Sound Devices 442: channel faders off … 0 at the centre … +15; MASTER off … 0 … +6.
   sdFader: makeLaw([[0, -Infinity], [0.04, -60], [0.25, -20], [0.5, 0], [0.75, 8], [1, 15]]),
   master6: makeLaw([[0, -Infinity], [0.05, -50], [0.35, -20], [0.75, 0], [1, 6]]),
+  // Zoom F8n track faders: MUTE at the bottom, then −48 … 0 … +24 dB.
+  f8Fader: makeLaw([[0, -Infinity], [0.02, -48], [0.6733, 0], [1, 24]]),
   // A routing key (DM2000 BUS 1–8): off, or on at unity. Stored as 0 or 1.
   assign: { toDb: (pos) => (pos >= 0.5 ? 0 : -Infinity), toPos: (db) => (db > -Infinity ? 1 : 0) },
 };
@@ -105,7 +107,7 @@ export function createState(id) {
     main: { level: def.main.law === "master" ? 0.5 : 0.75 },
     listen: "main",
     // The 442's OUTPUT LEVEL switch lives on the mixer device: what the XLR outs carry decides what they can feed.
-    rig: { devices: [{ id: "mixer", type: id, label: def.name, ...(def.outLevel ? { outLevel: 2 } : {}) }], cables: [] },
+    rig: { devices: [{ id: "mixer", type: id, label: def.name, ...(def.outLevel ? { outLevel: 2 } : {}), ...Object.fromEntries((def.outSwitches || []).map((w) => [w.key, w.start ?? 0])) }], cables: [] },
   };
   if (def.tape) state.channels.push({ index: def.channels.length, label: def.tape.level || def.tape.label || "TAPE", stereo: true, tape: true, gainDb: 0, level: 0.5, toMain: false, toCr: false, enabled: true, pan: 0, phantom: false, auxSends: {}, sends: {}, eq: {} });
   // Masters start at unity (U), whatever their law.

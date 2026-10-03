@@ -3000,6 +3000,153 @@ const DM = [
   }),
 ];
 
+
+// ---------- Zoom F8n Pro ----------
+// A recorder with a mixer inside: TRIM sets each iso, the track knobs build
+// the L/R mix for the cameras. The camera lessons of the 442, plus routing.
+const F8S = [
+  {
+    id: "f8n-track",
+    short: "Dark track key",
+    title: "The vocal that isn't there",
+    who: "Director",
+    prompt: "“I can't hear the singer at all on the camera, and there's nothing on her meter.”",
+    goal: "The lead vocal back in the L/R mix, and recording.",
+    setup: { tweak: (st, h) => h.set("lead-vocal", "enabled", false) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("on", "Track 6's key is lit: the input is on and records", (ctx) => sc(ctx, "lead-vocal")?.enabled === true),
+      { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "lead-vocal", label: "The vocal is in the L/R mix" },
+      { id: "rest", kind: "keep", type: "mainUnchanged", baseline: "main", except: "lead-vocal", toleranceDb: 1, label: "Everything else in the mix stays the same" },
+    ],
+    hints: ["No meter at all means no input, not a quiet one.", "On the F8n a dark track key means that input is off: not in the mix and not recorded.", "Press track key 6 so it lights red."],
+    complete: "Track keys are the F8n's input switches. Before you roll, check every track you need is lit.",
+  },
+  {
+    id: "f8n-trim",
+    short: "Tiny vocal (TRIM)",
+    title: "The tiny vocal track",
+    who: "Editor",
+    prompt: "“Yesterday's vocal track was so quiet I had to boost it 30 dB in the edit, and now it's all hiss. Fix it before today's take.”",
+    goal: "The vocal's input at a healthy level, set with TRIM.",
+    setup: { tweak: (st, h) => h.set("lead-vocal", "gainDb", 12) },
+    baseline: { levels: { metric: "channelLevels" } },
+    conditions: [
+      { id: "gain", kind: "goal", type: "sourceGain", source: "lead-vocal", label: "The vocal's input sits in Good" },
+      keep("knob", "Its track knob stays put (the knob doesn't change the recording)", (ctx) => Math.abs(sc(ctx, "lead-vocal").level - ctx.baseline.levels[mc(ctx, "lead-vocal").index]) < 0.01),
+    ],
+    hints: ["The editor works from the isolated tracks. What sets a track's recording level?", "Not the track knob: that's the mix. TRIM is in INPUT for the selected track.", "Open INPUT, select track 6 and turn TRIM up until the meter sits in Good."],
+    complete: "TRIM records the track; the knob only mixes it. A quiet iso can't be fixed later without bringing up the noise with it.",
+  },
+  like("f8n", "x32-room", {
+    prompt: "“The audience mics on 7 and 8 are dead.”",
+    hints: ["The room pair are condensers.", "Condensers need phantom power: INPUT, track 7, +48V.", "Switch +48V on for tracks 7 and 8."],
+    complete: "The F8n powers condensers itself, per input. No phantom, no condenser.",
+  }),
+  {
+    id: "f8n-hpf",
+    short: "Wind rumble (HPF)",
+    title: "Rumble on the vocals",
+    who: "Editor",
+    prompt: "“There's a low rumble from the stage on both vocal tracks. The bass is fine.”",
+    goal: "HPF at 80 Hz or higher on both vocal tracks, none on the bass.",
+    setup: {
+      tweak: (st, h) => {
+        h.set("lead-vocal", "hpf", 0);
+        h.set("backing-vocals", "hpf", 0);
+      },
+    },
+    conditions: [
+      goal("vox", "Both vocals filtered at 80 Hz or higher", (ctx) => ["lead-vocal", "backing-vocals"].every((s) => hpfHz("f8n", 0, sc(ctx, s)?.hpf ?? 0) >= 80)),
+      keep("bass", "The bass isn't filtered", (ctx) => !hpfHz("f8n", 0, sc(ctx, "bass")?.hpf ?? 0)),
+    ],
+    hints: ["Rumble is below anything a voice needs.", "Each input has an HPF (10–240 Hz) in INPUT.", "Tracks 5 and 6: HPF to about 100 Hz. Leave the bass alone."],
+    complete: "On a recorder the HPF is printed into the track: filter what nobody will ever want, and no more.",
+  },
+  {
+    id: "f8n-pfl",
+    short: "Check one mic (PFL)",
+    title: "Is the guitar mic crackling?",
+    who: "Guitarist",
+    prompt: "“I think my mic cable crackles. Can you listen to just my mic?”",
+    goal: "The guitar track alone in the headphones (PFL).",
+    setup: {},
+    baseline: { levels: { metric: "channelLevels" } },
+    conditions: [goal("pfl", "Track 3 on PFL, heard in the headphones", (ctx) => sc(ctx, "guitars")?.solo === true && heard(ctx, "phones")), keep("mix", "The camera mix stays the same", (ctx) => ctx.state.channels.every((c, i) => Math.abs(c.level - ctx.baseline.levels[i]) < 0.01))],
+    hints: ["Pulling the other knobs down would wreck the camera mix.", "PFL puts one track in the headphones, before its knob, without touching the mix.", "Press PFL on track 3 and listen in the headphones."],
+    complete: "PFL checks one input without changing anything anyone else hears or records.",
+  },
+  {
+    id: "f8n-balance",
+    short: "Camera mix (knobs)",
+    title: "The camera mix is all drums",
+    who: "Director",
+    prompt: "“The camera's audio is all drums. I need to hear the singer over the band. Don't touch the recordings, the editor likes them.”",
+    goal: "The vocal at least 3 dB above the drums in the L/R mix, every TRIM unchanged.",
+    setup: { tweak: (st, h) => h.moveFader("drums", 10) },
+    baseline: { gains: { metric: "channelGains" } },
+    conditions: [
+      goal("vox", "The vocal is at least 3 dB above the drums in L/R", (ctx) => house(ctx, "lead-vocal") >= house(ctx, "drums") + 3),
+      keep("trim", "Every TRIM stays the same (the recordings don't change)", (ctx) => ctx.state.channels.every((c, i) => Math.abs(c.gainDb - ctx.baseline.gains[i]) < 0.25)),
+    ],
+    hints: ["The cameras get the L/R mix. Which controls build it?", "The track knobs: each one is a fader into L/R. TRIM would change the recording too.", "Turn track 1's knob (drums) down, or track 6 (vocal) up, until the vocal sits on top."],
+    complete: "On a recorder-mixer the knobs belong to the mix and TRIM belongs to the recording. Ride the knobs all you like; the isos stay clean.",
+  },
+  {
+    id: "f8n-link",
+    short: "Mono audience (LINK)",
+    title: "The audience sounds mono",
+    who: "Editor",
+    prompt: "“The audience pair on 7/8 sounds like one mic in the middle of the camera mix.”",
+    goal: "Tracks 7 and 8 stereo-linked: left and right in the mix.",
+    setup: { tweak: (st) => (st.link.mode = "off") },
+    conditions: [goal("link", "Stereo Link on for 7/8", (ctx) => ctx.state.link?.mode === "on"), { id: "l", kind: "keep", type: "sourceHeardInMain", source: "room-l", label: "The audience stays in the mix" }],
+    hints: ["Two mics panned to the centre are mono.", "Stereo Link makes 7/8 a pair: 7 left, 8 right, one knob.", "INPUT, track 7 or 8: press LINK 7/8."],
+    complete: "A linked pair keeps its image: left mic left, right mic right, moved by one knob.",
+  },
+  {
+    id: "f8n-camera",
+    short: "Distorted camera (LINE/MIC)",
+    title: "The distorted main camera",
+    who: "Camera operator",
+    prompt: "“The audio on the main camera is distorted on both channels, even with my levels right down.”",
+    goal: "Both main-camera inputs getting the level they're set for.",
+    setup: { tweak: (st, h) => ["cam-1", "cam-2"].forEach((id) => h.dev(id, "inputLevel", 0)) },
+    conditions: [goal("match", "Both camera inputs match the level they're fed", camerasOk), keep("fed", "The camera stays on MAIN OUT 1/2", camerasFed)],
+    hints: ["Distortion that turning down doesn't fix is a level mismatch.", "MAIN OUT 1/2 are at LINE (+4). The camera inputs are set to MIC, which adds about 40 dB.", "MAIN OUT has no MIC setting: set both camera inputs to LINE (their cards in the Outputs)."],
+    complete: "MAIN OUT is LINE or −10 only, so a camera fed from it must be on LINE. Match the type of level first.",
+  },
+  {
+    id: "f8n-dslr",
+    short: "Distorted camera B (SUB OUT)",
+    title: "The distorted second camera",
+    who: "Second camera operator",
+    prompt: "“My little camera's audio is crunchy. It's plugged into the recorder's SUB OUT.”",
+    goal: "Camera B fed at mic level from SUB OUT.",
+    setup: { tweak: (st, h) => h.dev("mixer", "subLevel", 0) },
+    conditions: [goal("ok", "Camera B gets mic level", (ctx) => endpoint(ctx, "dslr")?.status === "ok"), keep("main", "The main camera still matches", camerasOk)],
+    hints: ["A small camera's 3.5 mm jack is a mic input, with no LINE setting.", "SUB OUT is at NORMAL (−10): about 26 dB too hot for it. OUTPUT has SUB OUT's Output Level.", "OUTPUT: set SUB OUT to MIC (−40)."],
+    complete: "SUB OUT's MIC level exists for exactly this: a camera that only has a mic jack.",
+  },
+  {
+    id: "f8n-iso-safety",
+    short: "Vocal safety (MAIN OUT 2)",
+    title: "A safety track for the vocal",
+    who: "Director",
+    prompt: "“Put the singer alone on the main camera's channel 2, before your knob, so we have a clean copy whatever you do to the mix. Channel 1 keeps the mix.”",
+    goal: "MAIN OUT 2 carrying only the lead vocal, prefader; MAIN OUT 1 still the mix.",
+    setup: {},
+    conditions: [
+      goal("route", "MAIN OUT 2 carries tracks, not L/R", (ctx) => ctx.state.routing.out2 === "bus2"),
+      goal("vox", "The vocal is on it, prefader", (ctx) => sc(ctx, "lead-vocal")?.sends.bus2 >= 0.5 && sc(ctx, "lead-vocal")?.pres.bus2 === true),
+      keep("only", "Nothing else is on it", (ctx) => ctx.state.channels.every((c, i) => i === mc(ctx, "lead-vocal").index || !(c.sends.bus2 >= 0.5))),
+      keep("mix", "MAIN OUT 1 keeps the mix (L)", (ctx) => ctx.state.routing.out1 === "main-l"),
+    ],
+    hints: ["MAIN OUT 2 carries R of the mix right now. It can carry tracks instead.", "OUTPUT, MAIN OUT 2: track keys there cycle PRE → POST → OFF.", "On MAIN OUT 2's row press track 6 once (PRE). That replaces R with the vocal alone."],
+    complete: "Prefader routing sends a track to an output whatever its knob does: a safety copy on the camera, independent of the mix.",
+  },
+];
+
 CL3.push(
   eqMud("cl3", {
     hints: ["SEL channel 3 (GTR). In the SELECTED CHANNEL section, turn LOW-MID's GAIN down a few dB with its FREQUENCY near 300 Hz.", "Nothing changed? The EQ starts switched off: open SELECTED CHANNEL on the screen and press EQ ON."],
@@ -3074,12 +3221,13 @@ const ORDER = {
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
   yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "mud", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
   x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9"],
+  f8n: ["track", "trim", "room", "hpf", "pfl", "balance", "link", "camera", "dslr", "iso-safety"],
   dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
   cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "scene-recall", "scene-store"],
   x32c: ["doors", "gain", "48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix"],
 };
 
-const LISTS = { dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: C16, x32c: X32, yam01v96: Y96, x32: X32F };
+const LISTS = { f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: C16, x32c: X32, yam01v96: Y96, x32: X32F };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.
 function arrange(board) {
@@ -3108,4 +3256,5 @@ export const MIXER_ORDER = [
   { model: "x32", skin: "x32", why: "The full console: 32 inputs, 16 mix buses that can be subgroups, MONO/CENTER, six matrices, an FX rack, output ROUTING and SCENES." },
   { model: "cl3", skin: "cl3", why: "A touring console: mics on a Rio stage box, OUTPUT PATCH over Dante, Centralogic under a touch screen (OVERVIEW and SELECTED CHANNEL VIEW), ON keys, 16 DCAs, 8 matrices and scenes." },
   { model: "sd442", skin: "sd442", why: "A different world: a field mixer feeding a camera. Output levels, tone, limiters and the mono check." },
+  { model: "f8n", skin: "f8n", why: "A recorder that is also a mixer: every input records its own track while the track knobs build a mix for the cameras. TRIM vs fader, MAIN OUT routing, output levels." },
 ];

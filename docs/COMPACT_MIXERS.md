@@ -112,3 +112,22 @@ Sound Devices *442 & 442 Nordic Field Mixer User Guide and Technical Information
 - Limiter thresholds: input −4 dBFS, output −3 dBFS here; the real output limiter is set in the Setup Menu (+4…+20 dBu, factory +20).
 - Tone at 0 dBu is −18 dBFS in the lab's scale.
 - The camera's MIC input is modelled as +40 dB with a hard clip; real cameras vary.
+
+## Zoom F8n Pro (field recorder + mixer)
+
+Definition `f8n` in `js/compact-defs.js`; surface `js/ui/mixer-f8-view.js` (skin layout `"f8"`). Sources: the F8n Pro Operation Manual (functions of parts, Output Level, MAIN OUT / SUB OUT Routing) and the F8n Pro Menu List.
+
+The point of the F8n: it records every input to its own track (the isos, at the input's TRIM) and, at the same time, mixes them through the track knobs into an L/R mix for its outputs. Next to a FOH desk it is a submixer: its own mix for the cameras, its own recording of everything.
+
+| On the recorder | In the lab |
+|---|---|
+| Inputs 1–8, XLR/TRS combo; TRIM +10…+75 dB (mic), −10…+55 (line) | The same (`gain: { min: 10, max: 75, linePad: −20 }`) |
+| Track key: lit red = the input is on and records | The channel's on switch (`mute: "track"`): dark = not in the mix, not recorded |
+| Track knob = the track's fader (MUTE, −48…+24 dB) | `levelLaw: "f8Fader"` |
+| INPUT menu: Phantom, HPF (10–240 Hz), Phase Invert, Pan, Stereo Link | The INPUT screen; Stereo Link on 7/8 only |
+| PFL key | PFL (pre-fader listen in the headphones) |
+| MAIN OUT 1/2 (TA3): L/R, or tracks routed prefader/postfader; Output Level LINE +4 or NORMAL −10 | `routing` (out1/out2: main-l, main-r, or bus1/bus2), tracks into bus1/bus2 with the `assign` law and PRE/POST per track; `outSwitches.mainLevel` |
+| SUB OUT (3.5 mm stereo): Output Level NORMAL −10 or MIC −40 | The L/R mix on `sub-out`; `outSwitches.subLevel` (starts at MIC) |
+| | A new endpoint, `dslr-input`: a camera's 3.5 mm mic jack. It has no LINE setting, so anything above mic level is hot |
+
+**Not built:** SUB OUT routing (it always carries L/R here), output faders and limiters, input limiters, Auto Mix, input and output delay, MS decoding, slate, timecode, the actual recording of this board's tracks (the outboard Zoom F8 device in the Mixer A/B sandbox and the 1604 does record WAV takes), USB audio interface, the FRC-8. The TA3 jacks are drawn as XLR so standard camera cables fit.

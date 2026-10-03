@@ -14,6 +14,7 @@ export function renderFlow(root, skin) {
   if (skin.layout === "01v96") return renderFlow01v96(root, skin);
   if (skin.layout === "cl") return renderFlowCL(root, skin);
   if (skin.layout === "dm2000") return renderFlowDM2000(root, skin);
+  if (skin.layout === "f8") return renderFlowF8(root, skin);
   const t = skin.terms;
   const c = skin.enabledControl;
   const enableWord = c.litWhenEnabled ? `${c.label} (lit = in Main)` : `${c.label} (lit = out of Main)`;
@@ -168,6 +169,31 @@ function renderFlow01v96(root, skin) {
 }
 
 // The X32: the same signal flow, plus DCAs and mute groups that act on channels.
+function renderFlowF8(root, skin) {
+  root.innerHTML = `
+    <details class="flow">
+      <summary>How the signal flows on the ${esc(skin.name)}</summary>
+      <div class="flow-body">
+        <ol class="flow-trunk" aria-label="Every track">
+          <li class="flow-node">INPUT (XLR mic / TRS line)</li>
+          <li class="flow-node">TRIM, +48V</li>
+          <li class="flow-node">HPF · Ø</li>
+          <li class="flow-node">TRACK (recorded here: the iso)</li>
+          <li class="flow-node">Track knob (fader)</li>
+          <li class="flow-node">PAN</li>
+          <li class="flow-node flow-end">L/R mix → MAIN OUT 1/2 · SUB OUT · recorded L/R</li>
+        </ol>
+        <ul class="flow-notes">
+          <li>Each <strong>track records</strong> its input after TRIM, before the track knob. Set TRIM for the recording; the knobs only build the mix.</li>
+          <li>A dark <strong>track key</strong> means that input is off: not recorded, not in the mix.</li>
+          <li><strong>MAIN OUT 1/2</strong> carry the L/R mix, or any tracks prefader or postfader (OUTPUT, MAIN OUT Routing). Output Level: LINE (+4) or NORMAL (−10).</li>
+          <li><strong>SUB OUT</strong> (3.5 mm) carries the L/R mix at NORMAL or MIC level, for a camera's mic jack.</li>
+          <li>Beside a FOH desk the F8n is a <strong>submixer</strong>: its own mix for the cameras, its own recording of every input.</li>
+        </ul>
+      </div>
+    </details>`;
+}
+
 function renderFlowDM2000(root, skin) {
   root.innerHTML = `
     <details class="flow">

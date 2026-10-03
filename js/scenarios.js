@@ -53,6 +53,7 @@ export const PLAYBACK_DEVICES = {
   // A video camera's two XLR audio inputs (each with a MIC/LINE switch, starting at LINE).
   "cam-1": { type: "camera-input", label: "Camera · input 1 (XLR)", short: "camera ch 1", zone: "cam", pan: -1, inputLevel: 1 },
   "cam-2": { type: "camera-input", label: "Camera · input 2 (XLR)", short: "camera ch 2", zone: "cam", pan: 1, inputLevel: 1 },
+  dslr: { type: "dslr-input", label: "Second camera · 3.5 mm mic input", short: "camera B", zone: "cam", pan: 0, inputLevel: 0 },
 };
 
 // Two monitor mixes, patched the same way wherever both wedges are on stage:
@@ -736,6 +737,22 @@ export const COMPACT_GIGS = {
     pans: { "lead-vocal": 0, "backing-vocals": 0 },
     listen: "phones",
   },
+  f8n: {
+    prompt: "Filming the band with a Zoom F8n Pro as the recorder and camera mixer: drums, bass, guitar, keys, backing vocal and lead vocal on inputs 1–6, the room pair on 7/8 (Stereo Link, +48V). Every input records its own track; the track knobs build the L/R mix. MAIN OUT 1/2 (LINE) feed the main camera's two XLR inputs, SUB OUT (MIC level) the second camera's 3.5 mm mic jack. Listen in the HEADPHONE, or at either camera. The trumpets aren't on the recorder.",
+    patch: { drums: [0, "in"], bass: [1, "in"], guitars: [2, "in"], keys: [3, "in"], "backing-vocals": [4, "in"], "lead-vocal": [5, "in"], "room-l": [6, "in"], "room-r": [7, "in"] },
+    extraSources: ["room-l", "room-r"],
+    cableFor: { keys: "xlr-trs" },
+    devices: ["cam-1", "cam-2", "dslr"],
+    cables: [
+      { from: "mixer/out1", to: "cam-1/in", cable: "xlr" },
+      { from: "mixer/out2", to: "cam-2/in", cable: "xlr" },
+      { from: "mixer/sub-out", to: "dslr/in", cable: "mini" },
+    ],
+    sends: {},
+    link: "on",
+    hpf: { "lead-vocal": 0.25, "backing-vocals": 0.25 },
+    listen: "phones",
+  },
   ui16: {
     prompt: "The whole band on a Soundcraft Ui16 digital mixer: drums, bass, guitar, keys, trumpets and both vocals on inputs 1–7, the laptop on the RCA line in (13/14, level down). AUX 1 feeds the singer's powered wedge, AUX 2 the drummer's wedge through the power amp; REVERB and DELAY are built in. Pick a mix in the bar above the faders, and SEL a channel to edit it.",
     patch: { drums: [0, "in"], bass: [1, "in"], guitars: [2, "in"], keys: [3, "in"], trumpets: [4, "in"], "backing-vocals": [5, "in"], "lead-vocal": [6, "in"], preshow: [12, "rca"] },
@@ -1036,6 +1053,8 @@ const METRICS = {
   fadersByChannel: (ctx) => ctx.mix.channels.map((c) => c.faderDb ?? -Infinity),
   // Every channel fader's own position (a DCA doesn't move these).
   channelLevels: (ctx) => ctx.state.channels.map((c) => c.level),
+  // Every channel's input gain (TRIM): what a recorder's isos are recorded at.
+  channelGains: (ctx) => ctx.state.channels.map((c) => c.gainDb),
 };
 
 export function captureBaseline(def, state, sourcesById = SOURCES_BY_ID, stems = STEMS) {

@@ -223,6 +223,14 @@ export const DEVICE_TYPES = {
   },
   // A video camera's XLR audio input, with its own MIC/LINE switch (`inputLevel`:
   // 0 = MIC, 1 = LINE). One device per input, so each has its own switch and status.
+  // A small camera's 3.5 mm stereo mic input (a DSLR or mirrorless): mic level only.
+  "dslr-input": {
+    name: "Camera (3.5 mm mic input)",
+    endpoint: true,
+    camera: true,
+    ports: [{ id: "in", dir: "in", jack: "mini", level: "mic", stereo: true, name: "3.5 mm MIC input" }],
+    blurb: "A small camera's mic jack: it expects mic level. Anything hotter distorts.",
+  },
   "camera-input": {
     name: "Video camera input",
     endpoint: true,
@@ -482,6 +490,7 @@ function analyzeChannelInput(rig, cable, ch, sources, port) {
 // The level an output port carries: fixed, or (442 XLR outs) the mixer's OUTPUT LEVEL switch.
 export const OUT_LEVELS = ["mic", "tape", "line"];
 export function outputLevelOf(port) {
+  if (port.switchKey) return port.switchLevels[port.device[port.switchKey] ?? 0];
   return port.levelSwitch ? OUT_LEVELS[port.device.outLevel ?? 2] : port.level;
 }
 
@@ -500,6 +509,12 @@ function analyzeCamera(result, device, up) {
   }
   const level = outputLevelOf(up);
   const input = device.inputLevel === 1 ? "line" : "mic";
+  // A 3.5 mm camera input has no LINE setting: only the output can change.
+  if (DEVICE_TYPES[device.type].ports[0].jack === "mini" && level !== "mic") {
+    Object.assign(result, { output: up.id, valid: true, camera: true, gainDb: 40, status: "hot" });
+    result.messages.push(`${level === "line" ? "Line" : "−10"} level into the camera's 3.5 mm MIC input: ${level === "line" ? "about 40" : "about 26"} dB too hot, so it distorts. It has no LINE setting: set the output feeding it to MIC level.`);
+    return result;
+  }
   Object.assign(result, { output: up.id, valid: true, status: "ok", camera: true, gainDb: input === "mic" ? 40 : 0 });
   if (input === "mic" && level !== "mic") {
     result.status = "hot";

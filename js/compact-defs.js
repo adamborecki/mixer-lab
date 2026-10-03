@@ -425,6 +425,62 @@ export const COMPACT = {
     layout: { kind: "01v96" },
   },
 
+  // Zoom F8n Pro (Operation Manual and Menu List): an 8-input field recorder
+  // with a mixer inside. Each input records its own track (the isos) and also
+  // feeds the L/R mix through its track knob (fader) and pan. MAIN OUT 1/2
+  // (TA3) carry L/R, or tracks routed pre- or post-fader; SUB OUT (3.5 mm) the
+  // mix for a camera. Used beside a FOH desk it is a submixer: its own mix,
+  // its own outputs, and it records everything. Drawn by js/ui/mixer-f8-view.js.
+  f8n: {
+    id: "f8n",
+    name: "Zoom F8n Pro",
+    blurb: "Field recorder + mixer: 8 inputs (TRIM, +48V, HPF, phase), track knobs into an L/R mix, MAIN OUT routing, SUB OUT for a camera.",
+    field: true,
+    phantom: { label: "+48V", channels: [0, 1, 2, 3, 4, 5, 6, 7], perChannel: true },
+    channels: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
+      label: String(n),
+      kind: "mono",
+      jacks: ["combo"],
+      // TRIM: +10 … +75 dB on a mic (XLR); the line (TRS) path is 20 dB lower.
+      gain: { min: 10, max: 75, linePad: -20 },
+      hpf: { min: 10, max: 240 },
+      polarity: true,
+      sends: ["bus1", "bus2"],
+      mute: "track", // the track key: unlit, the input is off (not in the mix, not recorded)
+      solo: true,
+      peak: true,
+    })),
+    sends: {
+      // MAIN OUT routing: each track to MAIN OUT 1 and 2, prefader or postfader (or off).
+      bus1: { label: "MAIN OUT 1", bus: "bus1", tap: "each", pre: true, law: "assign" },
+      bus2: { label: "MAIN OUT 2", bus: "bus2", tap: "each", pre: true, law: "assign" },
+    },
+    buses: {
+      bus1: { label: "MAIN OUT 1 tracks", master: { label: "MAIN OUT 1", law: "level" } },
+      bus2: { label: "MAIN OUT 2 tracks", master: { label: "MAIN OUT 2", law: "level" } },
+    },
+    link: { pair: [6, 7] }, // Stereo Link 7/8 (the lab links one pair)
+    levelLaw: "f8Fader",
+    routing: {
+      outputs: ["out1", "out2"],
+      names: { out1: "MAIN OUT 1 (TA3)", out2: "MAIN OUT 2 (TA3)" },
+      sources: ["off", "main-l", "main-r", "bus1", "bus2"],
+      start: { out1: "main-l", out2: "main-r" },
+    },
+    // Output Level: MAIN OUT 1/2 LINE (+4 dBu) or NORMAL (−10 dBV); SUB OUT NORMAL or MIC (−40 dBV).
+    outSwitches: [
+      { key: "mainLevel", ports: ["out1", "out2"], labels: ["LINE +4", "NORMAL −10"], levels: ["line", "tape"], db: [0, -14], start: 0 },
+      { key: "subLevel", ports: ["sub-out"], labels: ["NORMAL −10", "MIC −40"], levels: ["tape", "mic"], db: [-14, -40], start: 1 },
+    ],
+    main: { label: "L/R", law: "level" },
+    phones: { label: "HEADPHONE", sources: null },
+    solo: { mode: "pfl", label: "PFL" },
+    meter: [-48, -36, -24, -18, -12, -6, 0, "CLIP"],
+    peakLabel: "CLIP",
+    outputs: ["f8"],
+    layout: { kind: "f8" },
+  },
+
   // Yamaha DM2000 (DM2000 V2 Quick Start Guide): 96 input channels on layers
   // of 24 faders, 24 analog inputs with GAIN, PAD and +48V on the top panel,
   // 8 buses (ROUTING keys 1–8, BUS TO ST), 12 auxes, 4 matrices, STEREO with
@@ -687,6 +743,11 @@ export function compactPorts(def) {
   } else if (o.includes("xlrSwitched")) {
     // The level these carry is the mixer's OUTPUT LEVEL switch (rig device `outLevel`).
     ports.push(out("main-l", "xlr", "MASTER OUT L (XLR)", { bus: "main", side: "L", levelSwitch: true }), out("main-r", "xlr", "MASTER OUT R (XLR)", { bus: "main", side: "R", levelSwitch: true }));
+  } else if (o.includes("f8")) {
+    // Zoom F8n: MAIN OUT 1/2 (TA3, shown as XLR here) set by MAIN OUT Routing; SUB OUT a stereo 3.5 mm jack carrying L/R.
+    const sw = (id) => def.outSwitches.find((w) => w.ports.includes(id));
+    for (const id of def.routing.outputs) ports.push(out(id, "xlr", def.routing.names[id], { routed: true, switchKey: sw(id).key, switchLevels: sw(id).levels }));
+    ports.push(out("sub-out", "mini", "SUB OUT (3.5 mm stereo)", { bus: "main", stereo: true, switchKey: sw("sub-out").key, switchLevels: sw("sub-out").levels }));
   } else if (o.includes("stereoRouted")) {
     // DM2000: STEREO OUT has its own jacks; OMNI OUT 1–8 carry whatever the OUTPUT PATCH says.
     ports.push(out("main-l", "xlr", "STEREO OUT L", { bus: "main", side: "L" }), out("main-r", "xlr", "STEREO OUT R", { bus: "main", side: "R" }));

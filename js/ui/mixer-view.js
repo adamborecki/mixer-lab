@@ -12,6 +12,7 @@ import { renderX32 } from "./mixer-x32-view.js";
 import { render01v96 } from "./mixer-01v96-view.js";
 import { renderCL } from "./mixer-cl-view.js";
 import { renderDM2000 } from "./mixer-dm2000-view.js";
+import { renderF8 } from "./mixer-f8-view.js";
 import { COMPACT } from "../compact-defs.js";
 
 const FADER_MARKS = [10, 5, 0, -5, -10, -20, -30, -50].map((db) => ({ value: dbToLevel(db), label: db === 0 ? "U" : db > 0 ? `+${db}` : `${db}` }));
@@ -63,8 +64,8 @@ export class MixerView {
       this.sync();
       return;
     }
-    if (skin.layout === "digital" || skin.layout === "x32" || skin.layout === "01v96" || skin.layout === "cl" || skin.layout === "dm2000") {
-      ({ x32: renderX32, "01v96": render01v96, cl: renderCL, dm2000: renderDM2000 }[skin.layout] || renderDigital)(this, COMPACT[skin.hardware]);
+    if (skin.layout === "digital" || skin.layout === "x32" || skin.layout === "01v96" || skin.layout === "cl" || skin.layout === "dm2000" || skin.layout === "f8") {
+      ({ x32: renderX32, "01v96": render01v96, cl: renderCL, dm2000: renderDM2000, f8: renderF8 }[skin.layout] || renderDigital)(this, COMPACT[skin.hardware]);
       // Re-rendering for a new page or SEL: reuse the last mix, unless it belongs to the previous mixer.
       this.sync(this.lastMix?.channels.length === this.store.state.channels.length ? this.lastMix : undefined);
       return;
@@ -413,7 +414,7 @@ export class MixerView {
     const s = this.store.state;
     const { SOURCES_BY_ID } = this.manifest;
     if (mix) this.lastMix = mix;
-    if (mix && (this.skin.layout === "cr1604" || this.skin.layout === "compact" || this.skin.layout === "digital" || this.skin.layout === "x32" || this.skin.layout === "01v96" || this.skin.layout === "cl" || this.skin.layout === "dm2000")) {
+    if (mix && (this.skin.layout === "cr1604" || this.skin.layout === "compact" || this.skin.layout === "digital" || this.skin.layout === "x32" || this.skin.layout === "01v96" || this.skin.layout === "cl" || this.skin.layout === "dm2000" || this.skin.layout === "f8")) {
       // The TRIM scale depends on which jack (MIC or LINE) is in use.
       const key = mix.channels.map((c) => c.input.path || "").join();
       if (key !== this.pathKey) {
@@ -461,7 +462,7 @@ export class MixerView {
     if (!readings) return;
     if (this.skin.layout === "cr1604") return update1604(this, readings, now);
     if (this.skin.layout === "compact") return updateCompact(this, readings, now);
-    if (["digital", "x32", "01v96", "cl", "dm2000"].includes(this.skin.layout)) return updateDigital(this, readings, now);
+    if (["digital", "x32", "01v96", "cl", "dm2000", "f8"].includes(this.skin.layout)) return updateDigital(this, readings, now);
     this.channelMeters.forEach((m, i) => m && m.update(readings.channels[i], now));
     const mm = this.masterMeters || {};
     if (mm.mainL) mm.mainL.update(readings.mainL, now);

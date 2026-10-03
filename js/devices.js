@@ -106,6 +106,7 @@ const KEYS = {
   "stereo-mic-pair": { spacingCm: range(0, PAIR.spacingMax, 1), angleDeg: range(0, PAIR.angleMax, 1) },
   "camera-input": { inputLevel: range(0, 1, 1) }, // 0 = MIC, 1 = LINE
   sd442: { outLevel: range(0, 2, 1) }, // the 442's XLR OUTPUT LEVEL: 0 = MIC, 1 = −10, 2 = LINE
+  f8n: { mainLevel: range(0, 1, 1), subLevel: range(0, 1, 1) }, // Output Level: MAIN OUT 0 = LINE, 1 = NORMAL; SUB OUT 0 = NORMAL, 1 = MIC
   "zoom-f8": {
     trimDb: range(F8.gainMin, F8.gainMax, 0.5),
     phantom: bool,
