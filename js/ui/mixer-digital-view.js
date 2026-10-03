@@ -13,21 +13,21 @@ import { DYN, LAWS, OL_DB, PEQ_BANDS, PEQ_Q, levelLaw } from "../compact.js";
 import { formatDb, formatPan } from "../levels.js";
 
 const lawFormat = (law) => (v) => formatDb(law.toDb(v), { unity: true });
-const FADER_MARKS = [10, 5, 0, -5, -10, -20, -30, -50].map((db) => ({ value: LAWS.level.toPos(db), label: db === 0 ? "U" : db > 0 ? `+${db}` : `${db}` }));
+export const FADER_MARKS = [10, 5, 0, -5, -10, -20, -30, -50].map((db) => ({ value: LAWS.level.toPos(db), label: db === 0 ? "U" : db > 0 ? `+${db}` : `${db}` }));
 const RELEASE_DB_PER_S = 24;
 const hz = (f) => (f >= 1000 ? `${(f / 1000).toFixed(f >= 10000 ? 0 : 1)}k` : `${Math.round(f)}`);
 // Frequency knobs turn on a log scale.
 const logPos = (f, lo, hi) => Math.log(f / lo) / Math.log(hi / lo);
 const logFreq = (p, lo, hi) => lo * Math.pow(hi / lo, p);
 
-function el(tag, className, text) {
+export function el(tag, className, text) {
   const d = document.createElement(tag);
   if (className) d.className = className;
   if (text !== undefined) d.textContent = text;
   return d;
 }
 
-function row(className, ...els) {
+export function row(className, ...els) {
   const d = el("div", className);
   d.append(...els.filter(Boolean));
   return d;
@@ -95,21 +95,21 @@ export function renderDigital(view, def) {
   view.root.appendChild(surface);
 }
 
-function fader(view, { label, sheetLabel, min = 0, max = 1, step = 0.005, defaultValue = 0.75, marks = FADER_MARKS, format, get, onInput, tone }) {
+export function fader(view, { label, sheetLabel, min = 0, max = 1, step = 0.005, defaultValue = 0.75, marks = FADER_MARKS, format, get, onInput, tone }) {
   return view.bind(new RangeControl({ kind: "fader", label, sheetLabel, min, max, step, keyStepMul: 2, defaultValue, marks, format, onInput, tone }), get).el;
 }
 
-function knob(view, opts, get) {
+export function knob(view, opts, get) {
   return view.bind(new RangeControl({ kind: "knob", dragAxis: "vertical", step: 0.005, keyStepMul: 2, min: 0, max: 1, size: "xs", ...opts }), get).el;
 }
 
-function button(view, { label, tone = "assign", small = true, get, onPress, aria }) {
+export function button(view, { label, tone = "assign", small = true, get, onPress, aria }) {
   const b = new LitButton({ label, tone, small, onPress });
   view.bindings.push({ kind: "button", control: b, get: (s) => [get(s), aria(s)] });
   return b.el;
 }
 
-function meterBar(view, index) {
+export function meterBar(view, index) {
   const m = el("div", "dg-meter");
   m.setAttribute("aria-hidden", "true");
   const fill = el("i");
@@ -211,7 +211,7 @@ function buildMasterStrip(view, def, ui) {
 
 // ---------- the SEL panel ----------
 
-function buildSelPanel(view, def, ui, rerender) {
+export function buildSelPanel(view, def, ui, rerender) {
   const store = view.store;
   const i = ui.sel;
   const c = def.channels[i];
@@ -303,6 +303,7 @@ function buildSelPanel(view, def, ui, rerender) {
   panel.appendChild(
     section(
       "PAN & SENDS",
+      def.lrSwitch ? button(view, { label: "MAIN LR", tone: "assign", get: (s) => ch(s).lr !== false, onPress: () => store.setChannel(i, "lr", ch(store.state).lr === false), aria: (s) => `Channel ${n} MAIN LR: ${ch(s).lr !== false ? "on, in the main mix" : "off, not in the main mix"}` }) : null,
       knob(view, { label: c.kind === "stereo" ? "BAL" : "PAN", sheetLabel: `Ch ${n} pan`, min: -1, max: 1, step: 0.02, defaultValue: 0, bipolar: true, tone: "pan", format: formatPan, onInput: set("pan") }, (s) => ch(s).pan),
       ...sendKnobs,
     ),

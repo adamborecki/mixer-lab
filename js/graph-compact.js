@@ -16,7 +16,7 @@
 //           MASTER ─► output limiter (ON / LINK) ─► [TONE replaces the mix] ─► XLR OUTPUT LEVEL;
 //           HEADPHONE selector OFF/L/R/M/ST (PFL replaces it; TONE ear-saver −20 dB).
 
-import { EQ_FOR, LAWS, PEQ_BANDS, channelGainDb, fxPreset, levelLaw, linkOf, reverbSetting, tapeIndex } from "./compact.js";
+import { EQ_FOR, LAWS, PEQ_BANDS, channelControl, channelGainDb, fxPreset, levelLaw, linkOf, reverbSetting, tapeIndex } from "./compact.js";
 import { HEADROOM_DB, dbToGain } from "./levels.js";
 import { DEVICE_TYPES } from "./connection-model.js";
 import { lowCutStage, popBuffer, shelfHz } from "./graph-kit.js";
@@ -184,7 +184,10 @@ export function buildCompactGraph(kit, def) {
     level.connect(mainGate);
     const post = mainGate;
     const pan = track(ctx.createStereoPanner());
-    post.connect(pan);
+    // MAIN LR switch (X32): after the post-fader sends, before the main mix.
+    const lrGate = def.lrSwitch ? chan(1) : null;
+    if (lrGate) post.connect(lrGate).connect(pan);
+    else post.connect(pan);
     const split = track(ctx.createChannelSplitter(2));
     pan.connect(split);
     split.connect(mainBus.L, 0);
@@ -232,7 +235,7 @@ export function buildCompactGraph(kit, def) {
     }
     const pfl = mono(0);
     if (c.solo) tapEq.connect(pfl).connect(pflBus);
-    return { input, pre, popIn, polarity, hpf, limiter, lowCut, comp, peq, preMute, eq, meter, stMono, level, mainGate, pan, sip, altGate, altPan, sends, pflGain: c.solo ? pfl : null, stereo };
+    return { input, pre, popIn, polarity, hpf, limiter, lowCut, comp, peq, preMute, lrGate, eq, meter, stMono, level, mainGate, pan, sip, altGate, altPan, sends, pflGain: c.solo ? pfl : null, stereo };
   });
 
   // ---------- tape in ----------
@@ -631,9 +634,11 @@ export function buildCompactGraph(kit, def) {
           set(s.stMono.sum.gain, on(ch.stMono));
         }
         const link = linkOf(def, state, i);
-        const lvl = levelLaw(def).toDb(link ? state.channels[link.leader].level : ch.level);
+        const ctl = channelControl(def, state, i);
+        const lvl = levelLaw(def).toDb(link ? state.channels[link.leader].level : ch.level) + ctl.dcaDb;
         set(s.level.gain, dbToGain(lvl) * (link ? Math.max(link.gains.L, link.gains.R) : 1));
-        const muted = c.mute && !ch.enabled;
+        const muted = ctl.muted;
+        if (s.lrGate) set(s.lrGate.gain, on(ctl.toMain));
         set(s.mainGate.gain, on(!muted));
         if (s.preMute) set(s.preMute.gain, on(!muted));
         set(s.pan.pan, link ? (link.gains.L > 0 ? -1 : 1) : ch.pan);
@@ -693,11 +698,11 @@ export function buildCompactGraph(kit, def) {
         }
       }
 
-      const masterG = dbToGain(LAWS[def.main.law].toDb(state.main.level));
+      const masterG = def.mainMute && state.main.mute ? 0 : dbToGain(LAWS[def.main.law].toDb(state.main.level));
       set(mainMaster.L.gain, masterG);
       set(mainMaster.R.gain, masterG);
       for (const b of busIds) {
-        const g = def.buses[b].master ? dbToGain(LAWS[def.buses[b].master.law].toDb(state[b].level)) : 1;
+        const g = def.buses[b].mute && state[b].mute ? 0 : def.buses[b].master ? dbToGain(LAWS[def.buses[b].master.law].toDb(state[b].level)) : 1;
         if (fxBuses[b]) {
           set(fxBuses[b].ret.L.gain, g);
           set(fxBuses[b].ret.R.gain, g);

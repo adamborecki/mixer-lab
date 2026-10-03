@@ -1960,6 +1960,245 @@ C16.push(
   },
 );
 
+
+// ----- Behringer X32 Compact -----
+
+const BAND = ["drums", "bass", "guitars", "keys", "trumpets"];
+
+const X32 = [
+  doors("x32c", {
+    prompt: "“Doors in five. The laptop is on AUX IN 1/2 — preshow music, please.”",
+    hints: ["The laptop isn't on channels 1–16. The input faders show one layer at a time.", "Press the AUX / FX layer button: the first strip is AUX 1/2.", "On the AUX / FX layer, push AUX 1/2's fader up."],
+    complete: "On a digital console the faders are shared: the layer buttons decide which channels they control right now. Always check the layer before you grab a fader.",
+  }),
+  {
+    id: "x32c-gain",
+    short: "Tiny vocal",
+    title: "The tiny vocal",
+    who: "Lead singer",
+    prompt: "“Can you even hear me? I sound tiny.”",
+    goal: "The vocal at a healthy input level and heard in the house, the rest unchanged.",
+    setup: { tweak: (st, h) => h.set("lead-vocal", "gainDb", -12) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "gain", kind: "goal", type: "sourceGain", source: "lead-vocal", label: "The vocal reaches a healthy input level" },
+      { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "lead-vocal", label: "The vocal is heard in the house" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: "lead-vocal", toleranceDb: 1, label: "Everything else in the house stays the same" },
+    ],
+    hints: ["Gain first. On the X32 the preamp is in the channel strip, for whichever channel is selected.", "Press SEL on channel 07: the channel strip on the left now edits it.", "Turn the channel strip's GAIN up until the meter sits around the middle."],
+    complete: "One set of channel-strip knobs serves every channel: SEL decides which. Check the channel strip's title before you turn anything.",
+  },
+  {
+    id: "x32c-48v",
+    short: "Silent overhead",
+    title: "The silent overhead",
+    who: "Drummer",
+    prompt: "“My overhead's dead.”",
+    goal: "The overhead heard in the house again.",
+    setup: { tweak: (st, h) => h.set("drums", "phantom", false) },
+    conditions: [
+      { id: "drums", kind: "goal", type: "sourceHeardInMain", source: "drums", label: "The drums are heard in the house" },
+      { id: "vox", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The vocal stays in the house" },
+    ],
+    hints: ["A condenser needs phantom power. On the X32 it's per channel.", "SEL channel 01: 48V is in the channel strip's INPUT section.", "SEL channel 01 and press 48V."],
+    complete: "48V lives in the selected channel's CONFIG/PREAMP section. The manual suggests muting a channel before switching it, to avoid a pop.",
+  },
+  {
+    id: "x32c-lowcut",
+    short: "Low cut",
+    title: "Rumble through the vocals",
+    who: "Venue tech",
+    prompt: "“Stage rumble is coming through both vocal mics.”",
+    goal: "LOW CUT of at least 80 Hz on both vocal channels, none on the bass.",
+    setup: {
+      tweak: (st, h) => {
+        h.set("lead-vocal", "hpf", 0);
+        h.set("backing-vocals", "hpf", 0);
+      },
+    },
+    conditions: [
+      goal("vox", "Both vocals have LOW CUT at 80 Hz or more", (ctx) => ["lead-vocal", "backing-vocals"].every((s) => hpfHz("x32c", mc(ctx, s)?.index ?? 0, sc(ctx, s)?.hpf ?? 0) >= 80)),
+      keep("bass", "The bass keeps its low end", (ctx) => (sc(ctx, "bass")?.hpf ?? 0) <= 0.02),
+    ],
+    hints: ["SEL each vocal channel in turn.", "LOW CUT is in the channel strip's INPUT section, a frequency from 20 to 400 Hz.", "SEL 06, set LOW CUT around 100 Hz; then SEL 07 and do the same."],
+    complete: "LOW CUT is part of every channel's preamp section on the X32: set it per channel, after GAIN.",
+  },
+  {
+    id: "x32c-lr",
+    short: "Missing guitar",
+    title: "The missing guitar",
+    who: "Guitarist",
+    prompt: "“The singer hears me in her wedge, but the audience can't hear me at all.”",
+    goal: "The guitar in the house, the rest of the house and the wedges unchanged.",
+    setup: { tweak: (st, h) => h.set("guitars", "lr", false) },
+    baseline: { main: { metric: "mainDbByChannel" }, singer: { metric: "monitorByChannel", bus: "mix1" } },
+    conditions: [
+      { id: "gtr", kind: "goal", type: "sourceHeardInMain", source: "guitars", label: "The guitar is heard in the house" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: "guitars", toleranceDb: 1, label: "Everything else in the house stays the same" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "mix1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+    ],
+    hints: ["The guitar reaches the wedge, so the mic, GAIN and channel all work. What's between the channel and the house?", "Each channel has a MAIN LR switch: on, it goes to the main mix. It's in the channel strip (PAN & SENDS).", "SEL channel 03 and switch MAIN LR on."],
+    complete: "On the X32 every channel needs MAIN LR on to reach the house. Turning it off is also a clean way to keep a channel in the wedges only.",
+  },
+  {
+    id: "x32c-sof",
+    short: "More me (Sends on Faders)",
+    title: "More me in my wedge",
+    who: "Lead singer",
+    prompt: "“I need more of my own voice in my wedge.”",
+    goal: "The vocal at least 4 dB louder in MIX 1 (the singer's wedge), everything else unchanged.",
+    setup: {},
+    baseline: {
+      send: { metric: "sendDb", bus: "mix1", source: "lead-vocal" },
+      vox: { metric: "heardMonitorDb", bus: "mix1", source: "lead-vocal" },
+      singer: { metric: "monitorByChannel", bus: "mix1" },
+      drummer: { metric: "monitorByChannel", bus: "mix2" },
+      main: { metric: "mainDbByChannel" },
+    },
+    conditions: [
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "mix1", label: "You listened to the singer's wedge" },
+      { id: "send", kind: "goal", type: "sendRaised", bus: "mix1", source: "lead-vocal", baseline: "send", minDb: 4, label: "The vocal's send to MIX 1 is up" },
+      { id: "heard", kind: "goal", type: "monitorRaised", bus: "mix1", source: "lead-vocal", baseline: "vox", minDb: 4, label: "The singer hears more of herself" },
+      { id: "rest", kind: "keep", type: "monitorMixUnchanged", bus: "mix1", baseline: "singer", except: "lead-vocal", toleranceDb: 1, label: "The rest of the singer's wedge stays the same" },
+      { id: "drummer", kind: "keep", type: "monitorMixUnchanged", bus: "mix2", baseline: "drummer", toleranceDb: 1, label: "The drummer's wedge stays the same" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["The singer's wedge is MIX 1 (XLR OUT 1). Listen to it.", "SEL MIX 1 on the BUS 1-8 layer, then press SENDS ON FADERS: the input faders become sends to MIX 1.", "With SENDS ON FADERS lit, push channel 07's fader up. Then switch SENDS ON FADERS off."],
+    complete: "SENDS ON FADERS turns the input faders into one MIX's sends: the quickest way to work on a wedge. Switch it off afterwards, or your next fader move changes a wedge instead of the house.",
+  },
+  masterFix({
+    id: "x32c-drummer-quiet",
+    short: "Drummer's wedge quiet",
+    title: "The drummer can't hear",
+    who: "Drummer",
+    prompt: "“My whole wedge is too quiet. The balance is fine.”",
+    bus: "mix2",
+    startDb: -20,
+    raise: true,
+    setLevel: (db) => LAWS.level.toPos(db),
+    hints: ["The drummer's wedge is MIX 2. One fader moves the whole of it.", "The BUS 1-8 layer on the right-hand faders shows the MIX masters.", "On the BUS 1-8 layer, push MIX 2's fader up towards 0 dB."],
+    complete: "The MIX master moves the whole wedge; the sends keep its balance. Same idea as an analog AUX master, on a fader layer.",
+  }),
+  {
+    id: "x32c-bus-mute",
+    short: "Silent wedge",
+    title: "The silent wedge",
+    who: "Lead singer",
+    prompt: "“My wedge is completely silent. It worked at soundcheck.”",
+    goal: "The singer's wedge (MIX 1) working again, nothing else changed.",
+    setup: { tweak: (st) => (st.mix1.mute = true), listen: "main" },
+    baseline: { main: { metric: "mainDbByChannel" }, sends: { metric: "sendDbByChannel", bus: "mix1" } },
+    conditions: [
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "mix1", label: "You listened to the singer's wedge" },
+      { id: "on", kind: "goal", type: "busAudible", bus: "mix1", label: "The singer's wedge makes sound" },
+      { id: "balance", kind: "keep", type: "sendBalanceKept", bus: "mix1", baseline: "sends", toleranceDb: 1, label: "The wedge mix stays the same" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["Every send to the wedge is still there. So look at the whole bus.", "Bus masters have their own MUTE. They're on the BUS 1-8 layer, right-hand side.", "On the BUS 1-8 layer, switch MIX 1's MUTE off."],
+    complete: "A muted bus master silences that whole mix while every send looks fine. Check the master before you chase channels.",
+  },
+  {
+    id: "x32c-reverb",
+    short: "Reverb on the vocal",
+    title: "Reverb on the vocal",
+    who: "Lead singer",
+    prompt: "“My voice sounds bone dry.”",
+    goal: "The vocal sent to FX 1 (the hall reverb), the dry mix and wedges unchanged.",
+    setup: { tweak: (st, h) => h.sendDb("lead-vocal", "fx1", -Infinity) },
+    baseline: { main: { metric: "mainDbByChannel" }, singer: { metric: "monitorByChannel", bus: "mix1" } },
+    conditions: [
+      goal("send", "The vocal is sent to the reverb", (ctx) => into(ctx, "fx1", "lead-vocal") >= -35),
+      keep("return", "The reverb comes back into MAIN LR", (ctx) => (ctx.mix.busDb?.fx1 ?? -Infinity) >= -20),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The dry house mix stays the same" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "mix1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+    ],
+    hints: ["FX 1 is a hall reverb fed by a send from each channel, returning on FX 1 RTN (AUX / FX layer).", "SEL channel 07: its sends are in the channel strip, FX 1 among them.", "Turn up channel 07's FX 1 send."],
+    complete: "Effects on the X32 are buses too: a send per channel in, an FX return fader back into the main mix.",
+  },
+  {
+    id: "x32c-out-of-house",
+    short: "Out of the house",
+    title: "Out of the house, still in the wedge",
+    who: "Bassist",
+    prompt: "“The subs are too much in here. Take me out of the house for this song, but the drummer still needs me.”",
+    goal: "The bass out of the house, still in the drummer's wedge (MIX 2), everything else unchanged.",
+    setup: {},
+    baseline: { main: { metric: "mainDbByChannel" }, singer: { metric: "monitorByChannel", bus: "mix1" } },
+    conditions: [
+      goal("out", "The bass is out of the house", (ctx) => house(ctx, "bass") < AUDIBLE),
+      { id: "wedge", kind: "keep", type: "monitorPresent", bus: "mix2", sources: ["bass"], minDb: -30, label: "The drummer still hears the bass" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: "bass", toleranceDb: 1, label: "Everything else in the house stays the same" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "mix1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+    ],
+    hints: ["Try MUTE and listen to MIX 2. On the X32, MUTE takes a channel out of its sends too.", "You need the bass out of MAIN LR only. Two ways: its fader (its MIX 2 send is PRE), or one switch in the channel strip.", "SEL channel 02 and switch MAIN LR off (or pull its fader down)."],
+    complete: "MAIN LR off is the cleanest way: the channel stays in every send, with its fader untouched for the next song. MUTE would have taken the drummer's bass too.",
+  },
+  {
+    id: "x32c-dca",
+    short: "One fader for the band (DCA)",
+    title: "One fader for the band",
+    who: "Band leader",
+    prompt: "“For the acoustic verse, bring the whole band down together, about 6 dB, with one fader. Leave the vocals alone, and don't touch the channel faders — I like the balance.”",
+    goal: "Drums, bass, guitar, keys and trumpets on one DCA, at least 4 dB down in the house; vocals and channel faders unchanged.",
+    setup: { listen: "main" },
+    baseline: { main: { metric: "mainDbByChannel" }, levels: { metric: "channelLevels" }, singer: { metric: "monitorByChannel", bus: "mix1" } },
+    conditions: [
+      goal("dca", "The five band channels share one DCA (the vocals aren't on it)", (ctx) =>
+        [1, 2, 3, 4, 5, 6, 7, 8].some((k) => BAND.every((s) => sc(ctx, s)?.dca[`d${k}`]) && !["lead-vocal", "backing-vocals"].some((s) => sc(ctx, s)?.dca[`d${k}`])),
+      ),
+      goal("down", "The band is at least 4 dB down in the house", (ctx) => BAND.every((s) => ctx.baseline.main[mc(ctx, s).index] - house(ctx, s) >= 4)),
+      { id: "vox", kind: "keep", type: "mainUnchanged", baseline: "main", except: BAND, toleranceDb: 1, label: "The vocals stay where they are" },
+      keep("faders", "The channel faders don't move", (ctx) => ctx.state.channels.every((c, i) => Math.abs(c.level - ctx.baseline.levels[i]) < 0.01)),
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "mix1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+    ],
+    hints: ["A DCA is a fader that moves other faders' levels without touching them. The right-hand faders have a DCA 1-8 layer.", "On the DCA 1-8 layer, press DCA 1's SEL to start assigning, press SEL on channels 01–05, then DCA 1's SEL again to finish.", "Then pull DCA 1's fader down about 6 dB."],
+    complete: "The DCA moved five channels at once and kept their balance, without moving a single channel fader. The wedges didn't change either: their sends are pre-fader, and a DCA acts like the fader.",
+  },
+  {
+    id: "x32c-mute-group",
+    short: "One-button mute",
+    title: "One button between songs",
+    who: "MC",
+    prompt: "“Between songs I talk. One button should mute the drums, guitar and trumpet mics so they don't pick up the band noodling. The vocal mics stay live.”",
+    goal: "Drums, guitar and trumpets in one mute group, that group muting them; vocals still live.",
+    setup: {},
+    conditions: [
+      goal("group", "Drums, guitar and trumpets are in one mute group, and it's on", (ctx) => [1, 2, 3, 4, 5, 6].some((k) => ctx.state.mgrp[`g${k}`] && ["drums", "guitars", "trumpets"].every((s) => sc(ctx, s)?.mgrp[`g${k}`]))),
+      goal("out", "They're out of the house", (ctx) => ["drums", "guitars", "trumpets"].every((s) => house(ctx, s) < AUDIBLE)),
+      { id: "vox", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The lead vocal stays live" },
+      { id: "bv", kind: "keep", type: "sourceHeardInMain", source: "backing-vocals", label: "The backing vocal stays live" },
+    ],
+    hints: ["Muting three channels one by one works once, but you'll do it after every song.", "MUTE GRP (by the mute group buttons) puts the six buttons into assign mode: pick a group, then press SEL on its channels.", "MUTE GRP on, group 1, SEL 01, 03 and 05, MUTE GRP off, then press group 1."],
+    complete: "A mute group mutes several channels with one button and leaves each channel's own MUTE alone. Theatre and talk-heavy shows live on them.",
+  },
+  {
+    id: "x32c-new-mix",
+    short: "Guitarist's mix (MIX 3)",
+    title: "A mix for the guitarist",
+    who: "Guitarist",
+    prompt: "“My wedge is on XLR OUT 3 now. Lots of me, the vocal, a bit of drums — and it mustn't change when you ride the house faders.”",
+    goal: "A new MIX 3: guitar and vocal clear, drums under the guitar, those sends PRE; the other mixes and the house unchanged.",
+    setup: {
+      tweak: (st, h) => {
+        h.addDevice("gwedge");
+        h.cable("mixer/mix3", "gwedge/in", "xlr");
+      },
+    },
+    baseline: { main: { metric: "mainDbByChannel" }, singer: { metric: "monitorByChannel", bus: "mix1" }, drummer: { metric: "monitorByChannel", bus: "mix2" } },
+    conditions: [
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "mix3", label: "You listened to the guitarist's wedge" },
+      { id: "core", kind: "goal", type: "monitorPresent", bus: "mix3", sources: ["guitars", "lead-vocal"], minDb: -30, label: "Guitar and vocal are clear in MIX 3" },
+      { id: "drums", kind: "goal", type: "monitorLittle", bus: "mix3", source: "drums", below: ["guitars"], byDb: 3, label: "A bit of drums, under the guitar" },
+      goal("pre", "The guitarist's mix ignores the house faders (PRE)", (ctx) => ["guitars", "lead-vocal", "drums"].every((s) => ignoresFader(ctx, "mix3", s))),
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "mix1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+      { id: "drummer", kind: "keep", type: "monitorMixUnchanged", bus: "mix2", baseline: "drummer", toleranceDb: 1, label: "The drummer's wedge stays the same" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["SEL MIX 3 and use SENDS ON FADERS to build the mix; listen to MIX 3 as you go.", "Sends to MIX 3 start POST here, so they'd follow the house faders. Each channel's PRE for MIX 3 is in its channel strip.", "SEL 01, 03 and 07 in turn and press PRE next to their MIX 3 send. Guitar and vocal near 0 dB, drums lower."],
+    complete: "A new monitor mix: the sends set the balance, PRE makes it independent of the house. The routing (MIX 3 → XLR OUT 3) was already there.",
+  },
+];
+
 // ---------- each board's list, in teaching order ----------
 
 const ORDER = {
@@ -1971,9 +2210,10 @@ const ORDER = {
   cr1604: ["doors", "phantom", "assign", "levelset", "sweep", "lowcut", "mute-pre", "drummer-quiet", "reverb", "efx-mon", "mono", "shift", "subgroup", "direct", "room"],
   ui16: ["doors", "gain", "48v", "more-keys", "hpf", "harsh", "comp", "trumpet-reverb", "delay", "out-of-house", "post", "guitar-mix"],
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
+  x32c: ["doors", "gain", "48v", "lowcut", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix"],
 };
 
-const LISTS = { mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: C16 };
+const LISTS = { mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: C16, x32c: X32 };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.
 function arrange(board) {
@@ -1996,5 +2236,6 @@ export const MIXER_ORDER = [
   { model: "x1204usb", skin: "x1204usb", why: "Faders, compressors, built-in effects, PRE per channel, PFL or solo-in-place, an ALT bus with its own fader." },
   { model: "cr1604", skin: "mackie1604", why: "A full console: 16 channels, six auxes with SHIFT, four subgroups, mono out, four returns, direct outs to a recorder." },
   { model: "ui16", skin: "ui16", why: "Digital: the same jobs through pages and SEL. Sends on faders, a parametric EQ and a compressor on every channel." },
+  { model: "x32c", skin: "x32c", why: "A digital console laid out like the big ones: fader layers, a selected-channel strip, Sends on Faders, DCA and mute groups, a MAIN LR switch on every channel." },
   { model: "sd442", skin: "sd442", why: "A different world: a field mixer feeding a camera. Output levels, tone, limiters and the mono check." },
 ];

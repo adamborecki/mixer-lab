@@ -295,6 +295,59 @@ export const COMPACT = {
     outputs: ["mainXlrOnly", "aux1", "aux2", "aux3", "aux4"],
     layout: { kind: "digital" },
   },
+
+  // Behringer X32 Compact (user manual): 16 local XLR inputs, 8 XLR outputs
+  // (by default mix buses 1–6 on 1–6, Main L/R on 7–8), input faders on layers,
+  // a separate bank for DCA groups and bus masters, Sends on Faders, 8 DCAs,
+  // 6 mute groups, a Main LR switch on every channel. Drawn by js/ui/mixer-x32-view.js.
+  x32c: {
+    id: "x32c",
+    name: "Behringer X32 Compact",
+    blurb: "Digital console: 16 inputs on fader layers, a selected-channel strip, 6 mix buses, 8 DCA groups, 6 mute groups, Sends on Faders.",
+    digital: true,
+    phantom: { label: "48V", channels: Array.from({ length: 16 }, (_, i) => i), perChannel: true },
+    channels: [
+      ...Array.from({ length: 16 }, (_, i) => ({
+        label: String(i + 1).padStart(2, "0"),
+        kind: "mono",
+        jacks: ["mic"],
+        gain: { min: -12, max: 60 },
+        hpf: { min: 20, max: 400 },
+        peq: true,
+        dyn: true,
+        polarity: true,
+        sends: ["mix1", "mix2", "mix3", "mix4", "mix5", "mix6", "fx1", "fx2"],
+        mute: "mute",
+        solo: true,
+        peak: true,
+      })),
+      // AUX IN 1/2 (rear ¼" TRS), on the AUX/FX layer as one stereo strip.
+      { label: "AUX 1/2", kind: "stereo", jacks: ["linePair"], gain: { min: -12, max: 20 }, peq: true, dyn: true, sends: ["mix1", "mix2", "mix3", "mix4", "mix5", "mix6", "fx1", "fx2"], mute: "mute", solo: true, peak: true },
+    ],
+    sends: {
+      ...Object.fromEntries([1, 2, 3, 4, 5, 6].map((n) => [`mix${n}`, { label: `MIX ${n}`, bus: `mix${n}`, tap: "each", pre: false, law: "level" }])),
+      fx1: { label: "FX 1", bus: "fx1", tap: "post", law: "level" },
+      fx2: { label: "FX 2", bus: "fx2", tap: "post", law: "level" },
+    },
+    buses: {
+      ...Object.fromEntries([1, 2, 3, 4, 5, 6].map((n) => [`mix${n}`, { label: `MIX ${n}`, master: { label: `MIX ${n}`, law: "level" }, mute: true }])),
+      fx1: { label: "FX 1", master: { label: "FX 1 RTN", law: "level" }, fx: { name: "Hall reverb", kind: "reverb", seconds: 2.4, number: 1 } },
+      fx2: { label: "FX 2", master: { label: "FX 2 RTN", law: "level" }, fx: { name: "Stereo delay", kind: "delay", seconds: 0.375, feedback: 0.35, number: 2 } },
+    },
+    muteCutsPre: true, // a channel MUTE (or its mute group, or a muted DCA) silences its bus sends too
+    lrSwitch: true, // MAIN LR: each channel reaches the main mix only with it on
+    dca: 8,
+    muteGroups: 6,
+    mainMute: true,
+    auxOut: "xlr",
+    main: { label: "MAIN LR", law: "level" },
+    phones: { label: "PHONES", sources: null },
+    solo: { mode: "pfl", label: "SOLO" },
+    meter: [-54, -48, -42, -36, -30, -24, -18, -12, -6, "CLIP"],
+    peakLabel: "CLIP",
+    outputs: ["x32Outs"],
+    layout: { kind: "x32" },
+  },
 };
 
 // ---------- rear panels (used by js/connection-model.js) ----------
@@ -334,6 +387,10 @@ export function compactPorts(def) {
   } else if (o.includes("xlrSwitched")) {
     // The level these carry is the mixer's OUTPUT LEVEL switch (rig device `outLevel`).
     ports.push(out("main-l", "xlr", "MASTER OUT L (XLR)", { bus: "main", side: "L", levelSwitch: true }), out("main-r", "xlr", "MASTER OUT R (XLR)", { bus: "main", side: "R", levelSwitch: true }));
+  } else if (o.includes("x32Outs")) {
+    // XLR OUT 1–6 carry MIX 1–6, XLR OUT 7–8 the MAIN L/R (the factory routing).
+    for (const n of [1, 2, 3, 4, 5, 6]) ports.push(out(`mix${n}`, "xlr", `XLR OUT ${n} (MIX ${n})`, { bus: `mix${n}` }));
+    ports.push(out("main-l", "xlr", "XLR OUT 7 (MAIN L)", { bus: "main", side: "L" }), out("main-r", "xlr", "XLR OUT 8 (MAIN R)", { bus: "main", side: "R" }));
   } else if (o.includes("mainXlrOnly")) {
     ports.push(out("main-l", "xlr", `${mainName} L (XLR)`, { bus: "main", side: "L" }), out("main-r", "xlr", `${mainName} R (XLR)`, { bus: "main", side: "R" }));
   } else if (o.includes("main")) {

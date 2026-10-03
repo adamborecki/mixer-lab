@@ -3390,3 +3390,143 @@ dialog::backdrop {
     --fader-h: 150px;
   }
 }
+
+/* ---------- Behringer X32 Compact: channel strip | inputs | display | groups ---------- */
+
+.skin-x32c .mixer-surface.x32-surface {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+  background: linear-gradient(180deg, #1d2026 0%, #131519 100%);
+  border: 1px solid #2c303a;
+  border-radius: var(--radius-md);
+  padding: 0.6rem;
+}
+.skin-x32c .fader {
+  --fader-h: 170px;
+  width: 32px;
+}
+.x32-desk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.x32-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
+  background: #181a20;
+  border: 1px solid #2a2e37;
+  border-radius: 8px;
+  padding: 0.4rem;
+}
+.x32-title {
+  margin: 0;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+.x32-layers,
+.x32-mgrp {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+}
+.x32-layer,
+.x32-group,
+.x32-sof {
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 800;
+  min-height: 32px;
+  padding: 0.3rem 0.6rem;
+  border-radius: 5px;
+  border: 1px solid #3a3f4b;
+  background: #23262e;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.x32-layer.on,
+.x32-group.on {
+  background: #ffb547;
+  border-color: #ffb547;
+  color: #111;
+}
+.x32-sof.on {
+  background: #7ce0ff;
+  border-color: #7ce0ff;
+  color: #0d1117;
+}
+.x32-bank {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 0.3rem;
+}
+.x32-strip,
+.x32-empty {
+  width: 62px;
+}
+.x32-empty {
+  flex: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+}
+.x32-tag {
+  font-size: 0.55rem;
+  font-weight: 800;
+  color: #ffb547;
+  text-align: center;
+  line-height: 1.2;
+}
+.dg-sel.assigning {
+  border-style: dashed;
+  border-color: #ffb547;
+}
+.dg-sel.assigning.on {
+  background: #ffb547;
+  color: #111;
+}
+.x32-display {
+  flex: 1 1 200px;
+  min-width: 180px;
+  max-width: 320px;
+  background: #0f1a24;
+  border: 2px solid #2e4a63;
+  border-radius: 8px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: #cfe9ff;
+}
+.x32-lines p {
+  margin: 0 0 0.35rem;
+}
+.x32-big {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fff;
+}
+.x32-warn {
+  color: #ffd27a;
+}
+.x32-main {
+  width: 80px;
+}
+@media (max-width: 899px) {
+  .skin-x32c .mixer-surface.x32-surface {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .skin-x32c .fader {
+    --fader-h: 140px;
+  }
+  .x32-display {
+    max-width: none;
+  }
+}

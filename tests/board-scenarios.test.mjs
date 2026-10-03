@@ -515,10 +515,83 @@ Object.assign(WRONG, {
   }]],
 });
 
+
+// ----- Behringer X32 Compact -----
+Object.assign(SOLVE, {
+  "x32c-doors": (a) => a.faderDb("preshow", 0),
+  "x32c-gain": (a) => a.set("lead-vocal", "gainDb", 46),
+  "x32c-48v": (a) => a.set("drums", "phantom", true),
+  "x32c-lowcut": (a) => {
+    a.set("lead-vocal", "hpf", 0.25);
+    a.set("backing-vocals", "hpf", 0.25);
+  },
+  "x32c-lr": (a) => a.set("guitars", "lr", true),
+  "x32c-sof": (a) => {
+    a.st.setListen("mix1");
+    a.sendDb("lead-vocal", "mix1", 6);
+  },
+  "x32c-drummer-quiet": (a) => {
+    a.st.setListen("mix2");
+    a.st.setBus("mix2", "level", LAWS.level.toPos(0));
+  },
+  "x32c-bus-mute": (a) => {
+    a.st.setListen("mix1");
+    a.st.setBus("mix1", "mute", false);
+  },
+  "x32c-reverb": (a) => a.sendDb("lead-vocal", "fx1", -10),
+  "x32c-out-of-house": (a) => a.set("bass", "lr", false),
+  "x32c-dca": (a) => {
+    for (const s of ["drums", "bass", "guitars", "keys", "trumpets"]) a.set(s, "dca.d1", true);
+    a.st.setBus("dca1", "level", LAWS.level.toPos(-6));
+  },
+  "x32c-mute-group": (a) => {
+    for (const s of ["drums", "guitars", "trumpets"]) a.set(s, "mgrp.g1", true);
+    a.st.setBus("mgrp", "g1", true);
+  },
+  "x32c-new-mix": (a) => {
+    a.st.setListen("mix3");
+    for (const s of ["guitars", "lead-vocal", "drums"]) a.set(s, "pres.mix3", true);
+    a.sendDb("guitars", "mix3", 0);
+    a.sendDb("lead-vocal", "mix3", 0);
+    a.sendDb("drums", "mix3", -8);
+  },
+});
+
+Object.assign(WRONG, {
+  "x32c-gain": [["the fader up", (a) => a.faderDb("lead-vocal", 10)]],
+  "x32c-lr": [["the fader up", (a) => a.nudge("guitars", 6)]],
+  "x32c-sof": [["the vocal's house fader up", (a) => {
+    a.st.setListen("mix1");
+    a.nudge("lead-vocal", 6);
+  }]],
+  "x32c-drummer-quiet": [["every send up", (a) => {
+    a.st.setListen("mix2");
+    for (const c of a.mix().channels.filter((c) => c.sourceId && c.aux.mix2.sendDb > -60)) a.st.setChannel(c.index, "sends.mix2", LAWS.level.toPos(c.aux.mix2.sendDb + 10));
+  }]],
+  "x32c-bus-mute": [["the vocal send up", (a) => {
+    a.st.setListen("mix1");
+    a.sendDb("lead-vocal", "mix1", 8);
+  }]],
+  "x32c-reverb": [["the reverb return up", (a) => a.st.setBus("fx1", "level", 1)]],
+  "x32c-out-of-house": [["MUTE", (a) => a.set("bass", "enabled", false)]],
+  "x32c-dca": [["the channel faders down", (a) => {
+    for (const s of ["drums", "bass", "guitars", "keys", "trumpets"]) a.nudge(s, -6);
+  }], ["the MAIN LR fader down", (a) => a.st.setBus("main", "level", LAWS.level.toPos(-6))]],
+  "x32c-mute-group": [["three channel MUTEs", (a) => {
+    for (const s of ["drums", "guitars", "trumpets"]) a.set(s, "enabled", false);
+  }]],
+  "x32c-new-mix": [["sends left POST", (a) => {
+    a.st.setListen("mix3");
+    a.sendDb("guitars", "mix3", 0);
+    a.sendDb("lead-vocal", "mix3", 0);
+    a.sendDb("drums", "mix3", -8);
+  }]],
+});
+
 describe("board scenarios: data", () => {
   it("validate, and every board has at least nine, numbered from 1", () => {
     assert.deepEqual(validateScenarios(), []);
-    for (const board of ["mix8", "vlz1202", "mg102", "stagepas400bt", "x1204usb", "sd442", "ui16", "cr1604"]) {
+    for (const board of ["mix8", "vlz1202", "mg102", "stagepas400bt", "x1204usb", "sd442", "ui16", "cr1604", "x32c"]) {
       const list = scenariosFor(board).filter((s) => s.number > 0);
       assert.ok(list.length >= 9, `${board}: ${list.length}`);
       assert.deepEqual(list.map((s) => s.number), list.map((_, i) => i + 1), board);

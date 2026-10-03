@@ -30,6 +30,7 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 | `js/app.js` | Wiring: store ↔ engine ↔ scenario checks ↔ views; session (listen history); Free play music mode; credits |
 | `js/progress.js`, `js/submission.js` | Solved-scenario tracking and per-scenario active time and action counts (localStorage) and the plain-text Canvas submission with its check code; pure, tested in `tests/submission.test.mjs`. `tools/verify-submission.mjs < file` re-checks a pasted submission |
 | `js/ui/icons.js` | Original SVG icon library (gear, plugs, jacks, signal and cable kinds) and the model → picture mapping (`deviceIconName`, `plugIconName`, `jackIconName`). Presentation only; tested in `tests/icons.test.mjs` |
+| `js/ui/mixer-x32-view.js` | The Behringer X32 Compact surface: input and group layers, SEL, Sends on Faders, DCA and mute group assignment ([DIGITAL_MIXER.md](DIGITAL_MIXER.md)) |
 | `js/ui/mixer-digital-view.js` | The digital mixer surface (Ui16): mix bar (sends on faders), SEL, the selected-channel panel ([DIGITAL_MIXER.md](DIGITAL_MIXER.md)) |
 | `js/ui/*.js` | `submission-view` (Canvas Submission dialog), `mixer-view` (renders a skin), `patch-view` (Sources/Outputs + patch dialog), `scenario-view`, `listen-bar`, `controls` (knob/fader/fine sheet), `flow` (signal-flow explainer) |
 | `js/meters.js` | Meter drawing and ballistics (levels come from AnalyserNodes) |
@@ -121,7 +122,7 @@ Input 9/10 is **one** channel strip (`CHANNEL_LAYOUT[8]`, `stereo: true`, label 
 ## Tests and QA
 
 ```sh
-npm test            # or: node --test tests/   (Node 18+, 194 tests)
+npm test            # or: node --test tests/*.test.mjs   (Node 18+)
 python3 -m http.server 8124   # then http://localhost:8124/?debug=1
 ```
 

@@ -484,3 +484,28 @@ describe("EQ shelves", () => {
     assert.equal(shelfHz("peaking", 2500), 2500);
   });
 });
+
+describe("Behringer X32 Compact", () => {
+  it("a DCA adds its fader to its channels' faders, and a muted DCA mutes them, wedges included", () => {
+    const st = gig("x32c");
+    st.setChannel(0, "dca.d2", true); // drums on DCA 2
+    const before = ch(st, "drums");
+    st.setBus("dca2", "level", LAWS.level.toPos(-10));
+    near(ch(st, "drums").faderDb, before.faderDb - 10);
+    near(ch(st, "drums").mainDb.L, before.mainDb.L - 10);
+    near(ch(st, "drums").aux.mix2.monitorDb, before.aux.mix2.monitorDb); // pre-fader wedge: unchanged
+    st.setBus("dca2", "mute", true);
+    assert.equal(ch(st, "drums").heardMainDb, -Infinity);
+    assert.equal(ch(st, "drums").aux.mix2.monitorDb, -Infinity);
+  });
+
+  it("MAIN LR off keeps a channel in its sends but out of the house; XLR OUT 1–6 are MIX 1–6, 7–8 MAIN", () => {
+    const st = gig("x32c");
+    st.setChannel(6, "lr", false);
+    assert.equal(ch(st, "lead-vocal").heardMainDb, -Infinity);
+    assert.ok(ch(st, "lead-vocal").aux.mix1.heardDb > -40);
+    const ids = portIds("x32c");
+    for (const p of ["mix1", "mix6", "main-l", "main-r"]) assert.ok(ids.includes(p), p);
+    assert.equal(DEVICE_TYPES.x32c.ports.find((p) => p.id === "main-l").name, "XLR OUT 7 (MAIN L)");
+  });
+});

@@ -117,7 +117,7 @@ Permission for public use of the Persephone stems, both the excerpt and the full
 ## Tests
 
 ```sh
-npm test            # or: node --test tests/
+npm test            # or: node --test tests/*.test.mjs
 ```
 
 Node 18 or newer. There are 94 tests. They cover connectors, chain validation, the level law, computed mix behavior (including Aux 1 and Aux 2 independence), the store, the skin mappings, and each scenario's start state, solutions, listening objectives and wrong-wedge cases. They do not need a browser. Audio, layout, touch behavior and stem sync are checked by hand in a browser.

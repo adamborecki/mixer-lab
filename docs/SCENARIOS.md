@@ -137,7 +137,8 @@ Students arrive knowing the basics from Mixer A/B (GAIN, faders, AUX sends, Main
 5. **Behringer Xenyx X1204USB**: faders, compressors, built-in effects, PRE per channel, PFL or solo in place, an ALT bus with its own fader.
 6. **Mackie CR1604-VLZ**: a full console. Six auxes with SHIFT, four subgroups, mono out, four returns, direct outs to a recorder.
 7. **Soundcraft Ui16**: digital. The same jobs through pages and SEL: sends on faders, parametric EQ and a compressor on every channel.
-8. **Sound Devices 442**: a different world. A field mixer feeding a camera: output levels, tone, limiters, the mono check.
+8. **Behringer X32 Compact**: a digital console laid out like the big ones. Fader layers, the selected-channel strip, Sends on Faders, DCAs and mute groups, a MAIN LR switch per channel.
+9. **Sound Devices 442**: a different world. A field mixer feeding a camera: output levels, tone, limiters, the mono check.
 
 ### Each mixer's list (teaching order)
 
@@ -152,6 +153,7 @@ Every list goes: get sound, gain and tone, the wedges, that mixer's own controls
 | Xenyx X1204USB (12) | Doors music · Consumer level · Overhead for the ballad · Set the gain with PFL · Jumpy vocal · Reverb on the vocal · Slapback · What's in my wedge? · The guitar vanishes · Reverb in the wedge · Walk-in on CD/TAPE · The MC break | faders, −10 dBV switch, PHANTOM 1–4, SOLO MODE (PFL), COMP, FX send + RET 2, PROGRAM, AUX SOLO, per-channel PRE, RET 1 MON, CD/TAPE TO MAIN, MUTE/ALT 3-4 + C-R ALT |
 | CR1604-VLZ (15) | Doors music · Silent overhead · Missing vocal · Level-set the vocal · Honky horns · Low cut · Mute, keep the wedges · Drummer can't hear · Lost reverb · Reverb in the wedge · Lobby speaker · Horn wedge on AUX 6 · Rhythm section sub · Record the vocal · Record the audience | TAPE TO MAIN MIX, rear PHANTOM, L-R assign, SOLO MODE (LEVEL SET) + TRIM, MID sweep (MID + FREQ), LOW CUT, PRE vs MUTE, AUX SOLO + AUX SEND master, AUX 3 + RETURN 1, EFFECTS TO MONITORS, MONO OUT + MONO LEVEL, 5/6 SHIFT, SUB 1-2 + ASSIGN TO MAIN, DIRECT OUT → Zoom F8 (arm), recorder 48V |
 | Ui16 (12) | Doors music · Tiny vocal · Silent overhead · More keys for the drummer · Rumble through the vocals · Harsh vocal · Jumpy bass · Reverb on the horns · An echo on the last line · Out of the house · Follow my fader · A mix for the guitarist | MIX page, GAIN page, per-channel 48V, AUX pages (sends on faders), HPF, PEQ (GAIN/FREQ/Q), COMPRESSOR (THRESH/RATIO/GAIN), REVERB and DELAY pages, MUTE vs fader, PRE/POST per send, a new aux mix |
+| X32 Compact (13) | Doors music · Tiny vocal · Silent overhead · Rumble through the vocals · Missing guitar · More me in my wedge · Drummer can't hear · Silent wedge · Reverb on the vocal · Out of the house, still in the wedge · One fader for the band · One button between songs · A mix for the guitarist | layers (CH, AUX/FX), SEL + channel strip GAIN / 48V / LOW CUT, MAIN LR switch, SENDS ON FADERS, MIX masters and MUTE, FX sends, MAIN LR vs MUTE, DCA assign + fader, MUTE GRP assign + buttons, a new MIX with PRE sends |
 | Sound Devices 442 (9) | Distorted camera · Line up with tone · Silent room mics · Distorting vocal · Camera level too low · A line feed · Wind on the vocal mics · The mono check · Two tracks for the editor | camera MIC/LINE vs XLR OUTPUT LEVEL, TONE, per-channel P48, GAIN vs fader (and the limiter), MASTER, input MIC/LINE switch, HPF, Ø + HEADPHONE M, 1+2 LINK, PAN as track select, LIM ON vs LINK |
 
 Some controls aren't in the level model (EQ, HPF, compression, effects, limiters), so those scenarios check the setting itself, with the house levels as a keep. Templates in `js/board-scenarios.js` cover the recurring shapes: `gainFix`, `eqFix`, `masterFix`, `swapToPhantom`.
@@ -177,7 +179,7 @@ Some pairs are deliberately set against each other: MUTE spares PRE sends on the
 ## Tests
 
 ```sh
-npm test            # or: node --test tests/
+npm test            # or: node --test tests/*.test.mjs
 ```
 
 Node 18 or newer. `tests/scenarios.test.mjs` checks data integrity, that each scenario starts unsolved with `keep` conditions holding (and scenarios 2 and 3 start on Main), and that each is solved (or not) by the state changes described above, including the listening objectives, the wrong-wedge cases and the tempting wrong fixes (no audio or UI). It passes a `session` the way `js/app.js` does. `tests/routing.test.mjs` covers connectors, chains, the level law, `computeMix` (including Aux 1 and Aux 2 independence) and the store. `tests/skins.test.mjs` covers the MUTE/ON mapping, the global phantom state, strip layout data (`aux1` and `aux2` parts), the AUX 1/AUX 2 and MON 1/MON 2 terms, and hint placeholders. No browser is needed.
