@@ -1,5 +1,6 @@
-// Outboard gear that isn't the mixer: a reverb unit, a Zoom F8 field recorder
-// and a stereo room-mic pair. Their settings live on the rig device itself
+// Outboard gear that isn't the mixer: a reverb unit, a Zoom F8 field recorder,
+// a stereo room-mic pair and a camera's audio input (plus the 442 mixer's
+// OUTPUT LEVEL switch, which decides what its XLR outs can feed). Their settings live on the rig device itself
 // ({ id, type, label, ...settings }) and change through MixerStore.setDevice.
 // Pure JS: the audio side is js/outboard-audio.js. See docs/CR1604.md.
 
@@ -103,6 +104,8 @@ export function micResponse(pair, source) {
 const KEYS = {
   reverb: { decay: range(REVERB.decayMin, REVERB.decayMax, 0.1) },
   "stereo-mic-pair": { spacingCm: range(0, PAIR.spacingMax, 1), angleDeg: range(0, PAIR.angleMax, 1) },
+  "camera-input": { inputLevel: range(0, 1, 1) }, // 0 = MIC, 1 = LINE
+  sd442: { outLevel: range(0, 2, 1) }, // the 442's XLR OUTPUT LEVEL: 0 = MIC, 1 = −10, 2 = LINE
   "zoom-f8": {
     trimDb: range(F8.gainMin, F8.gainMax, 0.5),
     phantom: bool,

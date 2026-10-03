@@ -1,6 +1,6 @@
 # Compact mixers
 
-Five real mixers from Chapman's inventory, built as data: the Mackie Mix8, Mackie 1202-VLZ, Yamaha MG10/2, Yamaha STAGEPAS 400BT and Behringer Xenyx X1204USB. They're picked from the **Real mixers** menu next to Mixer A and Mixer B, along with the CR1604-VLZ ([CR1604.md](CR1604.md)).
+Six real mixers from Chapman's inventory, built as data: the Mackie Mix8, Mackie 1202-VLZ, Yamaha MG10/2, Yamaha STAGEPAS 400BT, Behringer Xenyx X1204USB and the Sound Devices 442 field mixer (its own section below). They're picked from the **Real mixers** menu next to Mixer A and Mixer B, along with the CR1604-VLZ ([CR1604.md](CR1604.md)).
 
 | Layer | File |
 |---|---|
@@ -67,3 +67,47 @@ The Free play gig on each one shows its limits:
   - **COMP:** a Web Audio compressor: threshold −6 → −36 dBFS and ratio 1:1 → 8:1 as the knob turns, with some make-up gain. The LED lights above 1 dB of gain reduction.
   - **USB** audio and the footswitch aren't modelled. CD/TAPE TO MAIN doesn't break the tape-out link.
 - **The scenario checks' level model** leaves EQ, low cut, compression and effects out, as everywhere else.
+
+## Sound Devices 442 (field mixer)
+
+A four-input location mixer, in the lab because it's in the inventory and because it teaches what a live board hides: **two gain stages**, **output level matching**, and **checking a stereo pair in mono**. Same framework (definition `sd442` in `js/compact-defs.js`), with these options:
+
+| Feature | On the 442 | In the lab |
+|---|---|---|
+| Inputs | 4 transformer-balanced XLR, MIC/LINE switch per input | `jacks: ["xlrMicLine"]`; LINE takes 40 dB off (`gain.lineSwitch`) |
+| Gain | GAIN +22…+60 dB (pop-up knob), then the fader | GAIN knob, then a rotary FADER: off … 0 at the centre … +15 (`levelLaw: "sdFader"`) |
+| Powering | P48 / DYN / T per input; 48 V or 12 V | one P48 button per channel (`phantom.perChannel`); no T-power or 12 V |
+| HPF | sweepable 80–240 Hz, off at the detent | `hpf`: a 12 dB/oct high-pass that sweeps 80–240 Hz |
+| Limiters | input limiters + output limiters, LIM switch OFF / ON / LINK | input limiter per channel (LED); output limiter as two mono limiters (ON) or one stereo limiter (LINK) |
+| 1+2 LINK, Ø | LINK ON: one stereo pair on channel 1's fader, PAN becomes balance; Ø on channel 2 | `link`, `polarity`. LINK MS isn't built |
+| Master | MASTER off … 0 … +6 | `master6` law |
+| Outputs | XLR masters at MIC / −10 / LINE; TA3 masters; Hirose; tape out; mono mic out; direct outs | XLR masters with the OUTPUT LEVEL switch (stored on the mixer's rig device as `outLevel`), 3.5 mm tape out. No TA3, Hirose, mono mic or direct outs (the lab has no TA3 jacks yet) |
+| Tone / slate | 1 kHz at 0 dBu to the outputs; headphones 20 dB down ("ear-saver") | TONE replaces the mix on the outputs; the phones drop 20 dB. No slate mic |
+| Headphones | source rotary OFF / L / R / M / ST / A / B / A\|B / MS…; PFL takes over | OFF / L / R / M / ST and PFL (mono, before the fader). No returns |
+| Meter | 40-segment peak/VU, dBu | 20 LEDs a side, peak only |
+
+### The camera input
+
+`camera-input` (`js/connection-model.js`) is a new endpoint: one XLR input with a MIC/LINE switch (`inputLevel`, set on its Outputs card). The gig uses two, `cam-1` and `cam-2`, for a camera's two channels. `analyzeCamera` compares the level arriving (`outputLevelOf`: the 442's switch, or a port's fixed level) with the switch:
+
+- LINE into MIC: **hot**, still recorded, but the camera's 40 dB of gain clips it (the engine adds a hard clip to camera inputs).
+- MIC into LINE: **weak**, 40 dB too quiet.
+- −10 into LINE: works, with a note that it's 14 dB low.
+- Speaker level: **danger**.
+
+What the camera hears is in the MAIN listening group, so **Listen → MAIN** is "what the camera records".
+
+### The gig
+
+Shooting the band for video: the room pair (ORTF bar at FOH) on 1+2 linked with P48, the lead and backing vocals on 3 and 4 with a little HPF, the XLR outs at LINE into the camera at LINE. Listening starts on the HEADPHONE (ST). Things to try: switch the camera to MIC and hear it distort; set the headphones to M and flip Ø on channel 2; turn on TONE and watch the meters.
+
+### Sources
+
+Sound Devices *442 & 442 Nordic Field Mixer User Guide and Technical Information* (2003–2007): front, input and output panel descriptions, input channels, outputs, output limiters, metering, headphone monitoring, tone/slate.
+
+### Guesses to check against the real unit
+
+- The HPF slope is a plain 12 dB/oct at every setting (the real one eases to 6 dB/oct at higher corners).
+- Limiter thresholds: input −4 dBFS, output −3 dBFS here; the real output limiter is set in the Setup Menu (+4…+20 dBu, factory +20).
+- Tone at 0 dBu is −18 dBFS in the lab's scale.
+- The camera's MIC input is modelled as +40 dB with a hard clip; real cameras vary.

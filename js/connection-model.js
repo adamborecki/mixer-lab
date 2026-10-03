@@ -221,6 +221,15 @@ export const DEVICE_TYPES = {
     ],
     blurb: "Two condensers on a stereo bar; their angle and spacing make the stereo image.",
   },
+  // A video camera's XLR audio input, with its own MIC/LINE switch (`inputLevel`:
+  // 0 = MIC, 1 = LINE). One device per input, so each has its own switch and status.
+  "camera-input": {
+    name: "Video camera input",
+    endpoint: true,
+    camera: true,
+    ports: [{ id: "in", dir: "in", jack: "xlr", level: "mic-or-line", name: "XLR audio input" }],
+    blurb: "Records what it's fed. Its MIC/LINE switch must match the level coming in.",
+  },
   "powered-speaker": {
     name: "Powered speaker",
     endpoint: true,
@@ -470,6 +479,40 @@ function analyzeChannelInput(rig, cable, ch, sources, port) {
   return info;
 }
 
+// The level an output port carries: fixed, or (442 XLR outs) the mixer's OUTPUT LEVEL switch.
+export const OUT_LEVELS = ["mic", "tape", "line"];
+export function outputLevelOf(port) {
+  return port.levelSwitch ? OUT_LEVELS[port.device.outLevel ?? 2] : port.level;
+}
+
+// A camera input records whatever arrives; the question is whether its MIC/LINE
+// switch matches. `gainDb` is the camera's own input gain (MIC adds 40 dB).
+function analyzeCamera(result, device, up) {
+  if (up.level === "speaker") {
+    result.status = "danger";
+    result.messages.push("Speaker level into a camera input can damage it. Cameras take mic or line level.");
+    return result;
+  }
+  if (up.role !== "bus-out") {
+    result.status = "invalid";
+    result.messages.push("This camera input isn't fed from a mixer output.");
+    return result;
+  }
+  const level = outputLevelOf(up);
+  const input = device.inputLevel === 1 ? "line" : "mic";
+  Object.assign(result, { output: up.id, valid: true, status: "ok", camera: true, gainDb: input === "mic" ? 40 : 0 });
+  if (input === "mic" && level !== "mic") {
+    result.status = "hot";
+    result.messages.push(`${level === "line" ? "Line" : "−10 (tape)"} level into the camera's MIC input: ${level === "line" ? "about 40" : "about 26"} dB too hot, so it distorts. Set the camera to LINE, or the mixer's OUTPUT LEVEL to MIC.`);
+  } else if (input === "line" && level === "mic") {
+    result.status = "weak";
+    result.messages.push("Mic level into the camera's LINE input: about 40 dB too quiet, so it records mostly noise. Set the camera to MIC, or the mixer's OUTPUT LEVEL to LINE.");
+  } else if (input === "line" && level === "tape") {
+    result.messages.push("−10 (tape) level into a LINE input: 14 dB low. It works, with less headroom above the noise.");
+  }
+  return result;
+}
+
 // Walks upstream from a speaker to the mixer output that feeds it.
 function analyzeEndpoint(rig, device, byTo) {
   const type = DEVICE_TYPES[device.type];
@@ -499,6 +542,8 @@ function analyzeEndpoint(rig, device, byTo) {
     if (level !== "speaker" && def.kind === "speaker") result.messages.push("Speaker cable carrying line level: unshielded, may hum.");
   };
   warnCable(cable, up.level);
+
+  if (type.camera) return analyzeCamera(result, device, up);
 
   if (type.amp === "internal") {
     if (up.level === "speaker") {

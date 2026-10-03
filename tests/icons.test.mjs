@@ -98,3 +98,10 @@ describe("mapping the model to pictures", () => {
     assert.ok(CABLES["xlr-trs"]);
   });
 });
+
+describe("icons for the real mixers and the camera", () => {
+  it("every mixer device draws as a mixer, a camera input as a camera", () => {
+    for (const type of ["vlz1202", "mix8", "x1204usb", "sd442", "cr1604"]) assert.equal(deviceIconName({ id: "mixer", type }), "mixer", type);
+    assert.equal(deviceIconName({ id: "cam-1", type: "camera-input" }), "camera");
+  });
+});

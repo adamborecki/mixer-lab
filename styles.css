@@ -2991,7 +2991,8 @@ dialog::backdrop {
 .skin-mix8 .mixer-surface,
 .skin-mg102 .mixer-surface,
 .skin-stagepas400bt .mixer-surface,
-.skin-x1204usb .mixer-surface {
+.skin-x1204usb .mixer-surface,
+.skin-sd442 .mixer-surface {
   background: linear-gradient(180deg, #2a2d36 0%, #20232b 100%);
   border: 1px solid #383c48;
   border-radius: var(--radius-md);
@@ -3019,8 +3020,37 @@ dialog::backdrop {
 .skin-mix8 .mixer-strips,
 .skin-mg102 .mixer-strips,
 .skin-stagepas400bt .mixer-strips,
-.skin-x1204usb .mixer-strips {
+.skin-x1204usb .mixer-strips,
+.skin-sd442 .mixer-strips {
   flex: none;
+}
+/* Sound Devices 442: a black field-mixer face. */
+.skin-sd442 .mixer-surface {
+  background: linear-gradient(180deg, #24252a 0%, #141518 100%);
+}
+.skin-sd442 .c16-strip {
+  width: 96px;
+}
+.cm-strip.is-linked .c16-sec:has(.ctl-big),
+.cm-strip.is-linked .c16-sec:has(.tone-pan) {
+  opacity: 0.35;
+}
+.cm-strip .strip-head {
+  position: relative;
+}
+.cm-strip.is-linked .strip-head::after {
+  content: "LINKED";
+  position: absolute;
+  bottom: 1px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.45rem;
+  font-weight: 800;
+  color: var(--accent, #7ce0ff);
+}
+.cm-hp-src {
+  flex-wrap: wrap;
 }
 /* Behringer Xenyx: a cooler, steel-blue panel. */
 .skin-x1204usb .mixer-surface {

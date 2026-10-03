@@ -18,7 +18,13 @@ export const LAWS = {
   ret20: knobLaw(20), // returns and 2TR IN: off, U, +20
   // The MG10/2's AUX knob, measured from the centre (off) towards either side.
   yamahaAux: makeLaw([[0, -Infinity], [0.05, -50], [0.35, -20], [0.7, 0], [1, 6]]),
+  // Sound Devices 442: channel faders off … 0 at the centre … +15; MASTER off … 0 … +6.
+  sdFader: makeLaw([[0, -Infinity], [0.04, -60], [0.25, -20], [0.5, 0], [0.75, 8], [1, 15]]),
+  master6: makeLaw([[0, -Infinity], [0.05, -50], [0.35, -20], [0.75, 0], [1, 6]]),
 };
+
+// The channel fader/LEVEL law of a mixer.
+export const levelLaw = (def) => LAWS[def.levelLaw || "level"];
 
 export const EQ_FOR = (name) => EQ[name] || [];
 
@@ -35,7 +41,9 @@ function createChannel(def, i) {
     label: c.label,
     stereo: c.kind === "stereo",
     gainDb: g.min ?? g.fixed ?? 0,
-    micLine: g.switch ? "mic" : undefined,
+    micLine: g.switch || g.lineSwitch ? "mic" : undefined,
+    hpf: 0, // sweepable high-pass: 0 = off (the detent), then 80 … 240 Hz (442)
+    polarity: false,
     phantom: false,
     lowCut: false,
     comp: 0, // one-knob compressor (Xenyx)
@@ -60,13 +68,17 @@ export function createState(id) {
     channels: def.channels.map((_, i) => createChannel(def, i)),
     main: { level: def.main.law === "master" ? 0.5 : 0.75 },
     listen: "main",
-    rig: { devices: [{ id: "mixer", type: id, label: def.name }], cables: [] },
+    // The 442's OUTPUT LEVEL switch lives on the mixer device: what the XLR outs carry decides what they can feed.
+    rig: { devices: [{ id: "mixer", type: id, label: def.name, ...(def.outLevel ? { outLevel: 2 } : {}) }], cables: [] },
   };
   if (def.tape) state.channels.push({ index: def.channels.length, label: def.tape.level || def.tape.label || "TAPE", stereo: true, tape: true, gainDb: 0, level: 0.5, toMain: false, toCr: false, enabled: true, pan: 0, phantom: false, auxSends: {}, sends: {}, eq: {} });
   for (const [b, bus] of Object.entries(def.buses)) state[b] = { level: bus.master ? 0.5 : 1, pre: bus.preSwitch ? true : undefined, solo: bus.solo ? false : undefined };
   for (const r of def.returns || []) state[r.id] = { level: r.fixedDb !== undefined ? 1 : 0.5, efx: r.efxToMonitor ? false : undefined, mon: r.toMonitor ? 0 : undefined, toAlt: r.toAlt ? false : undefined };
   if (def.alt) state.alt = { toMain: false, level: def.alt.fader ? 0.75 : undefined };
-  if (def.phones) state.cr = { level: 0.5, main: true, alt: false, tape: false };
+  if (def.phones) state.cr = { level: 0.5, main: true, alt: false, tape: false, ...(def.phones.selector ? { src: "ST" } : {}) };
+  if (def.link) state.link = { mode: "off" };
+  if (def.outputLimiter) state.lim = { mode: "link" };
+  if (def.tone) state.tone = { on: false };
   if (def.solo) state.soloBus = { mode: def.solo.mode === "switch" ? "sip" : def.solo.mode }; // "pfl" or "sip" (solo in place)
   if (def.fx) state.fx = { program: 0 };
   if (def.reverb) state.reverb = { on: false, type: 0.15 };
@@ -95,7 +107,11 @@ export function sanitizeChannel(def, ch, key, value) {
     case "gainDb":
       return c.gain.min !== undefined ? range(c.gain.min, c.gain.max, 0.5)(value) : undefined;
     case "micLine":
-      return c.gain.switch && (value === "mic" || value === "line") ? value : undefined;
+      return (c.gain.switch || c.gain.lineSwitch) && (value === "mic" || value === "line") ? value : undefined;
+    case "hpf":
+      return c.hpf ? range(0, 1)(value) : undefined;
+    case "polarity":
+      return c.polarity ? bool(value) : undefined;
     case "lowCut":
       return c.lowCut ? bool(value) : undefined;
     case "comp":
@@ -130,7 +146,10 @@ export function busKeys(def) {
   if (def.alt) keys.alt = def.alt.fader ? { level: range(0, 1) } : { toMain: bool };
   if (def.solo?.mode === "switch") keys.soloBus = { mode: (v) => (v === "pfl" || v === "sip" ? v : undefined) };
   if (def.fx) keys.fx = { program: range(0, def.fx.presets.length - 1, 1) };
-  if (def.phones) keys.cr = { level: range(0, 1), ...(def.phones.sources ? Object.fromEntries(def.phones.sources.map((s) => [s, bool])) : {}) };
+  if (def.phones) keys.cr = { level: range(0, 1), ...(def.phones.sources ? Object.fromEntries(def.phones.sources.map((s) => [s, bool])) : {}), ...(def.phones.selector ? { src: (v) => (def.phones.selector.includes(v) ? v : undefined) } : {}) };
+  if (def.link) keys.link = { mode: (v) => (v === "off" || v === "on" ? v : undefined) };
+  if (def.outputLimiter) keys.lim = { mode: (v) => (["off", "on", "link"].includes(v) ? v : undefined) };
+  if (def.tone) keys.tone = { on: bool };
   if (def.reverb) keys.reverb = { on: bool, type: range(0, 1) };
   if (def.monitorOut) keys.monitor = { level: range(0, 1) };
   if (def.masterEq) keys.masterEq = { pos: range(0, 1) };
@@ -169,7 +188,7 @@ export function listenList(def) {
 }
 
 export function listenGroupOf(portId) {
-  if (/^(main|line|tape-out|rec-out|spk)-[lr]$/.test(portId) || portId === "sub-out") return "main";
+  if (/^(main|line|tape-out|rec-out|spk)-[lr]$/.test(portId) || portId === "sub-out" || portId === "tape-mini") return "main";
   if (portId === "mon-l" || portId === "mon-r") return "monitor";
   if (portId === "alt-l" || portId === "alt-r") return "alt";
   if (portId === "cr-l" || portId === "cr-r") return "phones";
@@ -185,7 +204,7 @@ export function channelGainDb(def, ch, input) {
   const g = def.channels[ch.index].gain;
   if (g.switch) return g.switch[ch.micLine || "mic"];
   if (g.fixed !== undefined && g.min === undefined) return g.fixed + (g.minus10 && ch.minus10 ? g.minus10 : 0);
-  const pad = input && input.path === "line" && !input.stereo && !input.monoIn ? g.linePad || 0 : 0;
+  const pad = (input && input.path === "line" && !input.stereo && !input.monoIn ? g.linePad || 0 : 0) + (g.lineSwitch && ch.micLine === "line" ? g.lineSwitch : 0);
   // A trimmed stereo channel's line inputs (MG10/2 3/4, 5/6) take the line pad too.
   const stereoPad = input && input.path === "line" && (input.stereo || input.monoIn) && g.min !== undefined ? g.linePad || 0 : 0;
   return ch.gainDb + pad + stereoPad;
@@ -230,11 +249,13 @@ export function computeMix(def, state, sourcesById, stems, sourcePeakDb) {
     }
     const c = def.channels[i];
     const inputPeakDb = live ? peak + source.outputDb + channelGainDb(def, ch, input) + HEADROOM_DB : OFF;
-    const faderDb = LAWS.level.toDb(ch.level);
+    // 442 1+2 LINK: channel 1's fader and PAN (now a balance) run both; 1 is left, 2 right.
+    const link = linkOf(def, state, i);
+    const faderDb = levelLaw(def).toDb(link ? state.channels[link.leader].level : ch.level);
     const levelled = inputPeakDb + faderDb;
     const muted = c.mute && !ch.enabled;
     const postDb = muted ? OFF : levelled;
-    const pg = ch.stereo ? balanceGains(ch.pan) : panGains(ch.pan);
+    const pg = link ? link.gains : ch.stereo ? balanceGains(ch.pan) : panGains(ch.pan);
     const side = (k, db) => db + gainToDb(pg[k]);
     // "fader": after LEVEL, before MUTE; "channel": this channel's PRE switch.
     const tap = (t) => (t === "pre" || (t === "channel" && ch.pre) ? inputPeakDb : t === "fader" ? levelled : postDb);
@@ -269,8 +290,21 @@ export function computeMix(def, state, sourcesById, stems, sourcePeakDb) {
   return { rig, channels, outputs, mainMasterDb: mainDb, busDb: Object.fromEntries(buses.map((b) => [b, masterDb(b)])), phones: phonesOf(def, state) };
 }
 
+// Linked channels (442 1+2 LINK ON): who leads, and this channel's L/R gains.
+export function linkOf(def, state, i) {
+  if (!def.link || state.link?.mode !== "on" || !def.link.pair.includes(i)) return null;
+  const [a, b] = def.link.pair;
+  const bal = state.channels[a].pan;
+  const keep = (x) => (x <= 0 ? 1 : x >= 1 ? 0 : Math.cos((x * Math.PI) / 2));
+  return { leader: a, gains: i === a ? { L: keep(bal), R: 0 } : { L: 0, R: keep(-bal) }, follower: i === b };
+}
+
 export function phonesOf(def, state) {
   if (!def.phones) return null;
+  if (def.phones.selector) {
+    const soloed = state.channels.filter((c) => c.solo).map((c) => c.label);
+    return { solo: soloed.length > 0, soloed, auxSolo: [], mode: "pfl", modeText: "PFL: before the fader, in mono", sources: [], selector: state.cr.src, tone: !!state.tone?.on };
+  }
   const soloed = state.channels.filter((c) => !c.tape && c.solo).map((c) => c.label);
   const auxSolo = Object.keys(def.buses).filter((b) => state[b].solo);
   const tapeStrip = state.channels.find((c) => c.tape);

@@ -190,6 +190,10 @@ export class AudioEngine {
     // Re-analyse every time: phantom power changes whether a channel has signal.
     const rig = analyzeRig(state.rig, state.channels, SOURCES_BY_ID);
     this.mixer.apply(state, rig, SOURCES_BY_ID);
+    for (const ep of rig.endpoints) {
+      const node = ep.camera && this.endpointNodes.get(ep.deviceId);
+      if (node) this.set(node.input.gain, dbToGain(ep.gainDb));
+    }
     for (const dev of state.rig.devices) {
       const d = this.devices.get(dev.id);
       if (d) d.rt.apply(dev, rig.recorders?.[dev.id], SOURCES_BY_ID);
@@ -293,7 +297,16 @@ export class AudioEngine {
         input.channelCount = 1;
         input.channelCountMode = "explicit";
         const pan = this.ctx.createStereoPanner();
-        input.connect(pan);
+        // A camera input: its gain is the camera's MIC/LINE preamp, and it clips
+        // like one (set in applyAll), so a level mismatch is heard.
+        const dev = state.rig.devices.find((d) => d.id === ep.deviceId);
+        if (DEVICE_TYPES[dev?.type]?.camera) {
+          const clip = this.ctx.createWaveShaper();
+          clip.curve = new Float32Array([-1, 1]);
+          const trim = this.ctx.createGain();
+          trim.gain.value = 0.5;
+          input.connect(clip).connect(trim).connect(pan);
+        } else input.connect(pan);
         node = { input, pan };
         this.endpointNodes.set(ep.deviceId, node);
       }

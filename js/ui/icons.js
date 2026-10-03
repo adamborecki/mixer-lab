@@ -62,6 +62,10 @@ const ICONS = {
     label: "Laptop playback source",
     body: `<rect x="9" y="8" width="30" height="21" rx="2"${F}/><path d="M22 23a2 2 0 1 1 2-2v-8l6 1.5" stroke-width="1.8"/><path d="M4 33h40l-3 5H7z"${F}/>`,
   },
+  camera: {
+    label: "Video camera with XLR audio inputs",
+    body: `<rect x="5" y="16" width="27" height="19" rx="2"${F}/><path d="M32 22l11-6v19l-11-6z"${F}/><circle cx="14" cy="25.5" r="4.5" stroke-width="1.6"/><path d="M9 16v-5h16v5M21 11v-3h5" stroke-width="1.6"/>`,
+  },
   mic: {
     label: "Dynamic microphone",
     body: `<circle cx="24" cy="13" r="8"${F}/><path d="M17 12h14M18 16h12" stroke-width="1.4"/><path d="M19.5 21l2 22h5l2-22"${F}/>`,
@@ -156,11 +160,13 @@ const TYPE_ICONS = {
   mixer: "mixer",
   cr1604: "mixer",
   "power-amp": "power-amp",
+  "camera-input": "camera",
 };
 
 // A device's icon. Speakers depend on powered/passive and on where they sit (stage = wedge).
 export function deviceIconName(device, type) {
   if (TYPE_ICONS[device.type]) return TYPE_ICONS[device.type];
+  if (device.id === "mixer") return "mixer"; // every real mixer (compact ones included)
   const active = device.type === "powered-speaker";
   if (device.zone === "stage") return active ? "wedge-active" : "wedge-passive";
   return active ? "pa-speaker-active" : "pa-speaker-passive";

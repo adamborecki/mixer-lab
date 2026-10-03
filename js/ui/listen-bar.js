@@ -95,6 +95,7 @@ export class ListenBar {
     const pfls = state.channels.filter((c) => c.pfl).map((c) => c.index + 1);
     const phones = real ? mix.phones : null;
     const phonesText = () => {
+      if (phones.selector && !phones.solo) return `HEADPHONE: ${phones.selector}`;
       if (phones.solo) {
         const what = [...phones.soloed.map((n) => `Ch ${n}`), ...phones.auxSolo.map((b) => t[b])].join(", ");
         return `SOLO: ${what}`;
@@ -108,7 +109,7 @@ export class ListenBar {
       if (d === "rec") return rec.sub;
       return ends[d]?.length ? `✓ ${names(ends[d])}` : "✕ no working speaker";
     };
-    const dead = (d) => (d === "pfl" ? !pfls.length : d === "phones" ? !phones.solo && !phones.sources.length : d === "rec" ? rec.dead : !ends[d]?.length);
+    const dead = (d) => (d === "pfl" ? !pfls.length : d === "phones" ? !phones.solo && (phones.selector ? phones.selector === "OFF" : !phones.sources.length) : d === "rec" ? rec.dead : !ends[d]?.length);
     for (const btn of this.root.querySelectorAll("[data-dest]")) {
       const d = btn.dataset.dest;
       const on = state.listen === d;
@@ -129,7 +130,11 @@ export class ListenBar {
     else if (dest === "pfl") msg = pfls.length ? `Engineer's headphones: PFL on Ch ${pfls.join(", ")} (before the ${t.levelShort.toLowerCase()}).` : "Headphones are quiet: press PFL on a channel to hear it here.";
     else if (dest === "phones") msg = phonesMessage(phones, t);
     else if (dest === "rec") msg = rec.msg;
-    else if (ends[dest]?.length) msg = `Hearing ${busName} through the ${names(ends[dest])}.`;
+    else if (ends[dest]?.length) {
+      msg = `Hearing ${busName} through the ${names(ends[dest])}.`;
+      // A camera input whose MIC/LINE switch doesn't match what it's fed.
+      for (const e of ends[dest].filter((e) => e.camera && e.status !== "ok")) msg += ` ${short(e)}: ${e.status === "hot" ? "distorting, its MIC input is fed line level" : "too quiet, its LINE input is fed mic level"}.`;
+    }
     else msg = `Silence: ${busName} doesn't reach a working speaker. Check the Outputs.`;
     if (msg !== this.lastMsg) {
       this.msg.textContent = msg;
@@ -159,7 +164,18 @@ function recorderText(dev, rt, inputs = []) {
   return { sub: `Inputs ${live.join(", ")}${recording}`, dead: false, msg: `Recorder headphones: what inputs ${live.join(", ")} are hearing${recording ? ", while recording" : ""}.` };
 }
 
+const SELECTOR_TEXT = {
+  L: "the left output in both ears",
+  R: "the right output in both ears",
+  M: "left + right summed to mono in both ears (the way to hear a phase problem)",
+  ST: "the stereo mix, left in the left ear",
+};
+
 function phonesMessage(p, t) {
+  if (p.selector && !p.solo) {
+    if (p.selector === "OFF") return "Headphones are quiet: the HEADPHONE selector is OFF.";
+    return `Engineer's headphones: ${SELECTOR_TEXT[p.selector]}${p.tone ? ". TONE is on, 20 dB down in the headphones" : ""}.`;
+  }
   if (p.solo) {
     const what = [...p.soloed.map((n) => `Ch ${n}`), ...p.auxSolo.map((b) => t[b])].join(", ");
     if (p.modeText) return `Engineer's headphones: SOLO ${what}, ${p.modeText}.`;

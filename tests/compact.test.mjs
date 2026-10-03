@@ -306,3 +306,98 @@ describe("Behringer Xenyx X1204USB", () => {
     assert.equal(st.state.fx.program, 7);
   });
 });
+
+describe("Sound Devices 442 and the camera input", () => {
+  const SD = COMPACT.sd442;
+  const cam = (st, id) => mix(st).rig.endpoints.find((e) => e.deviceId === id);
+
+  it("rear panel: four XLR inputs, XLR master outs with an OUTPUT LEVEL switch, a 3.5 mm tape out", () => {
+    const ports = DEVICE_TYPES.sd442.ports;
+    assert.deepEqual(ports.filter((p) => p.role === "channel-input").map((p) => p.jack), ["xlr", "xlr", "xlr", "xlr"]);
+    assert.equal(ports.find((p) => p.id === "main-l").levelSwitch, true);
+    assert.equal(ports.find((p) => p.id === "tape-mini").jack, "mini");
+    assert.equal(createMixerState("sd442").rig.devices[0].outLevel, 2, "starts at LINE");
+  });
+
+  it("the gig: the room pair linked on 1+2 with P48 there only, the camera fed at LINE into LINE", () => {
+    const st = gig("sd442");
+    assert.equal(st.state.link.mode, "on");
+    assert.deepEqual(st.state.channels.map((c) => c.phantom), [true, true, false, false]);
+    assert.equal(cam(st, "cam-1").status, "ok");
+    assert.equal(cam(st, "cam-2").status, "ok");
+    assert.equal(st.state.listen, "phones");
+  });
+
+  it("MIC/LINE: LINE takes 40 dB off before the GAIN", () => {
+    const st = gig("sd442");
+    const v = ch(st, "lead-vocal").inputPeakDb;
+    st.setChannel(2, "micLine", "line");
+    near(ch(st, "lead-vocal").inputPeakDb, v - 40);
+  });
+
+  it("faders: 0 dB at the centre, +15 at the top", () => {
+    near(LAWS.sdFader.toDb(0.5), 0, 1e-9);
+    near(LAWS.sdFader.toDb(1), 15, 1e-9);
+  });
+
+  it("1+2 LINK: channel 1's fader runs both, 1 is left and 2 is right, PAN is the balance", () => {
+    const st = gig("sd442");
+    st.setChannel(1, "level", 0); // channel 2's own fader does nothing while linked
+    let m = mix(st);
+    assert.ok(m.channels[1].mainDb.R > -40);
+    assert.equal(m.channels[0].mainDb.R, -Infinity);
+    assert.equal(m.channels[1].mainDb.L, -Infinity);
+    const r = m.channels[1].mainDb.R;
+    st.setChannel(0, "level", LAWS.sdFader.toPos(LAWS.sdFader.toDb(st.state.channels[0].level) - 6));
+    near(mix(st).channels[1].mainDb.R, r - 6);
+    st.setChannel(0, "pan", -1); // balance hard left: the right side goes away
+    assert.equal(mix(st).channels[1].mainDb.R, -Infinity);
+    st.setBus("link", "mode", "off"); // unlinked, channel 2's own fader (down) counts again
+    assert.equal(mix(st).channels[1].mainDb.R, -Infinity);
+  });
+
+  it("Ø only on channel 2; HPF on every channel", () => {
+    const st = gig("sd442");
+    st.setChannel(0, "polarity", true);
+    assert.equal(st.state.channels[0].polarity, false);
+    st.setChannel(1, "polarity", true);
+    assert.equal(st.state.channels[1].polarity, true);
+    st.setChannel(3, "hpf", 0.5);
+    assert.equal(st.state.channels[3].hpf, 0.5);
+  });
+
+  it("camera: line level into its MIC input distorts; mic level into LINE is far too quiet", () => {
+    const st = gig("sd442");
+    st.setDevice("cam-1", "inputLevel", 0);
+    assert.equal(cam(st, "cam-1").status, "hot");
+    assert.equal(cam(st, "cam-1").valid, true, "it still records, badly");
+    assert.equal(cam(st, "cam-1").gainDb, 40);
+    st.setDevice("mixer", "outLevel", 0);
+    assert.equal(cam(st, "cam-1").status, "ok", "MIC into MIC");
+    assert.equal(cam(st, "cam-2").status, "weak", "MIC into LINE");
+    st.setDevice("mixer", "outLevel", 1);
+    assert.equal(cam(st, "cam-2").status, "ok", "−10 into LINE works");
+    assert.match(cam(st, "cam-2").messages[0], /14 dB low/);
+  });
+
+  it("a camera never takes speaker level", () => {
+    const st = gig("stagepas400bt");
+    st.state.rig.devices.push({ id: "cam-1", type: "camera-input", label: "Camera", zone: "cam", pan: 0, inputLevel: 1 });
+    st.disconnect(st.state.rig.cables.find((c) => c.from === "mixer/spk-l").id);
+    assert.ok(st.connect("mixer/spk-l", "cam-1/in", "speaker").ok === false || cam(st, "cam-1").status === "danger");
+  });
+
+  it("HEADPHONE selector and TONE", () => {
+    const st = gig("sd442");
+    st.setBus("cr", "src", "M");
+    assert.equal(mix(st).phones.selector, "M");
+    st.setBus("cr", "src", "XY");
+    assert.equal(st.state.cr.src, "M");
+    st.setBus("tone", "on", true);
+    assert.equal(mix(st).phones.tone, true);
+    st.setBus("lim", "mode", "on");
+    assert.equal(st.state.lim.mode, "on");
+    st.setBus("lim", "mode", "loud");
+    assert.equal(st.state.lim.mode, "on");
+  });
+});

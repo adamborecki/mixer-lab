@@ -10,8 +10,11 @@
 // Masters:  MAIN ─► [STAGEPAS: MASTER EQ, sub HPF, amp] ─► outputs; aux masters;
 //           returns; tape; C-R/PHONES (SOURCE, replaced by SOLO); meters.
 // Xenyx:    AUX SEND 2 ─► built-in effects ─► STEREO AUX RETURN 2 (unless its jacks are used).
+// 442:      input ─► Ø ─► GAIN (MIC/LINE) ─► HPF sweep ─► input limiter ─► fader ─► PAN;
+//           MASTER ─► output limiter (ON / LINK) ─► [TONE replaces the mix] ─► XLR OUTPUT LEVEL;
+//           HEADPHONE selector OFF/L/R/M/ST (PFL replaces it; TONE ear-saver −20 dB).
 
-import { EQ_FOR, LAWS, channelGainDb, fxPreset, reverbSetting, tapeIndex } from "./compact.js";
+import { EQ_FOR, LAWS, channelGainDb, fxPreset, levelLaw, linkOf, reverbSetting, tapeIndex } from "./compact.js";
 import { HEADROOM_DB, dbToGain } from "./levels.js";
 import { DEVICE_TYPES } from "./connection-model.js";
 import { lowCutStage, popBuffer } from "./graph-kit.js";
@@ -55,7 +58,9 @@ export function buildCompactGraph(kit, def) {
     const clip = track(ctx.createWaveShaper());
     clip.curve = clipCurve;
     const popIn = mono(1);
-    input.connect(pre).connect(clip);
+    const polarity = c.polarity ? chan(1) : null; // Ø: a gain of −1
+    if (polarity) input.connect(polarity).connect(pre).connect(clip);
+    else input.connect(pre).connect(clip);
     popIn.connect(clip);
     let afterCut = clip;
     let lowCut = null;
@@ -73,6 +78,38 @@ export function buildCompactGraph(kit, def) {
       clip.connect(dry).connect(out);
       clip.connect(hp).connect(wet).connect(out);
       lowCut = { out, dry, wet };
+      afterCut = out;
+    }
+    // Sweepable high-pass (442): 12 dB/oct, off at the detent.
+    let hpf = null;
+    if (c.hpf) {
+      const hp = track(ctx.createBiquadFilter());
+      hp.type = "highpass";
+      hp.frequency.value = c.hpf.min;
+      hp.Q.value = 0.6;
+      const out = chan(1);
+      const dry = chan(1);
+      const wet = chan(0);
+      afterCut.connect(dry).connect(out);
+      afterCut.connect(hp).connect(wet).connect(out);
+      hpf = { hp, dry, wet };
+      afterCut = out;
+    }
+    // Input limiter (442): a safety limiter just under clipping, on while LIM is.
+    let limiter = null;
+    if (c.limiter) {
+      const dyn = track(ctx.createDynamicsCompressor());
+      dyn.threshold.value = -4;
+      dyn.knee.value = 0;
+      dyn.ratio.value = 20;
+      dyn.attack.value = 0.001;
+      dyn.release.value = 0.1;
+      const out = chan(1);
+      const dry = chan(1);
+      const wet = chan(0);
+      afterCut.connect(dry).connect(out);
+      afterCut.connect(dyn).connect(wet).connect(out);
+      limiter = { dyn, dry, wet };
       afterCut = out;
     }
     // One-knob compressor (Xenyx): bypassed at zero, so it adds nothing until used.
@@ -177,7 +214,7 @@ export function buildCompactGraph(kit, def) {
     }
     const pfl = mono(0);
     if (c.solo) tapEq.connect(pfl).connect(pflBus);
-    return { input, pre, popIn, lowCut, comp, eq, meter, stMono, level, mainGate, pan, sip, altGate, altPan, sends, pflGain: c.solo ? pfl : null, stereo };
+    return { input, pre, popIn, polarity, hpf, limiter, lowCut, comp, eq, meter, stMono, level, mainGate, pan, sip, altGate, altPan, sends, pflGain: c.solo ? pfl : null, stereo };
   });
 
   // ---------- tape in ----------
@@ -293,6 +330,51 @@ export function buildCompactGraph(kit, def) {
     mainMaster.R.connect(masterEq.R.lo).connect(masterEq.R.hi).connect(eqOut.R);
     masterOut = eqOut;
   }
+  // Output limiter (442): ON = two limiters, LINK = one stereo limiter (same gain change both sides).
+  let outLim = null;
+  if (def.outputLimiter) {
+    const mk = (channels) => {
+      const d = track(ctx.createDynamicsCompressor());
+      d.threshold.value = def.outputLimiter.thresholdDb;
+      d.knee.value = 0;
+      d.ratio.value = 20;
+      d.attack.value = 0.001;
+      d.release.value = 0.15;
+      d.channelCount = channels;
+      d.channelCountMode = "explicit";
+      return d;
+    };
+    outLim = { L: mk(1), R: mk(1), st: mk(2), off: pair(1), on: pair(0), link: pair(0), out: pair() };
+    const merge = track(ctx.createChannelMerger(2));
+    const split = track(ctx.createChannelSplitter(2));
+    masterOut.L.connect(outLim.off.L).connect(outLim.out.L);
+    masterOut.R.connect(outLim.off.R).connect(outLim.out.R);
+    masterOut.L.connect(outLim.L).connect(outLim.on.L).connect(outLim.out.L);
+    masterOut.R.connect(outLim.R).connect(outLim.on.R).connect(outLim.out.R);
+    masterOut.L.connect(merge, 0, 0);
+    masterOut.R.connect(merge, 0, 1);
+    merge.connect(outLim.st).connect(split);
+    split.connect(outLim.link.L, 0);
+    split.connect(outLim.link.R, 1);
+    outLim.link.L.connect(outLim.out.L);
+    outLim.link.R.connect(outLim.out.R);
+    masterOut = outLim.out;
+  }
+  // TONE (442): a 1 kHz sine at 0 dBu (−18 dBFS here) replaces the mix on the outputs.
+  let tone = null;
+  if (def.tone) {
+    const osc = track(ctx.createOscillator());
+    osc.frequency.value = def.tone.hz;
+    osc.start();
+    tone = { osc, level: mono(0), program: pair(1), out: pair() };
+    osc.connect(tone.level);
+    tone.level.connect(tone.out.L);
+    tone.level.connect(tone.out.R);
+    masterOut.L.connect(tone.program.L).connect(tone.out.L);
+    masterOut.R.connect(tone.program.R).connect(tone.out.R);
+    masterOut = tone.out;
+  }
+
   if (def.outputs.includes("speakers")) {
     // With a sub patched, the speakers lose everything below 120 Hz.
     spkHp = { gateHp: pair(0), gateFull: pair(1), out: pair() };
@@ -323,6 +405,24 @@ export function buildCompactGraph(kit, def) {
     outputs["mon-r"] = monitor.R;
   }
   let xlr = null;
+  let switched = null;
+  if (def.outputs.includes("xlrSwitched")) {
+    // OUTPUT LEVEL: LINE, −10 (14 dB down) or MIC (40 dB down).
+    switched = pair(1);
+    masterOut.L.connect(switched.L);
+    masterOut.R.connect(switched.R);
+    outputs["main-l"] = switched.L;
+    outputs["main-r"] = switched.R;
+  }
+  if (def.outputs.includes("tapeMini")) {
+    const tape = pair(dbToGain(-14));
+    masterOut.L.connect(tape.L);
+    masterOut.R.connect(tape.R);
+    const m = track(ctx.createChannelMerger(2));
+    tape.L.connect(m, 0, 0);
+    tape.R.connect(m, 0, 1);
+    outputs["tape-mini"] = m;
+  }
   if (def.outputs.includes("mainXlr")) {
     xlr = pair(1); // the XLR outs have a 30 dB PAD switch
     masterOut.L.connect(xlr.L);
@@ -342,9 +442,19 @@ export function buildCompactGraph(kit, def) {
 
   // ---------- C-R / PHONES ----------
   const crSum = pair();
-  const selMain = pair(def.phones && !def.phones.sources ? 1 : 0);
+  const selector = !!def.phones?.selector;
+  const selMain = pair(def.phones && !def.phones.sources && !selector ? 1 : 0);
   masterOut.L.connect(selMain.L).connect(crSum.L);
   masterOut.R.connect(selMain.R).connect(crSum.R);
+  // HEADPHONE selector (442): which output goes to which ear.
+  let hpMatrix = null;
+  if (selector) {
+    hpMatrix = { LL: mono(0), RL: mono(0), LR: mono(0), RR: mono(0) };
+    masterOut.L.connect(hpMatrix.LL).connect(crSum.L);
+    masterOut.R.connect(hpMatrix.RL).connect(crSum.L);
+    masterOut.L.connect(hpMatrix.LR).connect(crSum.R);
+    masterOut.R.connect(hpMatrix.RR).connect(crSum.R);
+  }
   const selAlt = pair(0);
   if (altBus) {
     altOut.L.connect(selAlt.L).connect(crSum.L);
@@ -436,6 +546,17 @@ export function buildCompactGraph(kit, def) {
       def.channels.forEach((c, i) => {
         const ch = state.channels[i];
         const s = strips[i];
+        if (s.polarity) set(s.polarity.gain, ch.polarity ? -1 : 1);
+        if (s.hpf) {
+          set(s.hpf.hp.frequency, c.hpf.min + (c.hpf.max - c.hpf.min) * Math.max(0, (ch.hpf - 0.05) / 0.95));
+          set(s.hpf.dry.gain, on(ch.hpf <= 0.02));
+          set(s.hpf.wet.gain, on(ch.hpf > 0.02));
+        }
+        if (s.limiter) {
+          const lim = state.lim?.mode !== "off";
+          set(s.limiter.dry.gain, on(!lim));
+          set(s.limiter.wet.gain, on(lim));
+        }
         const info = rig.channels[i];
         const source = info && info.sourceId ? SOURCES_BY_ID[info.sourceId] : null;
         const preDb = source && info.signal ? source.outputDb + channelGainDb(def, ch, info) + HEADROOM_DB : -Infinity;
@@ -463,10 +584,12 @@ export function buildCompactGraph(kit, def) {
           set(s.stMono.st.gain, on(!ch.stMono));
           set(s.stMono.sum.gain, on(ch.stMono));
         }
-        set(s.level.gain, dbToGain(LAWS.level.toDb(ch.level)));
+        const link = linkOf(def, state, i);
+        const lvl = levelLaw(def).toDb(link ? state.channels[link.leader].level : ch.level);
+        set(s.level.gain, dbToGain(lvl) * (link ? Math.max(link.gains.L, link.gains.R) : 1));
         const muted = c.mute && !ch.enabled;
         set(s.mainGate.gain, on(!muted));
-        set(s.pan.pan, ch.pan);
+        set(s.pan.pan, link ? (link.gains.L > 0 ? -1 : 1) : ch.pan);
         if (s.altGate) {
           set(s.altGate.gain, on(muted));
           set(s.altPan.pan, ch.pan);
@@ -549,6 +672,32 @@ export function buildCompactGraph(kit, def) {
           else reverb.timer = setTimeout(build, 150);
         }
       }
+      if (outLim) {
+        const m = state.lim.mode;
+        for (const side of ["L", "R"]) {
+          set(outLim.off[side].gain, on(m === "off"));
+          set(outLim.on[side].gain, on(m === "on"));
+          set(outLim.link[side].gain, on(m === "link"));
+        }
+      }
+      if (tone) {
+        set(tone.level.gain, state.tone.on ? dbToGain(-18) : 0);
+        for (const side of ["L", "R"]) set(tone.program[side].gain, on(!state.tone.on));
+      }
+      if (switched) {
+        const dev = state.rig.devices.find((d) => d.id === "mixer");
+        const g = dbToGain(def.outLevel.db[dev?.outLevel ?? 2]);
+        set(switched.L.gain, g);
+        set(switched.R.gain, g);
+      }
+      if (hpMatrix) {
+        const src = state.cr.src;
+        const m = { OFF: [0, 0, 0, 0], L: [1, 0, 1, 0], R: [0, 1, 0, 1], M: [0.5, 0.5, 0.5, 0.5], ST: [1, 0, 0, 1] }[src] || [0, 0, 0, 0];
+        set(hpMatrix.LL.gain, m[0]);
+        set(hpMatrix.RL.gain, m[1]);
+        set(hpMatrix.LR.gain, m[2]);
+        set(hpMatrix.RR.gain, m[3]);
+      }
       if (masterEq) {
         // Below the centre: SPEECH (lows cut). Above: more lows; the top is BASS BOOST.
         const p = state.masterEq.pos;
@@ -577,13 +726,13 @@ export function buildCompactGraph(kit, def) {
       }
       if (def.phones) {
         const srcs = def.phones.sources;
-        set(selMain.L.gain, on(!srcs || state.cr.main));
-        set(selMain.R.gain, on(!srcs || state.cr.main));
+        set(selMain.L.gain, on(!selector && (!srcs || state.cr.main)));
+        set(selMain.R.gain, on(!selector && (!srcs || state.cr.main)));
         set(selAlt.L.gain, on(srcs && state.cr.alt));
         set(selAlt.R.gain, on(srcs && state.cr.alt));
         set(crGate.L.gain, on(!anySolo));
         set(crGate.R.gain, on(!anySolo));
-        const g = dbToGain(LAWS.master.toDb(state.cr.level));
+        const g = dbToGain(LAWS.master.toDb(state.cr.level) + (state.tone?.on ? def.tone.earSaverDb : 0));
         set(crLevel.L.gain, g);
         set(crLevel.R.gain, g);
       }
@@ -597,6 +746,8 @@ export function buildCompactGraph(kit, def) {
       return {
         channels: strips.map((s) => (s && s.meter ? read(s.meter) : null)),
         comp: strips.map((s) => (s && s.comp ? s.comp.dyn.reduction : 0)),
+        limit: strips.map((s) => (s && s.limiter ? s.limiter.dyn.reduction : 0)),
+        outLimit: outLim ? Math.min(outLim.L.reduction, outLim.R.reduction, outLim.st.reduction) : 0,
         fx: fx ? read(fx.meter) : null,
         meterL: read(meters.left),
         meterR: read(meters.right),

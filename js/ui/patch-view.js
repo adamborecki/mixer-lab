@@ -187,6 +187,7 @@ export class PatchView {
         card.querySelector('[data-readout="technique"]').innerHTML = techniqueText(d);
       }
       if (d.type === "reverb") set("decay", `${d.decay.toFixed(1)} s`);
+      if (d.type === "camera-input") set("inputLevel", d.inputLevel === 1 ? "LINE" : "MIC");
     }
   }
 
@@ -273,18 +274,23 @@ export class PatchView {
       .map((d) => {
         const type = DEVICE_TYPES[d.type];
         const ep = endpoints.get(d.id);
-        const status = ep.valid ? "ok" : ep.status === "unpatched" ? "idle" : ep.status === "danger" ? "bad" : "warn";
-        const statusText = ep.valid ? `✓ Sound: ${busName(ep.output)}${ep.viaAmp ? " via amp" : ""}` : ep.status === "unpatched" ? "Silent" : ep.status === "danger" ? "✕ Danger" : "✕ No sound";
-        const amp = type.amp === "internal" ? "Amp: built in (powered)" : "Amp: none inside (passive)";
-        return `<li class="device-card status-${status}">
+        const status = ep.valid ? (ep.status === "ok" ? "ok" : "warn") : ep.status === "unpatched" ? "idle" : ep.status === "danger" ? "bad" : "warn";
+        const statusText = ep.valid ? `${ep.status === "hot" ? "⚠ Distorting" : ep.status === "weak" ? "⚠ Too quiet" : "✓ Sound"}: ${busName(ep.output)}${ep.viaAmp ? " via amp" : ""}` : ep.status === "unpatched" ? "Silent" : ep.status === "danger" ? "✕ Danger" : "✕ No sound";
+        const amp = type.camera ? "Records what it's fed" : type.amp === "internal" ? "Amp: built in (powered)" : "Amp: none inside (passive)";
+        const settings = type.camera
+          ? `<div class="dev-settings"><label>INPUT <output data-readout="inputLevel">${d.inputLevel === 1 ? "LINE" : "MIC"}</output>
+              <input type="range" min="0" max="1" step="1" value="${d.inputLevel ?? 0}" data-device="${esc(d.id)}" data-device-key="inputLevel" aria-label="${esc(d.label)} MIC/LINE switch" /></label></div>`
+          : "";
+        return `<li class="device-card status-${status}" data-device-card="${esc(d.id)}">
           <div class="device-top">
             <span class="dev-ico">${icon(deviceIconName(d), { size: 44 })}</span>
-            <div class="source-names"><strong>${esc(d.label)}</strong><span>${amp} · ${zoneName[d.zone] || ""}</span></div>
+            <div class="source-names"><strong>${esc(d.label)}</strong><span>${amp}${zoneName[d.zone] ? ` · ${zoneName[d.zone]}` : ""}</span></div>
             <span class="status-pill status-${status}">${statusText}</span>
           </div>
           ${listPorts(rig, d)
             .map((p) => this.portButton(p.ref, p.dir))
             .join("")}
+          ${settings}
           ${ep.messages.map((m) => `<p class="port-msg">${esc(m)}</p>`).join("")}
         </li>`;
       })
@@ -296,7 +302,7 @@ export class PatchView {
       ${reverbs.length ? `<h3 class="group-title">Effects</h3><ul class="device-list">${reverbHtml}</ul>` : ""}
       ${recorders.length ? `<h3 class="group-title">Recorder</h3><ul class="device-list">${recHtml}</ul>` : ""}
       ${amps.length ? `<h3 class="group-title">Amplifier</h3><ul class="device-list">${ampHtml}</ul>` : ""}
-      <h3 class="group-title">${icon("role-destination", { size: 22 })}Speakers — where is the amplifier?</h3>
+      <h3 class="group-title">${icon("role-destination", { size: 22 })}${speakers.every((d) => DEVICE_TYPES[d.type].camera) ? "Camera — does the level match?" : "Speakers — where is the amplifier?"}</h3>
       <ul class="device-list">${spkHtml}</ul>`;
   }
 }

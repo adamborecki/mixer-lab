@@ -121,7 +121,7 @@ function renderFlowCompact(root, skin, def) {
       : `<li><strong>${esc(s.label)}</strong> is taken ${tapWord[s.tap]}.${s.bus === "reverb" ? " It feeds the built-in reverb." : def.fx && s.bus === def.fx.send ? " Through its master (AUX SEND 2) it feeds the built-in effects, which come back on STEREO AUX RETURN 2." : ""}</li>`,
   );
   const notes = [
-    def.channels.some((c) => c.gain.switch) ? "<li>There is no gain knob: the MIC/LINE switch sets the input gain, and each channel LEVEL does the rest.</li>" : "<li><strong>GAIN/TRIM</strong> sets how hot the signal is; the channel LEVEL sets how much goes to the mix.</li>",
+    def.field ? "" : def.channels.some((c) => c.gain.switch) ? "<li>There is no gain knob: the MIC/LINE switch sets the input gain, and each channel LEVEL does the rest.</li>" : "<li><strong>GAIN/TRIM</strong> sets how hot the signal is; the channel LEVEL sets how much goes to the mix.</li>",
     ...sends,
     def.channels.some((c) => c.comp) ? "<li><strong>COMP</strong> is a one-knob compressor: turn it up and loud peaks are pulled down (the LED lights while it works) and quiet parts come up.</li>" : "",
     def.channels.some((c) => c.gain.minus10) ? "<li>The stereo channels have a <strong>+4 dBu / −10 dBV</strong> switch: −10 is 12 dB more sensitive, for consumer gear such as a laptop or phone.</li>" : "",
@@ -137,7 +137,13 @@ function renderFlowCompact(root, skin, def) {
         ? "<li><strong>SOLO</strong> is PFL: the channel before its LEVEL, in the C-R/PHONES and the meters.</li>"
         : "",
     def.monitorOut ? "<li><strong>MONITOR OUT</strong> carries the whole mix (no per-channel monitor sends) and ignores MASTER LEVEL.</li>" : "",
-    def.poweredAmp ? `<li>The amplifier is <strong>inside the mixer</strong>: SPEAKERS L/R carry speaker level, straight into the passive STAGEPAS speakers. Never into a powered speaker or a line input.</li>` : "<li>The outputs are line level. A speaker only makes sound if an amplifier is somewhere in the chain: inside it (powered) or in front of it (passive + power amp).</li>",
+    def.field ? "<li>Two gain stages: <strong>GAIN</strong> (+22…+60 dB, MIC/LINE takes 40 dB off) is set once, then you mix on the <strong>FADER</strong>, whose centre is 0 dB (it goes up to +15).</li>" : "",
+    def.channels.some((c) => c.hpf) ? "<li><strong>HPF</strong> sweeps from 80 to 240 Hz (off at the detent): wind, rumble, and a close mic's boom.</li>" : "",
+    def.outputLimiter ? "<li><strong>LIM</strong> turns on a safety limiter on every input and on the outputs: ON limits left and right apart, LINK as one stereo pair. The LEDs show it working; if they light a lot, turn the GAIN or faders down.</li>" : "",
+    def.link ? "<li><strong>1+2 LINK</strong> makes channels 1 and 2 one stereo pair: channel 1's fader runs both, its PAN becomes a balance, and 1 goes left, 2 right. <strong>Ø</strong> flips channel 2's polarity: listen in <strong>M</strong> (mono) to hear what that does to a pair.</li>" : "",
+    def.outLevel ? "<li>The XLR outputs carry <strong>MIC, −10 or LINE</strong> level. The camera's input switch must match: line into a MIC input distorts; mic into a LINE input is 40 dB too quiet.</li>" : "",
+    def.tone ? "<li><strong>TONE</strong> puts a 1 kHz sine at 0 dBu on the outputs (instead of the mix) to line up the next device's meters; the headphones get it 20 dB down.</li>" : "",
+    def.poweredAmp ? `<li>The amplifier is <strong>inside the mixer</strong>: SPEAKERS L/R carry speaker level, straight into the passive STAGEPAS speakers. Never into a powered speaker or a line input.</li>` : def.outLevel ? "" : "<li>The outputs are line level. A speaker only makes sound if an amplifier is somewhere in the chain: inside it (powered) or in front of it (passive + power amp).</li>",
   ];
   root.innerHTML = `
     <details class="flow">
@@ -146,10 +152,10 @@ function renderFlowCompact(root, skin, def) {
         <ol class="flow-trunk" aria-label="Every channel">
           <li class="flow-node">Input jack</li>
           <li class="flow-node">${def.channels.some((c) => c.gain.switch) ? "MIC/LINE" : "GAIN"}</li>
-          <li class="flow-node">EQ</li>
-          <li class="flow-node">LEVEL</li>
+          ${def.channels.some((c) => c.hpf) ? '<li class="flow-node">HPF</li><li class="flow-node">LIMITER</li>' : '<li class="flow-node">EQ</li>'}
+          <li class="flow-node">${def.levelLaw || def.layout.level === "fader" ? "FADER" : "LEVEL"}</li>
           <li class="flow-node">${def.channels.some((c) => c.kind === "stereo") ? "PAN / BAL" : "PAN"}</li>
-          <li class="flow-node flow-end">${esc(def.main.label)} → ${def.poweredAmp ? "amp → speakers" : "MAIN OUT"}</li>
+          <li class="flow-node flow-end">${esc(def.main.label)} → ${def.poweredAmp ? "amp → speakers" : def.outLevel ? "XLR OUT (MIC/−10/LINE)" : "MAIN OUT"}</li>
         </ol>
         <ul class="flow-notes">${notes.join("")}</ul>
       </div>

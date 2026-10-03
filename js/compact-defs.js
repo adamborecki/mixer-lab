@@ -1,6 +1,6 @@
 // Compact analog mixers as data: the Mackie Mix8, Mackie 1202-VLZ, Yamaha
-// MG10/2, Yamaha STAGEPAS 400BT and Behringer Xenyx X1204USB. One definition per mixer: its channels
-// and jacks, gain stage, EQ, sends and where they tap, buses, returns, tape,
+// MG10/2, Yamaha STAGEPAS 400BT, Behringer Xenyx X1204USB and the Sound
+// Devices 442 field mixer. One definition per mixer: its channels and jacks, gain stage, EQ, sends and where they tap, buses, returns, tape,
 // phones and outputs. js/compact.js (state and level model), js/graph-compact.js
 // (audio) and js/ui/mixer-compact-view.js (surface) read only this. No imports,
 // so js/connection-model.js can build the rear panels from it.
@@ -33,9 +33,15 @@ export const EQ = {
 //   mono    MIC (XLR) and/or LINE (1/4") jacks, a gain stage, one strip
 //   stereo  L (MONO) + R line inputs (patched as a pair or L alone), one strip with BAL
 // `jacks` lists the input jacks: mic, line, combo, linePair (L+R breakout),
-// lineMono (L (MONO) alone), rcaPair, miniPair. One input per channel at a time.
-// `gain`: { min, max, linePad } trim knob, or { switch: { mic, line } } (MIC/LINE
-// switch, fixed gain), or { fixed } dB for line-only stereo channels.
+// lineMono (L (MONO) alone), rcaPair, miniPair, xlrMicLine (one XLR for mic or
+// line, 442). One input per channel at a time.
+// `gain`: { min, max, linePad } trim knob (`lineSwitch`: the dB a MIC/LINE
+// switch takes off at LINE, 442), or { switch: { mic, line } } (MIC/LINE
+// switch, fixed gain), or { fixed } dB for line-only stereo channels
+// (`minus10`: the dB a +4 dBu / −10 dBV LEVEL switch adds at −10, Xenyx).
+// `comp`: a one-knob compressor after the low cut (Xenyx). `hpf`: a sweepable
+// high-pass, off at the detent; `limiter`: an input limiter; `polarity`: a Ø
+// switch (442).
 // `insert`: where the INSERT jack taps, used as a send: "trim" (after the gain,
 // before LOW CUT; Mackie) or "eq" (after the EQ, before the level; Yamaha).
 // `sends`: ids of the def's `sends` this channel has. `mic` on a stereo channel:
@@ -214,6 +220,29 @@ export const COMPACT = {
     outputs: ["mainXlrOnly", "alt", "cr", "aux1", "aux2", "tapeOut"],
     layout: { strip: ["head", "gain", "lowCut", "comp", "eq", "aux1", "fx", "minus10", "pan", "peak", "mute", "solo", "level"], level: "fader" },
   },
+
+  sd442: {
+    id: "sd442",
+    name: "Sound Devices 442",
+    blurb: "4-input field mixer: GAIN + fader, sweepable HPF, limiters, MIC/−10/LINE outputs, tone.",
+    field: true,
+    phantom: { label: "P48", channels: [0, 1, 2, 3], perChannel: true },
+    channels: [1, 2, 3, 4].map((n) => ({ label: String(n), kind: "mono", jacks: ["xlrMicLine"], gain: { min: 22, max: 60, lineSwitch: -40 }, hpf: { min: 80, max: 240 }, limiter: true, polarity: n === 2, sends: [], solo: true, peak: true })),
+    link: { pair: [0, 1] }, // 1+2 LINK: one stereo pair on channel 1's fader, its PAN a balance
+    sends: {},
+    buses: {},
+    levelLaw: "sdFader", // channel faders: off … 0 (centre) … +15
+    main: { label: "MASTER", law: "master6" },
+    outputLimiter: { thresholdDb: -3 }, // LIM: OFF, ON (two limiters) or LINK (one stereo limiter)
+    tone: { hz: 1000, earSaverDb: -20 }, // 1 kHz at 0 dBu on the outputs; the phones 20 dB down
+    outLevel: { labels: ["MIC", "−10", "LINE"], db: [-40, -14, 0] }, // XLR OUTPUT LEVEL switch
+    phones: { label: "HEADPHONE", selector: ["OFF", "L", "R", "M", "ST"] },
+    solo: { mode: "pfl", label: "PFL" },
+    meter: [-40, -30, -24, -20, -16, -12, -10, -8, -6, -4, -2, 0, 2, 4, 6, 8, 10, 12, 16, "LIM"],
+    peakLabel: "PEAK",
+    outputs: ["xlrSwitched", "tapeMini"],
+    layout: { strip: ["head", "micLine", "phantom", "gain", "hpf", "polarity", "limitLed", "peak", "solo", "pan", "level"] },
+  },
 };
 
 // ---------- rear panels (used by js/connection-model.js) ----------
@@ -230,6 +259,7 @@ export function compactPorts(def) {
     for (const j of ch.jacks) {
       if (j === "mic") ports.push({ ...base, id: `ch${i + 1}-mic`, jack: "xlr", level: "mic", path: "mic", phantom, name: `Ch ${n} MIC` });
       if (j === "line") ports.push({ ...base, id: `ch${i + 1}-line`, jack: "quarter", level: "line", path: "line", name: `Ch ${n} LINE` });
+      if (j === "xlrMicLine") ports.push({ ...base, id: `ch${i + 1}-in`, jack: "xlr", level: "mic-or-line", path: "mic", phantom, name: `Ch ${n} input (XLR, MIC/LINE)` });
       if (j === "combo") ports.push({ ...base, id: `ch${i + 1}-in`, jack: "combo", level: "mic-or-line", phantom, name: `Ch ${n} input` });
       if (j === "lineMono") ports.push({ ...base, id: `ch${i + 1}-l`, jack: "quarter", level: "line", path: "line", pad: false, monoIn: true, name: `Ch ${n} L (MONO)` });
       if (j === "linePair") ports.push({ ...base, id: `ch${i + 1}-lr`, jack: "linepair", level: "line", path: "line", pad: false, stereo: true, name: `Ch ${n} L+R (1/4")` });
@@ -249,6 +279,9 @@ export function compactPorts(def) {
   if (o.includes("mainXlr")) {
     ports.push(out("main-l", "xlr", `${mainName} L (XLR)`, { bus: "main", side: "L" }), out("main-r", "xlr", `${mainName} R (XLR)`, { bus: "main", side: "R" }));
     ports.push(out("line-l", "quarter", "LINE OUT L", { bus: "main", side: "L" }), out("line-r", "quarter", "LINE OUT R", { bus: "main", side: "R" }));
+  } else if (o.includes("xlrSwitched")) {
+    // The level these carry is the mixer's OUTPUT LEVEL switch (rig device `outLevel`).
+    ports.push(out("main-l", "xlr", "MASTER OUT L (XLR)", { bus: "main", side: "L", levelSwitch: true }), out("main-r", "xlr", "MASTER OUT R (XLR)", { bus: "main", side: "R", levelSwitch: true }));
   } else if (o.includes("mainXlrOnly")) {
     ports.push(out("main-l", "xlr", `${mainName} L (XLR)`, { bus: "main", side: "L" }), out("main-r", "xlr", `${mainName} R (XLR)`, { bus: "main", side: "R" }));
   } else if (o.includes("main")) {
@@ -260,6 +293,7 @@ export function compactPorts(def) {
   const tapeOut = def.tape?.label ? `${def.tape.label} OUT` : "TAPE OUT";
   if (o.includes("tapeOut")) ports.push(out("tape-out-l", "rca", `${tapeOut} L`, { bus: "main", side: "L" }), out("tape-out-r", "rca", `${tapeOut} R`, { bus: "main", side: "R" }));
   if (o.includes("recOut")) ports.push(out("rec-out-l", "rca", "REC OUT L", { bus: "main", side: "L" }), out("rec-out-r", "rca", "REC OUT R", { bus: "main", side: "R" }));
+  if (o.includes("tapeMini")) ports.push(out("tape-mini", "mini", "TAPE OUT (3.5 mm, −10)", { bus: "main", stereo: true }));
   if (o.includes("inserts")) def.channels.forEach((ch, i) => ch.insert && ports.push(out(`ch${i + 1}-insert`, "quarter", `Ch ${ch.label} INSERT (send)`, { bus: `insert${i + 1}`, channel: i })));
   // STAGEPAS: the amp is inside, so its speaker jacks carry speaker level.
   if (o.includes("speakers")) ports.push(out("spk-l", "quarter", "SPEAKERS L", { level: "speaker", bus: "main", side: "L" }), out("spk-r", "quarter", "SPEAKERS R", { level: "speaker", bus: "main", side: "R" }));

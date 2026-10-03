@@ -8,7 +8,7 @@ import { CABLES, DEVICE_TYPES, cableEndFor, channelPortRef, getPort, plugFitsJac
 import { BUSES, computeMix, createMixerState, dbToLevel, levelToDb, clamp } from "./mixer-state.js";
 import * as CR1604 from "./cr1604.js";
 import { createF8, createPair, createReverb } from "./devices.js";
-import { COMPACT, LAWS as COMPACT_LAWS, channelGainDb, compactModel } from "./compact.js";
+import { COMPACT, LAWS as COMPACT_LAWS, channelGainDb, compactModel, levelLaw } from "./compact.js";
 
 // Outboard gear for the CR1604 gig: a reverb on AUX 3 → AUX RETURN 1, and a
 // field recorder with a stereo room pair for recording the show.
@@ -40,6 +40,9 @@ export const PLAYBACK_DEVICES = {
   "sp-l": { type: "passive-speaker", label: "STAGEPAS 400S speaker · left", short: "STAGEPAS left", zone: "foh", pan: -1 },
   "sp-r": { type: "passive-speaker", label: "STAGEPAS 400S speaker · right", short: "STAGEPAS right", zone: "foh", pan: 1 },
   pwedge: { type: "passive-speaker", label: "Passive wedge · drummer", short: "drummer's wedge", zone: "stage", pan: 0 },
+  // A video camera's two XLR audio inputs (each with a MIC/LINE switch, starting at LINE).
+  "cam-1": { type: "camera-input", label: "Camera · input 1 (XLR)", short: "camera ch 1", zone: "cam", pan: -1, inputLevel: 1 },
+  "cam-2": { type: "camera-input", label: "Camera · input 2 (XLR)", short: "camera ch 2", zone: "cam", pan: 1, inputLevel: 1 },
 };
 
 // Two monitor mixes, patched the same way wherever both wedges are on stage:
@@ -647,6 +650,21 @@ export const COMPACT_GIGS = {
     comp: { "lead-vocal": 0.3 },
     minus10: ["preshow"],
   },
+  sd442: {
+    prompt: "Shooting the band for video with a Sound Devices 442 on a cart: the room pair on channels 1 and 2 (1+2 LINK on, P48 on), the lead vocal on 3 and the backing vocals on 4. The XLR master outs feed the camera's two XLR inputs, both outputs and camera inputs at LINE. Listen in the HEADPHONE (try M to check the pair in mono), or at the camera.",
+    patch: { "room-l": [0, "in"], "room-r": [1, "in"], "lead-vocal": [2, "in"], "backing-vocals": [3, "in"] },
+    extraSources: ["room-l", "room-r"], // from the stereo mic pair, not the band's own mics
+    devices: ["cam-1", "cam-2"],
+    cables: [
+      { from: "mixer/main-l", to: "cam-1/in", cable: "xlr" },
+      { from: "mixer/main-r", to: "cam-2/in", cable: "xlr" },
+    ],
+    sends: {},
+    link: "on",
+    hpf: { "lead-vocal": 0.25, "backing-vocals": 0.25 },
+    pans: { "lead-vocal": 0, "backing-vocals": 0 },
+    listen: "phones",
+  },
 };
 
 // Free play on a real mixer describes that mixer's gig (the shared text names
@@ -664,9 +682,12 @@ function buildCompactState(model, sourcesById) {
   for (const s of sources) state.rig.devices.push({ id: sourceDeviceId(s.id), type: s.deviceType, sourceId: s.id, label: s.device });
   for (const id of gig.devices) {
     const d = PLAYBACK_DEVICES[id];
-    state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan });
+    state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan, ...(d.inputLevel !== undefined ? { inputLevel: d.inputLevel } : {}) });
   }
   if (gig.reverb) state.rig.devices.push(STAGE_GEAR.reverb());
+  // The room pair's two mics are sources too (442).
+  for (const id of gig.extraSources || []) if (sourcesById[id]) sources.push(sourcesById[id]);
+  if (sources.some((s) => s.room && gig.patch[s.id])) state.rig.devices.push(STAGE_GEAR.pair());
   let n = 0;
   const addCable = (c) => state.rig.cables.push({ id: `c${++n}`, ...c });
   const tape = def.channels.length;
@@ -675,8 +696,9 @@ function buildCompactState(model, sourcesById) {
     if (!where) continue; // no channel left for this one
     const [index, jack] = where[0] === "tape" ? [tape, "tape-in"] : where;
     const port = index === tape ? "tape-in" : `ch${index + 1}-${jack}`;
-    const cable = s.stereo ? { lr: "mini-dual-ts", rca: "mini-rca", mini: "mini", "tape-in": "mini-rca" }[jack] : defaultCableFor(s);
-    addCable({ from: `${sourceDeviceId(s.id)}/out`, to: `mixer/${port}`, cable });
+    const cable = s.stereo ? { lr: "mini-dual-ts", rca: "mini-rca", mini: "mini", "tape-in": "mini-rca" }[jack] : s.room ? "xlr" : defaultCableFor(s);
+    const from = s.room ? `room-pair/out-${s.id === "room-l" ? "l" : "r"}` : `${sourceDeviceId(s.id)}/out`;
+    addCable({ from, to: `mixer/${port}`, cable });
   }
   for (const c of gig.cables) addCable(c);
   if (gig.reverb) {
@@ -696,10 +718,12 @@ function buildCompactState(model, sourcesById) {
     if (c.gain.minus10) ch.minus10 = (gig.minus10 || []).includes(s.id);
     if (gig.pre) ch.pre = true;
     if (c.comp && gig.comp?.[s.id]) ch.comp = gig.comp[s.id];
+    if (c.hpf && gig.hpf?.[s.id]) ch.hpf = gig.hpf[s.id];
+    if (s.room && def.phantom.perChannel) ch.phantom = true;
     if (c.gain.switch) ch.micLine = s.signalLevel === "line" ? "line" : "mic";
     else if (c.gain.min !== undefined) ch.gainDb = clamp(-s.outputDb - (channelGainDb(def, { ...ch, gainDb: 0 }, input)), c.gain.min, c.gain.max);
-    ch.level = COMPACT_LAWS.level.toPos(s.mixDb);
-    if (!ch.stereo) ch.pan = s.pan;
+    ch.level = levelLaw(def).toPos(s.mixDb);
+    if (!ch.stereo) ch.pan = gig.pans?.[s.id] ?? s.pan;
     if (c.lowCut && !["drums", "bass"].includes(s.id)) ch.lowCut = true;
     for (const [sid, levels] of Object.entries(gig.sends)) {
       if (!(sid in ch.sends) || !(s.id in levels)) continue;
@@ -712,10 +736,15 @@ function buildCompactState(model, sourcesById) {
   const laptop = gig.patch.preshow;
   if (laptop && laptop[0] === "tape") state.channels[tape].toCr = def.tape.routing === "toMainOrCr";
   else if (laptop) state.channels[laptop[0]].level = 0;
-  if (sources.some((s) => gig.patch[s.id] && s.phantom === "required")) for (const i of def.phantom.channels) state.channels[i].phantom = true;
+  if (!def.phantom.perChannel && sources.some((s) => gig.patch[s.id] && s.phantom === "required")) for (const i of def.phantom.channels) state.channels[i].phantom = true;
   for (const b of Object.keys(def.buses)) if (state[b].pre !== undefined) state[b].pre = true; // monitors pre-fader
   if (state.reverb) state.reverb.on = true;
   if (state.monitor) state.monitor.level = 0.5;
+  if (gig.link && state.link) {
+    state.link.mode = gig.link;
+    state.channels[def.link.pair[0]].pan = 0; // the balance, centred
+  }
+  if (gig.listen) state.listen = gig.listen;
   return state;
 }
 
