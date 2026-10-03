@@ -3,12 +3,13 @@
 // Every control writes through MixerStore; nothing here knows about audio nodes.
 
 import { RangeControl, LitButton } from "./controls.js";
-import { EQ_FOR, LAWS, OL_DB, reverbSetting, tapeIndex } from "../compact.js";
+import { EQ_FOR, LAWS, OL_DB, fxPreset, reverbSetting, tapeIndex } from "../compact.js";
 import { formatDb, formatPan } from "../levels.js";
 
 const lawFormat = (law) => (v) => formatDb(law.toDb(v), { unity: true });
 const eqFormat = (v) => (Math.abs(v) < 0.25 ? "0 dB" : `${v > 0 ? "+" : "−"}${Math.abs(v)} dB`);
 const RELEASE_DB_PER_S = 24;
+const FADER_MARKS = [10, 5, 0, -5, -10, -20, -30, -50].map((db) => ({ value: LAWS.level.toPos(db), label: db === 0 ? "U" : db > 0 ? `+${db}` : `${db}` }));
 
 function row(className, ...els) {
   const d = document.createElement("div");
@@ -26,6 +27,8 @@ function led(cls, label) {
 
 export function renderCompact(view, def) {
   view.leds = [];
+  view.compLeds = [];
+  view.fxLeds = null;
   view.paths = [];
   view.pathKey = "";
   view.def = def;
@@ -42,6 +45,11 @@ export function renderCompact(view, def) {
 
 function knob(view, opts, get) {
   return view.bind(new RangeControl({ kind: "knob", dragAxis: "vertical", step: 0.005, keyStepMul: 2, min: 0, max: 1, size: "xs", ...opts }), get).el;
+}
+
+// A channel or master fader (Xenyx), on the channel LEVEL law.
+function fader(view, { label, sheetLabel, get, onInput }) {
+  return view.bind(new RangeControl({ kind: "fader", label, sheetLabel, min: 0, max: 1, step: 0.005, keyStepMul: 2, defaultValue: 0.75, marks: FADER_MARKS, format: lawFormat(LAWS.level), onInput }), get).el;
 }
 
 function button(view, { label, tone = "assign", small = true, get, onPress, aria }) {
@@ -97,6 +105,16 @@ function buildStrip(view, def, i) {
       c.gain.switch
         ? button(view, { label: "MIC", tone: "gain", get: (s) => ch(s).micLine === "mic", onPress: () => store.setChannel(i, "micLine", ch(store.state).micLine === "mic" ? "line" : "mic"), aria: (s) => `Channel ${n} MIC/LINE switch: ${ch(s).micLine === "mic" ? "MIC" : "LINE"}` })
         : null,
+    comp: () => {
+      if (!c.comp) return null;
+      const l = led("led-comp", "COMP");
+      view.compLeds.push({ index: i, el: l.querySelector("i") });
+      return row("cm-comp", knob(view, { label: "COMP", sheetLabel: `Ch ${n} compressor`, defaultValue: 0, tone: "gain", format: (v) => (v <= 0 ? "off" : `${Math.round(v * 10)}`), onInput: set("comp") }, (s) => ch(s).comp), l);
+    },
+    minus10: () =>
+      c.gain.minus10
+        ? button(view, { label: "−10 dBV", get: (s) => ch(s).minus10, onPress: flip("minus10"), aria: (s) => `Channel ${n} LEVEL switch: ${ch(s).minus10 ? "−10 dBV (consumer gear, 12 dB more sensitive)" : "+4 dBu (pro line level)"}` })
+        : null,
     hiZ: () => (c.hiZ ? button(view, { label: "Hi-Z", get: (s) => ch(s).hiZ, onPress: flip("hiZ"), aria: (s) => `Channel ${n} Hi-Z: ${onOff(ch(s).hiZ)}` }) : null),
     lowCut: () => (c.lowCut ? button(view, { label: c.lowCut.label || "LOW CUT", tone: "lowcut", get: (s) => ch(s).lowCut, onPress: flip("lowCut"), aria: (s) => `Channel ${n} low cut ${c.lowCut.hz} Hz: ${onOff(ch(s).lowCut)}` }) : null),
     eq: () =>
@@ -115,12 +133,14 @@ function buildStrip(view, def, i) {
     solo: () => (c.solo ? button(view, { label: "SOLO", tone: "pfl", get: (s) => ch(s).solo, onPress: flip("solo"), aria: (s) => `Channel ${n} SOLO (PFL): ${onOff(ch(s).solo)}` }) : null),
     peak: () => {
       if (!c.peak) return null;
-      const l = led("led-ol", def.id === "mix8" ? "OL" : "PEAK");
+      const l = led("led-ol", def.peakLabel || "PEAK");
       view.leds.push({ index: i, ol: l.querySelector("i"), olUntil: 0 });
       return l;
     },
     level: () =>
-      knob(view, { label: "LEVEL", sheetLabel: `Ch ${n} level`, defaultValue: 0.75, size: "big", tone: "level", format: lawFormat(LAWS.level), onInput: set("level") }, (s) => ch(s).level),
+      def.layout.level === "fader"
+        ? row("c16-fader cm-fader", fader(view, { label: "", sheetLabel: `Ch ${n} fader`, get: (s) => ch(s).level, onInput: set("level") }))
+        : knob(view, { label: "LEVEL", sheetLabel: `Ch ${n} level`, defaultValue: 0.75, size: "big", tone: "level", format: lawFormat(LAWS.level), onInput: set("level") }, (s) => ch(s).level),
   };
   // Sends: one knob each ("aux", "aux1", "reverb", …) or the MG10/2's two-way AUX.
   for (const sid of c.sends || []) {
@@ -143,12 +163,18 @@ function buildStrip(view, def, i) {
             },
             (s) => ch(s).sends[sid],
           )
-        : knob(view, { label: d.label, sheetLabel: `Ch ${n} ${d.label} send`, defaultValue: 0, tone: d.bus === "aux2" ? "aux2" : d.bus === "reverb" ? "eq" : "aux1", format: lawFormat(LAWS[d.law]), onInput: set(`sends.${sid}`) }, (s) => ch(s).sends[sid]);
+        : d.tap === "channel"
+          ? row(
+              "cm-send-pre",
+              knob(view, { label: d.label, sheetLabel: `Ch ${n} ${d.label} send`, defaultValue: 0, tone: "aux1", format: lawFormat(LAWS[d.law]), onInput: set(`sends.${sid}`) }, (s) => ch(s).sends[sid]),
+              button(view, { label: "PRE", tone: "pfl", get: (s) => ch(s).pre, onPress: flip("pre"), aria: (s) => `Channel ${n} ${d.label} PRE: ${ch(s).pre ? "on, before the fader" : "off, after the fader (and cut by MUTE)"}` }),
+            )
+          : knob(view, { label: d.label, sheetLabel: `Ch ${n} ${d.label} send`, defaultValue: 0, tone: d.bus === "aux2" ? "aux2" : d.bus === "reverb" ? "eq" : "aux1", format: lawFormat(LAWS[d.law]), onInput: set(`sends.${sid}`) }, (s) => ch(s).sends[sid]);
   }
 
   for (const key of def.layout.strip) {
     const built = parts[key] ? parts[key]() : null;
-    if (built) el.appendChild(key === "head" || key === "level" ? built : row("c16-sec", built));
+    if (built) el.appendChild(key === "head" || (key === "level" && def.layout.level !== "fader") ? built : row(key === "level" ? "c16-sec cm-level" : "c16-sec", built));
   }
   view.bindings.push({ kind: "fn", run: (s) => el.classList.toggle("is-muted", !!c.mute && !ch(s).enabled) });
   return el;
@@ -215,16 +241,38 @@ function buildMaster(view, def) {
         "AUX SENDS",
         ...auxBlocks.map(([b, bus]) => (bus.master ? busKnob(b, "level", bus.master.label, LAWS[bus.master.law]) : null)),
         ...auxBlocks.map(([b, bus]) => (bus.preSwitch ? busButton(b, "pre", `${bus.label} PRE`, `${bus.label} taken before the channel level (pre-fader)`, "pfl") : null)),
+        auxBlocks.some(([, bus]) => bus.solo) ? row("c16-matrix", ...auxBlocks.map(([b, bus]) => (bus.solo ? busButton(b, "solo", `SOLO ${b === "aux1" ? "1" : "2"}`, `SOLO ${bus.master.label}: hear it in the PHONES/CTRL R`, "pfl") : null))) : null,
       ),
     );
+
+  // The Xenyx's built-in effects: PROGRAM and a LEVEL LED.
+  if (def.fx) {
+    const sig = led("led-sig", "LEVEL");
+    const clip = led("led-ol", "CLIP");
+    view.fxLeds = { sig: sig.querySelector("i"), clip: clip.querySelector("i"), clipUntil: 0 };
+    const name = document.createElement("p");
+    name.className = "c16-note cm-fx-name";
+    view.bindings.push({ kind: "text", el: name, get: (s) => { const p = fxPreset(def, s.fx.program); return `${String(p.number).padStart(2, "0")} ${p.name}`; } });
+    blocks.push(
+      block(
+        "EFFECTS",
+        name,
+        knob(view, { label: "PROGRAM", sheetLabel: "Effects PROGRAM", min: 0, max: def.fx.presets.length - 1, step: 1, defaultValue: 0, tone: "eq", format: (v) => fxPreset(def, v).name, onInput: (v) => store.setBus("fx", "program", v) }, (s) => s.fx.program),
+        row("c16-leds", sig, clip),
+        Object.assign(document.createElement("p"), { className: "c16-note", textContent: "Fed by AUX SEND 2 (FX); back on RETURN 2" }),
+      ),
+    );
+  }
 
   // Returns.
   if (def.returns?.length)
     blocks.push(
       block(
         def.returns.length > 1 ? "AUX RETURNS" : def.returns[0].label,
-        ...def.returns.map((r) => (r.fixedDb !== undefined ? null : busKnob(r.id, "level", r.label.replace("AUX RETURN", "RET"), LAWS[r.law]))),
+        ...def.returns.map((r) => (r.fixedDb !== undefined ? null : busKnob(r.id, "level", def.returns.length > 1 ? r.label.replace(/(STEREO )?AUX RETURN/, "RET").replace(" (FX)", "") : "LEVEL", LAWS[r.law], { sheetLabel: r.label }))),
         ...def.returns.map((r) => (r.efxToMonitor ? busButton(r.id, "efx", "EFX TO MON", `${r.label} to ${def.buses[r.efxToMonitor].label} (effects to monitor)`) : null)),
+        ...def.returns.map((r) => (r.toMonitor ? busKnob(r.id, "mon", `${r.toMonitor.label}`, LAWS[r.toMonitor.law], { sheetLabel: `${r.label} into ${def.buses[r.toMonitor.bus].label} (monitor)`, defaultValue: 0 }) : null)),
+        ...def.returns.map((r) => (r.toAlt ? busButton(r.id, "toAlt", "RET 2 → ALT 3-4", `${r.label} to ALT 3-4 instead of MAIN MIX`) : null)),
         def.returns.every((r) => r.fixedDb !== undefined) ? Object.assign(document.createElement("p"), { className: "c16-note", textContent: "Into the main mix at unity" }) : null,
       ),
     );
@@ -239,18 +287,21 @@ function buildMaster(view, def) {
     view.bindings.push({ kind: "head", el: head, index: t });
     blocks.push(
       block(
-        def.tape.level || "TAPE IN",
+        def.tape.level || (def.tape.label ? `${def.tape.label} IN` : "TAPE IN"),
         head,
         def.tape.level ? knob(view, { label: def.tape.level, sheetLabel: `${def.tape.level} level`, defaultValue: 0.5, tone: "level", format: lawFormat(LAWS.ret20), onInput: (v) => store.setChannel(t, "level", v) }, (s) => s.channels[t].level) : null,
         def.tape.routing === "toMainOrCr"
           ? button(view, { label: "TO CR/PHONES", get: (s) => s.channels[t].toCr, onPress: () => store.setChannel(t, "toCr", !store.state.channels[t].toCr), aria: (s) => `TAPE IN goes ${s.channels[t].toCr ? "to the CR/PHONES only" : "to the MAIN mix"}` })
+          : null,
+        def.tape.routing === "switch"
+          ? button(view, { label: `${def.tape.label} TO MAIN`, get: (s) => s.channels[t].toMain, onPress: () => store.setChannel(t, "toMain", !store.state.channels[t].toMain), aria: (s) => `${def.tape.label} TO MAIN: ${s.channels[t].toMain ? "on, in the main mix" : "off (hear it with the C-R SOURCE TAPE)"}` })
           : null,
         def.tape.routing === "crOnly" ? Object.assign(document.createElement("p"), { className: "c16-note", textContent: "Heard through C-R/PHONES (SOURCE: TAPE)" }) : null,
       ),
     );
   }
 
-  if (def.alt) blocks.push(block("ALT 3-4", busButton("alt", "toMain", "ASSIGN TO MAIN", "ALT 3-4 assigned to the main mix")));
+  if (def.alt && !def.alt.fader) blocks.push(block("ALT 3-4", busButton("alt", "toMain", "ASSIGN TO MAIN", "ALT 3-4 assigned to the main mix")));
 
   if (def.reverb) {
     blocks.push(
@@ -283,13 +334,25 @@ function buildMaster(view, def) {
     );
   }
   if (def.solo) {
-    const rude = led("led-rude", "RUDE SOLO");
+    const rude = led("led-rude", def.solo.mode === "switch" ? "SOLO" : "RUDE SOLO");
     view.soloLeds = { rude: rude.querySelector("i") };
-    blocks.push(block("SOLO", Object.assign(document.createElement("p"), { className: "c16-note", textContent: "PFL: before the level" }), rude));
+    const mode =
+      def.solo.mode === "switch"
+        ? button(view, { label: "MODE: PFL", tone: "pfl", get: (s) => s.soloBus.mode === "pfl", onPress: () => store.setBus("soloBus", "mode", store.state.soloBus.mode === "pfl" ? "sip" : "pfl"), aria: (s) => `Solo MODE: ${s.soloBus.mode === "pfl" ? "PFL, before the fader (mono)" : "SOLO in place, after the fader and pan"}` })
+        : Object.assign(document.createElement("p"), { className: "c16-note", textContent: "PFL: before the level" });
+    blocks.push(block("SOLO", mode, rude));
   }
   if (def.xlrPad) blocks.push(block("XLR OUT", busButton("xlrPad", "on", "−30 dB PAD", "Main XLR output pad")));
 
-  // Main level last, big.
+  // Main level last, big (or the ALT 3-4 and MAIN MIX faders).
+  if (def.layout.level === "fader") {
+    const faders = [];
+    if (def.alt?.fader) faders.push(fader(view, { label: "ALT 3-4", sheetLabel: "ALT 3-4 fader", get: (s) => s.alt.level, onInput: (v) => store.setBus("alt", "level", v) }));
+    faders.push(fader(view, { label: def.main.label, sheetLabel: `${def.main.label} fader`, get: (s) => s.main.level, onInput: (v) => store.setBus("main", "level", v) }));
+    blocks.push(block("MAIN", row("cm-master-faders", ...faders)));
+    el.appendChild(row("c16-master-top cm-master-top", ...blocks));
+    return el;
+  }
   const main = knob(view, { label: def.main.label, sheetLabel: def.main.label, defaultValue: def.main.law === "master" ? 0.5 : 0.75, size: "big", tone: "level", format: lawFormat(LAWS[def.main.law]), onInput: (v) => store.setBus("main", "level", v) }, (s) => s.main.level);
   const limit = def.poweredAmp ? led("led-ol", "LIMITER") : null;
   if (limit) view.limitLed = limit.querySelector("i");
@@ -309,7 +372,15 @@ export function updateCompact(view, readings, now) {
     const on = now < l.olUntil;
     l.ol.classList.toggle("on", on);
   }
-  if (view.soloLeds) view.soloLeds.rude.classList.toggle("on", s.channels.some((c) => c.solo) && Math.floor(now / 400) % 2 === 0);
+  for (const l of view.compLeds || []) l.el.classList.toggle("on", (readings.comp?.[l.index] || 0) < -1);
+  if (view.fxLeds && readings.fx) {
+    const f = view.fxLeds;
+    if (readings.fx.peakDb >= OL_DB) f.clipUntil = now + 150;
+    f.sig.classList.toggle("on", readings.fx.peakDb > -40);
+    f.clip.classList.toggle("on", now < f.clipUntil);
+  }
+  const soloOn = s.channels.some((c) => !c.tape && c.solo) || ["aux1", "aux2"].some((b) => s[b]?.solo);
+  if (view.soloLeds) view.soloLeds.rude.classList.toggle("on", soloOn && (view.def.solo.mode === "switch" || Math.floor(now / 400) % 2 === 0));
   let top = -Infinity;
   for (const m of view.ledMeters || []) {
     const r = m.side === "L" ? readings.meterL : readings.meterR;

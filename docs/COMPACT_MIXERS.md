@@ -1,6 +1,6 @@
 # Compact mixers
 
-Four real mixers from Chapman's inventory, built as data: the Mackie Mix8, Mackie 1202-VLZ, Yamaha MG10/2 and Yamaha STAGEPAS 400BT. They're picked from the **Real mixers** menu next to Mixer A and Mixer B, along with the CR1604-VLZ ([CR1604.md](CR1604.md)).
+Five real mixers from Chapman's inventory, built as data: the Mackie Mix8, Mackie 1202-VLZ, Yamaha MG10/2, Yamaha STAGEPAS 400BT and Behringer Xenyx X1204USB. They're picked from the **Real mixers** menu next to Mixer A and Mixer B, along with the CR1604-VLZ ([CR1604.md](CR1604.md)).
 
 | Layer | File |
 |---|---|
@@ -16,23 +16,26 @@ Four real mixers from Chapman's inventory, built as data: the Mackie Mix8, Macki
 
 ## What each one teaches
 
-| | Mix8 | 1202-VLZ | MG10/2 | STAGEPAS 400BT |
-|---|---|---|---|---|
-| Channels | 2 mono (MIC/LINE), 2 stereo line | 4 mono, 4 stereo line | 2 mono, 2 stereo with XLR, 2 stereo line (¼″ or RCA) | 2 XLR, 2 combo, 2 stereo line |
-| Gain | GAIN 0…+50 (LINE −20) | TRIM +10…+60 (LINE −20) | GAIN +16…+60 (LINE −26) | **MIC/LINE switch only** |
-| EQ | 12k / 2.5k / 80 | 12k / 2.5k / 80 | 10k / 2.5k / 100 | 8k / 100 |
-| Low cut | — | 75 Hz, 18 dB/oct (1–4) | 80 Hz HPF (mic inputs) | — |
-| Monitor send | one AUX, **post-fader** | AUX 1, PRE switch | one knob: **AUX1 pre ← → AUX2 post** | **MONITOR OUT: the whole mix** |
-| Effects | AUX RETURN at unity | AUX 2 → reverb → RETURN 1; EFX TO MON on return 2 | AUX2 → reverb → RETURN | built-in reverb, 4 types |
-| Mute / solo | — | MUTE/ALT 3-4, PFL SOLO, rude solo | — | — |
-| Phantom | 48V, ch 1–2 | ch 1–4 | ch 1, 2, 3/4, 5/6 | +30 V, ch 1–2 |
-| Outputs | MAIN, C-R, AUX, TAPE | MAIN XLR (30 dB PAD) + ¼″, ALT, C-R, AUX 1/2, TAPE, inserts | ST, REC, C-R, AUX1/2, inserts | **SPEAKERS L/R (speaker level)**, MONITOR, SUB |
+| | Mix8 | 1202-VLZ | MG10/2 | STAGEPAS 400BT | Xenyx X1204USB |
+|---|---|---|---|---|---|
+| Channels | 2 mono (MIC/LINE), 2 stereo line | 4 mono, 4 stereo line | 2 mono, 2 stereo with XLR, 2 stereo line (¼″ or RCA) | 2 XLR, 2 combo, 2 stereo line | 4 mono, 2 stereo line |
+| Gain | GAIN 0…+50 (LINE −20) | TRIM +10…+60 (LINE −20) | GAIN +16…+60 (LINE −26) | **MIC/LINE switch only** | GAIN +10…+60 (LINE −20); stereo **+4 dBu / −10 dBV** switch |
+| EQ | 12k / 2.5k / 80 | 12k / 2.5k / 80 | 10k / 2.5k / 100 | 8k / 100 | 12k / 2.5k / 80 |
+| Low cut | — | 75 Hz, 18 dB/oct (1–4) | 80 Hz HPF (mic inputs) | — | 75 Hz, 18 dB/oct (1–4) |
+| Dynamics | — | — | — | — | **one-knob COMP** (1–4) |
+| Monitor send | one AUX, **post-fader** | AUX 1, PRE switch | one knob: **AUX1 pre ← → AUX2 post** | **MONITOR OUT: the whole mix** | AUX 1, **PRE switch on each channel** |
+| Effects | AUX RETURN at unity | AUX 2 → reverb → RETURN 1; EFX TO MON on return 2 | AUX2 → reverb → RETURN | built-in reverb, 4 types | FX (post, **not cut by MUTE**) → built-in effects, 16 presets → RETURN 2; RETURN 1 MON |
+| Mute / solo | — | MUTE/ALT 3-4, PFL SOLO, rude solo | — | — | MUTE/ALT 3-4 (own fader), SOLO with **MODE: PFL or in place**, AUX SOLO |
+| Phantom | 48V, ch 1–2 | ch 1–4 | ch 1, 2, 3/4, 5/6 | +30 V, ch 1–2 | ch 1–4 |
+| Levels | knobs | knobs | knobs | knobs | **60 mm faders** |
+| Outputs | MAIN, C-R, AUX, TAPE | MAIN XLR (30 dB PAD) + ¼″, ALT, C-R, AUX 1/2, TAPE, inserts | ST, REC, C-R, AUX1/2, inserts | **SPEAKERS L/R (speaker level)**, MONITOR, SUB | MAIN XLR, ALT 3-4, C-R, AUX 1/2, CD/TAPE |
 
 The Free play gig on each one shows its limits:
 - **Mix8:** only two mic channels, so only part of the band fits.
 - **1202-VLZ:** the wedge on AUX 1 with PRE pressed, the reverb on AUX 2.
 - **MG10/2:** each channel feeds the wedge *or* the reverb, never both.
 - **STAGEPAS:** the speakers plug straight into the mixer because the amp is inside, and the wedge gets the whole mix.
+- **X1204USB:** PRE is pressed on every channel for the wedge; the FX send feeds the built-in effects with nothing to patch; the laptop needs the −10 dBV switch; the lead vocal has a little COMP. Drums and trumpets have no channel.
 
 ## Sources
 
@@ -40,6 +43,7 @@ The Free play gig on each one shows its limits:
 - **1202-VLZ:** Mackie MS1202-VLZ service manual (parts list and signal-flow diagram). The owner's manual wasn't reachable, so control ranges follow the CR1604-VLZ, which uses the same circuits (TRIM, LOW CUT, EQ, knob tapers).
 - **MG10/2:** Yamaha MG10/2 owner's manual (text version), including its specification tables.
 - **STAGEPAS 400BT:** Yamaha STAGEPAS 600BT/400BT owner's manual and block diagram.
+- **X1204USB:** Behringer XENYX X1204USB/1204USB user manual (chapter 2, control elements; chapter 5, specifications). The preset count (16) is from Thomann's spec list.
 
 ## Simplifications and guesses to check against the real units
 
@@ -56,4 +60,10 @@ The Free play gig on each one shows its limits:
 - **1202-VLZ:** TAPE IN is heard through the C-R/PHONES SOURCE only. EFX TO MON sends AUX RETURN 2 into AUX 1.
 - **Inserts** are send taps only, as on the 1604.
 - **Meters** read the main mix (or PFL solo) with 0 at −18 dBFS. The STAGEPAS meter reads the amp's output and lights LIMITER near full scale.
-- **The scenario checks' level model** leaves EQ, low cut and effects out, as everywhere else.
+- **X1204USB:**
+  - **Effects presets:** the manual lists them only as a picture, so the 16 names and settings here are stand-ins in the right families (reverbs, delays, chorus, flanger, two combinations). Check them against the panel.
+  - **FX TO MON:** the effects chapter mentions FX TO MAIN / FX TO MON, but the control chapter describes STEREO AUX RETURN 1 + MON and RETURN 2 (FX). The lab follows the control chapter: RETURN 2 is the effects level, RETURN 1's MON knob feeds AUX 1.
+  - **Internal effects off:** a plug in either RETURN 2 jack mutes the built-in effects, as the manual says.
+  - **COMP:** a Web Audio compressor: threshold −6 → −36 dBFS and ratio 1:1 → 8:1 as the knob turns, with some make-up gain. The LED lights above 1 dB of gain reduction.
+  - **USB** audio and the footswitch aren't modelled. CD/TAPE TO MAIN doesn't break the tape-out link.
+- **The scenario checks' level model** leaves EQ, low cut, compression and effects out, as everywhere else.

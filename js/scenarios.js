@@ -633,6 +633,20 @@ export const COMPACT_GIGS = {
     ],
     sends: { reverb: { "lead-vocal": -8, "backing-vocals": -10 } },
   },
+  x1204usb: {
+    prompt: "The band on a Behringer Xenyx X1204USB: both vocals, guitar and bass on the four mic channels, keys on 5/6, the laptop on 7/8 (switched to −10 dBV, level down). AUX 1, with PRE pressed on each channel, feeds the singer's wedge; the FX send feeds the built-in effects, which come back on RETURN 2. The lead vocal has a little COMP.",
+    patch: { "lead-vocal": [0, "mic"], "backing-vocals": [1, "mic"], guitars: [2, "mic"], bass: [3, "mic"], keys: [4, "l"], preshow: [5, "lr"] },
+    devices: ["spk-l", "spk-r", "wedge"],
+    cables: [
+      { from: "mixer/main-l", to: "spk-l/in", cable: "xlr" },
+      { from: "mixer/main-r", to: "spk-r/in", cable: "xlr" },
+      { from: "mixer/aux1", to: "wedge/in", cable: "trs" },
+    ],
+    sends: { aux1: { "lead-vocal": 0, "backing-vocals": -6, guitars: -10, bass: -10, keys: -8 }, fx: { "lead-vocal": -6, "backing-vocals": -8, keys: -14 } },
+    pre: true, // every channel's AUX 1 PRE pressed
+    comp: { "lead-vocal": 0.3 },
+    minus10: ["preshow"],
+  },
 };
 
 // Free play on a real mixer describes that mixer's gig (the shared text names
@@ -679,6 +693,9 @@ function buildCompactState(model, sourcesById) {
     const ch = state.channels[where[0]];
     const c = def.channels[where[0]];
     const input = mix.channels[where[0]].input;
+    if (c.gain.minus10) ch.minus10 = (gig.minus10 || []).includes(s.id);
+    if (gig.pre) ch.pre = true;
+    if (c.comp && gig.comp?.[s.id]) ch.comp = gig.comp[s.id];
     if (c.gain.switch) ch.micLine = s.signalLevel === "line" ? "line" : "mic";
     else if (c.gain.min !== undefined) ch.gainDb = clamp(-s.outputDb - (channelGainDb(def, { ...ch, gainDb: 0 }, input)), c.gain.min, c.gain.max);
     ch.level = COMPACT_LAWS.level.toPos(s.mixDb);

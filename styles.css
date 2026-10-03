@@ -2990,7 +2990,8 @@ dialog::backdrop {
 .skin-vlz1202 .mixer-surface,
 .skin-mix8 .mixer-surface,
 .skin-mg102 .mixer-surface,
-.skin-stagepas400bt .mixer-surface {
+.skin-stagepas400bt .mixer-surface,
+.skin-x1204usb .mixer-surface {
   background: linear-gradient(180deg, #2a2d36 0%, #20232b 100%);
   border: 1px solid #383c48;
   border-radius: var(--radius-md);
@@ -3017,8 +3018,50 @@ dialog::backdrop {
 .skin-vlz1202 .mixer-strips,
 .skin-mix8 .mixer-strips,
 .skin-mg102 .mixer-strips,
-.skin-stagepas400bt .mixer-strips {
+.skin-stagepas400bt .mixer-strips,
+.skin-x1204usb .mixer-strips {
   flex: none;
+}
+/* Behringer Xenyx: a cooler, steel-blue panel. */
+.skin-x1204usb .mixer-surface {
+  background: linear-gradient(180deg, #2c323d 0%, #1e232c 100%);
+}
+.c16-led.led-comp i.on {
+  background: #ffb547;
+  box-shadow: 0 0 8px #ffb547;
+}
+.cm-comp,
+.cm-send-pre {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  width: 100%;
+}
+.cm-send-pre .lit-btn {
+  width: auto !important;
+  flex: none;
+  padding-inline: 0.3rem !important;
+}
+.cm-strip .cm-level {
+  margin-top: auto;
+  border-top: none;
+}
+.skin-x1204usb .fader {
+  --fader-h: 150px;
+  width: 36px;
+}
+.cm-master-faders {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+.cm-fx-name {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  color: #ff6b5e;
+  background: #120d0d;
+  border-radius: 4px;
+  padding: 0.15rem 0.35rem;
 }
 /* More than four listening positions (real mixers): the buttons scroll, the message keeps its width. */
 .listen-group.many {

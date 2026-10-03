@@ -176,6 +176,7 @@ export const SKINS = {
   ...compactSkin("vlz1202", "Mackie 1202-VLZ", "12-channel, MUTE/ALT 3-4", { aux1: "AUX 1", aux2: "AUX 2", alt: "ALT 3-4", phones: "C-R/PHONES", pfl: "SOLO", gain: "TRIM" }),
   ...compactSkin("mix8", "Mackie Mix8", "8-channel, one aux", { aux1: "AUX", phones: "CR/PHONES", pfl: "PFL" }),
   ...compactSkin("mg102", "Yamaha MG10/2", "10-channel, AUX1/AUX2 knob", { aux1: "AUX1", aux2: "AUX2", phones: "C-R/PHONES", pfl: "PFL" }),
+  ...compactSkin("x1204usb", "Behringer Xenyx X1204USB", "12-input, COMP, AUX 1 + FX, faders", { aux1: "AUX 1", aux2: "FX", alt: "ALT 3-4", phones: "PHONES/CTRL R", pfl: "SOLO", gain: "TRIM", level: "fader", levelShort: "FADER", main: "MAIN MIX fader" }),
   ...compactSkin("stagepas400bt", "Yamaha STAGEPAS 400BT", "powered mixer + speakers", { monitor: "MONITOR OUT", pfl: "PFL" }),
 };
 

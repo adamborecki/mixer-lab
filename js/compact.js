@@ -38,6 +38,9 @@ function createChannel(def, i) {
     micLine: g.switch ? "mic" : undefined,
     phantom: false,
     lowCut: false,
+    comp: 0, // one-knob compressor (Xenyx)
+    pre: false, // a per-channel PRE switch for the "channel" send (Xenyx AUX 1)
+    minus10: false, // stereo LEVEL switch at −10 dBV (Xenyx)
     hiZ: false,
     eq: Object.fromEntries(EQ_FOR(c.eq).map((b) => [b.id, 0])),
     sends: Object.fromEntries((c.sends || []).map((s) => [s, 0])),
@@ -59,12 +62,13 @@ export function createState(id) {
     listen: "main",
     rig: { devices: [{ id: "mixer", type: id, label: def.name }], cables: [] },
   };
-  if (def.tape) state.channels.push({ index: def.channels.length, label: def.tape.level || "TAPE", stereo: true, tape: true, gainDb: 0, level: 0.5, toMain: false, toCr: false, enabled: true, pan: 0, phantom: false, auxSends: {}, sends: {}, eq: {} });
-  for (const [b, bus] of Object.entries(def.buses)) state[b] = { level: bus.master ? 0.5 : 1, pre: bus.preSwitch ? true : undefined };
-  for (const r of def.returns || []) state[r.id] = { level: r.fixedDb !== undefined ? 1 : 0.5, efx: r.efxToMonitor ? false : undefined };
-  if (def.alt) state.alt = { toMain: false };
+  if (def.tape) state.channels.push({ index: def.channels.length, label: def.tape.level || def.tape.label || "TAPE", stereo: true, tape: true, gainDb: 0, level: 0.5, toMain: false, toCr: false, enabled: true, pan: 0, phantom: false, auxSends: {}, sends: {}, eq: {} });
+  for (const [b, bus] of Object.entries(def.buses)) state[b] = { level: bus.master ? 0.5 : 1, pre: bus.preSwitch ? true : undefined, solo: bus.solo ? false : undefined };
+  for (const r of def.returns || []) state[r.id] = { level: r.fixedDb !== undefined ? 1 : 0.5, efx: r.efxToMonitor ? false : undefined, mon: r.toMonitor ? 0 : undefined, toAlt: r.toAlt ? false : undefined };
+  if (def.alt) state.alt = { toMain: false, level: def.alt.fader ? 0.75 : undefined };
   if (def.phones) state.cr = { level: 0.5, main: true, alt: false, tape: false };
-  if (def.solo) state.soloBus = { mode: def.solo.mode };
+  if (def.solo) state.soloBus = { mode: def.solo.mode === "switch" ? "sip" : def.solo.mode }; // "pfl" or "sip" (solo in place)
+  if (def.fx) state.fx = { program: 0 };
   if (def.reverb) state.reverb = { on: false, type: 0.15 };
   if (def.monitorOut) state.monitor = { level: 0 };
   if (def.masterEq) state.masterEq = { pos: 0.5 };
@@ -94,6 +98,12 @@ export function sanitizeChannel(def, ch, key, value) {
       return c.gain.switch && (value === "mic" || value === "line") ? value : undefined;
     case "lowCut":
       return c.lowCut ? bool(value) : undefined;
+    case "comp":
+      return c.comp ? range(0, 1)(value) : undefined;
+    case "pre":
+      return (c.sends || []).some((sid) => def.sends[sid].tap === "channel") ? bool(value) : undefined;
+    case "minus10":
+      return c.gain.minus10 ? bool(value) : undefined;
     case "hiZ":
       return c.hiZ ? bool(value) : undefined;
     case "stMono":
@@ -115,9 +125,11 @@ export function sanitizeChannel(def, ch, key, value) {
 
 export function busKeys(def) {
   const keys = { main: { level: range(0, 1) } };
-  for (const [b, bus] of Object.entries(def.buses)) keys[b] = { ...(bus.master ? { level: range(0, 1) } : {}), ...(bus.preSwitch ? { pre: bool } : {}) };
-  for (const r of def.returns || []) keys[r.id] = { ...(r.fixedDb === undefined ? { level: range(0, 1) } : {}), ...(r.efxToMonitor ? { efx: bool } : {}) };
-  if (def.alt) keys.alt = { toMain: bool };
+  for (const [b, bus] of Object.entries(def.buses)) keys[b] = { ...(bus.master ? { level: range(0, 1) } : {}), ...(bus.preSwitch ? { pre: bool } : {}), ...(bus.solo ? { solo: bool } : {}) };
+  for (const r of def.returns || []) keys[r.id] = { ...(r.fixedDb === undefined ? { level: range(0, 1) } : {}), ...(r.efxToMonitor ? { efx: bool } : {}), ...(r.toMonitor ? { mon: range(0, 1) } : {}), ...(r.toAlt ? { toAlt: bool } : {}) };
+  if (def.alt) keys.alt = def.alt.fader ? { level: range(0, 1) } : { toMain: bool };
+  if (def.solo?.mode === "switch") keys.soloBus = { mode: (v) => (v === "pfl" || v === "sip" ? v : undefined) };
+  if (def.fx) keys.fx = { program: range(0, def.fx.presets.length - 1, 1) };
   if (def.phones) keys.cr = { level: range(0, 1), ...(def.phones.sources ? Object.fromEntries(def.phones.sources.map((s) => [s, bool])) : {}) };
   if (def.reverb) keys.reverb = { on: bool, type: range(0, 1) };
   if (def.monitorOut) keys.monitor = { level: range(0, 1) };
@@ -135,6 +147,12 @@ export function reverbSetting(def, pos) {
   const type = def.reverb.types[i];
   const base = { HALL: [1.4, 3.5], PLATE: [0.8, 2.4], ROOM: [0.3, 1.2], ECHO: [0.15, 0.5] }[type];
   return { type, seconds: base[0] + within * (base[1] - base[0]) };
+}
+
+// The Xenyx effects PROGRAM: preset number (1…) and what it does.
+export function fxPreset(def, program) {
+  const i = Math.min(def.fx.presets.length - 1, Math.max(0, Math.round(program)));
+  return { number: i + 1, ...def.fx.presets[i] };
 }
 
 // ---------- listening ----------
@@ -166,7 +184,7 @@ export function listenGroupOf(portId) {
 export function channelGainDb(def, ch, input) {
   const g = def.channels[ch.index].gain;
   if (g.switch) return g.switch[ch.micLine || "mic"];
-  if (g.fixed !== undefined && g.min === undefined) return g.fixed;
+  if (g.fixed !== undefined && g.min === undefined) return g.fixed + (g.minus10 && ch.minus10 ? g.minus10 : 0);
   const pad = input && input.path === "line" && !input.stereo && !input.monoIn ? g.linePad || 0 : 0;
   // A trimmed stereo channel's line inputs (MG10/2 3/4, 5/6) take the line pad too.
   const stereoPad = input && input.path === "line" && (input.stereo || input.monoIn) && g.min !== undefined ? g.linePad || 0 : 0;
@@ -206,7 +224,7 @@ export function computeMix(def, state, sourcesById, stems, sourcePeakDb) {
     const base = { index: i, sourceId: input.sourceId || null, input, aux, pflDb: OFF };
     if (ch.tape) {
       const tapeDb = live ? peak + source.outputDb + 10 + HEADROOM_DB + (def.tape.level ? LAWS.ret20.toDb(ch.level) : 0) : OFF;
-      const toMain = def.tape.routing === "toMain" || (def.tape.routing === "toMainOrCr" && !ch.toCr);
+      const toMain = def.tape.routing === "toMain" || (def.tape.routing === "toMainOrCr" && !ch.toCr) || (def.tape.routing === "switch" && ch.toMain);
       const side = toMain ? tapeDb + mainDb : OFF;
       return { ...base, inputPeakDb: tapeDb, band: inputBand(tapeDb), faderDb: 0, mainDb: { L: side, R: side }, heardMainDb: heardBus("main") ? side : OFF, altDb: { L: OFF, R: OFF } };
     }
@@ -218,7 +236,8 @@ export function computeMix(def, state, sourcesById, stems, sourcePeakDb) {
     const postDb = muted ? OFF : levelled;
     const pg = ch.stereo ? balanceGains(ch.pan) : panGains(ch.pan);
     const side = (k, db) => db + gainToDb(pg[k]);
-    const tap = (t) => (t === "pre" ? inputPeakDb : postDb);
+    // "fader": after LEVEL, before MUTE; "channel": this channel's PRE switch.
+    const tap = (t) => (t === "pre" || (t === "channel" && ch.pre) ? inputPeakDb : t === "fader" ? levelled : postDb);
     for (const sid of c.sends || []) {
       const s = def.sends[sid];
       const pos = ch.sends[sid];
@@ -238,7 +257,7 @@ export function computeMix(def, state, sourcesById, stems, sourcePeakDb) {
     const toMainAlt = state.alt?.toMain ? altDb : { L: OFF, R: OFF };
     const L = Math.max(side("L", postDb), toMainAlt.L) + mainDb;
     const R = Math.max(side("R", postDb), toMainAlt.R) + mainDb;
-    const pflDb = ch.solo ? inputPeakDb : OFF;
+    const pflDb = ch.solo ? (state.soloBus?.mode === "sip" ? levelled : inputPeakDb) : OFF;
     return { ...base, inputPeakDb, band: inputBand(inputPeakDb), faderDb, mainDb: { L, R }, heardMainDb: heardBus("main") ? Math.max(L, R) : OFF, altDb, pflDb };
   });
 
@@ -253,9 +272,12 @@ export function computeMix(def, state, sourcesById, stems, sourcePeakDb) {
 export function phonesOf(def, state) {
   if (!def.phones) return null;
   const soloed = state.channels.filter((c) => !c.tape && c.solo).map((c) => c.label);
+  const auxSolo = Object.keys(def.buses).filter((b) => state[b].solo);
   const tapeStrip = state.channels.find((c) => c.tape);
   const sources = def.phones.sources ? def.phones.sources.filter((s) => state.cr[s]) : ["main", ...(def.tape?.routing === "toMainOrCr" && tapeStrip?.toCr ? ["tape"] : [])];
-  return { solo: soloed.length > 0, soloed, auxSolo: [], mode: def.solo ? "pfl" : null, sources };
+  const mode = def.solo ? state.soloBus.mode : null;
+  const modeText = mode === "sip" ? "SOLO (in place): after the fader and pan" : "PFL: before the fader";
+  return { solo: soloed.length + auxSolo.length > 0, soloed, auxSolo, mode, modeText, sources };
 }
 
 // The interface js/mixer-state.js dispatches to (same shape as js/cr1604.js).

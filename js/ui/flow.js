@@ -108,17 +108,34 @@ function renderFlow1604(root, skin) {
 
 // A compact mixer, described from its definition: what each send hears.
 function renderFlowCompact(root, skin, def) {
-  const tapWord = { pre: "before the channel LEVEL (pre-fader)", post: "after the channel LEVEL (post-fader)", switch: "pre- or post-fader, by the PRE switch beside its master" };
+  const tapWord = {
+    pre: "before the channel LEVEL (pre-fader)",
+    post: "after the channel LEVEL (post-fader)",
+    switch: "pre- or post-fader, by the PRE switch beside its master",
+    channel: "pre- or post-fader, by the PRE switch on each channel (post-fader, MUTE/ALT 3-4 cuts it too)",
+    fader: "after the channel fader, but MUTE/ALT 3-4 doesn't cut it",
+  };
   const sends = Object.values(def.sends).map((s) =>
     s.bipolar
       ? `<li><strong>${esc(s.label)}</strong>: one knob. Left of centre feeds ${esc(def.buses[s.bipolar.left.bus].label)} (${tapWord[s.bipolar.left.tap]}); right feeds ${esc(def.buses[s.bipolar.right.bus].label)} (${tapWord[s.bipolar.right.tap]}). A channel can feed one or the other, not both.</li>`
-      : `<li><strong>${esc(s.label)}</strong> is taken ${tapWord[s.tap]}.${s.bus === "reverb" ? " It feeds the built-in reverb." : ""}</li>`,
+      : `<li><strong>${esc(s.label)}</strong> is taken ${tapWord[s.tap]}.${s.bus === "reverb" ? " It feeds the built-in reverb." : def.fx && s.bus === def.fx.send ? " Through its master (AUX SEND 2) it feeds the built-in effects, which come back on STEREO AUX RETURN 2." : ""}</li>`,
   );
   const notes = [
     def.channels.some((c) => c.gain.switch) ? "<li>There is no gain knob: the MIC/LINE switch sets the input gain, and each channel LEVEL does the rest.</li>" : "<li><strong>GAIN/TRIM</strong> sets how hot the signal is; the channel LEVEL sets how much goes to the mix.</li>",
     ...sends,
-    def.alt ? "<li><strong>MUTE/ALT 3-4</strong> takes a channel out of MAIN and puts it on the ALT 3-4 bus (its own outputs, or back into MAIN with ASSIGN TO MAIN).</li>" : "",
-    def.solo ? "<li><strong>SOLO</strong> is PFL: the channel before its LEVEL, in the C-R/PHONES and the meters.</li>" : "",
+    def.channels.some((c) => c.comp) ? "<li><strong>COMP</strong> is a one-knob compressor: turn it up and loud peaks are pulled down (the LED lights while it works) and quiet parts come up.</li>" : "",
+    def.channels.some((c) => c.gain.minus10) ? "<li>The stereo channels have a <strong>+4 dBu / −10 dBV</strong> switch: −10 is 12 dB more sensitive, for consumer gear such as a laptop or phone.</li>" : "",
+    def.returns?.some((r) => r.toMonitor) ? "<li><strong>RETURN 1 MON</strong> puts an effects return into AUX 1, so the singer can have reverb in the wedge.</li>" : "",
+    def.alt?.fader
+      ? "<li><strong>MUTE/ALT 3-4</strong> takes a channel out of MAIN MIX and puts it on the ALT 3-4 bus, with its own fader and outputs (and the C-R SOURCE ALT 3-4).</li>"
+      : def.alt
+        ? "<li><strong>MUTE/ALT 3-4</strong> takes a channel out of MAIN and puts it on the ALT 3-4 bus (its own outputs, or back into MAIN with ASSIGN TO MAIN).</li>"
+        : "",
+    def.solo?.mode === "switch"
+      ? "<li><strong>SOLO</strong> puts a channel in the PHONES/CTRL R and the meters: with <strong>MODE</strong> on PFL, before the fader (for setting TRIM); otherwise in place, after the fader and pan. The AUX SEND masters have SOLO switches too, to check a monitor mix.</li>"
+      : def.solo
+        ? "<li><strong>SOLO</strong> is PFL: the channel before its LEVEL, in the C-R/PHONES and the meters.</li>"
+        : "",
     def.monitorOut ? "<li><strong>MONITOR OUT</strong> carries the whole mix (no per-channel monitor sends) and ignores MASTER LEVEL.</li>" : "",
     def.poweredAmp ? `<li>The amplifier is <strong>inside the mixer</strong>: SPEAKERS L/R carry speaker level, straight into the passive STAGEPAS speakers. Never into a powered speaker or a line input.</li>` : "<li>The outputs are line level. A speaker only makes sound if an amplifier is somewhere in the chain: inside it (powered) or in front of it (passive + power amp).</li>",
   ];

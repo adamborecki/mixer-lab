@@ -19,7 +19,7 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 | `js/mixer-state.js` | Semantic state, `BUSES`, `computeMix`, `MixerStore` actions; dispatches to the 1604 by `state.model` |
 | `js/levels.js` | Level and pan laws, knob tapers (`makeLaw`, `knobLaw`), input bands (re-exported by `mixer-state.js`) |
 | `js/cr1604.js` | Mackie CR1604-VLZ: state, validation, level model ([CR1604.md](CR1604.md)) |
-| `js/compact-defs.js`, `js/compact.js`, `js/graph-compact.js` | Compact mixers as data (Mix8, 1202-VLZ, MG10/2, STAGEPAS 400BT): definitions, level model, audio ([COMPACT_MIXERS.md](COMPACT_MIXERS.md)) |
+| `js/compact-defs.js`, `js/compact.js`, `js/graph-compact.js` | Compact mixers as data (Mix8, 1202-VLZ, MG10/2, STAGEPAS 400BT, Xenyx X1204USB): definitions, level model, audio ([COMPACT_MIXERS.md](COMPACT_MIXERS.md)) |
 | `js/scenarios.js` | Scenario data, playback-device inventory, baselines (`METRICS`), `CONDITIONS`, `evaluateScenario` |
 | `js/mixer-models.js` | Skins: words, control types, layout data, MUTE/ON mapping |
 | `js/transport.js` | Stem playback: excerpt loop and streamed full song, sync, keep-alive |

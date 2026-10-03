@@ -162,6 +162,7 @@ function recorderText(dev, rt, inputs = []) {
 function phonesMessage(p, t) {
   if (p.solo) {
     const what = [...p.soloed.map((n) => `Ch ${n}`), ...p.auxSolo.map((b) => t[b])].join(", ");
+    if (p.modeText) return `Engineer's headphones: SOLO ${what}, ${p.modeText}.`;
     return p.mode === "pfl"
       ? `Engineer's headphones: SOLO ${what} in LEVEL SET (PFL), before the fader. The left meter shows its level.`
       : `Engineer's headphones: SOLO ${what} in NORMAL (AFL), after the fader and pan.`;

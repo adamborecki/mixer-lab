@@ -1,5 +1,5 @@
 // Compact analog mixers as data: the Mackie Mix8, Mackie 1202-VLZ, Yamaha
-// MG10/2 and Yamaha STAGEPAS 400BT. One definition per mixer: its channels
+// MG10/2, Yamaha STAGEPAS 400BT and Behringer Xenyx X1204USB. One definition per mixer: its channels
 // and jacks, gain stage, EQ, sends and where they tap, buses, returns, tape,
 // phones and outputs. js/compact.js (state and level model), js/graph-compact.js
 // (audio) and js/ui/mixer-compact-view.js (surface) read only this. No imports,
@@ -18,6 +18,11 @@ export const EQ = {
     { id: "mid", label: "MID", type: "peaking", hz: 2500 },
     { id: "low", label: "LOW", type: "lowshelf", hz: 100 },
   ],
+  xenyx3: [
+    { id: "high", label: "HI", type: "highshelf", hz: 12000 },
+    { id: "mid", label: "MID", type: "peaking", hz: 2500 },
+    { id: "low", label: "LOW", type: "lowshelf", hz: 80 },
+  ],
   stagepas2: [
     { id: "high", label: "HIGH", type: "highshelf", hz: 8000 },
     { id: "low", label: "LOW", type: "lowshelf", hz: 100 },
@@ -35,6 +40,9 @@ export const EQ = {
 // before LOW CUT; Mackie) or "eq" (after the EQ, before the level; Yamaha).
 // `sends`: ids of the def's `sends` this channel has. `mic` on a stereo channel:
 // an XLR whose signal goes to the L side (MG10/2 3/4, 5/6).
+// Send taps: "pre" (after the EQ), "post" (after LEVEL and MUTE), "switch"
+// (one PRE switch for the bus), "channel" (a PRE switch on each channel, after
+// MUTE when post), "fader" (after LEVEL, before MUTE: the Xenyx FX send).
 
 export const COMPACT = {
   mix8: {
@@ -56,6 +64,7 @@ export const COMPACT = {
     main: { label: "MAIN MIX", law: "level" },
     phones: { label: "CR / PHONES", sources: null },
     meter: [-20, 0, 6, "OL"],
+    peakLabel: "OL",
     outputs: ["main", "cr", "aux1", "tapeOut"],
     layout: { strip: ["head", "gain", "eq", "aux", "pan", "peak", "level"] },
   },
@@ -147,6 +156,64 @@ export const COMPACT = {
     outputs: ["speakers", "monitor", "sub"],
     layout: { strip: ["head", "micLine", "hiZ", "eq", "reverb", "stMono", "peak", "level"] },
   },
+
+  x1204usb: {
+    id: "x1204usb",
+    name: "Behringer Xenyx X1204USB",
+    blurb: "4 mic channels with COMP, 2 stereo, AUX 1 (PRE) + FX into built-in effects, faders.",
+    phantom: { label: "+48V", channels: [0, 1, 2, 3] },
+    channels: [
+      ...[1, 2, 3, 4].map((n) => ({ label: String(n), kind: "mono", jacks: ["mic", "line"], gain: { min: 10, max: 60, linePad: -20 }, lowCut: { hz: 75, order: 3 }, comp: true, eq: "xenyx3", sends: ["aux1", "fx"], mute: "alt", solo: true, peak: true })),
+      ...["5/6", "7/8"].map((label) => ({ label, kind: "stereo", jacks: ["lineMono", "linePair"], gain: { fixed: 0, minus10: 12 }, eq: "xenyx3", sends: ["aux1", "fx"], mute: "alt", solo: true, peak: true })),
+    ],
+    // AUX 1 has a PRE switch on every channel; FX (AUX 2) is post-fader but
+    // MUTE/ALT 3-4 doesn't cut it (owner's manual, 2.1.3).
+    sends: {
+      aux1: { label: "AUX 1", bus: "aux1", tap: "channel", law: "send15" },
+      fx: { label: "FX", bus: "aux2", tap: "fader", law: "send15" },
+    },
+    buses: {
+      aux1: { label: "AUX 1", master: { label: "AUX SEND 1", law: "send15" }, solo: true },
+      aux2: { label: "FX", master: { label: "AUX SEND 2 (FX)", law: "send15" }, solo: true },
+    },
+    // The built-in effects listen to AUX SEND 2 and come back on STEREO AUX
+    // RETURN 2, unless something is plugged into the RETURN 2 jacks.
+    fx: {
+      send: "aux2",
+      ret: "ret2",
+      presets: [
+        { name: "HALL 1", kind: "reverb", seconds: 2.6 },
+        { name: "HALL 2", kind: "reverb", seconds: 3.8 },
+        { name: "ROOM 1", kind: "reverb", seconds: 0.7 },
+        { name: "ROOM 2", kind: "reverb", seconds: 1.2 },
+        { name: "PLATE 1", kind: "reverb", seconds: 1.5 },
+        { name: "PLATE 2", kind: "reverb", seconds: 2.3 },
+        { name: "AMBIENCE", kind: "reverb", seconds: 0.4 },
+        { name: "DELAY", kind: "delay", seconds: 0.375, feedback: 0.35 },
+        { name: "ECHO", kind: "delay", seconds: 0.5, feedback: 0.55 },
+        { name: "SLAPBACK", kind: "delay", seconds: 0.11, feedback: 0 },
+        { name: "CHORUS 1", kind: "chorus", rate: 0.8, depth: 0.004 },
+        { name: "CHORUS 2", kind: "chorus", rate: 1.6, depth: 0.006 },
+        { name: "FLANGER 1", kind: "flanger", rate: 0.25, depth: 0.002 },
+        { name: "FLANGER 2", kind: "flanger", rate: 0.6, depth: 0.003 },
+        { name: "CHORUS + REVERB", kind: "chorus", rate: 0.8, depth: 0.004, reverb: 2 },
+        { name: "DELAY + REVERB", kind: "delay", seconds: 0.375, feedback: 0.3, reverb: 2 },
+      ],
+    },
+    returns: [
+      { id: "ret1", label: "STEREO AUX RETURN 1", law: "ret20", toMonitor: { bus: "aux1", label: "MON", law: "ret20" } },
+      { id: "ret2", label: "STEREO AUX RETURN 2 (FX)", law: "ret20", toAlt: true },
+    ],
+    tape: { level: null, routing: "switch", label: "CD/TAPE" }, // CD/TAPE TO MAIN switch; C-R SOURCE TAPE
+    alt: { label: "ALT 3-4", fader: true },
+    main: { label: "MAIN MIX", law: "level" },
+    phones: { label: "PHONES/CTRL R", sources: ["tape", "alt", "main"] },
+    solo: { mode: "switch" }, // MODE: PFL (pressed) or SOLO in place
+    meter: [-30, -20, -10, -7, -4, -2, 0, 2, 4, 7, 10, "CLIP"],
+    peakLabel: "CLIP",
+    outputs: ["mainXlrOnly", "alt", "cr", "aux1", "aux2", "tapeOut"],
+    layout: { strip: ["head", "gain", "lowCut", "comp", "eq", "aux1", "fx", "minus10", "pan", "peak", "mute", "solo", "level"], level: "fader" },
+  },
 };
 
 // ---------- rear panels (used by js/connection-model.js) ----------
@@ -175,20 +242,23 @@ export function compactPorts(def) {
     ports.push({ id: `${r.id}-l`, dir: "in", jack: "quarter", level: "line", role: "return-in", ret: Number(r.id.slice(3)), side: "L", name: `${r.label} L (MONO)` });
     ports.push({ id: `${r.id}-r`, dir: "in", jack: "quarter", level: "line", role: "return-in", ret: Number(r.id.slice(3)), side: "R", name: `${r.label} R` });
   }
-  if (def.tape) ports.push({ id: "tape-in", dir: "in", jack: "rcapair", level: "line", stereo: true, pad: false, path: "line", role: "channel-input", channel: def.channels.length, name: def.tape.level === "2TR IN" ? "2TR IN (L/R)" : "TAPE IN (L/R)" });
+  if (def.tape) ports.push({ id: "tape-in", dir: "in", jack: "rcapair", level: "line", stereo: true, pad: false, path: "line", role: "channel-input", channel: def.channels.length, name: def.tape.level ? `${def.tape.level} (L/R)` : `${def.tape.label || "TAPE"} IN (L/R)` });
 
   const o = def.outputs;
   const mainName = def.id === "mg102" ? "ST OUT" : "MAIN OUT";
   if (o.includes("mainXlr")) {
     ports.push(out("main-l", "xlr", `${mainName} L (XLR)`, { bus: "main", side: "L" }), out("main-r", "xlr", `${mainName} R (XLR)`, { bus: "main", side: "R" }));
     ports.push(out("line-l", "quarter", "LINE OUT L", { bus: "main", side: "L" }), out("line-r", "quarter", "LINE OUT R", { bus: "main", side: "R" }));
+  } else if (o.includes("mainXlrOnly")) {
+    ports.push(out("main-l", "xlr", `${mainName} L (XLR)`, { bus: "main", side: "L" }), out("main-r", "xlr", `${mainName} R (XLR)`, { bus: "main", side: "R" }));
   } else if (o.includes("main")) {
     ports.push(out("main-l", "quarter", `${mainName} L`, { bus: "main", side: "L" }), out("main-r", "quarter", `${mainName} R`, { bus: "main", side: "R" }));
   }
   if (o.includes("alt")) ports.push(out("alt-l", "quarter", "ALT OUT L", { bus: "alt", side: "L" }), out("alt-r", "quarter", "ALT OUT R", { bus: "alt", side: "R" }));
   if (o.includes("cr")) ports.push(out("cr-l", "quarter", "C-R OUT L", { bus: "cr", side: "L" }), out("cr-r", "quarter", "C-R OUT R", { bus: "cr", side: "R" }));
   for (const b of ["aux1", "aux2"]) if (o.includes(b)) ports.push(out(b, "quarter", def.id === "mg102" ? `${def.buses[b].label} SEND` : `${def.buses[b].label} SEND`, { bus: b }));
-  if (o.includes("tapeOut")) ports.push(out("tape-out-l", "rca", "TAPE OUT L", { bus: "main", side: "L" }), out("tape-out-r", "rca", "TAPE OUT R", { bus: "main", side: "R" }));
+  const tapeOut = def.tape?.label ? `${def.tape.label} OUT` : "TAPE OUT";
+  if (o.includes("tapeOut")) ports.push(out("tape-out-l", "rca", `${tapeOut} L`, { bus: "main", side: "L" }), out("tape-out-r", "rca", `${tapeOut} R`, { bus: "main", side: "R" }));
   if (o.includes("recOut")) ports.push(out("rec-out-l", "rca", "REC OUT L", { bus: "main", side: "L" }), out("rec-out-r", "rca", "REC OUT R", { bus: "main", side: "R" }));
   if (o.includes("inserts")) def.channels.forEach((ch, i) => ch.insert && ports.push(out(`ch${i + 1}-insert`, "quarter", `Ch ${ch.label} INSERT (send)`, { bus: `insert${i + 1}`, channel: i })));
   // STAGEPAS: the amp is inside, so its speaker jacks carry speaker level.

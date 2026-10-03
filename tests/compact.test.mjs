@@ -1,8 +1,9 @@
 // Compact mixers from data (js/compact-defs.js, js/compact.js): Mackie Mix8,
-// Mackie 1202-VLZ, Yamaha MG10/2, Yamaha STAGEPAS 400BT. See docs/COMPACT_MIXERS.md.
+// Mackie 1202-VLZ, Yamaha MG10/2, Yamaha STAGEPAS 400BT, Behringer Xenyx
+// X1204USB. See docs/COMPACT_MIXERS.md.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { COMPACT, COMPACT_IDS, LAWS, balanceGains, reverbSetting } from "../js/compact.js";
+import { COMPACT, COMPACT_IDS, LAWS, balanceGains, fxPreset, reverbSetting } from "../js/compact.js";
 import { MixerStore, computeMix, createMixerState, listenGroupOf } from "../js/mixer-state.js";
 import { DEVICE_TYPES, checkConnection } from "../js/connection-model.js";
 import { COMPACT_GIGS, SCENARIOS_BY_ID, buildScenarioState, scenarioFor, scenariosFor } from "../js/scenarios.js";
@@ -181,5 +182,127 @@ describe("routing", () => {
     assert.equal(reverbSetting(def, 0).type, "HALL");
     assert.equal(reverbSetting(def, 0.99).type, "ECHO");
     assert.ok(reverbSetting(def, 0.2).seconds > reverbSetting(def, 0.05).seconds);
+  });
+});
+
+describe("Behringer Xenyx X1204USB", () => {
+  const X = COMPACT.x1204usb;
+  const VOX = 0; // lead vocal on channel 1
+
+  it("rear panel: XLR main outs only, ALT 3-4 and C-R outs, two aux sends, CD/TAPE in and out", () => {
+    const ids = portIds("x1204usb");
+    for (const p of ["main-l", "main-r", "alt-l", "alt-r", "cr-l", "aux1", "aux2", "tape-in", "tape-out-l", "ret1-l", "ret2-r"]) assert.ok(ids.includes(p), p);
+    assert.ok(!ids.includes("line-l"), "no ¼\" main outs");
+    assert.equal(DEVICE_TYPES.x1204usb.ports.find((p) => p.id === "main-l").jack, "xlr");
+    assert.equal(DEVICE_TYPES.x1204usb.ports.find((p) => p.id === "tape-in").name, "CD/TAPE IN (L/R)");
+  });
+
+  it("AUX 1 has a PRE switch on every channel", () => {
+    const st = gig("x1204usb");
+    assert.equal(st.state.channels[VOX].pre, true);
+    const pre = ch(st, "lead-vocal").aux.aux1.monitorDb;
+    st.setChannel(VOX, "level", LAWS.level.toPos(-10));
+    near(ch(st, "lead-vocal").aux.aux1.monitorDb, pre); // pre-fader: the wedge ignores the fader
+    st.setChannel(VOX, "pre", false);
+    near(ch(st, "lead-vocal").aux.aux1.monitorDb, pre - 10); // post: follows the fader
+    // Only this channel changed.
+    assert.equal(st.state.channels[1].pre, true);
+  });
+
+  it("MUTE/ALT 3-4 cuts a post-fader AUX 1, not a pre-fader one, and never the FX send", () => {
+    const st = gig("x1204usb");
+    const fx = ch(st, "lead-vocal").aux.aux2.monitorDb;
+    const wedge = ch(st, "lead-vocal").aux.aux1.monitorDb;
+    st.setChannel(VOX, "enabled", false);
+    let v = ch(st, "lead-vocal");
+    assert.equal(v.mainDb.L, -Infinity);
+    assert.ok(v.altDb.L > -40, "on the ALT 3-4 bus");
+    near(v.aux.aux1.monitorDb, wedge); // PRE pressed
+    near(v.aux.aux2.monitorDb, fx); // the FX send is not muted
+    st.setChannel(VOX, "pre", false);
+    assert.equal(ch(st, "lead-vocal").aux.aux1.monitorDb, -Infinity);
+  });
+
+  it("the FX send is post-fader: it follows the channel fader", () => {
+    const st = gig("x1204usb");
+    const fx = ch(st, "lead-vocal").aux.aux2.monitorDb;
+    const fader = LAWS.level.toDb(st.state.channels[VOX].level);
+    st.setChannel(VOX, "level", LAWS.level.toPos(fader - 6));
+    near(ch(st, "lead-vocal").aux.aux2.monitorDb, fx - 6);
+  });
+
+  it("stereo channels: the LEVEL switch at −10 dBV is 12 dB more sensitive", () => {
+    const st = gig("x1204usb");
+    const laptop = 5;
+    assert.equal(st.state.channels[laptop].minus10, true);
+    const hot = ch(st, "preshow").inputPeakDb;
+    st.setChannel(laptop, "minus10", false);
+    near(ch(st, "preshow").inputPeakDb, hot - 12);
+    st.setChannel(0, "minus10", true); // a mono channel has no such switch
+    assert.equal(st.state.channels[0].minus10, false);
+  });
+
+  it("COMP: one knob on the mono channels only", () => {
+    const st = gig("x1204usb");
+    st.setChannel(1, "comp", 2);
+    assert.equal(st.state.channels[1].comp, 1);
+    st.setChannel(4, "comp", 0.5);
+    assert.equal(st.state.channels[4].comp, 0);
+  });
+
+  it("SOLO MODE: PFL hears the channel before its fader, SOLO in place after it", () => {
+    const st = gig("x1204usb");
+    assert.equal(st.state.soloBus.mode, "sip");
+    st.setChannel(VOX, "solo", true);
+    let c = mix(st).channels[VOX];
+    near(c.pflDb, c.inputPeakDb + c.faderDb);
+    st.setBus("soloBus", "mode", "pfl");
+    c = mix(st).channels[VOX];
+    near(c.pflDb, c.inputPeakDb);
+    assert.match(mix(st).phones.modeText, /PFL/);
+  });
+
+  it("AUX SEND SOLO puts a monitor mix in the phones", () => {
+    const st = gig("x1204usb");
+    st.setBus("aux1", "solo", true);
+    const p = mix(st).phones;
+    assert.equal(p.solo, true);
+    assert.deepEqual(p.auxSolo, ["aux1"]);
+  });
+
+  it("CD/TAPE TO MAIN puts the 2-track input in the main mix", () => {
+    const st = gig("x1204usb");
+    const tape = X.channels.length;
+    st.state.rig.devices.push({ id: "phone", type: "stereo-laptop", sourceId: "preshow" });
+    st.disconnect(st.state.rig.cables.find((c) => c.from === "src-preshow/out").id);
+    assert.ok(st.connect("src-preshow/out", "mixer/tape-in", "mini-rca").ok);
+    assert.equal(mix(st).channels[tape].heardMainDb, -Infinity);
+    st.setChannel(tape, "toMain", true);
+    assert.ok(mix(st).channels[tape].heardMainDb > -30);
+  });
+
+  it("returns: RET 1 has a MON knob into AUX 1; RET 2 goes to MAIN or ALT 3-4", () => {
+    const st = gig("x1204usb");
+    st.setBus("ret1", "mon", 0.6);
+    st.setBus("ret2", "toAlt", true);
+    assert.equal(st.state.ret1.mon, 0.6);
+    assert.equal(st.state.ret2.toAlt, true);
+    st.setBus("ret2", "mon", 0.5); // RET 2 has no MON knob
+    assert.equal(st.state.ret2.mon, undefined);
+  });
+
+  it("ALT 3-4 has its own fader", () => {
+    const st = gig("x1204usb");
+    st.setBus("alt", "level", 0.3);
+    assert.equal(st.state.alt.level, 0.3);
+  });
+
+  it("the effects PROGRAM picks one of 16 presets", () => {
+    assert.equal(X.fx.presets.length, 16);
+    assert.equal(fxPreset(X, 0).number, 1);
+    assert.equal(fxPreset(X, 99).number, 16);
+    const st = gig("x1204usb");
+    st.setBus("fx", "program", 7.4);
+    assert.equal(st.state.fx.program, 7);
   });
 });
