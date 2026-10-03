@@ -1,6 +1,6 @@
 # Compact mixers
 
-Six real mixers from Chapman's inventory, built as data: the Mackie Mix8, Mackie 1202-VLZ, Yamaha MG10/2, Yamaha STAGEPAS 400BT, Behringer Xenyx X1204USB and the Sound Devices 442 field mixer (its own section below). They're picked from the **Real mixers** menu next to Mixer A and Mixer B, along with the CR1604-VLZ ([CR1604.md](CR1604.md)).
+Six real mixers from Chapman's inventory, built as data: the Mackie Mix8, Mackie 1202-VLZ, Yamaha MG10/2, Yamaha STAGEPAS 400BT, Behringer Xenyx X1204USB and the Sound Devices 442 field mixer (its own section below). The Soundcraft Ui16 digital mixer uses the same definitions with its own surface: [DIGITAL_MIXER.md](DIGITAL_MIXER.md). They're picked from the **Real mixers** menu next to Mixer A and Mixer B, along with the CR1604-VLZ ([CR1604.md](CR1604.md)).
 
 | Layer | File |
 |---|---|

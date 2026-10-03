@@ -3106,3 +3106,287 @@ dialog::backdrop {
 .listen-group.many + .listen-now {
   flex: 1 0 10rem;
 }
+
+/* ---------- digital mixer (Soundcraft Ui16): mix bar, fader bank, SEL panel ---------- */
+
+.skin-ui16 .mixer-surface.dg-surface {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 0.75rem;
+  align-items: start;
+  background: #15171c;
+  border: 1px solid #2c303a;
+  border-radius: var(--radius-md);
+  padding: 0.6rem;
+}
+.dg-left {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.dg-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.dg-tab {
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0.45rem 0.7rem;
+  min-height: 34px;
+  border-radius: 6px;
+  border: 1px solid #353a46;
+  background: #1f232b;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.dg-tab.is-aux {
+  color: #ffb547;
+}
+.dg-tab.is-fx {
+  color: #b48cff;
+}
+.dg-tab[aria-selected="true"] {
+  background: #7ce0ff;
+  border-color: #7ce0ff;
+  color: #0d1117;
+}
+.dg-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.dg-bank {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 0.3rem;
+}
+.dg-strip {
+  width: 66px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0 0.2rem 0.3rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+.dg-strip.is-sel {
+  background: rgba(124, 224, 255, 0.08);
+  border-radius: 6px;
+}
+.dg-strip .strip-head {
+  min-height: 38px;
+  width: 100%;
+  flex-direction: column;
+  gap: 0;
+}
+.dg-sel {
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 800;
+  width: 100%;
+  min-height: 28px;
+  border-radius: 5px;
+  border: 1px solid #353a46;
+  background: #1f232b;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.dg-sel.on {
+  background: #7ce0ff;
+  border-color: #7ce0ff;
+  color: #0d1117;
+}
+.dg-extra {
+  min-height: 28px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.dg-extra .lit-btn,
+.dg-btns .lit-btn {
+  min-width: 0;
+  width: 100%;
+  min-height: 28px;
+  padding: 0.15rem 0.2rem;
+  font-size: 0.58rem;
+}
+.dg-fader {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+.skin-ui16 .fader {
+  --fader-h: 190px;
+  width: 34px;
+}
+.dg-meter {
+  position: relative;
+  width: 7px;
+  margin: 0.6rem 0 1.6rem;
+  background: #0b0d10;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.dg-meter i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0;
+  background: linear-gradient(0deg, #3ddc84 0%, #3ddc84 70%, #ffd23f 88%, #ff5a4e 100%);
+  background-size: 100% 190px;
+  background-position: bottom;
+}
+.dg-meter b {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: #3a1210;
+}
+.dg-meter b.on {
+  background: #ff5a4e;
+}
+.dg-master-meters {
+  display: flex;
+  gap: 3px;
+}
+.dg-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+}
+.dg-strip.is-muted .fader-cap {
+  filter: grayscale(1) brightness(0.7);
+}
+.dg-master {
+  width: 92px;
+  margin-left: 0.4rem;
+  border-left: 2px solid #353a46;
+  border-right: none;
+}
+.dg-master-name {
+  min-height: 38px;
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-align: center;
+  color: #7ce0ff;
+}
+.dg-note {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  text-align: center;
+}
+.dg-panel {
+  background: #1b1e25;
+  border: 1px solid #2c303a;
+  border-radius: 8px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.dg-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.dg-panel-title {
+  flex: 1;
+  margin: 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #7ce0ff;
+}
+.dg-step {
+  font: inherit;
+  font-size: 1.1rem;
+  min-width: 36px;
+  min-height: 34px;
+  border-radius: 6px;
+  border: 1px solid #353a46;
+  background: #1f232b;
+  color: var(--text);
+  cursor: pointer;
+}
+.dg-sec {
+  border-top: 1px solid #2c303a;
+  padding-top: 0.35rem;
+}
+.dg-sec h5 {
+  margin: 0 0 0.25rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+.dg-sec-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.dg-sec-body > .lit-btn {
+  min-width: 0;
+  min-height: 30px;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.62rem;
+}
+.dg-band {
+  display: grid;
+  grid-template-columns: 3.4rem repeat(3, 1fr);
+  align-items: center;
+  gap: 0.2rem;
+  width: 100%;
+}
+.dg-band-name {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: var(--text-dim);
+}
+.dg-q-blank {
+  font-size: 0.55rem;
+  color: var(--text-dim);
+  text-align: center;
+}
+.dg-flat {
+  font: inherit;
+  font-size: 0.6rem;
+  font-weight: 800;
+  min-height: 28px;
+  padding: 0 0.6rem;
+  border-radius: 5px;
+  border: 1px solid #353a46;
+  background: #1f232b;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.dg-send {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+.dg-send .lit-btn {
+  min-width: 0;
+  min-height: 26px;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.55rem;
+}
+@media (max-width: 899px) {
+  .skin-ui16 .mixer-surface.dg-surface {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .skin-ui16 .fader {
+    --fader-h: 150px;
+  }
+}

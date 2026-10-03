@@ -665,6 +665,26 @@ export const COMPACT_GIGS = {
     pans: { "lead-vocal": 0, "backing-vocals": 0 },
     listen: "phones",
   },
+  ui16: {
+    prompt: "The whole band on a Soundcraft Ui16 digital mixer: drums, bass, guitar, keys, trumpets and both vocals on inputs 1–7, the laptop on the RCA line in (13/14, level down). AUX 1 feeds the singer's powered wedge, AUX 2 the drummer's wedge through the power amp; REVERB and DELAY are built in. Pick a mix in the bar above the faders, and SEL a channel to edit it.",
+    patch: { drums: [0, "in"], bass: [1, "in"], guitars: [2, "in"], keys: [3, "in"], trumpets: [4, "in"], "backing-vocals": [5, "in"], "lead-vocal": [6, "in"], preshow: [12, "rca"] },
+    devices: ["spk-l", "spk-r", "wedge", "amp", "pwedge"],
+    cables: [
+      { from: "mixer/main-l", to: "spk-l/in", cable: "xlr" },
+      { from: "mixer/main-r", to: "spk-r/in", cable: "xlr" },
+      { from: "mixer/aux1", to: "wedge/in", cable: "xlr" },
+      { from: "mixer/aux2", to: "amp/in-a", cable: "xlr" },
+      { from: "amp/out-a", to: "pwedge/in", cable: "speaker" },
+    ],
+    sends: {
+      aux1: { "lead-vocal": 0, "backing-vocals": -6, keys: -10, guitars: -12 },
+      aux2: { drums: -8, bass: -3, keys: -12, "lead-vocal": -8 },
+      fx1: { "lead-vocal": -10, "backing-vocals": -12, trumpets: -14, keys: -18 },
+      fx2: { "lead-vocal": -18 },
+    },
+    hpf: { guitars: 0.12, trumpets: 0.12, "backing-vocals": 0.15, "lead-vocal": 0.15, keys: 0.05 },
+    dyn: { "lead-vocal": { threshold: -16, ratio: 3, makeup: 3 }, bass: { threshold: -14, ratio: 4, makeup: 3 } },
+  },
 };
 
 // Free play on a real mixer describes that mixer's gig (the shared text names
@@ -719,7 +739,8 @@ function buildCompactState(model, sourcesById) {
     if (gig.pre) ch.pre = true;
     if (c.comp && gig.comp?.[s.id]) ch.comp = gig.comp[s.id];
     if (c.hpf && gig.hpf?.[s.id]) ch.hpf = gig.hpf[s.id];
-    if (s.room && def.phantom.perChannel) ch.phantom = true;
+    if (c.dyn && gig.dyn?.[s.id]) ch.dyn = { ...gig.dyn[s.id] };
+    if (def.phantom.perChannel && s.phantom === "required") ch.phantom = true;
     if (c.gain.switch) ch.micLine = s.signalLevel === "line" ? "line" : "mic";
     else if (c.gain.min !== undefined) ch.gainDb = clamp(-s.outputDb - (channelGainDb(def, { ...ch, gainDb: 0 }, input)), c.gain.min, c.gain.max);
     ch.level = levelLaw(def).toPos(s.mixDb);

@@ -177,12 +177,13 @@ export const SKINS = {
   ...compactSkin("mix8", "Mackie Mix8", "8-channel, one aux", { aux1: "AUX", phones: "CR/PHONES", pfl: "PFL" }),
   ...compactSkin("mg102", "Yamaha MG10/2", "10-channel, AUX1/AUX2 knob", { aux1: "AUX1", aux2: "AUX2", phones: "C-R/PHONES", pfl: "PFL" }),
   ...compactSkin("x1204usb", "Behringer Xenyx X1204USB", "12-input, COMP, AUX 1 + FX, faders", { aux1: "AUX 1", aux2: "FX", alt: "ALT 3-4", phones: "PHONES/CTRL R", pfl: "SOLO", gain: "TRIM", level: "fader", levelShort: "FADER", main: "MAIN MIX fader" }),
+  ...compactSkin("ui16", "Soundcraft Ui16", "digital: SEL + mixes on faders", { aux3: "AUX 3", aux4: "AUX 4", aux1: "AUX 1", aux2: "AUX 2", fx1: "REVERB", fx2: "DELAY", fx3: "CHORUS", phones: "PHONES", pfl: "SOLO", level: "fader", levelShort: "FADER", main: "MASTER fader" }, { layout: "digital", dragAxis: "vertical" }),
   ...compactSkin("sd442", "Sound Devices 442", "4-input field mixer", { phones: "HEADPHONE", pfl: "PFL", phantom: "P48", level: "fader", levelShort: "FADER", main: "MASTER" }),
   ...compactSkin("stagepas400bt", "Yamaha STAGEPAS 400BT", "powered mixer + speakers", { monitor: "MONITOR OUT", pfl: "PFL" }),
 };
 
 // A skin for a compact mixer: the words come from the board.
-function compactSkin(id, name, subtitle, words) {
+function compactSkin(id, name, subtitle, words, over = {}) {
   return {
     [id]: {
       id,
@@ -210,6 +211,7 @@ function compactSkin(id, name, subtitle, words) {
       phantomControl: "global",
       layout: "compact",
       dragAxis: "vertical",
+      ...over,
     },
   };
 }

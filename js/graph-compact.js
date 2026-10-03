@@ -10,11 +10,13 @@
 // Masters:  MAIN ─► [STAGEPAS: MASTER EQ, sub HPF, amp] ─► outputs; aux masters;
 //           returns; tape; C-R/PHONES (SOURCE, replaced by SOLO); meters.
 // Xenyx:    AUX SEND 2 ─► built-in effects ─► STEREO AUX RETURN 2 (unless its jacks are used).
+// Ui16:     … HPF ─► COMP ─► 4-band PEQ; MUTE before the pre sends too; AUX PRE/POST per send;
+//           REVERB / DELAY / CHORUS buses ─► built-in effects ─► return level ─► MAIN.
 // 442:      input ─► Ø ─► GAIN (MIC/LINE) ─► HPF sweep ─► input limiter ─► fader ─► PAN;
 //           MASTER ─► output limiter (ON / LINK) ─► [TONE replaces the mix] ─► XLR OUTPUT LEVEL;
 //           HEADPHONE selector OFF/L/R/M/ST (PFL replaces it; TONE ear-saver −20 dB).
 
-import { EQ_FOR, LAWS, channelGainDb, fxPreset, levelLaw, linkOf, reverbSetting, tapeIndex } from "./compact.js";
+import { EQ_FOR, LAWS, PEQ_BANDS, channelGainDb, fxPreset, levelLaw, linkOf, reverbSetting, tapeIndex } from "./compact.js";
 import { HEADROOM_DB, dbToGain } from "./levels.js";
 import { DEVICE_TYPES } from "./connection-model.js";
 import { lowCutStage, popBuffer } from "./graph-kit.js";
@@ -41,7 +43,7 @@ export function buildCompactGraph(kit, def) {
   for (const b of busIds) {
     auxMaster[b] = mono(1);
     auxBus[b].connect(auxMaster[b]);
-    outputs[b] = auxMaster[b];
+    if (!def.buses[b].fx) outputs[b] = auxMaster[b];
   }
   const altBus = def.alt ? pair() : null;
   const pflBus = mono();
@@ -112,9 +114,9 @@ export function buildCompactGraph(kit, def) {
       limiter = { dyn, dry, wet };
       afterCut = out;
     }
-    // One-knob compressor (Xenyx): bypassed at zero, so it adds nothing until used.
+    // One-knob compressor (Xenyx) or THRESHOLD/RATIO/GAIN (Ui16): bypassed until used.
     let comp = null;
-    if (c.comp) {
+    if (c.comp || c.dyn) {
       const dyn = track(ctx.createDynamicsCompressor());
       dyn.knee.value = 6;
       dyn.attack.value = 0.003;
@@ -130,6 +132,18 @@ export function buildCompactGraph(kit, def) {
     }
     const eq = {};
     let node = afterCut;
+    const peq = {};
+    if (c.peq) {
+      for (const band of PEQ_BANDS) {
+        const f = track(ctx.createBiquadFilter());
+        f.type = band.type;
+        f.frequency.value = band.freq;
+        f.gain.value = 0;
+        node.connect(f);
+        node = f;
+        peq[band.id] = f;
+      }
+    }
     for (const band of EQ_FOR(c.eq)) {
       const f = track(ctx.createBiquadFilter());
       f.type = band.type;
@@ -162,6 +176,10 @@ export function buildCompactGraph(kit, def) {
     }
     const level = chan(0);
     toLevel.connect(level);
+    // With `muteCutsPre` the pre-fader sends come after the MUTE (Ui16).
+    const preMute = def.muteCutsPre ? chan(1) : null;
+    if (preMute) tapEq.connect(preMute);
+    const preTap = preMute || tapEq;
     const mainGate = chan(1);
     level.connect(mainGate);
     const post = mainGate;
@@ -208,13 +226,13 @@ export function buildCompactGraph(kit, def) {
       } else {
         const dest = s.bus === "reverb" ? reverbBus : auxBus[s.bus];
         sends[sid] = { pre: mono(0), post: mono(0) };
-        tapEq.connect(sends[sid].pre).connect(dest);
+        preTap.connect(sends[sid].pre).connect(dest);
         (s.tap === "fader" ? level : post).connect(sends[sid].post).connect(dest);
       }
     }
     const pfl = mono(0);
     if (c.solo) tapEq.connect(pfl).connect(pflBus);
-    return { input, pre, popIn, polarity, hpf, limiter, lowCut, comp, eq, meter, stMono, level, mainGate, pan, sip, altGate, altPan, sends, pflGain: c.solo ? pfl : null, stereo };
+    return { input, pre, popIn, polarity, hpf, limiter, lowCut, comp, peq, preMute, eq, meter, stMono, level, mainGate, pan, sip, altGate, altPan, sends, pflGain: c.solo ? pfl : null, stereo };
   });
 
   // ---------- tape in ----------
@@ -265,6 +283,21 @@ export function buildCompactGraph(kit, def) {
       ret.efx.connect(auxBus[r.efxToMonitor]);
     }
     returns[r.id] = ret;
+  }
+
+  // ---------- Ui16 effects buses: send ─► unit ─► return level ─► MAIN ----------
+  const fxBuses = {};
+  for (const b of busIds) {
+    const fxDef = def.buses[b].fx;
+    if (!fxDef) continue;
+    const unit = buildFxUnit(kit);
+    auxBus[b].disconnect();
+    auxBus[b].connect(unit.input);
+    const ret = pair(0);
+    unit.out.L.connect(ret.L).connect(mainBus.L);
+    unit.out.R.connect(ret.R).connect(mainBus.R);
+    unit.setPreset(fxDef);
+    fxBuses[b] = { unit, ret };
   }
 
   // ---------- Xenyx built-in effects ----------
@@ -568,7 +601,15 @@ export function buildCompactGraph(kit, def) {
           set(s.lowCut.dry.gain, on(!active));
           set(s.lowCut.wet.gain, on(active));
         }
-        if (s.comp) {
+        if (s.comp && c.dyn) {
+          const d = ch.dyn;
+          const active = d.threshold < 0 && d.ratio > 1;
+          set(s.comp.dyn.threshold, d.threshold);
+          set(s.comp.dyn.ratio, d.ratio);
+          set(s.comp.makeup.gain, dbToGain(d.makeup));
+          set(s.comp.dry.gain, on(!active));
+          set(s.comp.wet.gain, on(active));
+        } else if (s.comp) {
           // Clockwise: a lower threshold, a higher ratio, and make-up gain for about a third of the squash.
           const k = ch.comp || 0;
           const thr = -6 - 30 * k;
@@ -580,6 +621,11 @@ export function buildCompactGraph(kit, def) {
           set(s.comp.wet.gain, on(k > 0));
         }
         for (const [id, f] of Object.entries(s.eq)) set(f.gain, ch.eq[id] || 0);
+        for (const [id, f] of Object.entries(s.peq)) {
+          set(f.gain, ch.peq[id].gain);
+          set(f.frequency, ch.peq[id].freq);
+          if (f.type === "peaking") set(f.Q, ch.peq[id].q);
+        }
         if (s.stMono) {
           set(s.stMono.st.gain, on(!ch.stMono));
           set(s.stMono.sum.gain, on(ch.stMono));
@@ -589,6 +635,7 @@ export function buildCompactGraph(kit, def) {
         set(s.level.gain, dbToGain(lvl) * (link ? Math.max(link.gains.L, link.gains.R) : 1));
         const muted = c.mute && !ch.enabled;
         set(s.mainGate.gain, on(!muted));
+        if (s.preMute) set(s.preMute.gain, on(!muted));
         set(s.pan.pan, link ? (link.gains.L > 0 ? -1 : 1) : ch.pan);
         if (s.altGate) {
           set(s.altGate.gain, on(muted));
@@ -609,7 +656,7 @@ export function buildCompactGraph(kit, def) {
             continue;
           }
           const g = dbToGain(LAWS[d.law].toDb(pos));
-          const tap = d.tap === "switch" ? (state[d.bus].pre ? "pre" : "post") : d.tap === "channel" ? (ch.pre ? "pre" : "post") : d.tap === "fader" ? "post" : d.tap;
+          const tap = d.tap === "switch" ? (state[d.bus].pre ? "pre" : "post") : d.tap === "channel" ? (ch.pre ? "pre" : "post") : d.tap === "each" ? (ch.pres[sid] ? "pre" : "post") : d.tap === "fader" ? "post" : d.tap;
           set(s.sends[sid].pre.gain, tap === "pre" ? g : 0);
           set(s.sends[sid].post.gain, tap === "post" ? g : 0);
         }
@@ -649,7 +696,13 @@ export function buildCompactGraph(kit, def) {
       const masterG = dbToGain(LAWS[def.main.law].toDb(state.main.level));
       set(mainMaster.L.gain, masterG);
       set(mainMaster.R.gain, masterG);
-      for (const b of busIds) set(auxMaster[b].gain, def.buses[b].master ? dbToGain(LAWS[def.buses[b].master.law].toDb(state[b].level)) : 1);
+      for (const b of busIds) {
+        const g = def.buses[b].master ? dbToGain(LAWS[def.buses[b].master.law].toDb(state[b].level)) : 1;
+        if (fxBuses[b]) {
+          set(fxBuses[b].ret.L.gain, g);
+          set(fxBuses[b].ret.R.gain, g);
+        } else set(auxMaster[b].gain, g);
+      }
       if (altToMain) for (const side of ["L", "R"]) set(altToMain[side].gain, on(!!state.alt.toMain));
       if (altOut !== altBus) for (const side of ["L", "R"]) set(altOut[side].gain, dbToGain(LAWS.level.toDb(state.alt.level)));
       for (const [b, g] of Object.entries(auxSolo)) set(g.gain, on(state[b].solo));

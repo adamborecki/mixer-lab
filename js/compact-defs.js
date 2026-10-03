@@ -1,6 +1,7 @@
 // Compact analog mixers as data: the Mackie Mix8, Mackie 1202-VLZ, Yamaha
-// MG10/2, Yamaha STAGEPAS 400BT, Behringer Xenyx X1204USB and the Sound
-// Devices 442 field mixer. One definition per mixer: its channels and jacks, gain stage, EQ, sends and where they tap, buses, returns, tape,
+// MG10/2, Yamaha STAGEPAS 400BT, Behringer Xenyx X1204USB, the Sound Devices
+// 442 field mixer and the Soundcraft Ui16 digital mixer (`digital: true`, drawn
+// by js/ui/mixer-digital-view.js). One definition per mixer: its channels and jacks, gain stage, EQ, sends and where they tap, buses, returns, tape,
 // phones and outputs. js/compact.js (state and level model), js/graph-compact.js
 // (audio) and js/ui/mixer-compact-view.js (surface) read only this. No imports,
 // so js/connection-model.js can build the rear panels from it.
@@ -41,14 +42,18 @@ export const EQ = {
 // (`minus10`: the dB a +4 dBu / −10 dBV LEVEL switch adds at −10, Xenyx).
 // `comp`: a one-knob compressor after the low cut (Xenyx). `hpf`: a sweepable
 // high-pass, off at the detent; `limiter`: an input limiter; `polarity`: a Ø
-// switch (442).
+// switch (442). `peq`: a 4-band parametric EQ; `dyn`: a compressor with
+// THRESHOLD, RATIO and GAIN (Ui16).
 // `insert`: where the INSERT jack taps, used as a send: "trim" (after the gain,
 // before LOW CUT; Mackie) or "eq" (after the EQ, before the level; Yamaha).
 // `sends`: ids of the def's `sends` this channel has. `mic` on a stereo channel:
 // an XLR whose signal goes to the L side (MG10/2 3/4, 5/6).
 // Send taps: "pre" (after the EQ), "post" (after LEVEL and MUTE), "switch"
 // (one PRE switch for the bus), "channel" (a PRE switch on each channel, after
-// MUTE when post), "fader" (after LEVEL, before MUTE: the Xenyx FX send).
+// MUTE when post), "fader" (after LEVEL, before MUTE: the Xenyx FX send),
+// "each" (PRE or POST per channel and per send, PRE to start: Ui16 auxes).
+// A bus with `fx` is an internal effects unit: its master is the return level
+// into the main mix, and it has no output jack (Ui16 REVERB, DELAY, CHORUS).
 
 export const COMPACT = {
   mix8: {
@@ -243,6 +248,53 @@ export const COMPACT = {
     outputs: ["xlrSwitched", "tapeMini"],
     layout: { strip: ["head", "micLine", "phantom", "gain", "hpf", "polarity", "limitLed", "peak", "solo", "pan", "level"] },
   },
+
+  ui16: {
+    id: "ui16",
+    name: "Soundcraft Ui16",
+    blurb: "Digital: 12 mic inputs, 4 auxes, 3 effects. Pick a mix, and the faders become its sends; SEL a channel to edit it.",
+    digital: true,
+    phantom: { label: "48V", channels: Array.from({ length: 12 }, (_, i) => i), perChannel: true },
+    channels: [
+      ...Array.from({ length: 12 }, (_, i) => ({
+        label: String(i + 1),
+        kind: "mono",
+        jacks: i < 8 ? ["combo"] : ["mic"],
+        gain: { min: -6, max: 57, linePad: -20 },
+        hpf: { min: 20, max: 600 },
+        peq: true,
+        dyn: true,
+        polarity: true,
+        hiZ: i < 2,
+        sends: ["aux1", "aux2", "aux3", "aux4", "fx1", "fx2", "fx3"],
+        mute: "mute",
+        solo: true,
+        peak: true,
+      })),
+      { label: "13/14", kind: "stereo", jacks: ["rcaPair"], gain: { min: -20, max: 20 }, peq: true, dyn: true, sends: ["aux1", "aux2", "aux3", "aux4", "fx1", "fx2", "fx3"], mute: "mute", solo: true, peak: true },
+    ],
+    sends: {
+      ...Object.fromEntries([1, 2, 3, 4].map((n) => [`aux${n}`, { label: `AUX ${n}`, bus: `aux${n}`, tap: "each", law: "level" }])),
+      fx1: { label: "REVERB", bus: "fx1", tap: "post", law: "level" },
+      fx2: { label: "DELAY", bus: "fx2", tap: "post", law: "level" },
+      fx3: { label: "CHORUS", bus: "fx3", tap: "post", law: "level" },
+    },
+    buses: {
+      ...Object.fromEntries([1, 2, 3, 4].map((n) => [`aux${n}`, { label: `AUX ${n}`, master: { label: `AUX ${n}`, law: "level" } }])),
+      fx1: { label: "REVERB", master: { label: "REVERB", law: "level" }, fx: { name: "Lexicon reverb", kind: "reverb", seconds: 2.2, number: 1 } },
+      fx2: { label: "DELAY", master: { label: "DELAY", law: "level" }, fx: { name: "Delay", kind: "delay", seconds: 0.375, feedback: 0.35, number: 2 } },
+      fx3: { label: "CHORUS", master: { label: "CHORUS", law: "level" }, fx: { name: "Chorus", kind: "chorus", rate: 0.8, depth: 0.004, number: 3 } },
+    },
+    muteCutsPre: true, // a muted channel leaves every mix, its pre-fader aux sends too
+    auxOut: "xlr",
+    main: { label: "MASTER", law: "level" },
+    phones: { label: "PHONES", sources: null },
+    solo: { mode: "pfl", label: "SOLO" },
+    meter: [-40, -30, -20, -12, -6, -3, 0, "CLIP"],
+    peakLabel: "CLIP",
+    outputs: ["mainXlrOnly", "aux1", "aux2", "aux3", "aux4"],
+    layout: { kind: "digital" },
+  },
 };
 
 // ---------- rear panels (used by js/connection-model.js) ----------
@@ -289,7 +341,7 @@ export function compactPorts(def) {
   }
   if (o.includes("alt")) ports.push(out("alt-l", "quarter", "ALT OUT L", { bus: "alt", side: "L" }), out("alt-r", "quarter", "ALT OUT R", { bus: "alt", side: "R" }));
   if (o.includes("cr")) ports.push(out("cr-l", "quarter", "C-R OUT L", { bus: "cr", side: "L" }), out("cr-r", "quarter", "C-R OUT R", { bus: "cr", side: "R" }));
-  for (const b of ["aux1", "aux2"]) if (o.includes(b)) ports.push(out(b, "quarter", def.id === "mg102" ? `${def.buses[b].label} SEND` : `${def.buses[b].label} SEND`, { bus: b }));
+  for (const b of ["aux1", "aux2", "aux3", "aux4"]) if (o.includes(b)) ports.push(out(b, def.auxOut || "quarter", def.auxOut === "xlr" ? `${def.buses[b].label} OUT (XLR)` : `${def.buses[b].label} SEND`, { bus: b }));
   const tapeOut = def.tape?.label ? `${def.tape.label} OUT` : "TAPE OUT";
   if (o.includes("tapeOut")) ports.push(out("tape-out-l", "rca", `${tapeOut} L`, { bus: "main", side: "L" }), out("tape-out-r", "rca", `${tapeOut} R`, { bus: "main", side: "R" }));
   if (o.includes("recOut")) ports.push(out("rec-out-l", "rca", "REC OUT L", { bus: "main", side: "L" }), out("rec-out-r", "rca", "REC OUT R", { bus: "main", side: "R" }));

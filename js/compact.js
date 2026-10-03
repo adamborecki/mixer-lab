@@ -28,6 +28,16 @@ export const levelLaw = (def) => LAWS[def.levelLaw || "level"];
 
 export const EQ_FOR = (name) => EQ[name] || [];
 
+// The Ui16's 4-band parametric EQ: shelves at the ends, two bells in the middle.
+export const PEQ_BANDS = [
+  { id: "low", label: "LOW", type: "lowshelf", freq: 80, min: 20, max: 1000 },
+  { id: "lowMid", label: "LO MID", type: "peaking", freq: 400, min: 60, max: 4000 },
+  { id: "hiMid", label: "HI MID", type: "peaking", freq: 2500, min: 300, max: 12000 },
+  { id: "high", label: "HIGH", type: "highshelf", freq: 8000, min: 1500, max: 20000 },
+];
+export const PEQ_Q = { min: 0.3, max: 8 };
+export const DYN = { threshold: [-50, 0], ratio: [1, 20], makeup: [0, 24] };
+
 export const isBipolar = (def, sendId) => !!def.sends[sendId]?.bipolar;
 export const tapeIndex = (def) => def.channels.length;
 
@@ -52,6 +62,10 @@ function createChannel(def, i) {
     hiZ: false,
     eq: Object.fromEntries(EQ_FOR(c.eq).map((b) => [b.id, 0])),
     sends: Object.fromEntries((c.sends || []).map((s) => [s, 0])),
+    // Ui16: each aux send is PRE (the default) or POST on each channel.
+    pres: Object.fromEntries((c.sends || []).filter((s) => def.sends[s].tap === "each").map((s) => [s, true])),
+    peq: c.peq ? Object.fromEntries(PEQ_BANDS.map((b) => [b.id, { gain: 0, freq: b.freq, q: 0.7 }])) : undefined,
+    dyn: c.dyn ? { threshold: 0, ratio: 1, makeup: 0 } : undefined,
     pan: 0,
     enabled: true,
     solo: false,
@@ -100,7 +114,14 @@ const range = (lo, hi, step) => (v) => {
 export function sanitizeChannel(def, ch, key, value) {
   if (ch.tape) return { level: range(0, 1), toMain: bool, toCr: bool }[key]?.(value);
   const c = def.channels[ch.index];
-  const [a, b] = key.split(".");
+  const [a, b, k] = key.split(".");
+  if (a === "pres") return def.sends[b]?.tap === "each" && (c.sends || []).includes(b) ? bool(value) : undefined;
+  if (a === "peq") {
+    const band = c.peq && PEQ_BANDS.find((x) => x.id === b);
+    if (!band) return undefined;
+    return { gain: range(-15, 15, 0.5), freq: range(band.min, band.max, 1), q: range(PEQ_Q.min, PEQ_Q.max, 0.05) }[k]?.(value);
+  }
+  if (a === "dyn") return c.dyn && DYN[b] ? range(DYN[b][0], DYN[b][1], b === "ratio" ? 0.1 : 0.5)(value) : undefined;
   if (a === "eq") return EQ_FOR(c.eq).some((x) => x.id === b) ? range(-EQ_RANGE_DB, EQ_RANGE_DB, 0.5)(value) : undefined;
   if (a === "sends") return (c.sends || []).includes(b) ? range(isBipolar(def, b) ? -1 : 0, 1)(value) : undefined;
   switch (key) {
@@ -178,7 +199,7 @@ export function fxPreset(def, program) {
 
 export function listenList(def) {
   const l = ["main"];
-  for (const b of ["aux1", "aux2"]) if (def.buses[b]) l.push(b);
+  for (const b of Object.keys(def.buses)) if (/^aux\d$/.test(b) && !def.buses[b].fx) l.push(b);
   if (def.alt) l.push("alt");
   if (def.monitorOut) l.push("monitor");
   def.channels.forEach((c, i) => c.insert && l.push(`insert${i + 1}`));
@@ -258,7 +279,9 @@ export function computeMix(def, state, sourcesById, stems, sourcePeakDb) {
     const pg = link ? link.gains : ch.stereo ? balanceGains(ch.pan) : panGains(ch.pan);
     const side = (k, db) => db + gainToDb(pg[k]);
     // "fader": after LEVEL, before MUTE; "channel": this channel's PRE switch.
-    const tap = (t) => (t === "pre" || (t === "channel" && ch.pre) ? inputPeakDb : t === "fader" ? levelled : postDb);
+    // "each": this channel's PRE/POST for that send (Ui16). With `muteCutsPre`, MUTE cuts pre sends too.
+    const preDb = def.muteCutsPre && muted ? OFF : inputPeakDb;
+    const tap = (t, sid) => (t === "pre" || (t === "channel" && ch.pre) || (t === "each" && ch.pres[sid]) ? preDb : t === "fader" ? levelled : postDb);
     for (const sid of c.sends || []) {
       const s = def.sends[sid];
       const pos = ch.sends[sid];
@@ -269,7 +292,7 @@ export function computeMix(def, state, sourcesById, stems, sourcePeakDb) {
       } else if (aux[s.bus]) {
         const t = s.tap === "switch" ? (state[s.bus].pre ? "pre" : "post") : s.tap;
         const sendDb = LAWS[s.law].toDb(pos);
-        aux[s.bus] = { sendDb, monitorDb: tap(t) + sendDb + masterDb(s.bus) };
+        aux[s.bus] = { sendDb, monitorDb: tap(t, sid) + sendDb + masterDb(s.bus) };
       }
     }
     for (const b of buses) aux[b].heardDb = heardBus(b) ? aux[b].monitorDb : OFF;

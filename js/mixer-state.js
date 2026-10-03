@@ -182,12 +182,12 @@ export class MixerStore {
     const ch = this.state.channels[index];
     if (!ch) return;
     if (modelOf(this.state) !== "generic") {
-      // Keys may name a nested control: "eq.mid", "assign.lr".
+      // Keys may name a nested control: "eq.mid", "assign.lr", "peq.hiMid.gain".
       const v = hardware(modelOf(this.state)).sanitizeChannel(ch, key, value);
-      const [a, b] = key.split(".");
-      const holder = b ? ch[a] : ch;
-      const k = b || a;
-      if (v === undefined || holder[k] === v) return;
+      const path = key.split(".");
+      const k = path.pop();
+      const holder = path.reduce((o, p) => (o ? o[p] : undefined), ch);
+      if (v === undefined || !holder || holder[k] === v) return;
       holder[k] = v;
       this.emit({ type: "channel", index, key });
       return;

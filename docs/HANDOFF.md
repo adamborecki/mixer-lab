@@ -19,7 +19,7 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 | `js/mixer-state.js` | Semantic state, `BUSES`, `computeMix`, `MixerStore` actions; dispatches to the 1604 by `state.model` |
 | `js/levels.js` | Level and pan laws, knob tapers (`makeLaw`, `knobLaw`), input bands (re-exported by `mixer-state.js`) |
 | `js/cr1604.js` | Mackie CR1604-VLZ: state, validation, level model ([CR1604.md](CR1604.md)) |
-| `js/compact-defs.js`, `js/compact.js`, `js/graph-compact.js` | Compact mixers as data (Mix8, 1202-VLZ, MG10/2, STAGEPAS 400BT, Xenyx X1204USB) and the Sound Devices 442 field mixer: definitions, level model, audio ([COMPACT_MIXERS.md](COMPACT_MIXERS.md)) |
+| `js/compact-defs.js`, `js/compact.js`, `js/graph-compact.js` | Compact mixers as data (Mix8, 1202-VLZ, MG10/2, STAGEPAS 400BT, Xenyx X1204USB), the Sound Devices 442 field mixer and the Soundcraft Ui16 digital mixer ([DIGITAL_MIXER.md](DIGITAL_MIXER.md)): definitions, level model, audio ([COMPACT_MIXERS.md](COMPACT_MIXERS.md)) |
 | `js/scenarios.js` | Scenario data, playback-device inventory, baselines (`METRICS`), `CONDITIONS`, `evaluateScenario` |
 | `js/mixer-models.js` | Skins: words, control types, layout data, MUTE/ON mapping |
 | `js/transport.js` | Stem playback: excerpt loop and streamed full song, sync, keep-alive |
@@ -29,6 +29,7 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 | `js/app.js` | Wiring: store ↔ engine ↔ scenario checks ↔ views; session (listen history); Free play music mode; credits |
 | `js/progress.js`, `js/submission.js` | Solved-scenario tracking and per-scenario active time and action counts (localStorage) and the plain-text Canvas submission with its check code; pure, tested in `tests/submission.test.mjs`. `tools/verify-submission.mjs < file` re-checks a pasted submission |
 | `js/ui/icons.js` | Original SVG icon library (gear, plugs, jacks, signal and cable kinds) and the model → picture mapping (`deviceIconName`, `plugIconName`, `jackIconName`). Presentation only; tested in `tests/icons.test.mjs` |
+| `js/ui/mixer-digital-view.js` | The digital mixer surface (Ui16): mix bar (sends on faders), SEL, the selected-channel panel ([DIGITAL_MIXER.md](DIGITAL_MIXER.md)) |
 | `js/ui/*.js` | `submission-view` (Canvas Submission dialog), `mixer-view` (renders a skin), `patch-view` (Sources/Outputs + patch dialog), `scenario-view`, `listen-bar`, `controls` (knob/fader/fine sheet), `flow` (signal-flow explainer) |
 | `js/meters.js` | Meter drawing and ballistics (levels come from AnalyserNodes) |
 | `tests/*.test.mjs` | `routing`, `scenarios`, `skins` (node:test) |

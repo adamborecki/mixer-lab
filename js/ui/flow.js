@@ -9,6 +9,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 export function renderFlow(root, skin) {
   if (skin.layout === "cr1604") return renderFlow1604(root, skin);
   if (skin.layout === "compact") return renderFlowCompact(root, skin, COMPACT[skin.hardware]);
+  if (skin.layout === "digital") return renderFlowDigital(root, skin, COMPACT[skin.hardware]);
   const t = skin.terms;
   const c = skin.enabledControl;
   const enableWord = c.litWhenEnabled ? `${c.label} (lit = in Main)` : `${c.label} (lit = out of Main)`;
@@ -101,6 +102,35 @@ function renderFlow1604(root, skin) {
           <li>For stage monitors use AUX 1 or 2 with <strong>PRE</strong> down: the wedge mix then ignores the fader. Effects sends stay post, so the reverb follows the fader.</li>
           <li>A channel only reaches the house if <strong>L-R</strong> is pressed (or it goes through a subgroup that is assigned to the main mix).</li>
           <li>The outputs are line level. A speaker only makes sound if an amplifier is somewhere in the chain: inside it (powered) or in front of it (passive + power amp).</li>
+        </ul>
+      </div>
+    </details>`;
+}
+
+// A digital mixer (Ui16): the same signal flow, reached through pages and SEL.
+function renderFlowDigital(root, skin, def) {
+  root.innerHTML = `
+    <details class="flow">
+      <summary>How the signal flows on the ${esc(skin.name)}</summary>
+      <div class="flow-body">
+        <ol class="flow-trunk" aria-label="Every channel">
+          <li class="flow-node">Input jack</li>
+          <li class="flow-node">GAIN</li>
+          <li class="flow-node">HPF</li>
+          <li class="flow-node">COMP</li>
+          <li class="flow-node">EQ</li>
+          <li class="flow-node">MUTE</li>
+          <li class="flow-node">FADER</li>
+          <li class="flow-node">PAN</li>
+          <li class="flow-node flow-end">MASTER → XLR OUT</li>
+        </ol>
+        <ul class="flow-notes">
+          <li>There are no knobs per channel. <strong>SEL</strong> a channel and its GAIN, HPF, EQ, compressor, pan and sends all show in one panel.</li>
+          <li>The bar above the faders picks <strong>what the faders control</strong>: MIX (each channel into the MASTER), GAIN, or a mix such as <strong>AUX 1</strong>, where each fader is that channel's send into AUX 1 ("sends on faders"). The right-hand fader is always that mix's master.</li>
+          <li>Aux sends start <strong>PRE</strong> (they ignore the MIX faders, right for wedges). Press PRE to make a send POST, so it follows the fader.</li>
+          <li><strong>MUTE</strong> takes a channel out of every mix, wedges included.</li>
+          <li>REVERB, DELAY and CHORUS are built in: their pages set the sends, their master is how much comes back into the MASTER mix.</li>
+          <li>The outputs are line level on XLR: ${Object.values(def.buses).filter((b) => !b.fx).length} AUX outs and MASTER L/R. A speaker only makes sound if an amplifier is somewhere in the chain.</li>
         </ul>
       </div>
     </details>`;

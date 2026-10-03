@@ -4,7 +4,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { COMPACT, COMPACT_IDS, LAWS, balanceGains, fxPreset, reverbSetting } from "../js/compact.js";
-import { MixerStore, computeMix, createMixerState, listenGroupOf } from "../js/mixer-state.js";
+import { MixerStore, computeMix, createMixerState, listenDestinations, listenGroupOf } from "../js/mixer-state.js";
 import { DEVICE_TYPES, checkConnection } from "../js/connection-model.js";
 import { COMPACT_GIGS, SCENARIOS_BY_ID, buildScenarioState, scenarioFor, scenariosFor } from "../js/scenarios.js";
 import { SOURCES_BY_ID, STEMS } from "../audio/source-manifest.js";
@@ -399,5 +399,77 @@ describe("Sound Devices 442 and the camera input", () => {
     assert.equal(st.state.lim.mode, "on");
     st.setBus("lim", "mode", "loud");
     assert.equal(st.state.lim.mode, "on");
+  });
+});
+
+describe("Soundcraft Ui16 (digital)", () => {
+  const VOX = 6; // lead vocal on input 7
+
+  it("rear panel: 8 combo + 4 XLR inputs, RCA line in, XLR master and AUX 1–4 outs, no jacks for the effects", () => {
+    const ports = DEVICE_TYPES.ui16.ports;
+    assert.equal(ports.filter((p) => p.jack === "combo").length, 8);
+    assert.equal(ports.filter((p) => p.role === "channel-input" && p.jack === "xlr").length, 4);
+    assert.ok(ports.find((p) => p.id === "ch13-rca"));
+    for (const b of ["aux1", "aux2", "aux3", "aux4"]) assert.equal(ports.find((p) => p.id === b).jack, "xlr", b);
+    assert.ok(!ports.some((p) => /^fx/.test(p.id)));
+  });
+
+  it("listening: MAIN, AUX 1–4 and the phones; never an effects bus", () => {
+    assert.deepEqual(listenDestinations(createMixerState("ui16")), ["main", "aux1", "aux2", "aux3", "aux4", "phones", "rec"]);
+    const st2 = new MixerStore(createMixerState("ui16"));
+    st2.setListen("aux4");
+    assert.equal(st2.state.listen, "aux4");
+    st2.setListen("fx1");
+    assert.equal(st2.state.listen, "aux4");
+  });
+
+  it("the gig: the whole band patched, 48V only where a condenser needs it, both wedges working", () => {
+    const st = gig("ui16");
+    const phantom = st.state.channels.map((c, i) => (c.phantom ? i : -1)).filter((i) => i >= 0);
+    assert.deepEqual(phantom, [0], "the drum overhead only");
+    const m = mix(st);
+    for (const id of ["wedge", "pwedge", "spk-l", "spk-r"]) assert.equal(m.rig.endpoints.find((e) => e.deviceId === id).valid, true, id);
+  });
+
+  it("aux sends start PRE: the wedge ignores the MIX fader until the send is made POST", () => {
+    const st = gig("ui16");
+    assert.equal(st.state.channels[VOX].pres.aux1, true);
+    const pre = ch(st, "lead-vocal").aux.aux1.monitorDb;
+    const fader = LAWS.level.toDb(st.state.channels[VOX].level);
+    st.setChannel(VOX, "level", LAWS.level.toPos(fader - 8));
+    near(ch(st, "lead-vocal").aux.aux1.monitorDb, pre);
+    st.setChannel(VOX, "pres.aux1", false);
+    near(ch(st, "lead-vocal").aux.aux1.monitorDb, pre - 8 + fader, 0.6);
+    assert.equal(st.state.channels[VOX].pres.aux2, true, "each send has its own PRE");
+  });
+
+  it("MUTE takes a channel out of every mix, pre-fader wedges included", () => {
+    const st = gig("ui16");
+    st.setChannel(VOX, "enabled", false);
+    const v = ch(st, "lead-vocal");
+    assert.equal(v.mainDb.L, -Infinity);
+    assert.equal(v.aux.aux1.monitorDb, -Infinity);
+    assert.equal(v.aux.aux2.monitorDb, -Infinity);
+  });
+
+  it("effects sends are post-fader", () => {
+    const st = gig("ui16");
+    const rev = ch(st, "lead-vocal").aux.fx1.monitorDb;
+    const fader = LAWS.level.toDb(st.state.channels[VOX].level);
+    st.setChannel(VOX, "level", LAWS.level.toPos(fader - 6));
+    near(ch(st, "lead-vocal").aux.fx1.monitorDb, rev - 6, 0.6);
+  });
+
+  it("parametric EQ and compressor values stay in range", () => {
+    const st = gig("ui16");
+    st.setChannel(VOX, "peq.hiMid.gain", 30);
+    st.setChannel(VOX, "peq.hiMid.freq", 50); // below the band's range
+    st.setChannel(VOX, "peq.hiMid.q", 99);
+    assert.deepEqual(st.state.channels[VOX].peq.hiMid, { gain: 15, freq: 300, q: 8 });
+    st.setChannel(VOX, "peq.nope.gain", 3);
+    st.setChannel(VOX, "dyn.ratio", 50);
+    st.setChannel(VOX, "dyn.threshold", 5);
+    assert.equal(st.state.channels[VOX].dyn.ratio, 20);
+    assert.equal(st.state.channels[VOX].dyn.threshold, 0);
   });
 });
