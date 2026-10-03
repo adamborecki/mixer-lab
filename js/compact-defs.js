@@ -636,7 +636,7 @@ export const COMPACT = {
       ...Array.from({ length: 32 }, (_, i) => ({
         label: String(i + 1),
         kind: "mono",
-        jacks: ["mic"],
+        jacks: ["mic", "dante"],
         portName: `RIO IN ${i + 1} (CH ${i + 1})`,
         gain: { min: -6, max: 66 },
         hpf: { min: 20, max: 600 },
@@ -660,6 +660,7 @@ export const COMPACT = {
       mix16: { label: "MIX 16", master: { label: "ST IN 5 (FX 4)", law: "level" }, fx: { name: "Chorus (FX 4)", kind: "chorus", rate: 0.8, depth: 0.004, number: 4 } },
     },
     busToMain: true, // a FIXED-type MIX can go to the STEREO bus: a group
+    dante: { rx: 32 }, // Dante receive channels 1–32 (Dante Controller subscriptions: rig device `danteRx`)
     matrix: 8,
     scenes: 8,
     routing: {
@@ -721,6 +722,8 @@ export function compactPorts(def) {
       if (j === "mic") ports.push({ ...base, id: `ch${i + 1}-mic`, jack: "xlr", level: "mic", path: "mic", phantom, name: ch.portName || `Ch ${n} MIC` });
       if (j === "line") ports.push({ ...base, id: `ch${i + 1}-line`, jack: "quarter", level: "line", path: "line", name: `Ch ${n} LINE` });
       if (j === "xlrMicLine") ports.push({ ...base, id: `ch${i + 1}-in`, jack: "xlr", level: "mic-or-line", path: "mic", phantom, name: `Ch ${n} input (XLR, MIC/LINE)` });
+      // Dante RX n: the channel's network input (js/dante.js). No cable: Dante Controller patches it.
+      if (j === "dante") ports.push({ ...base, id: `ch${i + 1}-dante`, jack: "dante", level: "line", path: "line", pad: false, digital: true, name: `Dante RX ${i + 1} (CH ${i + 1})` });
       if (j === "combo") ports.push({ ...base, id: `ch${i + 1}-in`, jack: "combo", level: "mic-or-line", phantom, name: `Ch ${n} input` });
       if (j === "lineMono") ports.push({ ...base, id: `ch${i + 1}-l`, jack: "quarter", level: "line", path: "line", pad: false, monoIn: true, name: `Ch ${n} L (MONO)` });
       if (j === "linePair") ports.push({ ...base, id: `ch${i + 1}-lr`, jack: "linepair", level: "line", path: "line", pad: false, stereo: true, name: ch.portName || `Ch ${n} L+R (1/4")` });

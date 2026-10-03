@@ -1012,6 +1012,24 @@ Object.assign(WRONG, {
   }]],
 });
 
+Object.assign(SOLVE, {
+  "cl3-dante": (a) => {
+    for (let t = 0; t < 7; t++) a.st.setDevice("daw", `outs.${t}`, t + 1);
+    for (let m = 0; m < 7; m++) a.st.setDevice("mixer", `danteRx.${m}`, m + 1);
+  },
+});
+Object.assign(WRONG, {
+  "cl3-dante": [
+    ["the DAW outputs only", (a) => {
+      for (let t = 0; t < 7; t++) a.st.setDevice("daw", `outs.${t}`, t + 1);
+    }],
+    ["Dante Controller one channel off", (a) => {
+      for (let t = 0; t < 7; t++) a.st.setDevice("daw", `outs.${t}`, t + 1);
+      for (let m = 0; m < 7; m++) a.st.setDevice("mixer", `danteRx.${m}`, m + 2);
+    }],
+  ],
+});
+
 describe("board scenarios: data", () => {
   it("validate, and every board has at least nine, numbered from 1", () => {
     assert.deepEqual(validateScenarios(), []);

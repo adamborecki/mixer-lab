@@ -22,6 +22,7 @@ import { buildCompactGraph } from "./graph-compact.js";
 import { COMPACT } from "./compact-defs.js";
 import { buildRecorder, buildReverb, buildRoomPair } from "./outboard-audio.js";
 import { splitRef } from "./connection-model.js";
+import { danteLinks } from "./dante.js";
 
 // Outboard gear with audio of its own (settings: js/devices.js).
 const OUTBOARD = { reverb: "reverb", "zoom-f8": "recorder", "stereo-mic-pair": "pair" };
@@ -140,7 +141,9 @@ export class AudioEngine {
     if (change.type === "replace" || change.type === "rig") this.syncDevices(state);
     if (this.mixer.pop) this.firePops(state, change);
     // Output ROUTING and scene recalls change which speakers hear which bus.
-    if (change.type === "rig" || change.type === "replace" || change.type === "scene" || (change.type === "bus" && change.bus === "routing")) this.rewire();
+    // Dante: a DAW track's output or a Dante Controller subscription moves audio like a cable.
+    const dante = change.type === "device" && (change.key?.startsWith("outs") || change.key?.startsWith("danteRx"));
+    if (change.type === "rig" || change.type === "replace" || change.type === "scene" || dante || (change.type === "bus" && change.bus === "routing")) this.rewire();
     this.applyAll();
   }
 
@@ -239,9 +242,11 @@ export class AudioEngine {
     const d = this.devices.get(deviceId);
     if (d) return d.rt.outputs[portId] || null;
     const dev = this.store.state.rig.devices.find((x) => x.id === deviceId);
-    if (!dev || !dev.sourceId) return null;
-    const loop = this.loops.get(dev.sourceId);
-    return loop ? loop.out : this.transport.outs.get(dev.sourceId) || null;
+    // A device with several sources (the DAW): each port names its own.
+    const sourceId = dev && (DEVICE_TYPES[dev.type]?.ports.find((p) => p.id === portId)?.sourceId || dev.sourceId);
+    if (!sourceId) return null;
+    const loop = this.loops.get(sourceId);
+    return loop ? loop.out : this.transport.outs.get(sourceId) || null;
   }
 
   inNode(ref) {
@@ -284,7 +289,7 @@ export class AudioEngine {
     // (phantom etc.) is applied as gain in applyAll, so 48 V needs no rewire.
     // Speakers and amps are handled below.
     for (const d of this.devices.values()) if (d.rt.link) d.rt.link(this.transport.outs);
-    for (const c of state.rig.cables) {
+    for (const c of [...state.rig.cables, ...danteLinks(state.rig)]) {
       const from = this.outNode(c.from);
       const to = this.inNode(c.to);
       if (from && to) link(from, to);

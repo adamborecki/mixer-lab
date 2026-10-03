@@ -18,6 +18,7 @@ import { PatchView } from "./ui/patch-view.js";
 import { ScenarioView } from "./ui/scenario-view.js";
 import { SubmissionView } from "./ui/submission-view.js";
 import { RecorderView } from "./ui/recorder-view.js";
+import { DanteView } from "./ui/dante-view.js";
 
 const M = { STEM_SET: manifest.STEM_SET, STEMS: manifest.STEMS, SOURCES_BY_ID: manifest.SOURCES_BY_ID, LOOP_ASSETS: manifest.LOOP_ASSETS };
 const $ = (sel) => document.querySelector(sel);
@@ -54,12 +55,14 @@ const patchView = new PatchView({
   toast,
   getTerms: () => skin.terms,
   onOpenRecorder: (id) => recorderView.open(id),
+  onOpenDante: (tab) => danteView.open(tab),
   getRecorder: (id) => engine.recorder(id),
 });
 
 // The field recorder's own panel (opened from its card in Outputs).
 const firstRecorderId = () => store.state.rig.devices.find((d) => d.type === "zoom-f8")?.id;
 const recorderView = new RecorderView({ store, getRuntime: (id) => engine.recorder(id), getMix: () => lastMix, toast });
+const danteView = new DanteView({ store, manifest: M });
 
 const mixerView = new MixerView($("#mixer"), {
   store,
@@ -90,7 +93,7 @@ const scenarioView = new ScenarioView($("#scenario"), {
   },
   getMusic: () => {
     const m = musicFor(current.def);
-    const ids = store.state.rig.devices.filter((d) => d.sourceId).map((d) => d.sourceId);
+    const ids = rigSourceIds();
     return { mode: musicMode, started: engine.started, sections: manifest.STEM_SET.sections, section: m.section, out: m.section ? sittingOut(m.section, ids, manifest.SOURCES_BY_ID) : [] };
   },
   onMusicMode: (mode) => {
@@ -120,7 +123,7 @@ store.subscribe((state, change) => {
   if (change.type === "rig" || change.type === "replace" || change.type === "scene" || (change.type === "bus" && change.bus === "routing") || (change.type === "channel" && change.key === "phantom")) pending.patch = true;
   // Recorder settings show on its Outputs card (the mic pair and reverb update their own readouts);
   // a camera's MIC/LINE switch and the 442's OUTPUT LEVEL change what the camera cards say.
-  if (change.type === "device" && ["zoom-f8", "camera-input"].includes(state.rig.devices.find((d) => d.id === change.id)?.type)) pending.patch = true;
+  if (change.type === "device" && (["zoom-f8", "camera-input", "daw-dvs"].includes(state.rig.devices.find((d) => d.id === change.id)?.type) || change.key?.startsWith("danteRx") || change.key?.endsWith("Level"))) pending.patch = true;
   if (change.type === "device" && change.id === "mixer") pending.patch = true;
 });
 
@@ -132,6 +135,7 @@ function refresh() {
   if (pending.patch) patchView.render(mix);
   listenBar.update(mix, { playing: engine.playing, ready, loadingText, buffering });
   if (recorderView.isOpen) recorderView.sync();
+  if (danteView.isOpen) danteView.sync();
   if (current.def.conditions.length) {
     const result = evaluateScenario(current.def, state, current.baseline, M.SOURCES_BY_ID, M.STEMS, current.session);
     const key = JSON.stringify(result.items.map((i) => [i.met, i.detail])) + result.complete;
@@ -172,6 +176,11 @@ function selectScenario(id) {
   if (engine.started) loadSources();
 }
 
+// Every band source in the rig: plain source devices, and each track of a DAW laptop.
+function rigSourceIds() {
+  return [...new Set(store.state.rig.devices.flatMap((d) => (d.sourceId ? [d.sourceId] : DEVICE_TYPES[d.type]?.dante ? DEVICE_TYPES[d.type].ports.map((p) => p.sourceId) : [])))];
+}
+
 // What the band plays for a scenario: the full song (Free play only) or one
 // 8-bar section, looped.
 function musicFor(def) {
@@ -182,7 +191,7 @@ function musicFor(def) {
 }
 
 function loadSources() {
-  const ids = store.state.rig.devices.filter((d) => d.sourceId).map((d) => d.sourceId);
+  const ids = rigSourceIds();
   const { mode, section } = musicFor(current.def);
   ready = false;
   pending.any = true;

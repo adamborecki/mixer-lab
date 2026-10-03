@@ -7,6 +7,7 @@
 //   2. Does the signal make sense?  (mic / instrument / line / speaker level)
 // A plug that fits is not proof that the connection is right.
 
+import { DANTE, DAW_TRACKS, danteLinks } from "./dante.js";
 import { COMPACT, compactPorts } from "./compact-defs.js";
 
 // ---------- signal levels ----------
@@ -106,6 +107,15 @@ export function cableFitsPort(cableId, port) {
 //   source    a virtual sound source (plays a stem)
 //   endpoint  makes sound in a room; `amp: "internal"` (powered) or "none" (passive)
 export const DEVICE_TYPES = {
+  // A laptop with a DAW and Dante Virtual Soundcard (js/dante.js): one track
+  // per band stem. Its tracks reach a console over the network, not cables.
+  "daw-dvs": {
+    name: "Laptop · DAW + Dante Virtual Soundcard",
+    source: true,
+    dante: true,
+    ports: DAW_TRACKS.map((sourceId, t) => ({ id: `trk${t + 1}`, dir: "out", jack: "dante", level: "line", digital: true, sourceId, name: `DAW track ${t + 1}` })),
+    blurb: "Plays the multitrack stems. Each track goes out on a Dante Virtual Soundcard channel.",
+  },
   "dynamic-mic": {
     name: "Dynamic mic",
     source: true,
@@ -384,7 +394,8 @@ const LINE_PAD_DB = -20; // 1/4" side of a combo jack is padded before the pream
 //   endpoints    every speaker: which bus reaches it and whether the chain works
 //   buses        per mixer output port: the endpoints it validly reaches
 export function analyzeRig(rig, channels = [], sources = {}) {
-  const byTo = new Map(rig.cables.map((c) => [c.to, c]));
+  // Dante routes count as patches: the network is the cable.
+  const byTo = new Map([...rig.cables, ...danteLinks(rig)].map((c) => [c.to, c]));
 
   const channelInfo = [];
   const mixer = mixerOf(rig);
@@ -446,12 +457,16 @@ function analyzeChannelInput(rig, cable, ch, sources, port) {
     padDb: path === "line" && port.pad !== false ? LINE_PAD_DB : 0,
     level: from.level,
     cable: cable.cable,
+    dante: !!cable.dante,
+    // Digital playback (Dante): arrives at DANTE.levelDb, not at the stem's mic level.
+    digitalDb: from.digital && source ? DANTE.levelDb - source.outputDb : 0,
     signal: true,
     status: "ok",
     messages: [],
   };
   const deviceType = DEVICE_TYPES[from.device.type];
-  const needsPhantom = deviceType.needsPhantom || (source && source.phantom === "required");
+  // Playback over Dante is already audio: no mic, so no phantom power to need.
+  const needsPhantom = !from.digital && (deviceType.needsPhantom || (source && source.phantom === "required"));
 
   if (from.level === "speaker") {
     info.signal = false;

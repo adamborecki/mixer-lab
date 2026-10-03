@@ -8,6 +8,7 @@ import { CABLES, DEVICE_TYPES, analyzeRig, cableEndFor, channelPortRef, getPort,
 import { BUSES, computeMix, createMixerState, dbToLevel, levelToDb, clamp, listenGroupOf } from "./mixer-state.js";
 import * as CR1604 from "./cr1604.js";
 import { createF8, createPair, createReverb } from "./devices.js";
+import { createDaw } from "./dante.js";
 import { COMPACT, LAWS as COMPACT_LAWS, channelGainDb, compactModel, levelLaw } from "./compact.js";
 import { BOARD_SCENARIOS, MIXER_ORDER } from "./board-scenarios.js";
 const LAWS_LEVEL = COMPACT_LAWS.level;
@@ -53,6 +54,7 @@ export const PLAYBACK_DEVICES = {
   // A video camera's two XLR audio inputs (each with a MIC/LINE switch, starting at LINE).
   "cam-1": { type: "camera-input", label: "Camera · input 1 (XLR)", short: "camera ch 1", zone: "cam", pan: -1, inputLevel: 1 },
   "cam-2": { type: "camera-input", label: "Camera · input 2 (XLR)", short: "camera ch 2", zone: "cam", pan: 1, inputLevel: 1 },
+  daw: { type: "daw-dvs", label: "Laptop · DAW + Dante Virtual Soundcard", short: "DAW laptop", init: createDaw },
   dslr: { type: "dslr-input", label: "Second camera · 3.5 mm mic input", short: "camera B", zone: "cam", pan: 0, inputLevel: 0 },
 };
 
@@ -648,7 +650,7 @@ export function boardHelpers(state, model, sourcesById = SOURCES_BY_ID) {
     addGear: (kind) => state.rig.devices.push(STAGE_GEAR[kind]()),
     addDevice: (id) => {
       const d = PLAYBACK_DEVICES[id];
-      state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan });
+      state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan, ...(d.init ? d.init() : {}) });
     },
   };
   return h;

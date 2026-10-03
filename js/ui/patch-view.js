@@ -39,8 +39,9 @@ export function portLabel(rig, ref, { short = false } = {}) {
 }
 
 export class PatchView {
-  constructor({ sourcesRoot, outputsRoot, store, manifest, toast, getTerms, onOpenRecorder = () => {}, getRecorder = () => null }) {
+  constructor({ sourcesRoot, outputsRoot, store, manifest, toast, getTerms, onOpenRecorder = () => {}, getRecorder = () => null, onOpenDante = () => {} }) {
     this.onOpenRecorder = onOpenRecorder;
+    this.onOpenDante = onOpenDante;
     this.getRecorder = getRecorder;
     this.sourcesRoot = sourcesRoot;
     this.outputsRoot = outputsRoot;
@@ -55,6 +56,8 @@ export class PatchView {
         if (btn) this.dialog.open(btn.dataset.port);
         const rec = e.target.closest("[data-open-recorder]");
         if (rec) this.onOpenRecorder(rec.dataset.openRecorder);
+        const dante = e.target.closest("[data-open-dante]");
+        if (dante) this.onOpenDante(dante.dataset.openDante);
       });
       // Device settings (mic pair spacing/angle, reverb decay). The panel isn't
       // redrawn while dragging; only the readouts next to the slider change.
@@ -142,9 +145,35 @@ export class PatchView {
     const empty = mix.channels.filter((c) => !c.input.connected).map((c) => state.channels[c.index].label);
     this.sourcesRoot.innerHTML = `
       <p class="role-line">${icon("role-source", { size: 26 })}<span>Sources: the signal starts here and goes out to the mixer.</span></p>
-      <ol class="source-list">${cards.join("")}${pairs.map((d) => this.pairCard(d, mix)).join("")}</ol>
+      <ol class="source-list">${rig.devices.filter((d) => DEVICE_TYPES[d.type].dante).map((d) => this.dawCard(d, mix)).join("")}${cards.join("")}${pairs.map((d) => this.pairCard(d, mix)).join("")}</ol>
       <p class="panel-foot">${modelOf(state) === "cr1604" ? cr1604Foot(empty) : modelOf(state) !== "generic" ? compactFoot(state, empty) : `Free mixer inputs: ${empty.length ? empty.map((n) => `Ch ${n}`).join(", ") : "none"}. Ch 1–8 are XLR/¼″ combo jacks: XLR → mic preamp (+48 V available), ¼″ → line input (padded). Ch 9/10 is one stereo line input (left + right ¼″ pair, no phantom power).`}</p>
       ${connectorGuide()}`;
+  }
+
+  // The DAW laptop: its tracks go out over Dante, so there are no jacks to
+  // patch; the card says where each track lands and opens the laptop's windows.
+  dawCard(d, mix) {
+    const { SOURCES_BY_ID } = this.manifest;
+    const state = this.store.state;
+    const lands = DEVICE_TYPES[d.type].ports.map((p) => {
+      const c = mix.channels.find((x) => x.input.sourceDeviceId === d.id && x.input.sourceId === p.sourceId);
+      return `<li><span>${esc(p.name)} · ${esc(SOURCES_BY_ID[p.sourceId]?.name || p.sourceId)}</span><b>${c ? `→ CH ${esc(state.channels[c.index].label)}` : "not reaching the console"}</b></li>`;
+    });
+    const n = lands.filter((l) => l.includes("→ CH")).length;
+    const status = n === lands.length ? "ok" : n ? "warn" : "idle";
+    return `<li class="source-card status-${status}" data-device-card="${esc(d.id)}">
+      <div class="source-top">
+        <span class="source-order">DVS</span>
+        <span class="dev-ico">${icon("laptop", { size: 40 })}</span>
+        <div class="source-names"><strong>${esc(d.label)}</strong><span>Multitrack stems over Dante (no cables)</span></div>
+        <span class="status-pill status-${status}">${n}/${lands.length} on the console</span>
+      </div>
+      <ul class="daw-lands">${lands.join("")}</ul>
+      <div class="dante-buttons">
+        <button type="button" class="btn btn-start" data-open-dante="daw">Open the DAW</button>
+        <button type="button" class="btn btn-start" data-open-dante="controller">Open Dante Controller</button>
+      </div>
+    </li>`;
   }
 
   // The stereo room pair: two condenser outs, spacing and angle, and which
@@ -277,7 +306,7 @@ export class PatchView {
         const status = ep.valid ? (ep.status === "ok" ? "ok" : "warn") : ep.status === "unpatched" ? "idle" : ep.status === "danger" ? "bad" : "warn";
         const statusText = ep.valid ? `${ep.status === "hot" ? "⚠ Distorting" : ep.status === "weak" ? "⚠ Too quiet" : "✓ Sound"}: ${busName(ep.output)}${ep.viaAmp ? " via amp" : ""}` : ep.status === "unpatched" ? "Silent" : ep.status === "danger" ? "✕ Danger" : "✕ No sound";
         const amp = type.camera ? "Records what it's fed" : type.amp === "internal" ? "Amp: built in (powered)" : "Amp: none inside (passive)";
-        const settings = type.camera
+        const settings = type.camera && d.type === "camera-input"
           ? `<div class="dev-settings"><label>INPUT <output data-readout="inputLevel">${d.inputLevel === 1 ? "LINE" : "MIC"}</output>
               <input type="range" min="0" max="1" step="1" value="${d.inputLevel ?? 0}" data-device="${esc(d.id)}" data-device-key="inputLevel" aria-label="${esc(d.label)} MIC/LINE switch" /></label></div>`
           : "";

@@ -10,6 +10,7 @@
 
 import { COMPACT, LAWS, fxPreset, reverbSetting } from "./compact.js";
 import * as CR1604 from "./cr1604.js";
+import { DAW_TRACKS } from "./dante.js";
 
 const AUDIBLE = -45; // as AUDIBLE_DB in js/scenarios.js
 const OFF = -60;
@@ -2793,6 +2794,33 @@ const CL3 = [
     hints: ["The effects rack is fed by MIX 13–16 and comes back on ST IN 2–5.", "FX 4 is the chorus, fed by MIX 16. SEL channel 4 and turn up its MIX 16 send in SELECTED CHANNEL.", "Then push ST IN 5 (FX 4) up on the ST IN bank."],
     complete: "The CL's effects are fed by ordinary MIX buses and return on ST IN channels: the same idea as an outboard rack.",
   }),
+  {
+    id: "cl3-dante",
+    short: "Virtual soundcheck (Dante)",
+    title: "Virtual soundcheck over Dante",
+    who: "System engineer",
+    prompt: "“The band isn't here yet, but last night's multitrack is on the laptop. Get it onto channels 1–7 over Dante so we can tune the PA as if they were playing.”",
+    goal: "DAW tracks 1–7 out on DVS channels 1–7, CL3 Dante RX 1–7 subscribed to them, all seven playing on channels 1–7 in the house.",
+    music: "excerpt", // the whole band, trumpets too
+    setup: {
+      tweak: (st, h) => {
+        for (let n = 1; n <= 7; n++) h.cut(`mixer/ch${n}-mic`);
+        h.addDevice("daw");
+        for (let n = 0; n < 7; n++) st.channels[n].gainDb = 10; // playback is line level: far less gain than the mics
+      },
+    },
+    conditions: [
+      goal("daw", "Every DAW track has its own output, in order (track n → DVS n)", (ctx) => ctx.state.rig.devices.find((d) => d.type === "daw-dvs")?.outs.slice(0, 7).every((k, t) => k === t + 1)),
+      goal("rx", "CL3 RX 1–7 are subscribed to DVS 1–7", (ctx) => ctx.state.rig.devices.find((d) => d.id === "mixer").danteRx.slice(0, 7).every((k, m) => k === m + 1)),
+      goal("heard", "All seven tracks play on channels 1–7 in the house", (ctx) => DAW_TRACKS.every((s, t) => mc(ctx, s)?.index === t && house(ctx, s) >= AUDIBLE)),
+    ],
+    hints: [
+      "Three hops, no cables: DAW track → its output (a Dante Virtual Soundcard channel) → Dante Controller subscribes the console's RX channel → that channel. Start at the laptop card in Sources.",
+      "Open the DAW: set track 1's output to DVS 01, track 2 to DVS 02, and so on to track 7.",
+      "Open Dante Controller: for CL3 RX 01–07 click the square under DVS 01–07. Seven ticks in a diagonal line.",
+    ],
+    complete: "That's a virtual soundcheck: the same channels, gains and processing, fed from a recording instead of the band. Ascending outputs and a diagonal in Dante Controller keep every channel number matching its track number.",
+  },
   like("cl3", "x32-scene-recall", {
     hints: ["Rebuilding it by hand takes ages and you'll miss something.", "The touch screen's SCENE page lists the saved scenes.", "RECALL scene 02."],
   }),
@@ -3223,7 +3251,7 @@ const ORDER = {
   x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9"],
   f8n: ["track", "trim", "room", "hpf", "pfl", "balance", "link", "camera", "dslr", "iso-safety"],
   dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
-  cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "scene-recall", "scene-store"],
+  cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "scene-recall", "scene-store"],
   x32c: ["doors", "gain", "48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix"],
 };
 
