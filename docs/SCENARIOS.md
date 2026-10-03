@@ -117,6 +117,28 @@ All seven sources on the reference patch. Main goes to the powered house speaker
 
 Free play also has a **Band audio** control: the 8-bar loop (28 s) or the **Full song** (3:58, with a seek slider). The choice only applies in Free play; every other scenario plays the loop, so leaving Free play returns to it. The setting is held in memory, so coming back to Free play shows and plays the choice you last made. How the full song is streamed is in [AUDIO_ENGINE.md](AUDIO_ENGINE.md).
 
+## Practice scenarios on the real mixers
+
+Every real mixer has its own practice list (`js/board-scenarios.js`), five or six scenarios each, easiest first. They are **not** part of the Canvas assignment: the submission still reports the ten scenarios above. Solving one is remembered in the browser like any scenario, and the picker says they're extra.
+
+- **Setup.** A board scenario starts from that mixer's Free play gig (`COMPACT_GIGS`, or the CR1604's Free play), then `setup.tweak(state, h)` makes the problem. `h` is `boardHelpers()` in `js/scenarios.js`: `set(source, key, value)`, `faderDb`, `moveFader`, `sendDb(source, send, dB)` (in each mixer's own laws), `bus`, `dev`, `cut(portRef)`, `unplug(source)`, `cable`, `addDevice`. `setup.listen` sets the starting listen position.
+- **Conditions.** The library above, now model-agnostic: channels are found by where a source is patched (`ctx.patch`, captured with the baseline), masters are read from `mix.busDb`, `except` takes a list, and `sourceHeardInMain` with `stereo` accepts a powered mixer's SPEAKERS L/R. Plus `custom`: `{ type: "custom", test: (ctx) => boolean }` for outcomes only one board has (a send that ignores its fader, a camera input that matches its level, a channel on ALT 3-4).
+- **Numbering.** Each list is numbered from 1 within its mixer (`board`, `number`), `short` is the picker label, and "Next" stays on the same mixer.
+- **Tests.** `tests/board-scenarios.test.mjs`: every scenario starts with all goals unmet and all keeps met, the intended fix (driven through `MixerStore`) solves it, and at least one tempting wrong fix doesn't.
+
+| Mixer | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| Mackie Mix8 | Doors music (TAPE IN to MAIN) | Keys in the wedge | Cue it in the phones (TO CR/PHONES) | The ballad (post-fader AUX) | Guest guitarist (two mic channels) | |
+| Mackie 1202-VLZ | Doors music | Check the singer first (PFL on a muted channel) | Reverb on the harmonies (send + return) | The wedge follows the faders (AUX 1 PRE) | Drums for the video crew (MUTE/ALT + ASSIGN TO MAIN) | |
+| Yamaha MG10/2 | Doors music | Silent overhead (+48V) | Too much drums in my wedge | One knob, two jobs (AUX1 or AUX2) | Stage rumble (80 Hz HPF choices) | |
+| Yamaha STAGEPAS 400BT | Doors music | Weak bass (MIC/LINE is the gain) | Silent monitor (MONITOR OUT) | Silent speakers (the amp is in the mixer) | Reverb on the voices only | |
+| Behringer Xenyx X1204USB | Doors music | Reverb on the vocal (FX + RET 2) | What's in my wedge? (AUX SOLO) | The guitar vanishes (per-channel PRE) | The MC break (MUTE/ALT 3-4, C-R ALT) | |
+| Sound Devices 442 | The distorted camera (MIC vs LINE) | Line up with tone | Silent room mics (P48) | The mono check (Ø, HEADPHONE M) | Two tracks for the editor (unlink, pan, LIM ON) | |
+| Soundcraft Ui16 | Doors music (MIX page) | The tiny vocal (GAIN) | More keys for the drummer (sends on faders) | Reverb on the horns (REVERB page) | Out of the house, still in the wedge (MUTE vs fader) | A mix for the guitarist (AUX 3 from scratch) |
+| Mackie CR1604-VLZ | Doors music (TAPE TO MAIN MIX) | The missing vocal (L-R assign) | Mute it, keep the wedges (PRE) | The lost reverb (AUX 3 + RETURN 1) | One fader for the rhythm section (SUB 1-2) | |
+
+Some pairs are deliberately set against each other: MUTE spares PRE sends on the 1604 but cuts everything on the Ui16; the Mix8's post-fader AUX needs a send move where the 1202 and Xenyx have PRE switches.
+
 ## Runtime
 
 `selectScenario(id)` in `js/app.js` builds the state, calls `store.replace`, captures the baseline, starts a fresh `session` (`listened` holds the start destination), and evaluates. A store subscriber adds each new listen destination to `session.listened`. Deep links `#/<scenario id>` (for example `#/find-amp`, `#/free-play`) select one; an unknown hash at load opens Free play. "Start over" rebuilds the state, recaptures the baseline and clears `session`. Changing scenarios reuses cached stems ([AUDIO_ENGINE.md](AUDIO_ENGINE.md)).

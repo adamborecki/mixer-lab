@@ -17,12 +17,14 @@ const portIds = (id) => DEVICE_TYPES[id].ports.map((p) => p.id);
 
 describe("every compact mixer", () => {
   for (const id of COMPACT_IDS) {
-    it(`${id}: a fresh state, a rear panel, and Free play only`, () => {
+    it(`${id}: a fresh state, a rear panel, its own practice scenarios and Free play`, () => {
       const s = createMixerState(id);
       assert.equal(s.model, id);
       assert.equal(s.channels.filter((c) => !c.tape).length, COMPACT[id].channels.length);
       assert.ok(DEVICE_TYPES[id].mixer);
-      assert.deepEqual(scenariosFor(id).map((x) => x.id), ["free-play"]);
+      const ids = scenariosFor(id).map((x) => x.id);
+      assert.equal(ids.at(-1), "free-play");
+      assert.ok(ids.slice(0, -1).every((x) => x.startsWith(`${id}-`)), ids.join());
       assert.ok(!scenarioFor(SCENARIOS_BY_ID["free-play"], id).prompt.includes("{"), "the prompt is written for this mixer");
     });
 

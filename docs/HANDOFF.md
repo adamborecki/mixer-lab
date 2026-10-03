@@ -21,6 +21,7 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 | `js/cr1604.js` | Mackie CR1604-VLZ: state, validation, level model ([CR1604.md](CR1604.md)) |
 | `js/compact-defs.js`, `js/compact.js`, `js/graph-compact.js` | Compact mixers as data (Mix8, 1202-VLZ, MG10/2, STAGEPAS 400BT, Xenyx X1204USB), the Sound Devices 442 field mixer and the Soundcraft Ui16 digital mixer ([DIGITAL_MIXER.md](DIGITAL_MIXER.md)): definitions, level model, audio ([COMPACT_MIXERS.md](COMPACT_MIXERS.md)) |
 | `js/scenarios.js` | Scenario data, playback-device inventory, baselines (`METRICS`), `CONDITIONS`, `evaluateScenario` |
+| `js/board-scenarios.js` | Practice scenarios for each real mixer (not in the Canvas report); see [SCENARIOS.md](SCENARIOS.md) |
 | `js/mixer-models.js` | Skins: words, control types, layout data, MUTE/ON mapping |
 | `js/transport.js` | Stem playback: excerpt loop and streamed full song, sync, keep-alive |
 | `js/loop-player.js` | Independent looping stereo playback (preshow laptop), own timeline, keep-alive |

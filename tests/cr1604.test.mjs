@@ -115,8 +115,10 @@ describe("CR1604 patching", () => {
 });
 
 describe("CR1604 free play", () => {
-  it("is the only scenario the 1604 runs for now", () => {
-    assert.deepEqual(scenariosFor("cr1604").map((s) => s.id), ["free-play"]);
+  it("comes after the 1604's own practice scenarios, not the Canvas ones", () => {
+    const ids = scenariosFor("cr1604").map((s) => s.id);
+    assert.equal(ids.at(-1), "free-play");
+    assert.ok(ids.slice(0, -1).every((id) => id.startsWith("cr1604-")));
     assert.ok(scenariosFor("generic").length > 1);
   });
 

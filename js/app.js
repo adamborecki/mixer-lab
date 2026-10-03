@@ -8,7 +8,7 @@ import { AudioEngine } from "./audio-engine.js";
 import { PREVIEW, liveUrl, storageKey } from "./deploy-context.js";
 import { DEFAULT_SKIN, SKINS } from "./mixer-models.js";
 import { MixerStore, computeMix, createMixerState } from "./mixer-state.js";
-import { SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, captureBaseline, evaluateScenario, scenarioFor, scenariosFor } from "./scenarios.js";
+import { ALL_BOARD_SCENARIOS, SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, captureBaseline, evaluateScenario, scenarioFor, scenariosFor } from "./scenarios.js";
 import { Progress, numberedScenarios } from "./progress.js";
 import { renderFlow } from "./ui/flow.js";
 import { ListenBar } from "./ui/listen-bar.js";
@@ -26,7 +26,8 @@ let skin = SKINS[readPref("mixer-lab-skin")] || SKINS[DEFAULT_SKIN];
 const hardwareOf = (sk) => sk.hardware || "generic";
 
 const store = new MixerStore(createMixerState(hardwareOf(skin)));
-const progress = new Progress(numberedScenarios(SCENARIOS).map((s) => s.id), undefined, SCENARIOS.map((s) => s.id));
+// The real mixers' practice scenarios are remembered too; the Canvas report only lists SCENARIOS.
+const progress = new Progress([...numberedScenarios(SCENARIOS), ...ALL_BOARD_SCENARIOS].map((s) => s.id), undefined, [...SCENARIOS, ...ALL_BOARD_SCENARIOS].map((s) => s.id));
 const engine = new AudioEngine(store, M);
 
 let current = { def: SCENARIOS_BY_ID["free-play"], baseline: {}, session: { listened: new Set() } };

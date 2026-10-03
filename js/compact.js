@@ -86,7 +86,8 @@ export function createState(id) {
     rig: { devices: [{ id: "mixer", type: id, label: def.name, ...(def.outLevel ? { outLevel: 2 } : {}) }], cables: [] },
   };
   if (def.tape) state.channels.push({ index: def.channels.length, label: def.tape.level || def.tape.label || "TAPE", stereo: true, tape: true, gainDb: 0, level: 0.5, toMain: false, toCr: false, enabled: true, pan: 0, phantom: false, auxSends: {}, sends: {}, eq: {} });
-  for (const [b, bus] of Object.entries(def.buses)) state[b] = { level: bus.master ? 0.5 : 1, pre: bus.preSwitch ? true : undefined, solo: bus.solo ? false : undefined };
+  // Masters start at unity (U), whatever their law.
+  for (const [b, bus] of Object.entries(def.buses)) state[b] = { level: bus.master ? LAWS[bus.master.law].toPos(0) : 1, pre: bus.preSwitch ? true : undefined, solo: bus.solo ? false : undefined };
   for (const r of def.returns || []) state[r.id] = { level: r.fixedDb !== undefined ? 1 : 0.5, efx: r.efxToMonitor ? false : undefined, mon: r.toMonitor ? 0 : undefined, toAlt: r.toAlt ? false : undefined };
   if (def.alt) state.alt = { toMain: false, level: def.alt.fader ? 0.75 : undefined };
   if (def.phones) state.cr = { level: 0.5, main: true, alt: false, tape: false, ...(def.phones.selector ? { src: "ST" } : {}) };

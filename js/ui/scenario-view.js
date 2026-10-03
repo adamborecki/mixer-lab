@@ -64,12 +64,14 @@ export class ScenarioView {
       .concat('<button type="button" class="chip scenario-chip canvas-chip" data-open-canvas>Canvas Submission</button>');
 
     const isFree = !def.conditions.length;
-    const onlyFree = available.length < this.scenarios.length;
+    const onlyFree = available.every((s) => s.number === 0);
+    const practice = available.some((s) => s.board);
     this.root.innerHTML = `
       <nav class="scenario-picker" aria-label="Choose a scenario">${picker}</nav>
       ${onlyFree ? `<p class="scenario-note">The numbered scenarios run on Mixer A and Mixer B. Scenarios for the ${esc(this.getMixerName())} are still being written, so it opens in Free play.</p>` : ""}
+      ${practice ? `<p class="scenario-note">Practice scenarios for the ${esc(this.getMixerName())}, easiest first. They're extra: the Canvas Submission counts the ten scenarios on Mixer A and Mixer B.</p>` : ""}
       <article class="scenario-card">
-        <p class="kicker">${def.number ? `Scenario ${def.number}` : "Sandbox"}${def.who ? ` · ${esc(def.who)}` : ""}</p>
+        <p class="kicker">${def.number ? `${def.board ? `${esc(this.getMixerName())} · ` : ""}Scenario ${def.number}` : "Sandbox"}${def.who ? ` · ${esc(def.who)}` : ""}</p>
         <h2>${esc(def.title)}</h2>
         <p class="scenario-prompt">${esc(fillTerms(def.prompt, t))}</p>
         <p class="scenario-goal"><strong>${isFree ? "Try" : "Goal"}:</strong> ${esc(fillTerms(def.goal, t))}</p>
@@ -189,9 +191,11 @@ export class ScenarioView {
     if (this.seekEl) this.seekEl.setAttribute("aria-valuetext", clock(t));
   }
 
+  // The next one on this mixer's list (Free play after the last).
   nextScenario() {
     const n = this.def.number;
-    return this.scenarios.find((s) => s.number === n + 1) || this.scenarios.find((s) => s.number === 0);
+    const list = this.getScenarios();
+    return list.find((s) => s.number === n + 1) || list.find((s) => s.number === 0);
   }
 }
 

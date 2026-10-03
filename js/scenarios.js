@@ -4,11 +4,12 @@
 // ever satisfied by a "done" button. See docs/SCENARIOS.md.
 
 import { SOURCES_BY_ID, STEMS, sourcesForScenario } from "../audio/source-manifest.js";
-import { CABLES, DEVICE_TYPES, cableEndFor, channelPortRef, getPort, plugFitsJack } from "./connection-model.js";
+import { CABLES, DEVICE_TYPES, analyzeRig, cableEndFor, channelPortRef, getPort, plugFitsJack } from "./connection-model.js";
 import { BUSES, computeMix, createMixerState, dbToLevel, levelToDb, clamp } from "./mixer-state.js";
 import * as CR1604 from "./cr1604.js";
 import { createF8, createPair, createReverb } from "./devices.js";
 import { COMPACT, LAWS as COMPACT_LAWS, channelGainDb, compactModel, levelLaw } from "./compact.js";
+import { BOARD_SCENARIOS } from "./board-scenarios.js";
 
 // Outboard gear for the CR1604 gig: a reverb on AUX 3 → AUX RETURN 1, and a
 // field recorder with a stereo room pair for recording the show.
@@ -40,6 +41,8 @@ export const PLAYBACK_DEVICES = {
   "sp-l": { type: "passive-speaker", label: "STAGEPAS 400S speaker · left", short: "STAGEPAS left", zone: "foh", pan: -1 },
   "sp-r": { type: "passive-speaker", label: "STAGEPAS 400S speaker · right", short: "STAGEPAS right", zone: "foh", pan: 1 },
   pwedge: { type: "passive-speaker", label: "Passive wedge · drummer", short: "drummer's wedge", zone: "stage", pan: 0 },
+  // A third wedge, for scenarios that build a new monitor mix (Ui16 AUX 3).
+  gwedge: { type: "powered-speaker", label: "Powered wedge · guitarist", short: "guitarist's wedge", zone: "stage", pan: -0.5 },
   // A video camera's two XLR audio inputs (each with a MIC/LINE switch, starting at LINE).
   "cam-1": { type: "camera-input", label: "Camera · input 1 (XLR)", short: "camera ch 1", zone: "cam", pan: -1, inputLevel: 1 },
   "cam-2": { type: "camera-input", label: "Camera · input 2 (XLR)", short: "camera ch 2", zone: "cam", pan: 1, inputLevel: 1 },
@@ -466,19 +469,24 @@ export function shortTitle(s) {
       "missing-guitar": "Missing guitar",
       "drummer-mix": "Drummer's mix",
       "free-play": "Free play",
-    }[s.id] || s.title
+    }[s.id] ||
+    s.short ||
+    s.title
   );
 }
 
 export const SCENARIOS_BY_ID = Object.fromEntries(SCENARIOS.map((s) => [s.id, s]));
 
-// The numbered scenarios are written for the generic mixer (Mixer A / Mixer B).
-// The CR1604-VLZ runs Free play until its own scenarios are written.
-export const scenariosFor = (model = "generic") => (model !== "generic" ? SCENARIOS.filter((s) => s.id === "free-play") : SCENARIOS);
+// The numbered scenarios (the Canvas assignment) are written for the generic
+// mixer (Mixer A / Mixer B). A real mixer has its own practice scenarios
+// (js/board-scenarios.js), numbered within that mixer, plus Free play.
+export const scenariosFor = (model = "generic") => (model !== "generic" ? [...(BOARD_SCENARIOS[model] || []), SCENARIOS_BY_ID["free-play"]] : SCENARIOS);
+export const ALL_BOARD_SCENARIOS = Object.values(BOARD_SCENARIOS).flat();
 
 // ---------- building a scenario's starting state ----------
 
 export function buildScenarioState(def, sourcesById = SOURCES_BY_ID, model = "generic") {
+  if (def.board) return buildBoardState(def, sourcesById, model);
   if (model === "cr1604") return buildCr1604State(def, sourcesById);
   if (COMPACT[model]) return buildCompactState(model, sourcesById);
   const state = createMixerState();
@@ -580,6 +588,60 @@ function buildCr1604State(def, sourcesById) {
   for (const [bus, db] of Object.entries(setup.masters || {})) state[bus].level = CR1604.LAWS.master.toPos(db);
   state.listen = setup.listen || "main";
   return state;
+}
+
+// ---------- a real mixer's own scenarios ----------
+
+// A board scenario starts from that mixer's Free play gig, then its setup
+// `tweak(state, h)` makes the problem (unplugs something, mutes a channel,
+// moves a fader), using the helpers below. js/board-scenarios.js.
+function buildBoardState(def, sourcesById, model) {
+  const state = model === "cr1604" ? buildCr1604State(SCENARIOS_BY_ID["free-play"], sourcesById) : buildCompactState(model, sourcesById);
+  if (def.setup.tweak) def.setup.tweak(state, boardHelpers(state, model, sourcesById));
+  if (def.setup.listen) state.listen = def.setup.listen;
+  return state;
+}
+
+function setPath(obj, key, value) {
+  const path = key.split(".");
+  const k = path.pop();
+  path.reduce((o, p) => o[p], obj)[k] = value;
+}
+
+export function boardHelpers(state, model, sourcesById = SOURCES_BY_ID) {
+  const def = COMPACT[model];
+  const faderLaw = model === "cr1604" ? CR1604.LAWS.fader : levelLaw(def);
+  const sendLaw = (sid) => (model === "cr1604" ? CR1604.LAWS.send : COMPACT_LAWS[def.sends[sid].law]);
+  const rig = () => analyzeRig(state.rig, state.channels, sourcesById);
+  const idx = (src) => rig().channels.findIndex((c) => c && c.sourceId === src);
+  const ch = (src) => state.channels[idx(src)];
+  let n = 0;
+  const h = {
+    idx,
+    ch,
+    set: (src, key, value) => setPath(ch(src), key, value),
+    faderDb: (src, db) => (ch(src).level = faderLaw.toPos(db)),
+    moveFader: (src, dDb) => (ch(src).level = faderLaw.toPos(faderLaw.toDb(ch(src).level) + dDb)),
+    sendDb: (src, sid, db) => {
+      const c = ch(src);
+      if (model === "cr1604") c.auxSends[sid] = sendLaw(sid).toPos(db);
+      else c.sends[sid] = sendLaw(sid).toPos(db);
+    },
+    bus: (name, key, value) => (state[name][key] = value),
+    dev: (id, key, value) => (state.rig.devices.find((d) => d.id === id)[key] = value),
+    // Pull every cable on a port ("mixer/aux1", "sp-l/in").
+    cut: (ref) => (state.rig.cables = state.rig.cables.filter((c) => c.from !== ref && c.to !== ref)),
+    unplug: (src) => {
+      const info = rig().channels[idx(src)];
+      if (info) h.cut(info.fromPort);
+    },
+    cable: (from, to, cable) => state.rig.cables.push({ id: `t${++n}`, from, to, cable }),
+    addDevice: (id) => {
+      const d = PLAYBACK_DEVICES[id];
+      state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan });
+    },
+  };
+  return h;
 }
 
 // ---------- the gig on a compact mixer ----------
@@ -790,13 +852,14 @@ const METRICS = {
   sendDb: (ctx, p) => channelOf(ctx.mix, p.source)?.aux[p.bus].sendDb ?? -Infinity,
   monitorDb: (ctx, p) => channelOf(ctx.mix, p.source)?.aux[p.bus].monitorDb ?? -Infinity,
   heardMonitorDb: (ctx, p) => channelOf(ctx.mix, p.source)?.aux[p.bus].heardDb ?? -Infinity,
-  busDb: (ctx, p) => levelToDb(ctx.state[p.bus].level),
+  busDb: (ctx, p) => ctx.mix.busDb?.[p.bus] ?? levelToDb(ctx.state[p.bus].level),
   mainDbByChannel: (ctx) => ctx.mix.channels.map((c) => Math.max(c.mainDb.L, c.mainDb.R)),
   sendDbByChannel: (ctx, p) => ctx.mix.channels.map((c) => (c.sourceId ? c.aux[p.bus].sendDb : -Infinity)),
   // A channel's own GAIN and fader (dB), for "fix only the fault" scenarios.
   channelSettings: (ctx, p) => {
-    const ch = ctx.state.channels[ctx.sourcesById[p.source].order - 1];
-    return { gainDb: ch.gainDb, faderDb: levelToDb(ch.level) };
+    const i = indexOf(ctx, p.source);
+    const ch = ctx.state.channels[i];
+    return { gainDb: ch.gainDb, faderDb: ctx.mix.channels[i].faderDb ?? levelToDb(ch.level) };
   },
   // What each channel contributes to a wedge that actually makes sound.
   monitorByChannel: (ctx, p) => ctx.mix.channels.map((c) => c.aux[p.bus].heardDb),
@@ -805,7 +868,10 @@ const METRICS = {
 export function captureBaseline(def, state, sourcesById = SOURCES_BY_ID, stems = STEMS) {
   const mix = computeMix(state, sourcesById, stems);
   const out = {};
-  for (const [name, spec] of Object.entries(def.baseline || {})) out[name] = METRICS[spec.metric]({ state, mix, sourcesById }, spec);
+  // Where each source sat at the start, so "the same channel" survives a re-patch on a real mixer.
+  const patch = Object.fromEntries(mix.channels.filter((c) => c.sourceId).map((c) => [c.sourceId, c.index]));
+  for (const [name, spec] of Object.entries(def.baseline || {})) out[name] = METRICS[spec.metric]({ state, mix, sourcesById, patch }, spec);
+  if ((state.model || "generic") !== "generic") Object.defineProperty(out, "__patch", { value: patch, enumerable: false });
   return out;
 }
 
@@ -818,7 +884,13 @@ const OFF_DB = -60; // a send/contribution below this counts as off
 // A source's channel by the source id it is patched from (null if unplugged).
 const chanFor = (ctx, sourceId) => ctx.mix.channels.find((c) => c.sourceId === sourceId) || null;
 // Index of the channel a source belongs on, whether or not it is plugged in.
-const indexOf = (ctx, sourceId) => (ctx.sourcesById[sourceId] ? ctx.sourcesById[sourceId].order - 1 : -1);
+// Mixer A/B: the input list (`order`). A real mixer: wherever its gig patched it,
+// read from the baseline's patch (`ctx.patch`), else from the current one.
+function indexOf(ctx, sourceId) {
+  if ((ctx.state.model || "generic") === "generic") return ctx.sourcesById[sourceId] ? ctx.sourcesById[sourceId].order - 1 : -1;
+  if (ctx.patch && sourceId in ctx.patch) return ctx.patch[sourceId];
+  return ctx.mix.channels.findIndex((c) => c.sourceId === sourceId);
+}
 const isWorking = (ch) => !!ch && ch.input.connected && ch.input.signal && ch.input.status === "ok";
 const isGood = (ch) => isWorking(ch) && (ch.band === "good" || ch.band === "hot");
 
@@ -827,6 +899,10 @@ const usableChannels = (mix) => mix.channels.filter((c) => c.input.connected && 
 const same = (a, b, tol) => (a === -Infinity && b === -Infinity) || (a <= OFF_DB && b <= OFF_DB) || Math.abs(a - b) <= tol;
 
 export const CONDITIONS = {
+  // A board scenario's own outcome check: `test(ctx)` returns true when met.
+  custom(ctx, c) {
+    return { met: !!c.test(ctx) };
+  },
   sourcesPatched(ctx, c) {
     const ids = new Set(usableChannels(ctx.mix).map((ch) => ch.sourceId));
     return { met: ids.size >= c.min, detail: `${ids.size} of ${c.min}` };
@@ -861,8 +937,10 @@ export const CONDITIONS = {
     const ch = chanFor(ctx, c.source);
     if (!isGood(ch)) return { met: false };
     if (!c.stereo) return { met: ch.heardMainDb >= AUDIBLE_DB };
+    // Main L and R: "main-l"/"main-r", or a powered mixer's speaker outs (STAGEPAS).
     const { buses } = ctx.mix.rig;
-    const both = buses["main-l"].length > 0 && buses["main-r"].length > 0;
+    const works = (ports) => ports.some((p) => (buses[p] || []).length > 0);
+    const both = works(["main-l", "spk-l"]) && works(["main-r", "spk-r"]);
     return { met: both && ch.mainDb.L >= AUDIBLE_DB && ch.mainDb.R >= AUDIBLE_DB };
   },
   // Some channel is audible through a working chain on that bus.
@@ -910,9 +988,9 @@ export const CONDITIONS = {
   // `except`: a source that is allowed to change (the one the student is meant to adjust).
   monitorMixUnchanged(ctx, c) {
     const base = ctx.baseline[c.baseline];
-    const skip = c.except ? indexOf(ctx, c.except) : -1;
+    const skip = exceptIndexes(ctx, c.except);
     const now = METRICS.monitorByChannel(ctx, c);
-    return { met: now.every((v, i) => i === skip || same(v, base[i], c.toleranceDb)) };
+    return { met: now.every((v, i) => skip.includes(i) || same(v, base[i], c.toleranceDb)) };
   },
   monitorRaised(ctx, c) {
     const now = METRICS.heardMonitorDb(ctx, c);
@@ -922,12 +1000,12 @@ export const CONDITIONS = {
   mainUnchanged(ctx, c) {
     const base = ctx.baseline[c.baseline];
     const now = METRICS.mainDbByChannel(ctx);
-    const skip = c.except ? indexOf(ctx, c.except) : -1;
-    const moved = now.map((v, i) => i !== skip && !same(v, base[i], c.toleranceDb));
+    const skip = exceptIndexes(ctx, c.except);
+    const moved = now.map((v, i) => !skip.includes(i) && !same(v, base[i], c.toleranceDb));
     return { met: !moved.some(Boolean), moved: moved.map((m, i) => (m ? i : -1)).filter((i) => i >= 0) };
   },
   masterRaised(ctx, c) {
-    const now = levelToDb(ctx.state[c.bus].level);
+    const now = METRICS.busDb(ctx, c);
     const base = ctx.baseline[c.baseline];
     return { met: now - base >= c.minDb, detail: delta(now, base) };
   },
@@ -955,6 +1033,9 @@ export const CONDITIONS = {
   },
 };
 
+// `except`: one source id or a list of them.
+const exceptIndexes = (ctx, except) => (except ? [].concat(except).map((id) => indexOf(ctx, id)) : []);
+
 function delta(now, base) {
   if (now === -Infinity) return "off";
   if (base === -Infinity) return "new";
@@ -966,7 +1047,7 @@ function delta(now, base) {
 // { listened: Set of listen destinations the student has selected }.
 export function evaluateScenario(def, state, baseline = {}, sourcesById = SOURCES_BY_ID, stems = STEMS, session = {}) {
   const mix = computeMix(state, sourcesById, stems);
-  const ctx = { state, mix, baseline, sourcesById, session };
+  const ctx = { state, mix, baseline, sourcesById, session, patch: baseline.__patch };
   const items = def.conditions.map((c) => {
     const fn = CONDITIONS[c.type];
     const r = fn ? fn(ctx, c) : { met: false, detail: `unknown condition ${c.type}` };
@@ -983,6 +1064,11 @@ export function fillTerms(text, terms) {
 // Sanity check used by tests: every device type named in setups exists.
 export function validateScenarios() {
   const problems = [];
+  for (const s of ALL_BOARD_SCENARIOS) {
+    for (const c of s.conditions) if (!CONDITIONS[c.type]) problems.push(`${s.id}: condition ${c.type}`);
+    for (const c of s.conditions) if (c.baseline && !(s.baseline && s.baseline[c.baseline])) problems.push(`${s.id}: baseline ${c.baseline}`);
+    for (const c of s.conditions) if (c.type === "custom" && typeof c.test !== "function") problems.push(`${s.id}: ${c.id} has no test`);
+  }
   for (const s of SCENARIOS) {
     for (const d of s.setup.devices) if (!PLAYBACK_DEVICES[d] || !DEVICE_TYPES[PLAYBACK_DEVICES[d].type]) problems.push(`${s.id}: device ${d}`);
     for (const c of s.conditions) if (!CONDITIONS[c.type]) problems.push(`${s.id}: condition ${c.type}`);
