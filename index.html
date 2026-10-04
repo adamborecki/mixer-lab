@@ -16,53 +16,28 @@
   <a class="skip-link" href="#main">Skip to the lab</a>
 
   <header class="topbar">
-    <div class="brand-wrap">
-      <a class="brand" href="#/free-play">Mixer Lab</a>
-      <span class="topbar-note">live-sound mixer simulator</span>
+    <button type="button" class="nav-btn" data-open-drawer aria-label="Themes and scenarios">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      <span>Themes</span>
+    </button>
+    <a class="brand" href="#/" data-home>Mixer Lab</a>
+    <div class="mode-switch" role="radiogroup" aria-label="Mode">
+      <button type="button" role="radio" class="mode-btn" data-mode="scenarios" aria-checked="true">Scenarios</button>
+      <button type="button" role="radio" class="mode-btn" data-mode="free" aria-checked="false">Free play</button>
     </div>
-    <div class="skin-switch" role="radiogroup" aria-label="Mixer type">
-      <button type="button" role="radio" class="skin-btn" data-skin="analog" aria-checked="true">
-        <strong>Mixer A</strong><small>faders · MUTE · AUX</small>
-      </button>
-      <button type="button" role="radio" class="skin-btn" data-skin="compact" aria-checked="false">
-        <strong>Mixer B</strong><small>knobs · ON · MON</small>
-      </button>
-      <label class="skin-real">
-        <span class="visually-hidden">Real mixers</span>
-        <select class="skin-select" aria-label="Real mixers">
-          <option value="">Real mixers…</option>
-          <optgroup label="Easiest first">
-            <option value="mix8">1 · Mackie Mix8</option>
-            <option value="stagepas400bt">2 · Yamaha STAGEPAS 400BT</option>
-            <option value="mg102">3 · Yamaha MG10/2</option>
-            <option value="vlz1202">4 · Mackie 1202-VLZ</option>
-            <option value="x1204usb">5 · Behringer Xenyx X1204USB</option>
-            <option value="mackie1604">6 · Mackie CR1604-VLZ</option>
-            <option value="ui16">7 · Soundcraft Ui16 (digital)</option>
-            <option value="x32c">8 · Behringer X32 Compact (digital)</option>
-            <option value="yam01v96">9 · Yamaha 01V96i (digital)</option>
-            <option value="dm2000">10 · Yamaha DM2000 (large digital console)</option>
-            <option value="x32">11 · Behringer X32 (full console)</option>
-            <option value="cl3">12 · Yamaha CL3 (touring console)</option>
-            <option value="sd442">13 · Sound Devices 442 (field)</option>
-            <option value="f8n">14 · Zoom F8n Pro (field recorder + mixer)</option>
-          </optgroup>
-        </select>
-      </label>
-    </div>
+    <button type="button" class="canvas-btn" data-open-canvas aria-label="Canvas Submission">
+      <span>Canvas</span><b class="canvas-count">0/10</b>
+    </button>
   </header>
 
-  <nav class="tabs" role="tablist" aria-label="Lab sections">
-    <button type="button" role="tab" data-tab-btn="scenario" aria-controls="region-scenario">Scenario</button>
+  <section id="mission" class="mission" aria-label="Scenario"></section>
+
+  <nav class="tabs" role="tablist" aria-label="Which side of the rig">
     <button type="button" role="tab" data-tab-btn="console" aria-controls="region-mixer">Console</button>
     <button type="button" role="tab" data-tab-btn="patch" aria-controls="region-patch">Stage &amp; patch</button>
   </nav>
 
-  <main id="main" class="lab" data-tab="scenario" data-view="console" data-brief="open">
-    <aside id="region-scenario" class="region region-scenario" aria-label="Scenario">
-      <div id="scenario"></div>
-    </aside>
-
+  <main id="main" class="lab" data-view="console">
     <div class="workspace">
       <div class="view-bar">
         <div class="view-switch" role="tablist" aria-label="Which side of the rig">
@@ -107,22 +82,14 @@
 
   <footer id="listen-bar" class="listen-bar" aria-label="Listening"></footer>
 
+  <dialog id="drawer" class="drawer" aria-labelledby="drawer-title"></dialog>
   <dialog id="canvas" class="canvas-dialog" aria-labelledby="canvas-title"></dialog>
   <dialog id="credits" class="credits-dialog" aria-labelledby="credits-title"></dialog>
 
   <div id="load-errors" class="load-errors" role="alert" hidden></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <div id="start-overlay" class="start-overlay">
-    <div class="start-overlay-inner">
-      <p class="start-overlay-kicker">Mixer Lab · MUS 248</p>
-      <h1>Patch it. Mix it. Hear it.</h1>
-      <p class="start-overlay-sub">A real band's multitrack stems run through a virtual live-sound rig. Plug in sources, set gain, build the audience mix and a monitor mix — and find out where the amplifier is.</p>
-      <button type="button" id="start-btn" class="btn btn-start btn-overlay">▶ Start Audio</button>
-      <p class="start-overlay-note">Headphones recommended. Loads about 4 MB of audio. On iPhone, turn off Silent Mode or you won't hear anything.</p>
-      <p class="start-overlay-note"><button type="button" class="linkish" data-open-credits>Music credits</button></p>
-    </div>
-  </div>
+  <div id="start-overlay" class="start-overlay"></div>
 
   <script type="module" src="js/app.js"></script>
 </body>

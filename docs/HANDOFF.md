@@ -54,15 +54,23 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 | `js/ui/mixer-x32-view.js` | The Behringer X32 and X32 Compact surface (from `def.surface`): input and group layers, SEL, Sends on Faders, DCA and mute group assignment, matrix and M/C panels, the ROUTING and SCENES pages ([DIGITAL_MIXER.md](DIGITAL_MIXER.md)) |
 | `js/ui/mixer-digital-view.js` | The digital mixer surface (Ui16): mix bar (sends on faders), SEL, the selected-channel panel ([DIGITAL_MIXER.md](DIGITAL_MIXER.md)) |
 | `js/ui/stage-layout.js`, `js/ui/stage-view.js` | The **Stage & patch** diagram: sources on stage → stage box → the console's rear panel → amp rack → speakers, with cables drawn between the real jacks. `stage-layout` is pure geometry (tested in `tests/stage-layout.test.mjs` across every mixer and scenario); `stage-view` draws it, opens the patch dialog on a jack, patches by dragging jack → jack (`PatchView.openBetween`), moves a plugged cable by dragging its end, and shows a device's card (from `PatchView.cards`) when its box is tapped |
-| `js/ui/*.js` | `submission-view` (Canvas Submission dialog), `mixer-view` (renders a skin), `patch-view` (Sources/Outputs lists, per-device cards, the patch dialog), `scenario-view` (picker, brief, checklist, hints), `listen-bar`, `controls` (knob/fader/fine sheet), `flow` (signal-flow explainer) |
+| `js/ui/*.js` | `submission-view` (Canvas Submission dialog), `mixer-view` (renders a skin), `patch-view` (Sources/Outputs lists, per-device cards, the patch dialog), `mission-view` (start screen, mission strip, theme drawer), `listen-bar`, `controls` (knob/fader/fine sheet), `flow` (signal-flow explainer) |
 | `js/meters.js` | Meter drawing and ballistics (levels come from AnalyserNodes) |
 | `tests/*.test.mjs` | `routing`, `scenarios`, `skins` (node:test) |
 | `tools/make-excerpts.sh` | Regenerates delivery audio from the local WAV masters |
 
-## Page layout (feature/more-mixers)
+## Page layout and themes (feature/more-mixers)
 
-- Wide screens: the scenario **brief** on the left (a picker with previous/next, the prompt, checklist, hints and music; « folds it to a rail showing the number and progress), and one of two **views** beside it: **Console** (the front: the mixer surface, full width) or **Stage & patch** (the back: the diagram, with every input and output as a list folded underneath). The view switch, the turn-around button and the **T** key flip between them (Tab stays keyboard navigation). The choice and the folded brief are remembered (localStorage prefs).
-- Phones (< 900 px): three tabs, Scenario / Console / Stage & patch. The diagram scrolls sideways inside its own frame.
+The branch is organised by **themes** (`js/themes.js`, tested in `tests/themes.test.mjs`): sixteen concepts in teaching order (speakers and amps, plugging in, phantom power, gain staging, headphones and solo, the house mix, monitor mixes, low cut, EQ, compression, effects, groups, outputs and routing, digital workflows, snakes and stage boxes, recording and cameras). Every scenario is in exactly one theme; a theme lists them generic analog mixer first, then the real consoles in `MIXER_ORDER`. **The scenario picks its console** (`consoleOf`, `skinOf`); students never choose a console in scenario mode.
+
+- **Start screen** (`StartScreen` in `js/ui/mission-view.js`): Continue, the Canvas assignment, Free play, and the theme cards with progress. Every card is a gesture, so it also starts the audio.
+- **Top bar**: Themes (the drawer), brand (back to the start screen), Scenarios / Free play, and Canvas with x/10.
+- **Mission strip** (`MissionView`): theme · step n of N (opens the drawer), title, console and who, the story, goal and live checklist, hints, Start over, "About this theme & the music". Solved → "Next: … on the <console>", which switches consoles.
+- **Drawer** (`ThemeDrawer`): the Canvas ten, then every theme with its scenarios, consoles and ticks.
+- **Free play** is a mode, not a list item: its strip picks any console (`FREE_CONSOLES`).
+- **Canvas**: the ten scenarios run on the generic analog mixer (the old Mixer A, renamed). Mixer B is no longer offered (its skin stays in `SKINS` for the tests). Opening the Canvas assignment steps through the ten in order (`current.canvasMode`).
+- URLs: `#/<scenario-id>` opens that scenario on its console; `#/free-play/<skin>` opens Free play.
+- Two views under the strip: **Console** and **Stage & patch** (switch, turn-around button, or **T**). Phones: the strip, then Console / Stage & patch tabs.
 - The diagram is presentation only: boxes, jacks and cables come from the rig and `analyzeRig`. A mixer's ports can carry `panel` (the CL3's RIO IN/OUT have `panel: "rio"`, and the CL3 type lists `panels.rio`) so the diagram draws them on a stage box joined to the console by its Dante cable.
 - Free play shows **Free play gear** above the diagram: put an analog snake (any mixer) or an S32 / SD8 (X32s) on stage, unplugged, or take it away (`MixerStore.addDevice` / `removeDevice`).
 

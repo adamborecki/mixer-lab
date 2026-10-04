@@ -6,7 +6,7 @@
 export const SKINS = {
   analog: {
     id: "analog",
-    name: "Mixer A",
+    name: "Generic analog mixer",
     subtitle: "Analog-style console",
     blurb: "Long faders, MUTE buttons, AUX sends.",
     terms: {

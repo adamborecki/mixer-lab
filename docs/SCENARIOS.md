@@ -1,6 +1,6 @@
 # Scenarios
 
-Scenarios are data in `js/scenarios.js`. A setup builds a starting rig and mixer state, a baseline captures named numbers from it, and declarative conditions are evaluated live against the current state: `evaluateScenario(def, state, baseline, sourcesById, stems, session)`. Nothing depends on which skin is showing, and no "I did it" button exists. The UI (`js/ui/scenario-view.js`) only displays the result.
+Scenarios are data in `js/scenarios.js`. A setup builds a starting rig and mixer state, a baseline captures named numbers from it, and declarative conditions are evaluated live against the current state: `evaluateScenario(def, state, baseline, sourcesById, stems, session)`. Nothing depends on which skin is showing, and no "I did it" button exists. The UI (`js/ui/mission-view.js`) only displays the result. Every scenario also belongs to one theme in `js/themes.js` (a new scenario must be added to one, or `tests/themes.test.mjs` fails).
 
 `session` carries the one thing about an attempt that is not mixer state: `{ listened: Set }`, the listen destinations the student has selected since the attempt began. `js/app.js` starts it with the scenario's start destination and adds to it whenever the listen selector changes.
 
