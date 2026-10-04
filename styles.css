@@ -5841,3 +5841,134 @@ dialog::backdrop {
     display: none;
   }
 }
+
+/* ---------- patch dialog picture (js/ui/connector-art.js) ---------- */
+
+.patch-dialog {
+  max-width: min(800px, calc(100vw - 1.5rem));
+}
+.pv {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) 120px;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  background: radial-gradient(ellipse at 50% 40%, #222842 0%, var(--bg-sunken) 75%);
+  border: 1px solid var(--line);
+  /* stays in view while the list of jacks scrolls */
+  position: sticky;
+  top: -1rem;
+  z-index: 2;
+}
+.pv-end {
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+}
+.pv-end .conn-art {
+  width: 100%;
+  height: auto;
+  max-width: 120px;
+}
+.pv-end figcaption {
+  font-size: 0.75rem;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--text);
+}
+.pv-end figcaption small {
+  display: block;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.65rem;
+}
+.pv-unknown {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  max-width: 120px;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  border: 2px dashed var(--line-strong);
+  color: var(--text-dim);
+  font-size: 2.2rem;
+  font-weight: 700;
+}
+.pv-cable {
+  min-width: 0;
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+}
+.pv-plugs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16px, 0.35fr) minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+}
+.pv-plugs .conn-art {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+/* The near plug points back at this jack (left). */
+.pv-near {
+  transform: scaleX(-1);
+  opacity: 0.55;
+  filter: saturate(0.4);
+}
+.pv-wire {
+  height: 9px;
+  background: linear-gradient(#3a3f4c, #15181f);
+  border-top: 1px solid #000;
+  border-bottom: 1px solid #000;
+  margin: 0 -6px;
+}
+.pv-wire-speaker {
+  height: 13px;
+  background: linear-gradient(#7a5a1e, #3a2a0e);
+}
+.pv-wire-network {
+  background: linear-gradient(#3d6fd6, #1f3a78);
+}
+.pv-name {
+  margin: 0;
+  text-align: center;
+  font-size: 0.85rem;
+}
+.pv-name span {
+  color: var(--text-dim);
+  margin-left: 0.3rem;
+}
+.pv-hint {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  text-align: center;
+}
+/* Cable cards: this jack's end greyed (the same on every card), the far end large. */
+.ca-near {
+  opacity: 0.4;
+  filter: grayscale(1);
+  display: inline-flex;
+}
+.ca-far {
+  display: inline-flex;
+}
+.ca-far .conn-art {
+  width: 104px;
+  height: auto;
+}
+@media (max-width: 560px) {
+  .pv {
+    grid-template-columns: 76px minmax(0, 1fr) 76px;
+    padding: 0.5rem;
+  }
+  .pv-end figcaption {
+    font-size: 0.68rem;
+  }
+}

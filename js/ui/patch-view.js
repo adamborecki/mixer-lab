@@ -23,6 +23,7 @@ import { modelOf } from "../mixer-state.js";
 import { F8, PAIR, REVERB, TECHNIQUES, cardStats, techniqueOf } from "../devices.js";
 
 import { CONNECTOR_GUIDE, deviceIconName, icon, jackIconName, levelIconName, plugIconName } from "./icons.js";
+import { jackArt, plugArt } from "./connector-art.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
@@ -408,6 +409,15 @@ class PatchDialog {
         this.connect(this.pair);
       }
     });
+    // Hovering or focusing an option shows it in the picture above the list.
+    const preview = (e) => {
+      const card = e.target.closest?.("[data-cable]");
+      if (card && card.closest(".cable-grid")) this.showCableArt(card.dataset.cable);
+      const target = e.target.closest?.(".target-btn[data-ref]");
+      if (target) this.showTargetArt(target.dataset.ref);
+    };
+    this.el.addEventListener("mouseover", preview);
+    this.el.addEventListener("focusin", preview);
   }
 
   get rig() {
@@ -421,6 +431,52 @@ class PatchDialog {
     if (existing) this.showExisting(existing);
     else this.showCables();
     if (!this.el.open) this.el.showModal();
+  }
+
+  // The picture over the options: this jack (left), the cable (middle), and
+  // the socket it goes into (right). Shaded drawings from connector-art.js.
+  visual({ cable = null, target = null } = {}) {
+    const p = getPort(this.rig, this.ref);
+    const dev = p.device.label || DEVICE_TYPES[p.device.type].name;
+    return `<div class="pv">
+      <figure class="pv-end pv-from">${jackArt(p.jack, p.dir)}<figcaption><small>${p.dir === "out" ? "From" : "Into"}</small> ${esc(isMixer(p.device) ? "Mixer" : dev)} · ${esc(p.name)}</figcaption></figure>
+      <div class="pv-cable">${this.cableArt(cable)}</div>
+      <figure class="pv-end pv-to">${this.targetArt(target)}</figure>
+    </div>`;
+  }
+
+  cableArt(cableId) {
+    if (!cableId) return `<p class="pv-hint">Pick a cable: the end that fits this jack is on the left, the other end on the right.</p>`;
+    const p = getPort(this.rig, this.ref);
+    const c = CABLES[cableId];
+    const ends = cableEndFor(cableId, p.jack);
+    if (!ends) return "";
+    const farDir = p.dir === "out" ? "in" : "out";
+    const speaker = c.kind === "speaker";
+    return `<div class="pv-plugs"><span class="pv-near">${plugArt(ends.near, { into: p.dir, speaker, text: false })}</span><span class="pv-wire pv-wire-${c.kind}"></span><span class="pv-far">${plugArt(ends.far, { into: farDir, speaker })}</span></div>
+      <p class="pv-name"><strong>${esc(c.name)}</strong> <span>${esc(PLUGS[ends.near].name)} ⟷ ${esc(PLUGS[ends.far].name)}</span></p>`;
+  }
+
+  targetArt(ref) {
+    if (!ref) return `<div class="pv-unknown" aria-hidden="true">?</div><figcaption><small>To</small> …</figcaption>`;
+    const q = getPort(this.rig, ref);
+    return `${jackArt(q.jack, q.dir)}<figcaption><small>${q.dir === "in" ? "To" : "From"}</small> ${esc(portLabel(this.rig, ref))}</figcaption>`;
+  }
+
+  showCableArt(cableId) {
+    const box = this.el.querySelector(".pv-cable");
+    if (box && box.dataset.shown !== cableId) {
+      box.dataset.shown = cableId;
+      box.innerHTML = this.cableArt(cableId);
+    }
+  }
+
+  showTargetArt(ref) {
+    const box = this.el.querySelector(".pv-to");
+    if (box && box.dataset.shown !== ref) {
+      box.dataset.shown = ref;
+      box.innerHTML = this.targetArt(ref);
+    }
   }
 
   // Dragged from one jack to another: pick a cable that fits both (or just plug it in if only one does).
@@ -445,12 +501,13 @@ class PatchDialog {
     const card = (c) => {
       const ends = cableEndFor(c.id, a.jack);
       return `<button type="button" class="cable-card" data-act="pair-cable" data-cable="${c.id}">
-        <span class="cable-art">${icon(plugIconName(ends.near, a.dir), { size: 34 })}${icon(c.kind === "speaker" ? "cable-speaker" : c.kind === "network" ? "cable-network" : "cable-signal", { size: 30 })}${icon(plugIconName(ends.far, b.dir), { size: 34 })}</span>
+        <span class="cable-art"><span class="ca-near">${icon(plugIconName(ends.near, a.dir), { size: 26 })}</span>${icon(c.kind === "speaker" ? "cable-speaker" : c.kind === "network" ? "cable-network" : "cable-signal", { size: 24 })}<span class="ca-far">${plugArt(ends.far, { into: b.dir, speaker: c.kind === "speaker" })}</span></span>
         <strong>${esc(c.name)}</strong>${c.kind === "speaker" ? '<span class="cable-kind">Speaker cable: speaker level only</span>' : ""}<span class="cable-plugs">${esc(PLUGS[ends.near].name)} ⟷ ${esc(PLUGS[ends.far].name)}</span><span class="cable-blurb">${esc(c.blurb)}</span>
       </button>`;
     };
     this.el.innerHTML = `<div class="patch-inner">
       ${this.header("Pick a cable")}
+      ${this.visual({ target: bRef })}
       <p class="patch-sub">To <strong>${esc(portLabel(this.rig, bRef))}</strong>. ${fits.length} cables fit both ends; they don't all do the same job.</p>
       <div class="cable-grid">${fits.map(card).join("")}</div>
     </div>`;
@@ -493,13 +550,15 @@ class PatchDialog {
       const near = ends ? ends.near : c.ends[0];
       const far = ends ? ends.far : c.ends[1];
       const farDir = p.dir === "out" ? "in" : "out";
-      const pair = `<span class="cable-art">${icon(plugIconName(near, p.dir), { size: 34 })}${icon(c.kind === "speaker" ? "cable-speaker" : c.kind === "network" ? "cable-network" : "cable-signal", { size: 30 })}${icon(plugIconName(far, farDir), { size: 34 })}</span>`;
+      // The end that goes into this jack is the same on every fitting cable: greyed. The far end is what you're choosing.
+      const pair = `<span class="cable-art"><span class="ca-near">${icon(plugIconName(near, p.dir), { size: 26 })}</span>${icon(c.kind === "speaker" ? "cable-speaker" : c.kind === "network" ? "cable-network" : "cable-signal", { size: 24 })}<span class="ca-far">${plugArt(far, { into: farDir, speaker: c.kind === "speaker" })}</span></span>`;
       return `<button type="button" class="cable-card" data-act="cable" data-cable="${c.id}">
         ${pair}<strong>${esc(c.name)}</strong>${c.kind === "speaker" ? '<span class="cable-kind">Speaker cable: speaker level only</span>' : ""}<span class="cable-plugs">${esc(plugs)}</span><span class="cable-blurb">${esc(c.blurb)}</span>
       </button>`;
     };
     this.el.innerHTML = `<div class="patch-inner">
       ${this.header("Step 1 of 2 · Pick a cable")}
+      ${this.visual()}
       <div class="cable-grid">${fits.map(card).join("")}</div>
       <details class="nofit"><summary>Cables that don't fit this ${esc(JACKS[p.jack].name)} jack (${nofit.length})</summary>
         <ul>${nofit.map((c) => `<li><strong>${esc(c.name)}</strong> — ${esc(PLUGS[c.ends[0]].name)} ⟷ ${esc(PLUGS[c.ends[1]].name)}</li>`).join("")}</ul>
@@ -534,6 +593,7 @@ class PatchDialog {
     }
     this.el.innerHTML = `<div class="patch-inner">
       ${this.header(`Step 2 of 2 · Plug in the ${PLUGS[ends.far].name} end`)}
+      ${this.visual({ cable: cableId })}
       <p class="patch-sub">Using: <strong>${esc(CABLES[cableId].name)}</strong> <button type="button" class="linkish" data-act="back">change cable</button></p>
       ${groups.length ? groups.join("") : `<p class="patch-empty">Nothing here takes a ${esc(PLUGS[ends.far].name)} plug.</p>`}
     </div>`;

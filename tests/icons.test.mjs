@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { CONNECTOR_GUIDE, ICON_NAMES, deviceIconName, icon, iconLabel, jackIconName, levelIconName, plugIconName } from "../js/ui/icons.js";
 import { CABLES, DEVICE_TYPES, JACKS, PLUGS, checkConnection } from "../js/connection-model.js";
 import { PLAYBACK_DEVICES } from "../js/scenarios.js";
+import { jackArt, plugArt } from "../js/ui/connector-art.js";
 
 describe("icon library", () => {
   it("includes every required piece of gear and connector", () => {
@@ -103,5 +104,25 @@ describe("icons for the real mixers and the camera", () => {
   it("every mixer device draws as a mixer, a camera input as a camera", () => {
     for (const type of ["vlz1202", "mix8", "x1204usb", "sd442", "cr1604"]) assert.equal(deviceIconName({ id: "mixer", type }), "mixer", type);
     assert.equal(deviceIconName({ id: "cam-1", type: "camera-input" }), "camera");
+  });
+});
+
+describe("connector drawings for the patch dialog", () => {
+  it("draw every plug and jack in the model as a self-contained SVG", () => {
+    const check = (svg, what) => {
+      assert.match(svg, /^<svg class="conn-art"/, what);
+      assert.doesNotMatch(svg, /href|<image|<script|<foreignObject|https?:\/\/(?!www\.w3)|on\w+=/i, what);
+      assert.doesNotMatch(svg, /url\(#undefined|NaN/, what);
+    };
+    for (const id of Object.keys(PLUGS)) for (const into of ["in", "out"]) check(plugArt(id, { into }), `plug ${id}`);
+    for (const id of Object.keys(JACKS)) for (const dir of ["in", "out"]) check(jackArt(id, dir), `jack ${id}`);
+  });
+
+  it("give each drawing its own gradient ids, so two on one page don't clash", () => {
+    const ids = (svg) => [...svg.matchAll(/id="([^"]+)"/g)].map((m) => m[1]);
+    const a = ids(plugArt("xlr"));
+    const b = ids(plugArt("xlr"));
+    assert.ok(a.length > 0);
+    for (const id of a) assert.ok(!b.includes(id), id);
   });
 });
