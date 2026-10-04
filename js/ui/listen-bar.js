@@ -1,6 +1,7 @@
 // Which destination is the student listening to? Main L/R, a monitor bus
-// (Aux 1 / Aux 2), or the engineer's headphones (PFL). Main and the auxes are
-// heard only through the speakers they validly reach; PFL needs no speakers.
+// (Aux 1 / Aux 2), or the engineer's headphones (PFL), shown as where you
+// stand. Main and the auxes are heard only through the speakers they validly
+// reach; PFL needs no speakers.
 // On the CR1604-VLZ the list follows the patch: Main, every aux or subgroup
 // with a speaker on it, and the C-R/PHONES (SOURCE matrix, or SOLO).
 
@@ -12,6 +13,25 @@ const GENERIC = ["main", "aux1", "aux2", "pfl"];
 const SOURCE_NAMES = { main: "MAIN MIX", subs12: "SUBS 1-2", subs34: "SUBS 3-4", tape: "TAPE", alt: "ALT 3-4" };
 const ALWAYS = ["main", "aux1", "aux2", "alt", "monitor", "phones"];
 
+// Where your ears are: a small map of the venue (stage and wedges, the house,
+// the desk) with a figure at the spot you're listening from. Tap a spot to move.
+// Each spot is a listening destination; its place comes from the speakers that
+// destination actually reaches (a wedge on stage, the house, the lobby, a camera)
+// or the desk (headphones). `places` is shared with the Stage & patch diagram.
+const MAP_W = 280;
+const MAP_H = 70;
+
+// A stick figure standing at (x, y = feet); `phones` adds headphones.
+export function figureSvg(x, y, { scale = 1, phones = false, cls = "ear-figure" } = {}) {
+  const s = scale;
+  const head = y - 34 * s;
+  return `<g class="${cls}">
+    <circle cx="${x}" cy="${head}" r="${5.5 * s}"/>
+    <path d="M${x} ${head + 5.5 * s}v${15 * s}M${x - 8 * s} ${head + 11 * s}l${8 * s} ${3 * s}l${8 * s} -${3 * s}M${x} ${head + 20.5 * s}l-${6 * s} ${13.5 * s}M${x} ${head + 20.5 * s}l${6 * s} ${13.5 * s}"/>
+    ${phones ? `<path class="ear-phones" d="M${x - 7 * s} ${head + 1 * s}a${7 * s} ${7 * s} 0 0 1 ${14 * s} 0"/><rect class="ear-cup" x="${x - 8.5 * s}" y="${head - 0.5 * s}" width="${3.5 * s}" height="${5 * s}" rx="1"/><rect class="ear-cup" x="${x + 5 * s}" y="${head - 0.5 * s}" width="${3.5 * s}" height="${5 * s}" rx="1"/>` : ""}
+  </g>`;
+}
+
 export class ListenBar {
   constructor(root, { store, getSkin, onTransport, getRecorder = () => null }) {
     this.root = root;
@@ -20,6 +40,7 @@ export class ListenBar {
     this.getSkin = getSkin;
     this.onTransport = onTransport;
     this.dests = GENERIC;
+    this.places = [];
     root.addEventListener("click", (e) => {
       const b = e.target.closest("[data-dest]");
       if (b) store.setListen(b.dataset.dest);
@@ -27,13 +48,18 @@ export class ListenBar {
     });
     root.addEventListener("keydown", (e) => {
       const b = e.target.closest("[data-dest]");
-      if (!b || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
+      if (!b) return;
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        return store.setListen(b.dataset.dest);
+      }
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
       e.preventDefault();
-      const order = this.dests;
+      const order = this.places.map((p) => p.dest);
       const i = order.indexOf(b.dataset.dest);
       const next = order[(i + (e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : order.length - 1)) % order.length];
       store.setListen(next);
-      root.querySelector(`[data-dest="${next}"]`).focus();
+      this.root.querySelector(`[data-dest="${next}"]`)?.focus();
     });
     this.render();
   }
@@ -47,25 +73,96 @@ export class ListenBar {
     return t[dest] || dest;
   }
 
-  render(dests = modelOf(this.store.state) !== "generic" ? listenDestinations(this.store.state).filter((d) => ALWAYS.includes(d)) : GENERIC) {
-    this.dests = dests;
-    const btn = (dest) =>
-      `<button type="button" role="radio" class="listen-btn" data-dest="${dest}"><strong>${esc(this.label(dest))}</strong><small class="listen-sub"></small></button>`;
+  render() {
     this.root.innerHTML = `
-      <div class="listen-group${dests.length > 4 ? " many" : ""}" role="radiogroup" aria-label="Listen to">
-        <span class="listen-label" aria-hidden="true">Listen</span>
-        ${dests.map(btn).join("")}
+      <div class="ears">
+        <span class="listen-label" aria-hidden="true">Your ears</span>
+        <svg class="ears-map" viewBox="0 0 ${MAP_W} ${MAP_H}" role="radiogroup" aria-label="Where are you listening from?"></svg>
       </div>
       <div class="listen-now">
+        <p class="ears-where"></p>
         <p class="listen-msg" aria-live="polite"></p>
       </div>
       <button type="button" class="transport btn" disabled>…</button>`;
     this.meter = new MeterView({ orientation: "horizontal", label: "What you hear", showText: false });
     this.meter.el.classList.add("listen-meter");
-    this.root.querySelector(".listen-now").prepend(this.meter.el);
+    this.root.querySelector(".ears-where").after(this.meter.el);
+    this.map = this.root.querySelector(".ears-map");
+    this.where = this.root.querySelector(".ears-where");
     this.msg = this.root.querySelector(".listen-msg");
     this.transport = this.root.querySelector(".transport");
     this.lastMsg = null;
+    this.mapKey = "";
+  }
+
+  // Each destination's place in the venue, from the speakers it reaches.
+  placesFor(dests, ends, patchedEnds, devices, sub, dead) {
+    const name = (id) => devices.get(id)?.short || devices.get(id)?.label || id;
+    const where = (d) => {
+      if (d === "pfl" || d === "phones") return { kind: "desk", place: "Engineer's headphones" };
+      if (d === "rec") return { kind: "desk", place: "Recorder headphones" };
+      const eps = ends[d]?.length ? ends[d] : patchedEnds[d] || [];
+      if (!eps.length) return { kind: "nowhere", place: `${this.label(d)}: no speaker` };
+      const zone = eps[0].zone;
+      const pan = eps.reduce((a, e) => a + (e.pan || 0), 0) / eps.length;
+      if (d === "main") return { kind: "audience", place: "In the audience", pan };
+      if (zone === "stage") return { kind: "stage", place: `At the ${eps.map((e) => name(e.deviceId)).join(" + ")}`, pan };
+      if (zone === "cam") return { kind: "side", place: `At the ${name(eps[0].deviceId)}`, pan };
+      if (zone === "lobby") return { kind: "side", place: "In the lobby", pan };
+      return { kind: "front", place: `Near the ${name(eps[0].deviceId)}`, pan };
+    };
+    const places = dests.map((d) => ({ dest: d, label: this.label(d), sub: sub(d), dead: dead(d), ...where(d), deviceIds: (ends[d] || []).map((e) => e.deviceId) }));
+    // Spread the spots of each kind so two wedges never stand on each other.
+    const spread = (kind, x0, x1, y) => {
+      const ps = places.filter((p) => p.kind === kind).sort((a, b) => (a.pan || 0) - (b.pan || 0));
+      ps.forEach((p, k) => Object.assign(p, { x: x0 + ((k + 0.5) * (x1 - x0)) / ps.length, y }));
+    };
+    spread("stage", 70, 210, 26);
+    spread("audience", 140, 140, 52);
+    spread("front", 92, 188, 44);
+    spread("side", 250, 274, 0);
+    places.filter((p) => p.kind === "side").forEach((p, k) => (p.y = 26 + k * 26));
+    places.filter((p) => p.kind === "desk").forEach((p, k) => Object.assign(p, { x: 196 + k * 18, y: 68 }));
+    places.filter((p) => p.kind === "nowhere").forEach((p, k) => Object.assign(p, { x: 10 + (k % 2) * 16, y: 48 + Math.floor(k / 2) * 18 }));
+    return places;
+  }
+
+  drawMap(state, mix) {
+    const devices = new Map(state.rig.devices.map((d) => [d.id, d]));
+    // House speakers and wedges as scenery, where they stand.
+    const scenery = mix.rig.endpoints
+      .map((e) => {
+        const d = devices.get(e.deviceId);
+        if (!d) return "";
+        if (e.zone === "stage") {
+          const p = this.places.find((pl) => pl.deviceIds.includes(e.deviceId));
+          const x = p ? p.x : 140 + (e.pan || 0) * 60;
+          return `<path class="map-wedge ${e.valid ? "" : "off"}" d="M${x - 9} 27l3 -6h12l3 6z"/>`;
+        }
+        if (e.zone === "foh") {
+          const x = (e.pan || 0) < 0 ? 52 : (e.pan || 0) > 0 ? 228 : 140;
+          return (e.pan || 0) === 0 ? "" : `<rect class="map-spk ${e.valid ? "" : "off"}" x="${x - 5}" y="4" width="10" height="16" rx="2"/>`;
+        }
+        return "";
+      })
+      .join("");
+    const spots = this.places
+      .map((p) => {
+        const on = state.listen === p.dest;
+        const aria = `${p.place} (${p.label})${p.dead ? ", silent" : ""}`;
+        return `<g class="ear-spot kind-${p.kind} ${on ? "on" : ""} ${p.dead ? "dead" : ""}" data-dest="${esc(p.dest)}" role="radio" aria-checked="${on}" tabindex="${on ? 0 : -1}" aria-label="${esc(aria)}">
+          <title>${esc(aria)}</title>
+          <circle class="spot-hit" cx="${p.x}" cy="${p.y - 10}" r="12"/>
+          ${on ? figureSvg(p.x, p.y, { scale: 0.62, phones: p.kind === "desk" }) : `<circle class="spot-dot" cx="${p.x}" cy="${p.y - 8}" r="4.5"/>`}
+        </g>`;
+      })
+      .join("");
+    this.map.innerHTML = `
+      <rect class="map-stage" x="40" y="2" width="200" height="27" rx="4"/><text class="map-word" x="140" y="9" text-anchor="middle">STAGE</text>
+      <text class="map-word" x="140" y="${MAP_H - 2}" text-anchor="middle">AUDIENCE</text>
+      <rect class="map-desk" x="182" y="58" width="44" height="10" rx="2"/><text class="map-word" x="230" y="66">DESK</text>
+      ${this.places.some((p) => p.kind === "nowhere") ? `<text class="map-word" x="2" y="36">SILENT</text>` : ""}
+      ${scenery}${spots}`;
   }
 
   update(mix, { playing, ready, loadingText, buffering }) {
@@ -77,20 +174,22 @@ export class ListenBar {
     const names = (eps) => eps.map(short).join(" + ");
     // Speakers by listening group: the working ones, and every one patched at all.
     const ends = {};
+    const patchedEnds = {};
     const patched = new Set();
     for (const e of mix.rig.endpoints) {
       if (!e.output) continue;
       const g = listenGroupOf(state, e.output);
       patched.add(g);
+      (patchedEnds[g] ||= []).push(e);
       if (e.valid) (ends[g] ||= []).push(e);
     }
 
-    // The buttons follow the mixer (and, on the 1604, the patch).
+    // The spots follow the mixer (and, on the 1604, the patch): the main mix,
+    // the first two auxes, ALT, MONITOR and the phones the mixer has; any other
+    // output once a speaker is patched to it.
     const recDev = state.rig.devices.find((d) => d.type === "zoom-f8");
-    // Always the main mix, the first two auxes, ALT, MONITOR and the phones the
-    // mixer has; any other output only once a speaker is patched to it.
     const wanted = real ? listenDestinations(state).filter((d) => (d === "rec" ? !!recDev : ALWAYS.includes(d) || patched.has(d) || d === state.listen)) : GENERIC;
-    if (wanted.join() !== this.dests.join()) this.render(wanted);
+    this.dests = wanted;
 
     const pfls = state.channels.filter((c) => c.pfl).map((c) => c.index + 1);
     const phones = real ? mix.phones : null;
@@ -104,23 +203,25 @@ export class ListenBar {
     };
     const rec = recDev ? recorderText(recDev, this.getRecorder(), mix.rig.recorders?.[recDev.id]) : null;
     const sub = (d) => {
-      if (d === "pfl") return pfls.length ? `Phones: Ch ${pfls.join(", ")}` : "Phones: no PFL";
+      if (d === "pfl") return pfls.length ? `Ch ${pfls.join(", ")}` : "no PFL pressed";
       if (d === "phones") return phonesText();
       if (d === "rec") return rec.sub;
-      return ends[d]?.length ? `✓ ${names(ends[d])}` : "✕ no working speaker";
+      return ends[d]?.length ? names(ends[d]) : "no working speaker";
     };
     const dead = (d) => (d === "pfl" ? !pfls.length : d === "phones" ? !phones.solo && (phones.selector ? phones.selector === "OFF" : !phones.sources.length) : d === "rec" ? rec.dead : !ends[d]?.length);
-    for (const btn of this.root.querySelectorAll("[data-dest]")) {
-      const d = btn.dataset.dest;
-      const on = state.listen === d;
-      btn.setAttribute("aria-checked", String(on));
-      btn.tabIndex = on ? 0 : -1;
-      btn.classList.toggle("active", on);
-      btn.querySelector(".listen-sub").textContent = sub(d);
-      btn.classList.toggle("is-dead", dead(d));
+
+    this.places = this.placesFor(wanted, ends, patchedEnds, devices, sub, dead);
+    const key = JSON.stringify([state.listen, this.places.map((p) => [p.dest, p.x, p.y, p.dead, p.deviceIds]), mix.rig.endpoints.map((e) => [e.deviceId, e.valid])]);
+    if (key !== this.mapKey) {
+      this.mapKey = key;
+      this.drawMap(state, mix);
     }
 
     const dest = state.listen;
+    const here = this.places.find((p) => p.dest === dest);
+    const whereText = here ? `${here.place} · ${here.label}${here.dead ? " (silent)" : ""}` : this.label(dest);
+    if (this.where.textContent !== whereText) this.where.textContent = whereText;
+
     const busName = dest === "main" ? (real ? "the MAIN mix" : "Main L/R") : t[dest] || dest;
     let msg;
     if (dest === "rec" && this.getRecorder()?.playing) msg = rec.msg; // a take plays even with the band stopped
@@ -135,7 +236,7 @@ export class ListenBar {
       // A camera input whose MIC/LINE switch doesn't match what it's fed.
       for (const e of ends[dest].filter((e) => e.camera && e.status !== "ok")) msg += ` ${short(e)}: ${e.status === "hot" ? "distorting, its MIC input is fed line level" : "too quiet, its LINE input is fed mic level"}.`;
     }
-    else msg = `Silence: ${busName} doesn't reach a working speaker. Check the Outputs.`;
+    else msg = `Silence: ${busName} doesn't reach a working speaker. Check Stage & patch.`;
     if (msg !== this.lastMsg) {
       this.msg.textContent = msg;
       this.lastMsg = msg;

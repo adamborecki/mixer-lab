@@ -12,6 +12,8 @@ import { CABLES, DEVICE_TYPES, JACKS, SIGNAL_LEVELS, cableAt, getPort, isMixer, 
 import { deviceIconName, icon, jackIconName } from "./icons.js";
 import { JACK, layoutStage } from "./stage-layout.js";
 import { cableHue, portLabel } from "./patch-view.js";
+import { figureSvg } from "./listen-bar.js";
+import { listenGroupOf } from "../mixer-state.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const DIR = { right: [1, 0], left: [-1, 0], down: [0, 1], up: [0, -1] };
@@ -58,8 +60,9 @@ function plugShape(j, kind, hue) {
 }
 
 export class StageView {
-  constructor(root, { store, manifest, patchView, getSkin, onOpenDante = () => {}, canAddGear = () => false }) {
+  constructor(root, { store, manifest, patchView, getSkin, onOpenDante = () => {}, canAddGear = () => false, getPlaces = () => [] }) {
     this.canAddGear = canAddGear;
+    this.getPlaces = getPlaces;
     this.root = root;
     this.store = store;
     this.manifest = manifest;
@@ -92,6 +95,8 @@ export class StageView {
         this.suppressClick = false;
         return;
       }
+      const ear = e.target.closest("[data-listen]");
+      if (ear) return this.store.setListen(ear.dataset.listen);
       const jack = e.target.closest("[data-port]");
       if (jack) return this.patchView.openPort(jack.dataset.port);
       const wire = e.target.closest(".cable[data-cable]");
@@ -106,6 +111,11 @@ export class StageView {
     });
     this.canvas.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" && e.key !== " ") return;
+      const ear = e.target.closest("[data-listen]");
+      if (ear) {
+        e.preventDefault();
+        return this.store.setListen(ear.dataset.listen);
+      }
       const jack = e.target.closest("[data-port]");
       const box = e.target.closest("[data-box]");
       if (!jack && !box) return;
@@ -198,6 +208,7 @@ export class StageView {
       <g class="layer-cables">${cables.join("")}</g>
       <g class="layer-jacks">${jacks.join("")}${nets.join("")}</g>
       <g class="layer-plugs">${plugs.join("")}</g>
+      <g class="layer-ears">${this.earsSvg(L, rig)}</g>
       <path class="drag-cable" d="" hidden/>
     </svg>`;
     this.dragPath = this.canvas.querySelector(".drag-cable");
@@ -221,6 +232,35 @@ export class StageView {
     this.gear.innerHTML = `<span class="stage-gear-label">Free play gear:</span>${
       present.length ? present.map((d) => btn(`remove:${d.id}`, `Remove the ${DEVICE_TYPES[d.type].name}`)).join("") : kinds.map((k) => btn(`add:${k}`, `+ ${DEVICE_TYPES[k].name}`)).join("")
     }<span class="stage-gear-note">${present.length ? "" : aes50 ? "A snake, or a digital stage box on AES50." : "Run the band through a 16 × 4 snake."}</span>`;
+  }
+
+  // Your ears: the figure stands beside what you're hearing (a speaker, or the
+  // desk in headphones); every other speaker and the desk get an ear button.
+  earsSvg(L, rig) {
+    const state = this.store.state;
+    const places = this.getPlaces();
+    if (!places.length) return "";
+    const spots = [];
+    const at = (b) => ({ x: b.x + b.w + 22, y: b.y + b.h / 2 + 16 });
+    for (const b of L.boxes.filter((x) => x.kind === "endpoint")) {
+      const ep = this.mix.rig.endpoints.find((e) => e.deviceId === b.deviceId);
+      const dest = ep?.output ? listenGroupOf(state, ep.output) : null;
+      const place = places.find((p) => p.dest === dest);
+      if (place) spots.push({ dest, place, deviceId: b.deviceId, ...at(b), heard: place.deviceIds.includes(b.deviceId) });
+    }
+    const console = L.boxes.find((b) => b.kind === "console");
+    if (console) places.filter((p) => p.kind === "desk").forEach((p, k) => spots.push({ dest: p.dest, place: p, x: console.x + console.w + 22 + k * 26, y: console.y + 58, phones: true, heard: true }));
+    // One figure: at the first speaker that's actually heard (or the first spot for that destination).
+    const mine = spots.find((s) => s.dest === state.listen && s.heard) || spots.find((s) => s.dest === state.listen);
+    return spots
+      .map((s) => {
+        const name = s.phones ? s.place.place : rig.devices.find((d) => d.id === s.deviceId)?.short || s.place.place;
+        const label = `Listen here: ${name} (${s.place.label})`;
+        if (s === mine) return `<g class="ear-here" aria-label="You are listening here: ${esc(s.place.place)}">${figureSvg(s.x, s.y, { scale: 0.95, phones: !!s.phones })}</g>`;
+        return `<g class="ear-btn" data-listen="${esc(s.dest)}" tabindex="0" role="button" aria-label="${esc(label)}"><title>${esc(label)}</title>
+          <rect class="ear-btn-hit" x="${s.x - 13}" y="${s.y - 36}" width="26" height="38" rx="8"/>${figureSvg(s.x, s.y, { scale: 0.85, phones: !!s.phones, cls: "ear-figure ear-ghost" })}</g>`;
+      })
+      .join("");
   }
 
   // Status of every source, speaker, channel and cable, from the analysis.

@@ -145,7 +145,8 @@ export function layoutStage(rig, { order = () => 0, channelLabels = [], mixerNam
     const B = boxes.find((x) => x.id === b);
     return { kind: "multicore", a: { x: A.x + A.w / 2, y: A.y + A.h, side: "down" }, b: { x: B.x, y: B.y + 40, side: "left" } };
   });
-  return { width: x - COL_GAP + 16, height: height + 8, columns, boxes, jacks, net, links };
+  // +44: room right of the last column for the listening figure.
+  return { width: x - COL_GAP + 16 + 44, height: height + 8, columns, boxes, jacks, net, links };
 }
 
 // A stage box channel's number or letter ("IN 12" → "12", "Return B" → "B").

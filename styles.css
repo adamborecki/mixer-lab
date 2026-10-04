@@ -2172,48 +2172,131 @@ dialog::backdrop {
   border-top: 1px solid var(--line-strong);
   min-height: var(--listen-h);
 }
-.listen-group {
+.ears {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
+  flex: none;
 }
 .listen-label {
   font-family: var(--font-display);
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  font-size: 0.75rem;
-  color: var(--text-dim);
-  margin-right: 0.25rem;
-}
-.listen-btn {
-  display: grid;
-  text-align: left;
-  gap: 0.05rem;
-  min-height: 52px;
-  min-width: 132px;
-  padding: 0.35rem 0.75rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.05);
-  cursor: pointer;
-}
-.listen-btn strong {
-  font-family: var(--font-display);
-  font-size: 0.95rem;
-}
-.listen-sub {
   font-size: 0.72rem;
   color: var(--text-dim);
-  white-space: nowrap;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
 }
-.listen-btn.active {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  box-shadow: 0 0 14px -5px var(--accent);
+.ears-map {
+  width: 300px;
+  height: 75px;
+  display: block;
+  overflow: visible;
 }
-.listen-btn.is-dead .listen-sub {
-  color: var(--bad);
+.map-stage {
+  fill: rgba(124, 224, 255, 0.07);
+  stroke: rgba(124, 224, 255, 0.35);
 }
+.map-desk {
+  fill: rgba(255, 255, 255, 0.08);
+  stroke: var(--line-strong);
+}
+.map-word {
+  font-size: 6.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  fill: var(--text-dim);
+}
+.map-wedge,
+.map-spk {
+  fill: #3b4360;
+  stroke: #8f98ba;
+  stroke-width: 0.8;
+}
+.map-wedge.off,
+.map-spk.off {
+  opacity: 0.45;
+}
+.ear-spot {
+  cursor: pointer;
+  outline: none;
+}
+.spot-hit {
+  fill: transparent;
+}
+.spot-dot {
+  fill: rgba(255, 255, 255, 0.12);
+  stroke: var(--text-dim);
+  stroke-width: 1.4;
+}
+.ear-spot:hover .spot-dot,
+.ear-spot:focus-visible .spot-dot {
+  stroke: var(--accent);
+  fill: rgba(124, 224, 255, 0.3);
+}
+.ear-spot:focus-visible .spot-hit {
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+.ear-spot.dead .spot-dot {
+  stroke: var(--bad);
+  stroke-dasharray: 2 2;
+}
+.ear-figure circle,
+.ear-figure path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+.ear-figure circle {
+  fill: rgba(124, 224, 255, 0.25);
+}
+.ear-spot.dead .ear-figure circle,
+.ear-spot.dead .ear-figure path {
+  stroke: var(--bad);
+}
+.ear-figure .ear-cup {
+  fill: var(--accent);
+  stroke: none;
+}
+.ears-where {
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+/* the diagram's figure and ear buttons */
+.ear-here .ear-figure circle,
+.ear-here .ear-figure path {
+  stroke-width: 2.6;
+}
+.ear-btn {
+  cursor: pointer;
+  outline: none;
+}
+.ear-btn-hit {
+  fill: rgba(255, 255, 255, 0.03);
+  stroke: transparent;
+}
+.ear-ghost circle,
+.ear-ghost path {
+  stroke: #6f7798 !important;
+  stroke-dasharray: 3 2;
+}
+.ear-ghost circle {
+  fill: transparent !important;
+}
+.ear-btn:hover .ear-btn-hit,
+.ear-btn:focus-visible .ear-btn-hit {
+  stroke: var(--accent);
+  fill: rgba(124, 224, 255, 0.1);
+}
+.ear-btn:hover .ear-ghost circle,
+.ear-btn:hover .ear-ghost path,
+.ear-btn:focus-visible .ear-ghost path {
+  stroke: var(--accent) !important;
+}
+
 .listen-now {
   flex: 1;
   min-width: 0;
@@ -2246,23 +2329,17 @@ dialog::backdrop {
     flex-wrap: wrap;
     gap: 0.4rem 0.5rem;
   }
-  .listen-group {
+  .ears {
     flex: 1 1 100%;
     order: 1;
+    justify-content: center;
   }
   .listen-label {
     display: none;
   }
-  .listen-btn {
-    flex: 1;
-    min-width: 0;
-    padding: 0.3rem 0.5rem;
-    min-height: 48px;
-  }
-  .listen-sub {
-    white-space: normal;
-    font-size: 0.66rem;
-    line-height: 1.2;
+  .ears-map {
+    width: min(100%, 300px);
+    height: auto;
   }
   .listen-now {
     order: 2;
@@ -3289,20 +3366,6 @@ dialog::backdrop {
   border-radius: 4px;
   padding: 0.15rem 0.35rem;
 }
-/* More than four listening positions (real mixers): the buttons scroll, the message keeps its width. */
-.listen-group.many {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.listen-group.many .listen-btn {
-  flex: none;
-}
-.listen-group.many + .listen-now {
-  flex: 1 0 10rem;
-}
-
 /* ---------- digital mixer (Soundcraft Ui16): mix bar, fader bank, SEL panel ---------- */
 
 .skin-ui16 .mixer-surface.dg-surface {

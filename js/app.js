@@ -44,6 +44,7 @@ let ready = false;
 let loadingText = "Press Start Audio to begin.";
 let lastEval = "";
 let lastMix = null;
+let lastListen = null;
 let buffering = false;
 const pending = { any: false, patch: false };
 
@@ -69,7 +70,7 @@ const recorderView = new RecorderView({ store, getRuntime: (id) => engine.record
 const danteView = new DanteView({ store, manifest: M });
 
 // The Stage & patch diagram (cables between jacks); its inspector reuses the patch panel's cards.
-const stageView = new StageView($("#stage"), { store, manifest: M, patchView, getSkin: () => skin, onOpenDante: (tab) => danteView.open(tab), canAddGear: () => current.def.id === "free-play" });
+const stageView = new StageView($("#stage"), { store, manifest: M, patchView, getSkin: () => skin, onOpenDante: (tab) => danteView.open(tab), canAddGear: () => current.def.id === "free-play", getPlaces: () => listenBar.places });
 
 const mixerView = new MixerView($("#mixer"), {
   store,
@@ -145,11 +146,13 @@ function refresh() {
   const mix = computeMix(state, M.SOURCES_BY_ID, M.STEMS);
   lastMix = mix;
   mixerView.sync(mix);
-  if (pending.patch) {
-    patchView.render(mix);
+  listenBar.update(mix, { playing: engine.playing, ready, loadingText, buffering });
+  // The diagram's figure follows where you're listening.
+  if (pending.patch || store.state.listen !== lastListen) {
+    lastListen = store.state.listen;
+    if (pending.patch) patchView.render(mix);
     stageView.render(mix);
   }
-  listenBar.update(mix, { playing: engine.playing, ready, loadingText, buffering });
   if (recorderView.isOpen) recorderView.sync();
   if (danteView.isOpen) danteView.sync();
   if (current.def.conditions.length) {
