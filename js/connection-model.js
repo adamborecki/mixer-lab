@@ -401,6 +401,11 @@ export function analyzeRig(rig, channels = [], sources = {}) {
   const mixer = mixerOf(rig);
   const mixerPorts = mixer ? DEVICE_TYPES[mixer.type].ports : [];
   for (const port of mixerPorts.filter((p) => p.role === "channel-input")) {
+    // INPUT PATCH (CL3): a channel listens to its Rio jack or its Dante RX, never both.
+    if (Array.isArray(mixer.inPatch) && port.channel < mixer.inPatch.length && (port.jack === "dante") !== (mixer.inPatch[port.channel] === 1)) {
+      channelInfo[port.channel] ||= { connected: false, signal: false, status: "empty", messages: [] };
+      continue;
+    }
     const ref = portRef(mixer.id, port.id);
     const cable = byTo.get(ref);
     if (!cable && channelInfo[port.channel]) continue; // a channel with two jacks: the one in use wins
@@ -459,6 +464,7 @@ function analyzeChannelInput(rig, cable, ch, sources, port) {
     cable: cable.cable,
     dante: !!cable.dante,
     // Digital playback (Dante): arrives at DANTE.levelDb, not at the stem's mic level.
+    digital: !!from.digital,
     digitalDb: from.digital && source ? DANTE.levelDb - source.outputDb : 0,
     signal: true,
     status: "ok",

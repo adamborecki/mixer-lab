@@ -2800,26 +2800,79 @@ const CL3 = [
     title: "Virtual soundcheck over Dante",
     who: "System engineer",
     prompt: "“The band isn't here yet, but last night's multitrack is on the laptop. Get it onto channels 1–7 over Dante so we can tune the PA as if they were playing.”",
-    goal: "DAW tracks 1–7 out on DVS channels 1–7, CL3 Dante RX 1–7 subscribed to them, all seven playing on channels 1–7 in the house.",
+    goal: "DAW tracks 1–7 out on DVS channels 1–7, CL3 Dante RX 1–7 subscribed to them, channels 1–7 patched to Dante, all seven playing on channels 1–7 in the house.",
     music: "excerpt", // the whole band, trumpets too
     setup: {
       tweak: (st, h) => {
-        for (let n = 1; n <= 7; n++) h.cut(`mixer/ch${n}-mic`);
+        for (let n = 1; n <= 7; n++) h.cut(`mixer/ch${n}-mic`); // the stage isn't patched yet
         h.addDevice("daw");
-        for (let n = 0; n < 7; n++) st.channels[n].gainDb = 10; // playback is line level: far less gain than the mics
       },
     },
     conditions: [
       goal("daw", "Every DAW track has its own output, in order (track n → DVS n)", (ctx) => ctx.state.rig.devices.find((d) => d.type === "daw-dvs")?.outs.slice(0, 7).every((k, t) => k === t + 1)),
       goal("rx", "CL3 RX 1–7 are subscribed to DVS 1–7", (ctx) => ctx.state.rig.devices.find((d) => d.id === "mixer").danteRx.slice(0, 7).every((k, m) => k === m + 1)),
+      goal("patch", "INPUT PATCH: channels 1–7 take Dante", (ctx) => ctx.state.rig.devices.find((d) => d.id === "mixer").inPatch.slice(0, 7).every((v) => v === 1)),
       goal("heard", "All seven tracks play on channels 1–7 in the house", (ctx) => DAW_TRACKS.every((s, t) => mc(ctx, s)?.index === t && house(ctx, s) >= AUDIBLE)),
     ],
     hints: [
       "Three hops, no cables: DAW track → its output (a Dante Virtual Soundcard channel) → Dante Controller subscribes the console's RX channel → that channel. Start at the laptop card in Sources.",
-      "Open the DAW: set track 1's output to DVS 01, track 2 to DVS 02, and so on to track 7.",
-      "Open Dante Controller: for CL3 RX 01–07 click the square under DVS 01–07. Seven ticks in a diagonal line.",
+      "Open the DAW: track 1's output to DVS 01, track 2 to DVS 02, … track 7. Then Dante Controller: for CL3 RX 01–07 click the square under DVS 01–07, seven ticks in a diagonal.",
+      "Still silent? The console listens to its Rio inputs until you say otherwise: on the touch screen's INPUT PATCH page switch channels 1–7 to DANTE.",
     ],
     complete: "That's a virtual soundcheck: the same channels, gains and processing, fed from a recording instead of the band. Ascending outputs and a diagonal in Dante Controller keep every channel number matching its track number.",
+  },
+  {
+    id: "cl3-dante-back",
+    short: "Back to the stage (INPUT PATCH)",
+    title: "The band is here",
+    who: "Stage manager",
+    prompt: "“Virtual soundcheck's done and the band just walked on stage. Mics are plugged in. Give me the band, not last night's recording.”",
+    goal: "Channels 1–7 patched back to the Rio inputs: the live mics in the house, not the DAW.",
+    music: "excerpt", // the whole band, trumpets too
+    setup: {
+      tweak: (st, h) => {
+        h.addDevice("daw");
+        const daw = st.rig.devices.find((d) => d.type === "daw-dvs");
+        const mixer = st.rig.devices.find((d) => d.id === "mixer");
+        for (let n = 0; n < 7; n++) {
+          daw.outs[n] = n + 1;
+          mixer.danteRx[n] = n + 1;
+          mixer.inPatch[n] = 1;
+        }
+      },
+    },
+    conditions: [
+      goal("live", "Channels 1–7 hear the stage mics (Rio), not Dante", (ctx) => DAW_TRACKS.every((s, t) => { const c = mc(ctx, s); return !!c && c.index === t && !c.input.dante; })),
+      goal("heard", "The singer's mic is in the house", (ctx) => !mc(ctx, "lead-vocal")?.input.dante && house(ctx, "lead-vocal") >= AUDIBLE),
+      keep("drums", "The drums are in the house too", (ctx) => house(ctx, "drums") >= AUDIBLE),
+    ],
+    hints: ["Everything is in the house, but it's the recording. Which input does each channel listen to?", "The touch screen's INPUT PATCH page: channels 1–7 are on DANTE.", "Switch channels 1–7 back to RIO. Leave the Dante routing for the next soundcheck."],
+    complete: "One page switches the whole console between the band and the recording, with every fader, EQ and gain unchanged. That's why virtual soundchecks are worth setting up.",
+  },
+  {
+    id: "cl3-dante-fix",
+    short: "Wrong channels (Dante Controller)",
+    title: "The keys are on the trumpet channel",
+    who: "Band leader",
+    prompt: "“We played the multitrack and everything's on the wrong channel: the keys are coming up on 5 and the drums aren't anywhere.”",
+    goal: "Every DAW track on its own channel again (track n on channel n), all seven in the house.",
+    music: "excerpt", // the whole band, trumpets too
+    setup: {
+      tweak: (st, h) => {
+        for (let n = 1; n <= 7; n++) h.cut(`mixer/ch${n}-mic`);
+        h.addDevice("daw");
+        const daw = st.rig.devices.find((d) => d.type === "daw-dvs");
+        const mixer = st.rig.devices.find((d) => d.id === "mixer");
+        for (let n = 0; n < 7; n++) {
+          daw.outs[n] = n + 1;
+          mixer.danteRx[n] = n; // off by one: RX 2 ← DVS 1, RX 1 ← nothing
+          mixer.inPatch[n] = 1;
+        }
+      },
+    },
+    conditions: [goal("order", "Track n plays on channel n, all seven in the house", (ctx) => DAW_TRACKS.every((s, t) => mc(ctx, s)?.index === t && house(ctx, s) >= AUDIBLE))],
+    hints: ["The DAW and the console look right. What sits in between?", "Open Dante Controller: the ticks are one row off the diagonal.", "Re-subscribe RX 01–07 to DVS 01–07 (and check DVS 07 reaches RX 07)."],
+    complete: "When every channel is shifted by one, look at the routing, not the channels. A clean diagonal in Dante Controller is the fastest check there is.",
   },
   like("cl3", "x32-scene-recall", {
     hints: ["Rebuilding it by hand takes ages and you'll miss something.", "The touch screen's SCENE page lists the saved scenes.", "RECALL scene 02."],
@@ -3251,7 +3304,7 @@ const ORDER = {
   x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9"],
   f8n: ["track", "trim", "room", "hpf", "pfl", "balance", "link", "camera", "dslr", "iso-safety"],
   dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
-  cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "scene-recall", "scene-store"],
+  cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "dante-back", "dante-fix", "scene-recall", "scene-store"],
   x32c: ["doors", "gain", "48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix"],
 };
 

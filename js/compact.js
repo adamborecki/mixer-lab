@@ -107,7 +107,7 @@ export function createState(id) {
     main: { level: def.main.law === "master" ? 0.5 : 0.75 },
     listen: "main",
     // The 442's OUTPUT LEVEL switch lives on the mixer device: what the XLR outs carry decides what they can feed.
-    rig: { devices: [{ id: "mixer", type: id, label: def.name, ...(def.outLevel ? { outLevel: 2 } : {}), ...Object.fromEntries((def.outSwitches || []).map((w) => [w.key, w.start ?? 0])), ...(def.dante ? { danteRx: Array(def.dante.rx).fill(0) } : {}) }], cables: [] },
+    rig: { devices: [{ id: "mixer", type: id, label: def.name, ...(def.outLevel ? { outLevel: 2 } : {}), ...Object.fromEntries((def.outSwitches || []).map((w) => [w.key, w.start ?? 0])), ...(def.dante ? { danteRx: Array(def.dante.rx).fill(0), inPatch: Array(def.dante.rx).fill(0) } : {}) }], cables: [] },
   };
   if (def.tape) state.channels.push({ index: def.channels.length, label: def.tape.level || def.tape.label || "TAPE", stereo: true, tape: true, gainDb: 0, level: 0.5, toMain: false, toCr: false, enabled: true, pan: 0, phantom: false, auxSends: {}, sends: {}, eq: {} });
   // Masters start at unity (U), whatever their law.
@@ -308,8 +308,9 @@ export function channelGainDb(def, ch, input) {
   const pad = (input && input.path === "line" && !input.stereo && !input.monoIn ? g.linePad || 0 : 0) + (g.lineSwitch && ch.micLine === "line" ? g.lineSwitch : 0);
   // A trimmed stereo channel's line inputs (MG10/2 3/4, 5/6) take the line pad too.
   const stereoPad = input && input.path === "line" && (input.stereo || input.monoIn) && g.min !== undefined ? g.linePad || 0 : 0;
-  // Dante playback arrives at its own digital level (connection-model `digitalDb`).
-  return ch.gainDb + pad + stereoPad - (g.pad && ch.pad ? g.pad : 0) + (input?.digitalDb || 0);
+  // Dante playback arrives at its own level: the preamp's GAIN isn't in its path.
+  if (input?.digital) return input.digitalDb;
+  return ch.gainDb + pad + stereoPad - (g.pad && ch.pad ? g.pad : 0);
 }
 
 // L and R gains of a Web Audio StereoPannerNode for a stereo input whose two

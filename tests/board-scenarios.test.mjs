@@ -1016,6 +1016,13 @@ Object.assign(SOLVE, {
   "cl3-dante": (a) => {
     for (let t = 0; t < 7; t++) a.st.setDevice("daw", `outs.${t}`, t + 1);
     for (let m = 0; m < 7; m++) a.st.setDevice("mixer", `danteRx.${m}`, m + 1);
+    for (let m = 0; m < 7; m++) a.st.setDevice("mixer", `inPatch.${m}`, 1);
+  },
+  "cl3-dante-back": (a) => {
+    for (let m = 0; m < 7; m++) a.st.setDevice("mixer", `inPatch.${m}`, 0);
+  },
+  "cl3-dante-fix": (a) => {
+    for (let m = 0; m < 7; m++) a.st.setDevice("mixer", `danteRx.${m}`, m + 1);
   },
 });
 Object.assign(WRONG, {
@@ -1026,8 +1033,19 @@ Object.assign(WRONG, {
     ["Dante Controller one channel off", (a) => {
       for (let t = 0; t < 7; t++) a.st.setDevice("daw", `outs.${t}`, t + 1);
       for (let m = 0; m < 7; m++) a.st.setDevice("mixer", `danteRx.${m}`, m + 2);
+      for (let m = 0; m < 7; m++) a.st.setDevice("mixer", `inPatch.${m}`, 1);
+    }],
+    ["routed but the INPUT PATCH left on Rio", (a) => {
+      for (let t = 0; t < 7; t++) a.st.setDevice("daw", `outs.${t}`, t + 1);
+      for (let m = 0; m < 7; m++) a.st.setDevice("mixer", `danteRx.${m}`, m + 1);
     }],
   ],
+  "cl3-dante-back": [["unsubscribe in Dante Controller instead", (a) => {
+    for (let m = 0; m < 7; m++) a.st.setDevice("mixer", `danteRx.${m}`, 0);
+  }]],
+  "cl3-dante-fix": [["move the DAW outputs instead, half way", (a) => {
+    for (let t = 0; t < 6; t++) a.st.setDevice("daw", `outs.${t}`, t + 2);
+  }]],
 });
 
 describe("board scenarios: data", () => {

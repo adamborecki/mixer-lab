@@ -29,6 +29,7 @@ const logFreq = (p, lo, hi) => lo * Math.pow(hi / lo, p);
 const PAGES = [
   ["overview", "OVERVIEW"],
   ["sel", "SELECTED CHANNEL"],
+  ["inpatch", "INPUT PATCH"],
   ["routing", "OUTPUT PATCH"],
   ["scenes", "SCENE"],
 ];
@@ -86,13 +87,49 @@ export function renderCL(view, def) {
   const access = row("cl-access", el("span", "cl-selname", selName));
   access.appendChild(layerBar(PAGES.map(([id, label]) => ({ id, label })), ui.page, (id) => ((ui.page = id), rerender()), "Screen"));
   screen.appendChild(access);
-  if (ui.page === "routing") screen.appendChild(routingPage(view, def, "OUTPUT PATCH: what each Rio stage-box output carries over Dante."));
+  if (ui.page === "inpatch") screen.appendChild(inputPatchPage(view, def));
+  else if (ui.page === "routing") screen.appendChild(routingPage(view, def, "OUTPUT PATCH: what each Rio stage-box output carries over Dante."));
   else if (ui.page === "scenes") screen.appendChild(scenesPage(view, def));
   else if (ui.page === "sel") screen.appendChild(selectedView(view, def, ui, rerender));
   else screen.appendChild(overview(view, def, ui, gLayer, rerender));
 
   surface.append(row("cl-top", selectedChannelSection(view, def, ui), screen), row("x32-desk cl-desk", inputs, centralogic, master));
   view.root.appendChild(surface);
+}
+
+// INPUT PATCH: each channel takes its Rio input (the stage) or its Dante RX
+// (Dante Controller decides what arrives there, e.g. a DAW for a virtual soundcheck).
+function inputPatchPage(view, def) {
+  const store = view.store;
+  const box = el("div", "cl-inpatch");
+  box.appendChild(el("p", "dg-note", "INPUT PATCH: RIO = the stage box input with its preamp; DANTE = Dante RX n, whatever Dante Controller subscribes to it."));
+  const all = (v) => {
+    const b = el("button", "x32-layer", v ? "ALL 1–32 → DANTE" : "ALL 1–32 → RIO");
+    b.type = "button";
+    b.addEventListener("click", () => {
+      for (let m = 0; m < def.dante.rx; m++) store.setDevice("mixer", `inPatch.${m}`, v);
+    });
+    return b;
+  };
+  box.appendChild(row("y96-row", all(0), all(1)));
+  const grid = el("div", "cl-inpatch-grid");
+  for (let m = 0; m < def.dante.rx; m++) {
+    const cell = el("div", "cl-inpatch-ch");
+    const name = el("span", "cl-inpatch-name");
+    view.bindings.push({ kind: "fn", run: () => (name.textContent = `CH ${m + 1}`) });
+    const pick = (v, label) =>
+      button(view, {
+        label,
+        tone: "assign",
+        get: (s) => (s.rig.devices.find((d) => d.id === "mixer").inPatch?.[m] ?? 0) === v,
+        onPress: () => store.setDevice("mixer", `inPatch.${m}`, v),
+        aria: (s) => `Channel ${m + 1} input: ${label}${(s.rig.devices.find((d) => d.id === "mixer").inPatch?.[m] ?? 0) === v ? " (selected)" : ""}`,
+      });
+    cell.append(name, pick(0, "RIO"), pick(1, "DANTE"));
+    grid.appendChild(cell);
+  }
+  box.appendChild(grid);
+  return box;
 }
 
 // ---------- SELECTED CHANNEL section (the knobs left of the screen) ----------

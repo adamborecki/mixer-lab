@@ -142,7 +142,7 @@ export class AudioEngine {
     if (this.mixer.pop) this.firePops(state, change);
     // Output ROUTING and scene recalls change which speakers hear which bus.
     // Dante: a DAW track's output or a Dante Controller subscription moves audio like a cable.
-    const dante = change.type === "device" && (change.key?.startsWith("outs") || change.key?.startsWith("danteRx"));
+    const dante = change.type === "device" && (change.key?.startsWith("outs") || change.key?.startsWith("danteRx") || change.key?.startsWith("inPatch"));
     if (change.type === "rig" || change.type === "replace" || change.type === "scene" || dante || (change.type === "bus" && change.bus === "routing")) this.rewire();
     this.applyAll();
   }
@@ -289,7 +289,11 @@ export class AudioEngine {
     // (phantom etc.) is applied as gain in applyAll, so 48 V needs no rewire.
     // Speakers and amps are handled below.
     for (const d of this.devices.values()) if (d.rt.link) d.rt.link(this.transport.outs);
+    const mixerPorts = DEVICE_TYPES[mixerOf(state.rig).type].ports;
     for (const c of [...state.rig.cables, ...danteLinks(state.rig)]) {
+      // A channel input hears only the jack the analysis says is in use (INPUT PATCH).
+      const port = c.to.startsWith("mixer/") && mixerPorts.find((p) => `mixer/${p.id}` === c.to);
+      if (port && port.role === "channel-input" && rigInfo.channels[port.channel]?.fromPort !== c.from) continue;
       const from = this.outNode(c.from);
       const to = this.inNode(c.to);
       if (from && to) link(from, to);

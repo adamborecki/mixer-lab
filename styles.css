@@ -4524,3 +4524,33 @@ dialog::backdrop {
 .dc-cell.on {
   background: #2f9e57;
 }
+.cl-inpatch {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.cl-inpatch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.25rem;
+  max-height: 340px;
+  overflow-y: auto;
+}
+.cl-inpatch-ch {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #142036;
+  border-radius: 4px;
+  padding: 0.15rem 0.3rem;
+}
+.cl-inpatch-name {
+  font-size: 0.7rem;
+  font-weight: 800;
+  width: 3.4em;
+}
+.cl-inpatch-ch .lit-btn {
+  min-height: 28px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.6rem;
+}

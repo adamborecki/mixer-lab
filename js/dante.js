@@ -5,14 +5,16 @@
 //   1. the DAW: each track's output (DVS channel 1–16, or none)   daw.outs[t]
 //   2. Dante Controller: each console receive channel subscribes
 //      to one DVS transmit channel (or none)                         mixer.danteRx[m]
-//   3. the console: channel m's input is Dante RX m (its "dante" jack)
+//   3. the console's INPUT PATCH: channel m takes Rio IN m or Dante RX m   mixer.inPatch[m] (0 = Rio, 1 = Dante)
 // No cables are involved: the network carries the audio. danteLinks() turns the
 // two settings into cable-like links (DAW track → channel's Dante input), so the
 // rig analysis and the audio engine treat them like any other patch.
 
 export const DANTE = {
   dvsChannels: 16, // Dante Virtual Soundcard: up to 64 in the real thing
-  levelDb: -10, // DAW playback arrives as line-level digital audio, well above a mic
+  // DAW playback arrives at the level it was recorded at (after the preamp):
+  // the stage box's GAIN isn't in its path.
+  levelDb: 0,
 };
 
 // The DAW session: one track per band stem, in the band's input-list order.

@@ -123,7 +123,7 @@ store.subscribe((state, change) => {
   if (change.type === "rig" || change.type === "replace" || change.type === "scene" || (change.type === "bus" && change.bus === "routing") || (change.type === "channel" && change.key === "phantom")) pending.patch = true;
   // Recorder settings show on its Outputs card (the mic pair and reverb update their own readouts);
   // a camera's MIC/LINE switch and the 442's OUTPUT LEVEL change what the camera cards say.
-  if (change.type === "device" && (["zoom-f8", "camera-input", "daw-dvs"].includes(state.rig.devices.find((d) => d.id === change.id)?.type) || change.key?.startsWith("danteRx") || change.key?.endsWith("Level"))) pending.patch = true;
+  if (change.type === "device" && (["zoom-f8", "camera-input", "daw-dvs"].includes(state.rig.devices.find((d) => d.id === change.id)?.type) || change.key?.startsWith("danteRx") || change.key?.startsWith("inPatch") || change.key?.endsWith("Level"))) pending.patch = true;
   if (change.type === "device" && change.id === "mixer") pending.patch = true;
 });
 
