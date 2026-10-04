@@ -2,6 +2,20 @@
 
 For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_BUILD_SPEC_V1_2.md`, the original authority) and the three docs it links. Where this file and the spec disagree, this file reflects decisions the course owner made after V1 (a second Aux bus, public stems, the full song, the planned scenario list).
 
+## Branches and current state (October 2026)
+
+- `main` is the live Canvas assignment (Mixer A and B, the ten scenarios). Don't merge into it without the course owner's say-so.
+- `feature/more-mixers` is the one feature branch. Everything since V1 is there, previewed at `/branch/feature-more-mixers/` ([BRANCH_PREVIEWS.md](BRANCH_PREVIEWS.md)). Push to see changes.
+- On that branch: 14 real mixers in the **Real mixers** menu, easiest first (`MIXER_ORDER` in `js/board-scenarios.js`): Mackie Mix8, Yamaha STAGEPAS 400BT, MG10/2, Mackie 1202-VLZ, Behringer Xenyx X1204USB, Mackie CR1604-VLZ, Soundcraft Ui16, Behringer X32 Compact, Yamaha 01V96i, Yamaha DM2000, Behringer X32, Yamaha CL3, Sound Devices 442, Zoom F8n Pro. About 220 practice scenarios ([SCENARIOS.md](SCENARIOS.md)); the Canvas submission still counts only the ten Mixer A/B ones.
+- Teaching choices that look like bugs but aren't:
+  - On every digital desk, EQ ON and COMP ON both start off. Every EQ or compressor move needs its ON button, and the graphs show it.
+  - Each scenario loops the 8-bar section of the song that suits it ([audio/README.md](../audio/README.md), `js/music.js`).
+  - Yamaha fader and mute groups (DM2000) are linked on the surface, with no masters.
+- Dante: a DAW laptop, Dante Controller and the CL3's INPUT PATCH ([DANTE.md](DANTE.md)).
+- Mixer docs: [COMPACT_MIXERS.md](COMPACT_MIXERS.md) (analog, 442, F8n), [CR1604.md](CR1604.md), [DIGITAL_MIXER.md](DIGITAL_MIXER.md) (Ui16, X32s, 01V96, DM2000, CL3, the EQ/compressor graphs).
+- QA on 2026-10-03: every mixer and scenario loads with no console errors; no horizontal overflow at 375 px on any tab; 895 tests pass. In the Claude desktop browser pane, Chrome can log "The AudioContext encountered an error from the audio device" on every mixer, old ones too. The context keeps running; it's the pane's audio device, not the lab.
+- Tests: run `npm test` (the explicit glob). `node --test tests/` has hung intermittently, and running two suites at once can stall.
+
 ## Ground rules
 
 - Static GitHub Pages site: vanilla HTML/CSS/ES modules. No framework, bundler, backend or dependencies. `package.json` exists only so Node treats `js/` as ES modules for tests.
@@ -146,6 +160,13 @@ One stereo input (9/10), no balance control on it, and its meter reads a mono fo
 3. **SVG equipment/connector icons** as a reusable, themeable library (`icon("passive-wedge")`), not per-scenario drawings: active PA speaker, active wedge, passive wedge, rack amp, laptop, mic, mixer, XLR M/F, 1/4" TRS/TS, 3.5 mm, RCA, SpeakON, IEC.
 4. **More physical-routing exercises** built on the semantic port model.
 5. Later: more aux buses and more skins.
+
+On `feature/more-mixers` (ideas, roughly in order):
+
+- Dante, part 2: record the console back into the DAW over Dante (the other half of a virtual soundcheck), more Dante devices (a Dante-to-analog box, a second console), and clock or sample-rate faults to find. See [DANTE.md](DANTE.md).
+- Recording on the Zoom F8n board itself (the outboard F8 already records WAV takes; the board doesn't), and SUB OUT routing.
+- More mixers on the same frameworks: a compact-mixer definition plus a skin (analog), or a surface view built on `mixer-x32-view.js` / `mixer-cl-view.js` helpers (digital).
+- UI work (planned in a separate session).
 
 ## Credits
 

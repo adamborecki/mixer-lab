@@ -39,6 +39,8 @@ Patching is tap-based: tap a port, pick a cable, pick the other end. Bad choices
 
 In the scenarios and Free play, Aux 1 feeds the lead singer's powered wedge and Aux 2 goes through the power amp to the drummer's passive wedge. The wedge scenarios ask the student to listen to the right wedge before fixing it. Free play can also play the whole song (3:58, with a seek slider) instead of the 8-bar loop.
 
+**Real mixers** (the second menu in the top bar, on `feature/more-mixers`) has 14 real boards, easiest first, each with its own practice scenarios and Free play gig. See [docs/HANDOFF.md](docs/HANDOFF.md).
+
 ## V1 scope
 
 - Seven band sources in FOH order (drums, bass, guitars, keys, trumpets, backing vocals, lead vocal) plus a spare eighth input and stereo input 9/10 (Free play: preshow music from a laptop, patched and muted at the start).
@@ -135,6 +137,11 @@ The app shows the same credits in its Credits dialog (from `CREDITS` in `audio/s
 | Doc | Covers |
 |---|---|
 | [docs/HANDOFF.md](docs/HANDOFF.md) | Start here if you are continuing development: architecture, sync invariant, conventions, next steps |
+| [docs/COMPACT_MIXERS.md](docs/COMPACT_MIXERS.md) | The real analog and field mixers (Mix8 … 442, Zoom F8n Pro) as data |
+| [docs/CR1604.md](docs/CR1604.md) | The Mackie CR1604-VLZ console, outboard gear, the Zoom F8 recorder |
+| [docs/DIGITAL_MIXER.md](docs/DIGITAL_MIXER.md) | The digital desks (Ui16, X32 Compact, X32, 01V96i, DM2000, CL3), EQ/COMP ON and the processing graphs |
+| [docs/DANTE.md](docs/DANTE.md) | Dante virtual soundcheck: DAW, Dante Controller, INPUT PATCH |
+| [docs/BRANCH_PREVIEWS.md](docs/BRANCH_PREVIEWS.md) | How feature branches are previewed under `/branch/` |
 | [docs/AUDIO_ENGINE.md](docs/AUDIO_ENGINE.md) | Signal graph, Main/Aux 1/Aux 2/PFL, mute convention, listening, metering, stem transport (loop, full song, sync fix), adding a bus |
 | [docs/MIXER_MODEL_SCHEMA.md](docs/MIXER_MODEL_SCHEMA.md) | Semantic state vs skins, ON/MUTE inversion, control mapping, adding a skin |
 | [docs/SCENARIOS.md](docs/SCENARIOS.md) | Scenario schema, conditions, tolerances, the ten-scenario sequence, authoring |
