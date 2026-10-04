@@ -347,14 +347,18 @@ export class AudioEngine {
     const ids = sourceIds.filter((id) => this.manifest.SOURCES_BY_ID[id] && this.manifest.SOURCES_BY_ID[id].stem);
     this.transport.prepare(ids);
     this.rewire();
-    if (await this.transport.load(mode, section)) await this.transport.play();
+    // The band starts by itself after Start Audio, and after a reload (another
+    // mixer, scenario or music choice) only if it was playing: Stop is remembered.
+    if ((await this.transport.load(mode, section)) && this.wantPlay !== false) await this.transport.play();
   }
 
   play() {
+    this.wantPlay = true;
     return this.transport && this.transport.play();
   }
 
   stop() {
+    this.wantPlay = false;
     if (this.transport) this.transport.stop();
   }
 
