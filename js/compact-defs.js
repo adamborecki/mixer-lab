@@ -661,6 +661,9 @@ export const COMPACT = {
     },
     busToMain: true, // a FIXED-type MIX can go to the STEREO bus: a group
     dante: { rx: 32 }, // Dante receive channels 1–32 (Dante Controller subscriptions: rig device `danteRx`)
+    // RIO IN 1–32 and RIO OUT 1–16 are on the Rio3224-D on stage, not on the console:
+    // it reaches the CL3 over the Dante network (drawn by the Stage & patch diagram).
+    rio: { name: "Yamaha Rio3224-D", sub: "stage box · Dante" },
     matrix: 8,
     scenes: 8,
     routing: {
@@ -719,7 +722,7 @@ export function compactPorts(def) {
     const base = { dir: "in", role: "channel-input", channel: i };
     const phantom = def.phantom.channels.includes(i);
     for (const j of ch.jacks) {
-      if (j === "mic") ports.push({ ...base, id: `ch${i + 1}-mic`, jack: "xlr", level: "mic", path: "mic", phantom, name: ch.portName || `Ch ${n} MIC` });
+      if (j === "mic") ports.push({ ...base, id: `ch${i + 1}-mic`, jack: "xlr", level: "mic", path: "mic", phantom, name: ch.portName || `Ch ${n} MIC`, ...(def.rio ? { panel: "rio" } : {}) });
       if (j === "line") ports.push({ ...base, id: `ch${i + 1}-line`, jack: "quarter", level: "line", path: "line", name: `Ch ${n} LINE` });
       if (j === "xlrMicLine") ports.push({ ...base, id: `ch${i + 1}-in`, jack: "xlr", level: "mic-or-line", path: "mic", phantom, name: `Ch ${n} input (XLR, MIC/LINE)` });
       // Dante RX n: the channel's network input (js/dante.js). No cable: Dante Controller patches it.
@@ -757,7 +760,7 @@ export function compactPorts(def) {
     for (const id of def.routing.outputs) ports.push(out(id, "quarter", def.routing.names?.[id] || id, { routed: true }));
   } else if (o.includes("routed")) {
     // 16 XLR outputs whose source is set on the ROUTING page (state.routing).
-    for (const id of def.routing.outputs) ports.push(out(id, "xlr", def.routing.names?.[id] || `XLR OUT ${id.slice(3)}`, { routed: true }));
+    for (const id of def.routing.outputs) ports.push(out(id, "xlr", def.routing.names?.[id] || `XLR OUT ${id.slice(3)}`, { routed: true, ...(def.rio ? { panel: "rio" } : {}) }));
   } else if (o.includes("omni")) {
     // STEREO OUT L/R (XLR) and OMNI OUT 1–4 (XLR), patched to AUX 1–4.
     ports.push(out("main-l", "xlr", "STEREO OUT L", { bus: "main", side: "L" }), out("main-r", "xlr", "STEREO OUT R", { bus: "main", side: "R" }));

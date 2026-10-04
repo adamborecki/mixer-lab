@@ -238,30 +238,28 @@ button {
   display: none;
 }
 
+/* Wide screens: the scenario brief on the left (folds to a rail), and one
+   view of the rig beside it: the console (front) or the stage and patch (back). */
 .lab {
-  max-width: 1600px;
+  max-width: 1760px;
   margin: 0 auto;
-  padding: 1rem clamp(0.75rem, 2vw, 1.5rem) 2rem;
+  padding: 0.75rem clamp(0.75rem, 2vw, 1.5rem) 2rem;
   display: grid;
-  gap: 1rem;
-  /* The scenario stays in view (sticky) while you patch and mix beside it. */
-  grid-template-columns: minmax(270px, 330px) minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-areas:
-    "scenario sources outputs"
-    "scenario mixer mixer";
+  gap: 0.9rem;
+  grid-template-columns: minmax(260px, 310px) minmax(0, 1fr);
   align-items: start;
 }
-.region-scenario {
-  grid-area: scenario;
+.lab[data-brief="closed"] {
+  grid-template-columns: 56px minmax(0, 1fr);
 }
-.region-sources {
-  grid-area: sources;
+.workspace {
+  min-width: 0;
+  display: grid;
+  gap: 0.75rem;
 }
-.region-outputs {
-  grid-area: outputs;
-}
-.region-mixer {
-  grid-area: mixer;
+.lab[data-view="console"] .region-patch,
+.lab[data-view="patch"] .region-mixer {
+  display: none;
 }
 
 .region {
@@ -271,18 +269,93 @@ button {
   padding: 1rem;
   min-width: 0;
 }
-.region-sources,
-.region-outputs {
-  max-height: min(48vh, 520px);
-  overflow-y: auto;
-  scrollbar-width: thin;
-}
 .region-scenario {
   position: sticky;
   top: 76px;
   max-height: calc(100vh - 76px - var(--listen-h) - 1.5rem);
   overflow-y: auto;
   scrollbar-width: thin;
+  padding: 0.75rem;
+}
+.lab[data-brief="closed"] .region-scenario {
+  padding: 0.4rem;
+  overflow: visible;
+}
+
+/* The view switch: two big tabs and a turn-around button. */
+.view-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.view-switch {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.view-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  padding: 0.35rem 1.1rem;
+  min-height: 44px;
+  justify-content: center;
+  cursor: pointer;
+  text-align: left;
+}
+.view-btn strong {
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+}
+.view-btn small {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+}
+.view-btn.active {
+  background: linear-gradient(135deg, #7ce0ff, #7c9bff);
+  color: var(--bg);
+}
+.view-btn.active small {
+  color: rgba(15, 18, 32, 0.75);
+}
+.turn-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  min-height: 44px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.turn-btn:hover {
+  border-color: var(--accent);
+}
+.turn-btn svg {
+  transition: transform 0.35s ease;
+}
+.turn-btn:hover svg {
+  transform: rotate(180deg);
+}
+kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75em;
+  padding: 0.05rem 0.35rem;
+  border-radius: 5px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .region-title {
@@ -307,26 +380,63 @@ button {
 .flow-step {
   display: inline-grid;
   place-items: center;
-  width: 1.5rem;
+  min-width: 1.5rem;
   height: 1.5rem;
-  border-radius: 50%;
+  padding: 0 0.35rem;
+  border-radius: 999px;
   background: var(--accent);
   color: var(--bg);
-  font-size: 0.8rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* Stage & patch: the diagram, then inputs and outputs side by side. */
+.patch-lists {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.patch-col {
+  min-width: 0;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 0.85rem;
+}
+.patch-col-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  margin: 0 0 0.75rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.patch-col-title small {
+  text-transform: none;
   letter-spacing: 0;
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 0.78rem;
 }
 
 @media (max-width: 1099px) {
   .lab {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-areas:
-      "scenario scenario"
-      "sources outputs"
-      "mixer mixer";
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lab[data-brief="closed"] {
+    grid-template-columns: minmax(0, 1fr);
   }
   .region-scenario {
     position: static;
     max-height: none;
+  }
+  .patch-lists {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -349,7 +459,7 @@ button {
   }
   .tabs {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     position: sticky;
     top: 57px;
     z-index: 15;
@@ -386,9 +496,13 @@ button {
     background: var(--ok);
     color: var(--bg);
   }
-  .lab {
+  .lab,
+  .lab[data-brief="closed"] {
     display: block;
     padding: 0.75rem 0.75rem 1.5rem;
+  }
+  .view-bar {
+    display: none;
   }
   .region {
     display: none;
@@ -396,11 +510,16 @@ button {
     overflow: visible !important;
     padding: 0.85rem;
   }
+  .lab[data-tab="scenario"] .workspace {
+    display: none;
+  }
   .lab[data-tab="scenario"] .region-scenario,
-  .lab[data-tab="sources"] .region-sources,
-  .lab[data-tab="mixer"] .region-mixer,
-  .lab[data-tab="outputs"] .region-outputs {
+  .lab[data-tab="console"] .region-mixer,
+  .lab[data-tab="patch"] .region-patch {
     display: block;
+  }
+  .patch-col {
+    padding: 0.65rem;
   }
 }
 
@@ -466,32 +585,137 @@ button {
 
 /* ---------- scenario panel ---------- */
 
-.scenario-picker {
+/* The brief: a picker (with previous / next), the scenario card, and notes.
+   Folded, it is a narrow rail with the number and progress. */
+.brief-rail {
+  display: none;
+}
+.lab[data-brief="closed"] .brief {
+  display: none;
+}
+.lab[data-brief="closed"] .brief-rail {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-bottom: 1rem;
-}
-.scenario-chip {
-  font-size: 0.85rem;
-  padding: 0.4rem 0.8rem;
-  display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 0.2rem;
+  border: none;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  border-radius: var(--radius-md);
 }
-.chip-num {
-  display: inline-grid;
+.brief-rail:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.rail-arrow {
+  color: var(--accent);
+  font-size: 1.2rem;
+}
+.rail-num {
+  display: grid;
   place-items: center;
-  width: 1.35rem;
-  height: 1.35rem;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  font-size: 0.75rem;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
   font-weight: 700;
+  font-size: 0.8rem;
 }
-.chip-done {
+.rail-progress {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.rail-progress.done {
   color: var(--ok);
   font-weight: 700;
+}
+.rail-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+.brief-head {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.scn-nav {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.scn-pick {
+  flex: 1;
+  min-width: 0;
+}
+.scn-select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--bg-sunken);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.scn-step,
+.brief-fold {
+  flex: none;
+  width: 36px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+.scn-step:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.scn-step:not(:disabled):hover,
+.brief-fold:hover {
+  border-color: var(--accent);
+}
+.brief-foot {
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.6rem;
+}
+.brief-foot .scenario-note {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  line-height: 1.45;
+  margin: 0 0 0.5rem;
+}
+.brief-links {
+  font-size: 0.85rem;
+  margin: 0;
+  color: var(--text-dim);
+}
+@media (max-width: 1099px) {
+  .brief-fold {
+    display: none;
+  }
+  .lab[data-brief="closed"] .brief {
+    display: block;
+  }
+  .lab[data-brief="closed"] .brief-rail {
+    display: none;
+  }
 }
 .kicker {
   font-family: var(--font-display);
@@ -4553,4 +4777,406 @@ dialog::backdrop {
   min-height: 28px;
   padding: 0.1rem 0.4rem;
   font-size: 0.6rem;
+}
+
+/* ---------- Stage & patch diagram (js/ui/stage-view.js) ---------- */
+
+.stage-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: var(--radius-md);
+  background: radial-gradient(ellipse at 50% 0%, #1a2036 0%, var(--bg-sunken) 70%);
+  border: 1px solid var(--line);
+  scrollbar-width: thin;
+}
+.stage-canvas {
+  min-width: min(100%, 980px);
+}
+.stage-svg {
+  display: block;
+  width: 100%;
+  min-width: 980px;
+  height: auto;
+  font-family: var(--font-body);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.col-band {
+  fill: rgba(255, 255, 255, 0.018);
+}
+.col-label {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  fill: var(--accent);
+}
+.col-sub {
+  font-size: 10px;
+  fill: var(--text-dim);
+}
+
+/* Boxes: gear on stage, panels with screws, rack units. */
+.sbox {
+  cursor: pointer;
+  outline: none;
+}
+.sbox .box-bg {
+  fill: url(#sg-metal);
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 1;
+}
+.sbox.kind-console .box-bg,
+.sbox.kind-stagebox .box-bg {
+  fill: url(#sg-panel);
+}
+.sbox .box-bar {
+  fill: rgba(255, 255, 255, 0.06);
+}
+.sbox:hover .box-bg,
+.sbox:focus-visible .box-bg {
+  stroke: var(--accent);
+}
+.sbox.selected .box-bg {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.sbox.tone-ok .box-bg {
+  stroke: color-mix(in srgb, var(--ok) 45%, transparent);
+}
+.sbox.tone-warn .box-bg {
+  stroke: color-mix(in srgb, var(--warn) 55%, transparent);
+}
+.sbox.tone-bad .box-bg {
+  stroke: var(--bad);
+  stroke-width: 2;
+}
+.box-title {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  fill: var(--text);
+  text-transform: uppercase;
+}
+.box-name {
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 700;
+  fill: var(--text);
+}
+.box-sub {
+  font-size: 10.5px;
+  fill: var(--text-dim);
+}
+.box-ico {
+  color: #c9d3f5;
+}
+.panel-section {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  fill: #8d95b8;
+}
+.screw {
+  fill: #3a4157;
+  stroke: #12151f;
+  stroke-width: 1;
+}
+.pill rect {
+  fill: rgba(255, 255, 255, 0.1);
+}
+.pill text {
+  font-size: 10px;
+  font-weight: 700;
+  fill: var(--text-dim);
+}
+.pill-ok rect {
+  fill: color-mix(in srgb, var(--ok) 18%, transparent);
+}
+.pill-ok text {
+  fill: var(--ok);
+}
+.pill-warn rect {
+  fill: color-mix(in srgb, var(--warn) 18%, transparent);
+}
+.pill-warn text {
+  fill: var(--warn);
+}
+.pill-bad rect {
+  fill: color-mix(in srgb, var(--bad) 25%, transparent);
+}
+.pill-bad text {
+  fill: var(--bad);
+}
+
+/* Jacks: the icon set's sockets, brighter when something is plugged in. */
+.sjack {
+  cursor: pointer;
+  outline: none;
+  color: #8f98ba;
+  touch-action: none;
+}
+.sjack .jack-hit {
+  fill: rgba(0, 0, 0, 0.35);
+  stroke: rgba(255, 255, 255, 0.06);
+}
+.sjack.is-on {
+  color: #e4e9ff;
+}
+.sjack:hover .jack-hit,
+.sjack:focus-visible .jack-hit,
+.sjack.lit .jack-hit {
+  stroke: var(--accent);
+  stroke-width: 2;
+  fill: rgba(124, 224, 255, 0.12);
+}
+.sjack.drop-ok .jack-hit {
+  stroke: var(--ok);
+  stroke-width: 3;
+  fill: rgba(107, 255, 176, 0.2);
+}
+.jack-head {
+  font-size: 9px;
+  font-weight: 700;
+  fill: var(--text);
+}
+.jack-word {
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  fill: #8d95b8;
+}
+.jack-ethercon {
+  fill: #11141d;
+  stroke: #7b84a8;
+  stroke-width: 1.4;
+}
+.jack-rj {
+  fill: #2c3346;
+}
+.netport {
+  cursor: default;
+}
+.netport[data-open-dante] {
+  cursor: pointer;
+}
+.netport[data-open-dante]:hover .jack-ethercon {
+  stroke: var(--accent);
+}
+
+/* Cables: a dark jacket and a coloured core; speaker cable is a heavy pair,
+   network cable is blue, multicore is thick. */
+.cable path {
+  fill: none;
+  stroke-linecap: round;
+}
+.cable .cable-hit {
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: stroke;
+}
+.cable .cable-shadow {
+  stroke: #05070d;
+  stroke-width: 6.5;
+  opacity: 0.55;
+}
+.cable .cable-core {
+  stroke: hsl(var(--hue) 70% 56%);
+  stroke-width: 3.6;
+}
+.cable-speaker .cable-shadow {
+  stroke-width: 10;
+}
+.cable-speaker .cable-core {
+  stroke-width: 7;
+}
+.cable-speaker .cable-pair {
+  stroke: rgba(0, 0, 0, 0.55);
+  stroke-width: 1.2;
+}
+.cable-network .cable-core {
+  stroke: #4f8dff;
+  stroke-width: 3;
+}
+.cable-network.fixed .cable-core {
+  stroke-dasharray: 1 0;
+  opacity: 0.85;
+}
+.cable-multicore .cable-shadow {
+  stroke-width: 14;
+}
+.cable-multicore .cable-core {
+  stroke: #3b3f4d;
+  stroke-width: 10;
+}
+.cable .cable-flow {
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 1.4;
+  stroke-dasharray: 2 16;
+  opacity: 0;
+}
+.stage-view-root.playing .cable.st-ok .cable-flow,
+#stage.playing .cable.st-ok .cable-flow {
+  opacity: 0.7;
+  animation: cable-flow 0.9s linear infinite;
+}
+@keyframes cable-flow {
+  to {
+    stroke-dashoffset: -18;
+  }
+}
+.cable.st-idle .cable-core {
+  opacity: 0.45;
+}
+.cable.st-warn .cable-core {
+  stroke-dasharray: 9 5;
+}
+.cable.st-bad .cable-core {
+  stroke: var(--bad);
+  stroke-dasharray: 6 4;
+}
+.cable.lit .cable-core {
+  stroke-width: 5;
+  filter: drop-shadow(0 0 4px hsl(var(--hue) 80% 60%));
+}
+.cable.lifted,
+.plugs.lifted {
+  opacity: 0.25;
+}
+.layer-plugs {
+  pointer-events: none;
+}
+.plug-body {
+  fill: #1a1d27;
+  stroke: #9aa3c4;
+  stroke-width: 1;
+}
+.plug-xlr .plug-body {
+  fill: #23262f;
+}
+.plug-quarter .plug-body,
+.plug-mini .plug-body {
+  fill: #2b2f3b;
+  stroke: #c9cfdf;
+}
+.plug-rca .plug-body {
+  fill: #2b2f3b;
+  stroke: #ff8c8c;
+}
+.plug-ethercon .plug-body {
+  fill: #172443;
+  stroke: #4f8dff;
+}
+.badge circle {
+  stroke: var(--bg-sunken);
+  stroke-width: 1.5;
+}
+.badge text {
+  font-size: 10px;
+  font-weight: 800;
+  fill: var(--bg);
+}
+.badge-warn circle {
+  fill: var(--warn);
+}
+.badge-bad circle {
+  fill: var(--bad);
+}
+.drag-cable {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 8 6;
+  pointer-events: none;
+}
+.dragging .sjack:not(.drop-ok) {
+  opacity: 0.85;
+}
+
+.stage-help {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  margin: 0.55rem 0.2rem 0;
+}
+.stage-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.lg {
+  display: inline-block;
+  width: 22px;
+  height: 0;
+  border-top: 3px solid #7ce0ff;
+  border-radius: 3px;
+  margin-left: 0.4rem;
+}
+.lg-speaker {
+  border-top-width: 6px;
+  border-top-color: #ffb36b;
+}
+.lg-network {
+  border-top-color: #4f8dff;
+}
+
+.stage-inspector {
+  margin-top: 0.8rem;
+  background: var(--bg-sunken);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+}
+.stage-inspector[hidden] {
+  display: none;
+}
+.insp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.insp-head h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+.insp-head .patch-x {
+  position: static;
+}
+.insp-body {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.insp-empty {
+  color: var(--text-dim);
+  margin: 0;
+}
+
+.patch-lists-wrap {
+  margin-top: 0.9rem;
+}
+.patch-lists-wrap > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.4rem 0.2rem;
+  color: var(--text);
+}
+.patch-lists-wrap > summary small {
+  color: var(--text-dim);
+  font-weight: 400;
+  margin-left: 0.4rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  #stage.playing .cable.st-ok .cable-flow {
+    animation: none;
+    opacity: 0;
+  }
 }

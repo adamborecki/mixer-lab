@@ -19,6 +19,7 @@ import { ScenarioView } from "./ui/scenario-view.js";
 import { SubmissionView } from "./ui/submission-view.js";
 import { RecorderView } from "./ui/recorder-view.js";
 import { DanteView } from "./ui/dante-view.js";
+import { StageView } from "./ui/stage-view.js";
 
 const M = { STEM_SET: manifest.STEM_SET, STEMS: manifest.STEMS, SOURCES_BY_ID: manifest.SOURCES_BY_ID, LOOP_ASSETS: manifest.LOOP_ASSETS };
 const $ = (sel) => document.querySelector(sel);
@@ -63,6 +64,9 @@ const patchView = new PatchView({
 const firstRecorderId = () => store.state.rig.devices.find((d) => d.type === "zoom-f8")?.id;
 const recorderView = new RecorderView({ store, getRuntime: (id) => engine.recorder(id), getMix: () => lastMix, toast });
 const danteView = new DanteView({ store, manifest: M });
+
+// The Stage & patch diagram (cables between jacks); its inspector reuses the patch panel's cards.
+const stageView = new StageView($("#stage"), { store, manifest: M, patchView, getSkin: () => skin, onOpenDante: (tab) => danteView.open(tab) });
 
 const mixerView = new MixerView($("#mixer"), {
   store,
@@ -132,7 +136,10 @@ function refresh() {
   const mix = computeMix(state, M.SOURCES_BY_ID, M.STEMS);
   lastMix = mix;
   mixerView.sync(mix);
-  if (pending.patch) patchView.render(mix);
+  if (pending.patch) {
+    patchView.render(mix);
+    stageView.render(mix);
+  }
   listenBar.update(mix, { playing: engine.playing, ready, loadingText, buffering });
   if (recorderView.isOpen) recorderView.sync();
   if (danteView.isOpen) danteView.sync();
@@ -268,23 +275,67 @@ document.querySelector(".skin-select").addEventListener("change", (e) => {
   if (e.target.value) setSkin(e.target.value);
 });
 
-// ---------- mobile tabs ----------
+// ---------- views: the console (front) or the stage and patch (back) ----------
 
+// Wide screens: the scenario brief sits beside one of the two views. Phones:
+// one of Scenario / Console / Stage & patch at a time (the tabs).
 const main = $("#main");
+function setView(view, { focus = false } = {}) {
+  main.dataset.view = view;
+  writePref("mixer-lab-view", view);
+  for (const b of document.querySelectorAll("[data-view-btn]")) {
+    const on = b.dataset.viewBtn === view;
+    b.setAttribute("aria-selected", String(on));
+    b.classList.toggle("active", on);
+  }
+  if (main.dataset.tab !== "scenario") setTab(view);
+  if (focus) document.querySelector(`[data-view-btn="${view}"]`).focus();
+}
 function setTab(tab) {
   main.dataset.tab = tab;
+  if (tab !== "scenario" && main.dataset.view !== tab) setView(tab);
   for (const b of document.querySelectorAll("[data-tab-btn]")) {
     const on = b.dataset.tabBtn === tab;
     b.setAttribute("aria-selected", String(on));
     b.classList.toggle("active", on);
   }
 }
+const turnAround = () => setView(main.dataset.view === "console" ? "patch" : "console");
 document.querySelector(".tabs").addEventListener("click", (e) => {
   const b = e.target.closest("[data-tab-btn]");
   if (b) {
     setTab(b.dataset.tabBtn);
     window.scrollTo({ top: 0 });
   }
+});
+document.querySelector(".view-switch").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-view-btn]");
+  if (b) setView(b.dataset.viewBtn);
+});
+document.querySelector("[data-turn]").addEventListener("click", turnAround);
+// T turns the rig around (Tab itself stays keyboard navigation). Arrow keys
+// move between the two view tabs, as in any tab list.
+document.addEventListener("keydown", (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+  const t = e.target;
+  if (t.closest?.("input, select, textarea, [contenteditable], dialog")) return;
+  if (e.key === "t" || e.key === "T") {
+    e.preventDefault();
+    turnAround();
+  } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && t.closest?.(".view-switch")) {
+    e.preventDefault();
+    setView(main.dataset.view === "console" ? "patch" : "console", { focus: true });
+  }
+});
+
+// The brief folds to a narrow rail so the console gets the whole width.
+function setBrief(open) {
+  main.dataset.brief = open ? "open" : "closed";
+  writePref("mixer-lab-brief", open ? "open" : "closed");
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-brief-toggle]");
+  if (b) setBrief(main.dataset.brief !== "open");
 });
 
 // ---------- start ----------
@@ -311,6 +362,7 @@ function frame(now) {
     const r = engine.readMeters();
     mixerView.updateMeters(r, now);
     listenBar.updateMeter(r.listen, now);
+    stageView.setPlaying(engine.playing);
     recorderView.updateMeters(r, now);
     if (now - lastPos > 250) {
       lastPos = now;
@@ -425,6 +477,8 @@ showPreviewBanner();
 
 current.def = SCENARIOS_BY_ID[location.hash.replace(/^#\/?/, "")] || SCENARIOS_BY_ID["free-play"];
 setSkin(skin.id, { boot: true });
+setBrief(readPref("mixer-lab-brief") !== "closed");
+setView(readPref("mixer-lab-view") === "patch" ? "patch" : "console");
 setTab("scenario");
 requestAnimationFrame(frame);
 

@@ -54,31 +54,55 @@
 
   <nav class="tabs" role="tablist" aria-label="Lab sections">
     <button type="button" role="tab" data-tab-btn="scenario" aria-controls="region-scenario">Scenario</button>
-    <button type="button" role="tab" data-tab-btn="sources" aria-controls="region-sources">Sources</button>
-    <button type="button" role="tab" data-tab-btn="mixer" aria-controls="region-mixer">Mixer</button>
-    <button type="button" role="tab" data-tab-btn="outputs" aria-controls="region-outputs">Outputs</button>
+    <button type="button" role="tab" data-tab-btn="console" aria-controls="region-mixer">Console</button>
+    <button type="button" role="tab" data-tab-btn="patch" aria-controls="region-patch">Stage &amp; patch</button>
   </nav>
 
-  <main id="main" class="lab" data-tab="scenario">
-    <section id="region-scenario" class="region region-scenario" aria-label="Scenario">
+  <main id="main" class="lab" data-tab="scenario" data-view="console" data-brief="open">
+    <aside id="region-scenario" class="region region-scenario" aria-label="Scenario">
       <div id="scenario"></div>
-    </section>
+    </aside>
 
-    <section id="region-sources" class="region region-sources" aria-labelledby="sources-title">
-      <h2 class="region-title" id="sources-title"><span class="flow-step">1</span> Sources <small>on stage</small></h2>
-      <div id="sources"></div>
-    </section>
+    <div class="workspace">
+      <div class="view-bar">
+        <div class="view-switch" role="tablist" aria-label="Which side of the rig">
+          <button type="button" role="tab" class="view-btn" data-view-btn="console" aria-controls="region-mixer">
+            <strong>Console</strong><small>the front: faders &amp; knobs</small>
+          </button>
+          <button type="button" role="tab" class="view-btn" data-view-btn="patch" aria-controls="region-patch">
+            <strong>Stage &amp; patch</strong><small>the back: inputs, cables, outputs</small>
+          </button>
+        </div>
+        <button type="button" class="turn-btn" data-turn aria-label="Turn around (shortcut: T)" title="Turn around (T)">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/></svg>
+          <span>Turn around <kbd>T</kbd></span>
+        </button>
+      </div>
 
-    <section id="region-outputs" class="region region-outputs" aria-labelledby="outputs-title">
-      <h2 class="region-title" id="outputs-title"><span class="flow-step">3</span> Outputs <small>amps &amp; speakers</small></h2>
-      <div id="outputs"></div>
-    </section>
+      <section id="region-mixer" class="region region-mixer" aria-labelledby="mixer-title">
+        <h2 class="region-title" id="mixer-title">Console <small class="mixer-hint">Tap a channel's name to patch its input.</small></h2>
+        <div id="flow"></div>
+        <div id="mixer"></div>
+      </section>
 
-    <section id="region-mixer" class="region region-mixer" aria-labelledby="mixer-title">
-      <h2 class="region-title" id="mixer-title"><span class="flow-step">2</span> Mixer <small class="mixer-hint">Tap a channel's name to patch its input.</small></h2>
-      <div id="flow"></div>
-      <div id="mixer"></div>
-    </section>
+      <section id="region-patch" class="region region-patch" aria-labelledby="patch-title-main">
+        <h2 class="region-title" id="patch-title-main">Stage &amp; patch <small>Signal flows left to right: sources → console → amps and speakers.</small></h2>
+        <div id="stage"></div>
+        <details class="patch-lists-wrap">
+          <summary>Everything as a list <small>every input and output, with what it's plugged into</small></summary>
+        <div class="patch-lists">
+          <section class="patch-col" aria-labelledby="sources-title">
+            <h3 class="patch-col-title" id="sources-title"><span class="flow-step">IN</span> Inputs <small>sources on stage</small></h3>
+            <div id="sources"></div>
+          </section>
+          <section class="patch-col" aria-labelledby="outputs-title">
+            <h3 class="patch-col-title" id="outputs-title"><span class="flow-step">OUT</span> Outputs <small>amps, speakers, recorders</small></h3>
+            <div id="outputs"></div>
+          </section>
+        </div>
+        </details>
+      </section>
+    </div>
   </main>
 
   <footer id="listen-bar" class="listen-bar" aria-label="Listening"></footer>

@@ -26,7 +26,7 @@ import { CONNECTOR_GUIDE, deviceIconName, icon, jackIconName, levelIconName, plu
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 const CABLE_HUES = [195, 145, 45, 330, 265, 20, 170, 290];
-const cableHue = (id) => CABLE_HUES[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % CABLE_HUES.length];
+export const cableHue = (id) => CABLE_HUES[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % CABLE_HUES.length];
 
 const LEVEL_SHORT = { mic: "Mic level", instrument: "Instrument level", line: "Line level", speaker: "Speaker level", "mic-or-line": "Mic (XLR) or line (¼″)" };
 
@@ -50,7 +50,14 @@ export class PatchView {
     this.toast = toast;
     this.getTerms = getTerms;
     this.dialog = new PatchDialog(this);
-    for (const root of [sourcesRoot, outputsRoot]) {
+    // Each device's card, by device id ("mixer" = its outputs), for the stage diagram's inspector.
+    this.cards = new Map();
+    for (const root of [sourcesRoot, outputsRoot]) this.bindRoot(root);
+  }
+
+  // Ports, device settings and the recorder / Dante buttons work in any panel that shows these cards.
+  bindRoot(root) {
+    {
       root.addEventListener("click", (e) => {
         const btn = e.target.closest("[data-port]");
         if (btn) this.dialog.open(btn.dataset.port);
@@ -72,6 +79,11 @@ export class PatchView {
 
   openPort(ref) {
     this.dialog.open(ref);
+  }
+
+  // Patch two jacks directly (dragged from one to the other): only the cables that fit both ends.
+  openBetween(fromRef, toRef) {
+    this.dialog.openBetween(fromRef, toRef);
   }
 
   cableChip(ref, dir) {
@@ -129,7 +141,7 @@ export class PatchView {
           : model !== "generic" && src.stereo
             ? "A laptop's 3.5 mm headphone jack is a stereo line output: a stereo line channel or the tape input takes it, with a breakout, RCA (Y) or 3.5 mm cable to suit the jacks."
             : src.note;
-      return `<li class="source-card status-${status}">
+      return this.card(d.id, `<li class="source-card status-${status}">
         <div class="source-top">
           <span class="source-order" aria-label="Input list number">${esc(listNo)}</span>
           <span class="dev-ico">${icon(deviceIconName(d), { size: 40 })}</span>
@@ -140,7 +152,7 @@ export class PatchView {
         ${this.portButton(ref, "out")}
         ${msgs.map((m) => `<p class="port-msg">${esc(m)}</p>`).join("")}
         ${note ? `<p class="source-note">${esc(note)}</p>` : ""}
-      </li>`;
+      </li>`);
     });
     const empty = mix.channels.filter((c) => !c.input.connected).map((c) => state.channels[c.index].label);
     this.sourcesRoot.innerHTML = `
@@ -161,7 +173,7 @@ export class PatchView {
     });
     const n = lands.filter((l) => l.includes("→ CH")).length;
     const status = n === lands.length ? "ok" : n ? "warn" : "idle";
-    return `<li class="source-card status-${status}" data-device-card="${esc(d.id)}">
+    return this.card(d.id, `<li class="source-card status-${status}" data-device-card="${esc(d.id)}">
       <div class="source-top">
         <span class="source-order">DVS</span>
         <span class="dev-ico">${icon("laptop", { size: 40 })}</span>
@@ -173,7 +185,7 @@ export class PatchView {
         <button type="button" class="btn btn-start" data-open-dante="daw">Open the DAW</button>
         <button type="button" class="btn btn-start" data-open-dante="controller">Open Dante Controller</button>
       </div>
-    </li>`;
+    </li>`);
   }
 
   // The stereo room pair: two condenser outs, spacing and angle, and which
@@ -182,7 +194,7 @@ export class PatchView {
     const inputs = [...mix.channels.map((c) => c.input), ...Object.values(mix.rig.recorders || {}).flat()].filter((i) => i && i.sourceDeviceId === d.id);
     const bad = inputs.find((i) => i.status !== "ok");
     const status = !inputs.length ? "idle" : bad ? "warn" : "ok";
-    return `<li class="source-card status-${status}" data-device-card="${esc(d.id)}">
+    return this.card(d.id, `<li class="source-card status-${status}" data-device-card="${esc(d.id)}">
       <div class="source-top">
         <span class="source-order">ST</span>
         <span class="dev-ico">${icon(deviceIconName({ type: "condenser-mic" }), { size: 40 })}</span>
@@ -199,7 +211,12 @@ export class PatchView {
           <input type="range" min="0" max="${PAIR.angleMax}" step="1" value="${d.angleDeg}" data-device="${esc(d.id)}" data-device-key="angleDeg" /></label>
         <p class="dev-technique" data-readout="technique">${techniqueText(d)}</p>
       </div>
-    </li>`;
+    </li>`);
+  }
+
+  card(id, html) {
+    this.cards.set(id, html);
+    return html;
   }
 
   updateDeviceReadouts(root) {
@@ -254,12 +271,12 @@ export class PatchView {
     const reverbs = rig.devices.filter((d) => d.type === "reverb");
     const reverbHtml = reverbs
       .map(
-        (d) => `<li class="device-card" data-device-card="${esc(d.id)}">
+        (d) => this.card(d.id, `<li class="device-card" data-device-card="${esc(d.id)}">
         <div class="device-top"><span class="dev-ico">${icon("role-source", { size: 40 })}</span><div class="source-names"><strong>${esc(d.label)}</strong><span>Fed from an aux send, back into an aux return</span></div></div>
         ${listPorts(rig, d).map((p) => this.portButton(p.ref, p.dir)).join("")}
         <div class="dev-settings"><label>DECAY <output data-readout="decay">${d.decay.toFixed(1)} s</output>
           <input type="range" min="${REVERB.decayMin}" max="${REVERB.decayMax}" step="0.1" value="${d.decay}" data-device="${esc(d.id)}" data-device-key="decay" /></label></div>
-      </li>`,
+      </li>`),
       )
       .join("");
 
@@ -270,18 +287,18 @@ export class PatchView {
         const card = cardStats(d, rt ? rt.usedBytes : 0);
         const armed = d.tracks.map((t, i) => (t.arm ? i + 1 : 0)).filter(Boolean);
         const state = rt && rt.recording ? "● Recording" : rt && rt.playing ? "▶ Playing" : "Stopped";
-        return `<li class="device-card">
+        return this.card(d.id, `<li class="device-card">
           <div class="device-top"><span class="dev-ico">${icon("role-destination", { size: 40 })}</span><div class="source-names"><strong>${esc(d.label)}</strong><span>${state} · armed: ${armed.length ? armed.join(", ") : "none"} · ${F8.cardGB} GB card${Number.isFinite(card.secondsLeft) ? `, ${formatHours(card.secondsLeft)} left` : ""}</span></div></div>
           <div class="rec-jacks">${listPorts(rig, d).map((p) => this.portButton(p.ref, p.dir)).join("")}</div>
           <button type="button" class="btn btn-start" data-open-recorder="${esc(d.id)}">Open the recorder</button>
-        </li>`;
+        </li>`);
       })
       .join("");
 
     const amps = rig.devices.filter((d) => d.type === "power-amp");
     const ampHtml = amps
       .map(
-        (d) => `<li class="device-card">
+        (d) => this.card(d.id, `<li class="device-card">
         <div class="device-top"><span class="dev-ico">${icon(deviceIconName(d), { size: 48 })}</span><div class="source-names"><strong>${esc(d.label)}</strong><span class="amp-where">Line level in → speaker level out</span></div></div>
         <div class="amp-sides">
           <div class="amp-side amp-in"><p class="amp-side-title">${icon("level-line", { size: 26 })}<span>Line level IN <small>from the mixer</small></span></p>${listPorts(rig, d)
@@ -293,7 +310,7 @@ export class PatchView {
             .map((p) => this.portButton(p.ref, p.dir))
             .join("")}</div>
         </div>
-      </li>`,
+      </li>`),
       )
       .join("");
 
@@ -310,7 +327,7 @@ export class PatchView {
           ? `<div class="dev-settings"><label>INPUT <output data-readout="inputLevel">${d.inputLevel === 1 ? "LINE" : "MIC"}</output>
               <input type="range" min="0" max="1" step="1" value="${d.inputLevel ?? 0}" data-device="${esc(d.id)}" data-device-key="inputLevel" aria-label="${esc(d.label)} MIC/LINE switch" /></label></div>`
           : "";
-        return `<li class="device-card status-${status}" data-device-card="${esc(d.id)}">
+        return this.card(d.id, `<li class="device-card status-${status}" data-device-card="${esc(d.id)}">
           <div class="device-top">
             <span class="dev-ico">${icon(deviceIconName(d), { size: 44 })}</span>
             <div class="source-names"><strong>${esc(d.label)}</strong><span>${amp}${zoneName[d.zone] ? ` · ${zoneName[d.zone]}` : ""}</span></div>
@@ -321,10 +338,11 @@ export class PatchView {
             .join("")}
           ${settings}
           ${ep.messages.map((m) => `<p class="port-msg">${esc(m)}</p>`).join("")}
-        </li>`;
+        </li>`);
       })
       .join("");
 
+    this.cards.set(mixer.id, outList);
     this.outputsRoot.innerHTML = `
       <h3 class="group-title">${icon("role-source", { size: 22 })}Mixer outputs <small>line level</small></h3>
       ${outList}
@@ -355,6 +373,10 @@ class PatchDialog {
       else if (a === "cable") this.chooseCable(act.dataset.cable);
       else if (a === "back") this.showCables();
       else if (a === "target") this.connect(act.dataset.ref);
+      else if (a === "pair-cable") {
+        this.cable = act.dataset.cable;
+        this.connect(this.pair);
+      }
     });
   }
 
@@ -369,6 +391,41 @@ class PatchDialog {
     if (existing) this.showExisting(existing);
     else this.showCables();
     if (!this.el.open) this.el.showModal();
+  }
+
+  // Dragged from one jack to another: pick a cable that fits both (or just plug it in if only one does).
+  openBetween(aRef, bRef) {
+    const a = getPort(this.rig, aRef);
+    const b = getPort(this.rig, bRef);
+    if (!a || !b) return;
+    if (a.dir === b.dir) return this.view.toast(`Both are ${a.dir === "out" ? "outputs" : "inputs"}. A cable runs from an output to an input.`, "bad");
+    const [from, to] = a.dir === "out" ? [aRef, bRef] : [bRef, aRef];
+    const fits = Object.values(CABLES).filter((c) => checkConnection(this.rig, from, to, c.id).ok);
+    if (!fits.length) {
+      const why = Object.values(CABLES).map((c) => checkConnection(this.rig, from, to, c.id)).find((r) => !/doesn't fit/.test(r.reason || ""));
+      return this.view.toast(why ? why.reason : `No cable in the lab fits both the ${JACKS[getPort(this.rig, from).jack].name} and the ${JACKS[getPort(this.rig, to).jack].name} jack.`, "bad");
+    }
+    this.ref = aRef;
+    if (fits.length === 1) {
+      this.cable = fits[0].id;
+      return this.connect(bRef);
+    }
+    this.cable = null;
+    this.pair = bRef;
+    const card = (c) => {
+      const ends = cableEndFor(c.id, a.jack);
+      return `<button type="button" class="cable-card" data-act="pair-cable" data-cable="${c.id}">
+        <span class="cable-art">${icon(plugIconName(ends.near, a.dir), { size: 34 })}${icon(c.kind === "speaker" ? "cable-speaker" : "cable-signal", { size: 30 })}${icon(plugIconName(ends.far, b.dir), { size: 34 })}</span>
+        <strong>${esc(c.name)}</strong>${c.kind === "speaker" ? '<span class="cable-kind">Speaker cable: speaker level only</span>' : ""}<span class="cable-plugs">${esc(PLUGS[ends.near].name)} ⟷ ${esc(PLUGS[ends.far].name)}</span><span class="cable-blurb">${esc(c.blurb)}</span>
+      </button>`;
+    };
+    this.el.innerHTML = `<div class="patch-inner">
+      ${this.header("Pick a cable")}
+      <p class="patch-sub">To <strong>${esc(portLabel(this.rig, bRef))}</strong>. ${fits.length} cables fit both ends; they don't all do the same job.</p>
+      <div class="cable-grid">${fits.map(card).join("")}</div>
+    </div>`;
+    if (!this.el.open) this.el.showModal();
+    this.el.querySelector(".cable-card").focus();
   }
 
   header(step) {

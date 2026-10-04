@@ -275,7 +275,8 @@ export const DEVICE_TYPES = {
 };
 
 // The compact mixers' rear panels come from their definitions.
-for (const def of Object.values(COMPACT)) DEVICE_TYPES[def.id] = { name: def.name, mixer: true, compact: true, ports: compactPorts(def) };
+// `panels`: jacks that physically live in another box (the CL3's Rio stage box); ports name theirs with `panel`.
+for (const def of Object.values(COMPACT)) DEVICE_TYPES[def.id] = { name: def.name, mixer: true, compact: true, ports: compactPorts(def), ...(def.rio ? { panels: { rio: def.rio } } : {}) };
 
 // ---------- rig helpers ----------
 
