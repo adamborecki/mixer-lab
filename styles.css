@@ -5180,3 +5180,27 @@ dialog::backdrop {
     opacity: 0;
   }
 }
+
+.stage-gear {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+.stage-gear[hidden] {
+  display: none;
+}
+.stage-gear .chip {
+  font-size: 0.85rem;
+  min-height: 36px;
+  padding: 0.3rem 0.8rem;
+}
+.stage-gear-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.stage-gear-note {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}

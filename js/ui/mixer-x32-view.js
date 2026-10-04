@@ -92,7 +92,7 @@ export function renderX32(view, def) {
   // ---------- main display ----------
   const display = el("section", "x32-display");
   display.setAttribute("aria-label", "Main display");
-  const pages = [["home", "HOME"], ...(def.routing ? [["routing", "ROUTING"]] : []), ...(def.scenes ? [["scenes", "SCENES"]] : [])];
+  const pages = [["home", "HOME"], ...(def.routing || def.aes50 ? [["routing", "ROUTING"]] : []), ...(def.scenes ? [["scenes", "SCENES"]] : [])];
   if (pages.length > 1)
     display.appendChild(
       layerBar(
@@ -105,7 +105,10 @@ export function renderX32(view, def) {
         "Display page",
       ),
     );
-  if (ui.page === "routing" && def.routing) display.appendChild(routingPage(view, def));
+  if (ui.page === "routing" && (def.routing || def.aes50)) {
+    if (def.aes50) display.appendChild(inputRoutingPage(view, def));
+    if (def.routing) display.appendChild(routingPage(view, def));
+  }
   else if (ui.page === "scenes" && def.scenes) display.appendChild(scenesPage(view, def));
   else {
     // A selected channel's DYN and EQ, as the X32's HOME screen draws them.
@@ -461,6 +464,35 @@ export function matrixPanel(view, def, m) {
 // ---------- display pages ----------
 
 const SOURCE_NAMES = (src, T) => (src === "off" ? "OFF" : src === "main-l" ? T.mainL : src === "main-r" ? T.mainR : src === "mc" ? "M/C" : src.startsWith("mtx") ? `MATRIX ${src.slice(3)}` : `MIX ${src.slice(3)}`);
+
+// ROUTING › inputs: each block of 8 channels listens to the rear panel's LOCAL
+// jacks or to AES50-A (a stage box on the AES50 A port). Rig device `inSource`.
+export function inputRoutingPage(view, def) {
+  const store = view.store;
+  const box = el("div", "x32-routing x32-inrouting");
+  box.appendChild(el("p", "dg-note", "Inputs: each block of 8 channels takes the LOCAL jacks on the rear panel, or AES50-A: a stage box (S32, SD8) on the AES50 A port."));
+  const mono = def.channels.filter((c) => c.jacks.includes("mic")).length;
+  for (let b = 0; b * 8 < mono; b++) {
+    const range = `${b * 8 + 1}-${Math.min(mono, b * 8 + 8)}`;
+    const lab = el("label", "x32-route");
+    lab.append(el("span", "", `CH ${range}`));
+    const sel = el("select");
+    sel.setAttribute("aria-label", `Channels ${range} input source`);
+    for (const [v, text] of [[0, `LOCAL ${range}`], [1, `AES50-A ${range}`]]) {
+      const opt = el("option", "", text);
+      opt.value = String(v);
+      sel.appendChild(opt);
+    }
+    sel.addEventListener("change", () => store.setDevice("mixer", `inSource.${b}`, Number(sel.value)));
+    view.bindings.push({ kind: "fn", run: (s) => {
+      const v = String(s.rig.devices.find((d) => d.id === "mixer").inSource?.[b] ?? 0);
+      if (sel.value !== v) sel.value = v;
+    } });
+    lab.appendChild(sel);
+    box.appendChild(lab);
+  }
+  return box;
+}
 
 export function routingPage(view, def, note = "Analog out: what each rear-panel XLR OUT carries.") {
   const store = view.store;

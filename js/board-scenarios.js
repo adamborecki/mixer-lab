@@ -3291,24 +3291,154 @@ Y96.push(
   }),
 );
 
+
+// ---------- stage boxes: a snake, an S32, an SD8 (Stage & patch) ----------
+
+const mixerDev = (ctx) => ctx.state.rig.devices.find((d) => d.id === "mixer");
+const bandInHouse = (ctx) => DAW_TRACKS.every((s) => house(ctx, s) >= AUDIBLE);
+const linked = (ctx, id) => ctx.state.rig.cables.some((c) => c.from === `${id}/aes50a` && c.to === "mixer/aes50a");
+const STAGE_BOX_HINT = "Turn around to Stage & patch (T): the band plugs into the stage box, and one cable runs to the console.";
+
+const BOXES = {
+  x32: [
+    {
+      id: "x32-stagebox",
+      short: "Stage box (S32)",
+      title: "The band is on the stage box",
+      who: "Venue tech",
+      prompt: "“We moved the band onto an S32 stage box: one Cat5 cable to FOH instead of a heavy snake. Everything's plugged in on stage and the AES50 link is up, but the console hears nothing from the band.”",
+      goal: "Channels 1–8 listen to AES50-A (the S32), and the whole band is back in the house.",
+      setup: { tweak: (st, h) => h.stagebox("s32", { routed: false }) },
+      conditions: [
+        goal("routing", "ROUTING: inputs 1–8 come from AES50-A", (ctx) => mixerDev(ctx).inSource?.[0] === 1),
+        goal("band", "All seven band channels are in the house", bandInHouse),
+        keep("room", "The room pair (local inputs 17 and 18) stays on", (ctx) => house(ctx, "room-l") >= AUDIBLE),
+      ],
+      hints: [STAGE_BOX_HINT + " The cables are all fine.", "The console still listens to its own rear-panel jacks (LOCAL). Which page chooses where inputs come from?", "Main display → ROUTING: set CH 1-8 to AES50-A 1-8. Leave 17–24 on LOCAL: the room pair is plugged in at FOH."],
+      complete: "A digital stage box puts the preamps on stage and replaces 32 mic lines with one network cable. The console still has to be told to listen to it: input routing, per block of 8.",
+    },
+    {
+      id: "x32-stagebox-link",
+      short: "No AES50 link",
+      title: "No link light",
+      who: "Stage hand",
+      prompt: "“The S32 is on stage, the band's plugged in and the console is routed to AES50-A. Still nothing, and the wedges are dead too.”",
+      goal: "The S32 linked to the X32 with a Cat5 cable: the band in the house and the singer's wedge working.",
+      setup: { tweak: (st, h) => h.stagebox("s32", { linked: false }) },
+      conditions: [
+        goal("link", "A Cat5 cable joins the S32's AES50 A and the X32's AES50 A", (ctx) => linked(ctx, "sb")),
+        goal("band", "All seven band channels are in the house", bandInHouse),
+        { id: "wedge", kind: "goal", type: "validChain", output: "mix1", device: "wedge", label: "The singer's wedge is fed by MIX 1 again" },
+      ],
+      hints: ["Inputs and the wedges are both dead: what do they have in common?", STAGE_BOX_HINT + " Is that cable there?", "Drag from the S32's AES50 A jack to the X32's AES50 A jack (or tap one): a Cat5e etherCON cable."],
+      complete: "One cable carries every channel both ways: no link, no inputs and no stage outputs. When everything on a stage box dies at once, check the network cable first.",
+    },
+    {
+      id: "x32-stagebox-out",
+      short: "Drummer on S32 OUT 3",
+      title: "The drummer's amp on the wrong output",
+      who: "Drummer",
+      prompt: "“During the changeover somebody re-plugged my amp into the stage box. My wedge is silent.”",
+      goal: "The drummer's wedge fed MIX 2 again, the house mix unchanged.",
+      setup: {
+        tweak: (st, h) => {
+          h.stagebox("s32");
+          st.rig.cables.find((c) => c.to === "amp/in-a").from = "sb/out3";
+        },
+      },
+      baseline: { main: { metric: "mainDbByChannel" } },
+      conditions: [
+        { id: "chain", kind: "goal", type: "validChain", output: "mix2", device: "pwedge", label: "The drummer's wedge is fed by MIX 2" },
+        { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+      ],
+      hints: ["S32 OUT n carries whatever the console's XLR OUT n carries.", "The amp is in S32 OUT 3. ROUTING says what OUT 3 carries: MIX 3, an empty mix. The drummer's mix is MIX 2.", "Move the amp's cable to S32 OUT 2, or set ROUTING OUT 3 to MIX 2."],
+      complete: "A stage box's outputs are the console's outputs, moved to the stage: the wedges plug in next to the performers, and the routing still decides what each one carries.",
+    },
+  ],
+  x32c: [
+    {
+      id: "x32c-stagebox",
+      short: "Stage box (SD8)",
+      title: "The band is on an SD8",
+      who: "Venue tech",
+      prompt: "“To save running eight mic cables to FOH we put an SD8 on stage. The band's plugged into it, the Cat5 is in, the singer's wedge is on SD8 OUT 1. The console hears nothing and the singer hears nothing.”",
+      goal: "Channels 1–8 listen to AES50-A (the SD8): the band in the house, and the singer's wedge working.",
+      setup: { tweak: (st, h) => h.stagebox("sd8", { routed: false }) },
+      conditions: [
+        goal("routing", "ROUTING: inputs 1–8 come from AES50-A", (ctx) => mixerDev(ctx).inSource?.[0] === 1),
+        goal("band", "All seven band channels are in the house", bandInHouse),
+        goal("wedge", "The singer hears the vocal in the wedge", (ctx) => wedge(ctx, "mix1", "lead-vocal") >= AUDIBLE),
+      ],
+      hints: [STAGE_BOX_HINT, "The SD8's OUT 1 already works (it carries the console's first XLR OUT, MIX 1). It's the inputs the console isn't listening to.", "Main display → ROUTING: set CH 1-8 to AES50-A 1-8."],
+      complete: "Eight inputs and eight outputs on one Cat5 cable. Input routing decides which channels listen to the stage box; the SD8's outputs follow the console's own XLR outs.",
+    },
+  ],
+  cr1604: [
+    {
+      id: "cr1604-snake",
+      short: "Snake channel 7",
+      title: "The singer is in the snake",
+      who: "Lead singer",
+      prompt: "“Tonight everything runs through the stage snake. The band's fine, but my mic is dead in the house. It's plugged into channel 7 of the snake, I checked.”",
+      goal: "The lead vocal back in the house, through the snake.",
+      setup: {
+        tweak: (st, h) => {
+          h.stagebox("snake");
+          h.cut("snake/tail7");
+        },
+      },
+      conditions: [
+        goal("heard", "The lead vocal is in the house", (ctx) => house(ctx, "lead-vocal") >= AUDIBLE),
+        keep("snake", "The singer stays plugged into the snake (IN 7)", (ctx) => ctx.state.rig.cables.some((c) => c.to === "snake/in7")),
+        keep("band", "The drums stay in the house", (ctx) => house(ctx, "drums") >= AUDIBLE),
+      ],
+      hints: ["Follow the singer's cable: stage → snake → FOH → console.", "Stage & patch: at the snake's fan-out next to the console, tail 7 isn't plugged into anything.", "Drag tail 7 to Ch 7 MIC (an XLR cable). Its +48 V isn't needed: it's a dynamic mic."],
+      complete: "A snake is just sixteen mic cables in one jacket: IN 7 on stage comes out as tail 7 at FOH, and the tail still has to go into a channel.",
+    },
+    {
+      id: "cr1604-snake-return",
+      short: "Wedge on a snake return",
+      title: "The wedge on RETURN A",
+      who: "Lead singer",
+      prompt: "“My wedge is plugged into the snake box on stage, the one marked RETURN A. Nothing comes out of it.”",
+      goal: "AUX 1 (the singer's mix) reaches the wedge through the snake's RETURN A.",
+      setup: {
+        tweak: (st, h) => {
+          h.stagebox("snake");
+          h.cut("mixer/aux1");
+          h.cut("wedge/in");
+          h.cable("snake/ret-a", "wedge/in", "xlr");
+        },
+      },
+      conditions: [
+        { id: "chain", kind: "goal", type: "validChain", output: "aux1", device: "wedge", label: "The wedge is fed by AUX 1" },
+        { id: "listen", kind: "goal", type: "listenedTo", dest: "aux1", label: "You listened to it" },
+        keep("snake", "The wedge stays on the snake's RETURN A", (ctx) => ctx.state.rig.cables.some((c) => c.from === "snake/ret-a" && c.to === "wedge/in")),
+      ],
+      hints: ["Returns run the other way: from FOH out to the stage.", "Stage & patch: at the snake's fan-out, the RETURN SENDS are empty. RETURN A on stage gets whatever goes into send A at FOH.", "Patch AUX SEND 1 into Return A send with an XLR ↔ 1/4\" TRS cable."],
+      complete: "Snake returns carry mixes from FOH back to the stage, so the wedges plug in on stage. Same cable, opposite direction.",
+    },
+  ],
+};
+
 const ORDER = {
   mix8: ["doors", "phones", "ol", "boomy", "pan", "keys-wedge", "wedge-loud", "speech", "ballad", "overhead", "guest"],
   stagepas400bt: ["doors", "micline", "monitor", "speech", "speakers", "reverb", "hall", "mono", "overhead", "sub", "feedback"],
   mg102: ["doors", "phantom", "peak", "less-drums", "one-knob", "thin-bass", "rumble", "reverb-loud", "2tr"],
   vlz1202: ["doors", "trim", "nasal", "pad", "pfl", "wedge-quiet", "lowcut", "reverb", "prefader", "efx", "tape", "alt"],
   x1204usb: ["doors", "minus10", "overhead", "pfl", "comp", "fx", "slapback", "wedge", "pre", "ret-mon", "cdtape", "alt"],
-  cr1604: ["doors", "phantom", "assign", "levelset", "sweep", "lowcut", "mute-pre", "drummer-quiet", "reverb", "efx-mon", "mono", "shift", "subgroup", "direct", "room"],
+  cr1604: ["doors", "phantom", "assign", "levelset", "sweep", "lowcut", "mute-pre", "drummer-quiet", "reverb", "efx-mon", "mono", "shift", "subgroup", "direct", "room", "snake", "snake-return"],
   ui16: ["doors", "gain", "48v", "more-keys", "hpf", "mud", "harsh", "eq-on", "comp", "comp-on", "trumpet-reverb", "delay", "out-of-house", "post", "guitar-mix"],
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
   yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "mud", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
-  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9"],
+  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9"],
   f8n: ["track", "trim", "room", "hpf", "pfl", "balance", "link", "camera", "dslr", "iso-safety"],
   dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
   cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "dante-back", "dante-fix", "scene-recall", "scene-store"],
-  x32c: ["doors", "gain", "48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix"],
+  x32c: ["doors", "gain", "48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix", "stagebox"],
 };
 
-const LISTS = { f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: C16, x32c: X32, yam01v96: Y96, x32: X32F };
+const LISTS = { f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c], yam01v96: Y96, x32: [...X32F, ...BOXES.x32] };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.
 function arrange(board) {

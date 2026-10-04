@@ -6,14 +6,14 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 
 - `main` is the live Canvas assignment (Mixer A and B, the ten scenarios). Don't merge into it without the course owner's say-so.
 - `feature/more-mixers` is the one feature branch. Everything since V1 is there, previewed at `/branch/feature-more-mixers/` ([BRANCH_PREVIEWS.md](BRANCH_PREVIEWS.md)). Push to see changes.
-- On that branch: 14 real mixers in the **Real mixers** menu, easiest first (`MIXER_ORDER` in `js/board-scenarios.js`): Mackie Mix8, Yamaha STAGEPAS 400BT, MG10/2, Mackie 1202-VLZ, Behringer Xenyx X1204USB, Mackie CR1604-VLZ, Soundcraft Ui16, Behringer X32 Compact, Yamaha 01V96i, Yamaha DM2000, Behringer X32, Yamaha CL3, Sound Devices 442, Zoom F8n Pro. About 220 practice scenarios ([SCENARIOS.md](SCENARIOS.md)); the Canvas submission still counts only the ten Mixer A/B ones.
+- On that branch: 14 real mixers in the **Real mixers** menu, easiest first (`MIXER_ORDER` in `js/board-scenarios.js`): Mackie Mix8, Yamaha STAGEPAS 400BT, MG10/2, Mackie 1202-VLZ, Behringer Xenyx X1204USB, Mackie CR1604-VLZ, Soundcraft Ui16, Behringer X32 Compact, Yamaha 01V96i, Yamaha DM2000, Behringer X32, Yamaha CL3, Sound Devices 442, Zoom F8n Pro. About 225 practice scenarios ([SCENARIOS.md](SCENARIOS.md)); the Canvas submission still counts only the ten Mixer A/B ones.
 - Teaching choices that look like bugs but aren't:
   - On every digital desk, EQ ON and COMP ON both start off. Every EQ or compressor move needs its ON button, and the graphs show it.
   - Each scenario loops the 8-bar section of the song that suits it ([audio/README.md](../audio/README.md), `js/music.js`).
   - Yamaha fader and mute groups (DM2000) are linked on the surface, with no masters.
 - Dante: a DAW laptop, Dante Controller and the CL3's INPUT PATCH ([DANTE.md](DANTE.md)).
 - Mixer docs: [COMPACT_MIXERS.md](COMPACT_MIXERS.md) (analog, 442, F8n), [CR1604.md](CR1604.md), [DIGITAL_MIXER.md](DIGITAL_MIXER.md) (Ui16, X32s, 01V96, DM2000, CL3, the EQ/compressor graphs).
-- QA on 2026-10-03: every mixer and scenario loads with no console errors; no horizontal overflow at 375 px on any tab; 895 tests pass. In the Claude desktop browser pane, Chrome can log "The AudioContext encountered an error from the audio device" on every mixer, old ones too. The context keeps running; it's the pane's audio device, not the lab.
+- QA on 2026-10-03: every mixer and scenario loads with no console errors; no horizontal overflow at 375 px on any tab; 918 tests pass (after the Stage & patch work). In the Claude desktop browser pane, Chrome can log "The AudioContext encountered an error from the audio device" on every mixer, old ones too. The context keeps running; it's the pane's audio device, not the lab.
 - Tests: run `npm test` (the explicit glob). `node --test tests/` has hung intermittently, and running two suites at once can stall.
 
 ## Ground rules
@@ -64,6 +64,17 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 - Wide screens: the scenario **brief** on the left (a picker with previous/next, the prompt, checklist, hints and music; « folds it to a rail showing the number and progress), and one of two **views** beside it: **Console** (the front: the mixer surface, full width) or **Stage & patch** (the back: the diagram, with every input and output as a list folded underneath). The view switch, the turn-around button and the **T** key flip between them (Tab stays keyboard navigation). The choice and the folded brief are remembered (localStorage prefs).
 - Phones (< 900 px): three tabs, Scenario / Console / Stage & patch. The diagram scrolls sideways inside its own frame.
 - The diagram is presentation only: boxes, jacks and cables come from the rig and `analyzeRig`. A mixer's ports can carry `panel` (the CL3's RIO IN/OUT have `panel: "rio"`, and the CL3 type lists `panels.rio`) so the diagram draws them on a stage box joined to the console by its Dante cable.
+- Free play shows **Free play gear** above the diagram: put an analog snake (any mixer) or an S32 / SD8 (X32s) on stage, unplugged, or take it away (`MixerStore.addDevice` / `removeDevice`).
+
+## Stage boxes and snakes
+
+Stage boxes are real devices in the model (`DEVICE_TYPES.snake`, `s32`, `sd8` in `js/connection-model.js`, flag `stagebox`), not pictures:
+
+- **Analog snake (16 × 4)**, `passthrough`: stage inputs `in1–16` (XLR) pair with FOH tails `tail1–16`; FOH return sends `send-a–d` pair with stage returns `ret-a–d` (each port's `through`). Passive: any level passes, phantom included. The diagram draws it as two boxes (stage end, FOH fan-out) and a multicore.
+- **S32 / SD8**, `network: "aes50"`: inputs (`role: "sb-in"`), outputs (`sb-out`) and an `aes50a` etherCON port. A **Cat5** cable (`CABLES.cat5`, kind `network`, `PLUGS/JACKS.ethercon`) from it to the console's `aes50a` is the link. The X32s have per-channel `chN-aes` ports (jack `aes50`, not physical, `remote: n`) and the mixer device's `inSource` (one value per block of 8: 0 LOCAL, 1 AES50-A), checked in `analyzeRig` like the CL3's `inPatch`.
+- `throughLinks(rig)` turns the physical cables into cable-like links for where the signal ends up (source → mixer channel through a snake or over AES50; console output → speaker through a return or a stage box output). `rigLinks(rig)` = cables + Dante + these; `analyzeRig` and the engine's `rewire` both use it, so nothing else needed to change. A snake link carries the `plug` that actually enters the console (an XLR tail into a combo jack = the mic path).
+- `checkConnection` rules: sources may go into a stage box; mixer outputs can't go into snake inputs that run back to FOH (use a return), sources can't go into return sends, speaker level never goes into a stage box, network ports only take network ports of the same kind.
+- Scenario helper `h.stagebox(type, { routed, linked, stageOuts })` (in `boardHelpers`) moves a Free play gig onto a stage box. Scenarios: X32 *The band is on the stage box*, *No link light*, *The drummer's amp on the wrong output*; X32 Compact *The band is on an SD8*; CR1604 *The singer is in the snake*, *The wedge on RETURN A*.
 
 ## Audio transport and the sync invariant
 

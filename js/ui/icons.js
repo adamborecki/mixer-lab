@@ -87,6 +87,11 @@ const ICONS = {
     body: `<rect x="4" y="7" width="40" height="34" rx="3"${F}/><circle cx="12" cy="13" r="2"/><circle cx="20" cy="13" r="2"/><circle cx="28" cy="13" r="2"/><circle cx="36" cy="13" r="2"/><path d="M12 19v16M20 19v16M28 19v16M36 19v16" stroke-width="1.4"/><rect x="9.5" y="27" width="5" height="3.4" rx="1"${S}/><rect x="17.5" y="22" width="5" height="3.4" rx="1"${S}/><rect x="25.5" y="30" width="5" height="3.4" rx="1"${S}/><rect x="33.5" y="24" width="5" height="3.4" rx="1"${S}/>`,
   },
 
+  "stage-box": {
+    label: "Stage box: a row of XLR inputs that all travel to the console on one cable",
+    body: `<rect x="4" y="10" width="40" height="22" rx="2"${F}/><circle cx="11" cy="17" r="2.6"/><circle cx="19" cy="17" r="2.6"/><circle cx="27" cy="17" r="2.6"/><circle cx="35" cy="17" r="2.6"/><circle cx="11" cy="25" r="2.6"/><circle cx="19" cy="25" r="2.6"/><circle cx="27" cy="25" r="2.6"/><circle cx="35" cy="25" r="2.6"/><path d="M24 32v5q0 5 6 5h14" stroke-width="3.4"/>`,
+  },
+
   // ---- connectors: XLR and SpeakON/IEC are end-on views, the rest side views ----
   "xlr-m": {
     label: "XLR male plug",
@@ -111,6 +116,10 @@ const ICONS = {
     label: "SpeakON speaker connector (twist-lock)",
     body: `<circle cx="24" cy="24" r="18"${F}/><circle cx="24" cy="24" r="12" stroke-width="1.4"/><circle cx="17" cy="17" r="2.6"${S}/><circle cx="31" cy="17" r="2.6"${S}/><circle cx="17" cy="31" r="2.6"${S}/><circle cx="31" cy="31" r="2.6"${S}/><path d="M22 6h4M22 42h4" stroke-width="3"/><path d="M8 27a17 17 0 0 0 4 8m0 0l-4.5-.3m4.5.3l.3-4.6" stroke-width="1.4"/>`,
   },
+  ethercon: {
+    label: "etherCON plug: a network (RJ45) plug in a locking round shell",
+    body: `<circle cx="24" cy="24" r="17"${F}/><path d="M21 7V4h6v3"/><rect x="15" y="17" width="18" height="14" rx="1.5"/><path d="M18 31v-4M21 31v-4M24 31v-4M27 31v-4M30 31v-4" stroke-width="1.2"/><path d="M20 17v-3h8v3" stroke-width="1.6"/>`,
+  },
   iec: {
     label: "IEC power cable end (AC power, not a signal cable)",
     body: `<path d="M8 8h32v20l-7 12H15L8 28z"${F}/><rect x="14" y="14" width="5" height="11" rx="1"/><rect x="29" y="14" width="5" height="11" rx="1"/><rect x="21.5" y="26" width="5" height="9" rx="1"/>`,
@@ -124,6 +133,7 @@ const ICONS = {
   "jack-quarter": { label: '1/4 inch jack', body: `<circle cx="24" cy="24" r="15"${F}/><circle cx="24" cy="24" r="8"/><circle cx="24" cy="24" r="3"${S}/>` },
   "jack-mini": { label: "3.5 mm jack", body: `<circle cx="24" cy="24" r="10"${F}/><circle cx="24" cy="24" r="5"/><circle cx="24" cy="24" r="2"${S}/>` },
   "jack-rca": { label: "RCA jack", body: `<circle cx="24" cy="24" r="14"${F}/><circle cx="24" cy="24" r="9" stroke-dasharray="5 3"/><circle cx="24" cy="24" r="3"${S}/>` },
+  "jack-ethercon": { label: "etherCON jack (network)", body: `<circle cx="24" cy="24" r="17"${F}/><rect x="15" y="16" width="18" height="15" rx="1.5"/><rect x="20" y="31" width="8" height="3"${S}/><path d="M18 20h12" stroke-width="1.2"/>` },
   "jack-pair": { label: 'Left and right 1/4 inch jacks', body: `<circle cx="13" cy="24" r="10"${F}/><circle cx="13" cy="24" r="5"/><circle cx="13" cy="24" r="1.8"${S}/><circle cx="35" cy="24" r="10"${F}/><circle cx="35" cy="24" r="5"/><circle cx="35" cy="24" r="1.8"${S}/>` },
 
   // ---- signal and cable kinds (shape and weight differ, not just colour) ----
@@ -131,6 +141,7 @@ const ICONS = {
   "level-speaker": { label: "Speaker level: large, heavy, amplified", body: `${wave(4, 24, 11, 2, 40, 3.6)}<path d="M22 6l-3 5h4l-3 5" stroke-width="1.6"/>` },
   "cable-signal": { label: "Signal cable", body: `<circle cx="7" cy="24" r="3"${S}/><circle cx="41" cy="24" r="3"${S}/><path d="M10 24h28" stroke-width="2"/>` },
   "cable-speaker": { label: "Speaker cable (heavy, unshielded)", body: `<circle cx="7" cy="24" r="3"${S}/><circle cx="41" cy="24" r="3"${S}/><path d="M10 21.5h28M10 26.5h28" stroke-width="3"/>` },
+  "cable-network": { label: "Network cable (many channels on one cable)", body: `<rect x="2" y="19" width="8" height="10" rx="2"${F}/><rect x="38" y="19" width="8" height="10" rx="2"${F}/><path d="M10 24h28" stroke-width="2.6"/><path d="M14 24h2M19 24h2M24 24h2M29 24h2M34 24h1" stroke-width="5" stroke-opacity=".5"/>` },
   "cable-power": { label: "Power cable (AC)", body: `<path d="M4 24h22" stroke-width="3" stroke-dasharray="6 3"/><rect x="26" y="17" width="10" height="14" rx="2"${F}/><path d="M36 20h7M36 28h7" stroke-width="2.4"/>` },
   "role-source": { label: "Source: sends signal out", body: `<circle cx="14" cy="24" r="7"${F}/><path d="M22 24h20m-6 -6l6 6l-6 6" stroke-width="2.4"/>` },
   "role-destination": { label: "Destination: receives signal", body: `<path d="M6 24h20m-6 -6l6 6l-6 6" stroke-width="2.4"/><path d="M34 12v24" stroke-width="4"/><path d="M40 16v16" stroke-width="2"/>` },
@@ -162,6 +173,9 @@ const TYPE_ICONS = {
   "power-amp": "power-amp",
   "camera-input": "camera",
   "dslr-input": "camera",
+  snake: "stage-box",
+  s32: "stage-box",
+  sd8: "stage-box",
 };
 
 // A device's icon. Speakers depend on powered/passive and on where they sit (stage = wedge).
@@ -176,12 +190,12 @@ export function deviceIconName(device, type) {
 // An XLR plug into an output jack is female; into an input jack it is male.
 export function plugIconName(plugId, intoDir = "in") {
   if (plugId === "xlr") return intoDir === "out" ? "xlr-f" : "xlr-m";
-  return { trs14: "trs14", ts14: "ts14", rca: "rca", trs35: "trs35", dualts14: "ts-pair" }[plugId] || null;
+  return { trs14: "trs14", ts14: "ts14", rca: "rca", trs35: "trs35", dualts14: "ts-pair", ethercon: "ethercon" }[plugId] || null;
 }
 
 // A port's jack (the socket on the gear). XLR on an output is male, on an input female.
 export function jackIconName(jackId, dir = "in") {
-  return { xlr: dir === "out" ? "xlr-m" : "xlr-f", combo: "jack-combo", quarter: "jack-quarter", rca: "jack-rca", mini: "jack-mini", linepair: "jack-pair", rcapair: "jack-rca" }[jackId] || null;
+  return { xlr: dir === "out" ? "xlr-m" : "xlr-f", combo: "jack-combo", quarter: "jack-quarter", rca: "jack-rca", mini: "jack-mini", linepair: "jack-pair", rcapair: "jack-rca", ethercon: "jack-ethercon" }[jackId] || null;
 }
 
 export const levelIconName = (level) => (level === "speaker" ? "level-speaker" : "level-line");
@@ -195,5 +209,6 @@ export const CONNECTOR_GUIDE = [
   ["trs35", "3.5 mm TRS", "Headphone jack size: phones and laptops. Stereo."],
   ["rca", "RCA", "Consumer gear: players and record outputs."],
   ["speakon", "SpeakON", "Twist-lock speaker connector. Speaker level only."],
+  ["ethercon", "etherCON", "A network plug in a locking shell. One Cat5 cable carries every channel of a digital stage box (AES50, Dante)."],
   ["iec", "IEC power", "AC power cord for amps and powered speakers. Carries power, not audio."],
 ];

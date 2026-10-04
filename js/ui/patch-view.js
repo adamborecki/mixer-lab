@@ -17,6 +17,7 @@ import {
   listPorts,
   mixerOf,
   plugFitsJack,
+  throughLinks,
 } from "../connection-model.js";
 import { modelOf } from "../mixer-state.js";
 import { F8, PAIR, REVERB, TECHNIQUES, cardStats, techniqueOf } from "../devices.js";
@@ -28,7 +29,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 const CABLE_HUES = [195, 145, 45, 330, 265, 20, 170, 290];
 export const cableHue = (id) => CABLE_HUES[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % CABLE_HUES.length];
 
-const LEVEL_SHORT = { mic: "Mic level", instrument: "Instrument level", line: "Line level", speaker: "Speaker level", "mic-or-line": "Mic (XLR) or line (¼″)" };
+const LEVEL_SHORT = { mic: "Mic level", instrument: "Instrument level", line: "Line level", speaker: "Speaker level", "mic-or-line": "Mic (XLR) or line (¼″)", any: "Passes whatever is plugged in at the other end" };
 
 export function portLabel(rig, ref, { short = false } = {}) {
   const p = getPort(rig, ref);
@@ -157,7 +158,7 @@ export class PatchView {
     const empty = mix.channels.filter((c) => !c.input.connected).map((c) => state.channels[c.index].label);
     this.sourcesRoot.innerHTML = `
       <p class="role-line">${icon("role-source", { size: 26 })}<span>Sources: the signal starts here and goes out to the mixer.</span></p>
-      <ol class="source-list">${rig.devices.filter((d) => DEVICE_TYPES[d.type].dante).map((d) => this.dawCard(d, mix)).join("")}${cards.join("")}${pairs.map((d) => this.pairCard(d, mix)).join("")}</ol>
+      <ol class="source-list">${rig.devices.filter((d) => DEVICE_TYPES[d.type].dante).map((d) => this.dawCard(d, mix)).join("")}${cards.join("")}${pairs.map((d) => this.pairCard(d, mix)).join("")}${rig.devices.filter((d) => DEVICE_TYPES[d.type].stagebox).map((d) => this.stageBoxCard(d, mix)).join("")}</ol>
       <p class="panel-foot">${modelOf(state) === "cr1604" ? cr1604Foot(empty) : modelOf(state) !== "generic" ? compactFoot(state, empty) : `Free mixer inputs: ${empty.length ? empty.map((n) => `Ch ${n}`).join(", ") : "none"}. Ch 1–8 are XLR/¼″ combo jacks: XLR → mic preamp (+48 V available), ¼″ → line input (padded). Ch 9/10 is one stereo line input (left + right ¼″ pair, no phantom power).`}</p>
       ${connectorGuide()}`;
   }
@@ -211,6 +212,35 @@ export class PatchView {
           <input type="range" min="0" max="${PAIR.angleMax}" step="1" value="${d.angleDeg}" data-device="${esc(d.id)}" data-device-key="angleDeg" /></label>
         <p class="dev-technique" data-readout="technique">${techniqueText(d)}</p>
       </div>
+    </li>`);
+  }
+
+  // A snake or stage box: which channels reach the console through it, its link, and the jacks in use.
+  stageBoxCard(d, mix) {
+    const rig = this.store.state.rig;
+    const type = DEVICE_TYPES[d.type];
+    const links = throughLinks(rig).filter((l) => l.via === d.id);
+    const live = mix.channels.filter((c) => c.input.connected && links.some((l) => l.from === c.input.fromPort));
+    const plugged = listPorts(rig, d).filter((p) => cableAt(rig, p.ref) && !p.network);
+    const net = listPorts(rig, d).find((p) => p.network);
+    const up = net && cableAt(rig, net.ref);
+    const mixer = mixerOf(rig);
+    const blocks = mixer.inSource ? mixer.inSource.map((v, b) => `CH ${b * 8 + 1}–${b * 8 + 8}: ${v ? "AES50-A" : "LOCAL"}`).join(" · ") : "";
+    const ins = plugged.filter((p) => p.dir === "in" && (p.role === "sb-in" || p.end === "stage")).length;
+    const status = !plugged.length ? "idle" : live.length >= ins ? "ok" : "warn";
+    const note = type.passthrough
+      ? "Passive: IN n on stage comes out as tail n at FOH, phantom power included. RETURN sends at FOH come out on stage."
+      : `${up ? "✓ AES50 link to the console." : "No AES50 link: plug a Cat5 cable from AES50 A into the console's AES50 A."} The console's GAIN and 48V drive these preamps. ROUTING: ${blocks}. OUT n carries the console's XLR OUT n.`;
+    return this.card(d.id, `<li class="source-card status-${status}" data-device-card="${esc(d.id)}">
+      <div class="source-top">
+        <span class="source-order">BOX</span>
+        <span class="dev-ico">${icon("stage-box", { size: 40 })}</span>
+        <div class="source-names"><strong>${esc(d.label || type.name)}</strong><span>${esc(type.blurb)}</span></div>
+        <span class="status-pill status-${status}">${live.length} on the console</span>
+      </div>
+      <p class="source-note">${esc(note)}</p>
+      ${net ? this.portButton(net.ref, net.dir) : ""}
+      ${plugged.map((p) => this.portButton(p.ref, p.dir)).join("")}
     </li>`);
   }
 
@@ -415,7 +445,7 @@ class PatchDialog {
     const card = (c) => {
       const ends = cableEndFor(c.id, a.jack);
       return `<button type="button" class="cable-card" data-act="pair-cable" data-cable="${c.id}">
-        <span class="cable-art">${icon(plugIconName(ends.near, a.dir), { size: 34 })}${icon(c.kind === "speaker" ? "cable-speaker" : "cable-signal", { size: 30 })}${icon(plugIconName(ends.far, b.dir), { size: 34 })}</span>
+        <span class="cable-art">${icon(plugIconName(ends.near, a.dir), { size: 34 })}${icon(c.kind === "speaker" ? "cable-speaker" : c.kind === "network" ? "cable-network" : "cable-signal", { size: 30 })}${icon(plugIconName(ends.far, b.dir), { size: 34 })}</span>
         <strong>${esc(c.name)}</strong>${c.kind === "speaker" ? '<span class="cable-kind">Speaker cable: speaker level only</span>' : ""}<span class="cable-plugs">${esc(PLUGS[ends.near].name)} ⟷ ${esc(PLUGS[ends.far].name)}</span><span class="cable-blurb">${esc(c.blurb)}</span>
       </button>`;
     };
@@ -463,7 +493,7 @@ class PatchDialog {
       const near = ends ? ends.near : c.ends[0];
       const far = ends ? ends.far : c.ends[1];
       const farDir = p.dir === "out" ? "in" : "out";
-      const pair = `<span class="cable-art">${icon(plugIconName(near, p.dir), { size: 34 })}${icon(c.kind === "speaker" ? "cable-speaker" : "cable-signal", { size: 30 })}${icon(plugIconName(far, farDir), { size: 34 })}</span>`;
+      const pair = `<span class="cable-art">${icon(plugIconName(near, p.dir), { size: 34 })}${icon(c.kind === "speaker" ? "cable-speaker" : c.kind === "network" ? "cable-network" : "cable-signal", { size: 30 })}${icon(plugIconName(far, farDir), { size: 34 })}</span>`;
       return `<button type="button" class="cable-card" data-act="cable" data-cable="${c.id}">
         ${pair}<strong>${esc(c.name)}</strong>${c.kind === "speaker" ? '<span class="cable-kind">Speaker cable: speaker level only</span>' : ""}<span class="cable-plugs">${esc(plugs)}</span><span class="cable-blurb">${esc(c.blurb)}</span>
       </button>`;

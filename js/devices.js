@@ -107,6 +107,8 @@ const KEYS = {
   "camera-input": { inputLevel: range(0, 1, 1) }, // 0 = MIC, 1 = LINE
   sd442: { outLevel: range(0, 2, 1) }, // the 442's XLR OUTPUT LEVEL: 0 = MIC, 1 = −10, 2 = LINE
   f8n: { mainLevel: range(0, 1, 1), subLevel: range(0, 1, 1) },
+  x32: { inSource: range(0, 1, 1) }, // ROUTING inputs, per block of 8: 0 = LOCAL, 1 = AES50-A
+  x32c: { inSource: range(0, 1, 1) },
   cl3: { danteRx: range(0, 16, 1), inPatch: range(0, 1, 1) }, // Dante Controller subscriptions (0 = none); INPUT PATCH 0 = Rio, 1 = Dante
   "daw-dvs": { outs: range(0, 16, 1) }, // each DAW track's output: DVS channel 1–16 (0 = none) // Output Level: MAIN OUT 0 = LINE, 1 = NORMAL; SUB OUT 0 = NORMAL, 1 = MIC
   "zoom-f8": {

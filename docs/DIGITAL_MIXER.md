@@ -73,6 +73,7 @@ The whole console, sharing the X32 Compact's model and surface (definition `x32`
 | 6 matrices, fed from MAIN LR, M/C and the buses | `mtx1`–`mtx6`, each with a send level per source and a fader; SEL MAIN, a MIX or M/C to see its matrix sends, or SEL a matrix to see its sources |
 | 8-slot FX rack, usually fed by MIX 13–16 and returning on FX RTN | MIX 13–16 feed FX 1–4 (room, plate, delay, chorus), back on the FX RETURNS layer |
 | ROUTING / analog out: any internal signal on any XLR OUT | The ROUTING page: XLR OUT 1–16, each OFF, MAIN L/R, M/C, MIX 1–12 or MATRIX 1–6 (`state.routing`). What a speaker hears follows the routing |
+| ROUTING / inputs: LOCAL or AES50-A per block of 8; AES50 A and B ports for stage boxes | The ROUTING page's input blocks (CH 1-8 … 25-32: LOCAL or AES50-A, rig device `inSource`), and one AES50 A port. An S32 or SD8 (`DEVICE_TYPES.s32`/`sd8`) on a Cat5 cable to it: stage box IN n arrives as AES50-A n, and stage box OUT n carries the console's XLR OUT n (the AES50 output blocks stay on OUT 1–8 / 9–16, the factory routing). No link, nothing either way. The X32 Compact has the same input blocks (CH 1-8, 9-16) on its ROUTING page. AES50 B, and routing the AES50 outputs, are left out |
 | SCENES: store and recall | The SCENES page: 8 slots, STORE (with a name) and RECALL. A scene holds every setting but the cables, the listening position and the scenes |
 
 The lab's starting patch is MIX 1–8 on OUT 1–8 and MAIN L/R on OUT 15/16 (not necessarily the factory default). Scenes 1 (Full band) and 2 (Acoustic set) come preloaded.

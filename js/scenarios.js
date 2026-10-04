@@ -652,6 +652,45 @@ export function boardHelpers(state, model, sourcesById = SOURCES_BY_ID) {
       const d = PLAYBACK_DEVICES[id];
       state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan, ...(d.init ? d.init() : {}) });
     },
+    // Put the band on a stage box: every source on a console channel moves to the
+    // box's input of the same number. A digital box (S32, SD8) gets its Cat5 to the
+    // console's AES50 A and, with `routed`, the input blocks it feeds set to AES50-A;
+    // `stageOuts` moves the stage feeds (wedges, the amp) onto its outputs.
+    // An analog snake keeps the console patch: source → snake IN n, tail n → the same jack.
+    stagebox: (type, { routed = true, linked = true, stageOuts = true } = {}) => {
+      const id = type === "snake" ? "snake" : "sb";
+      state.rig.devices.push({ id, type, label: DEVICE_TYPES[type].name });
+      const mixer = state.rig.devices.find((d) => d.id === "mixer");
+      const ports = DEVICE_TYPES[mixer.type].ports;
+      const onStage = (c) => state.rig.devices.find((d) => `${d.id}/` === c.from.slice(0, d.id.length + 1))?.type !== "stereo-mic-pair"; // the room pair stands at FOH
+      const into = state.rig.cables.filter((c) => onStage(c) && ports.some((p) => `mixer/${p.id}` === c.to && p.role === "channel-input" && !p.stereo && p.channel < (type === "snake" ? 16 : DEVICE_TYPES[type].ports.filter((q) => q.role === "sb-in").length)));
+      for (const c of into) {
+        const ch = ports.find((p) => `mixer/${p.id}` === c.to).channel;
+        if (type === "snake") {
+          // Keys and other line outs reach the snake's XLR on an XLR ↔ 1/4" cable, and the tail does the same into a LINE jack.
+          const inCable = getPort(state.rig, c.from).jack === "xlr" ? "xlr" : "xlr-trs";
+          const tailCable = getPort(state.rig, c.to).jack === "quarter" ? "xlr-trs" : "xlr";
+          state.rig.cables.push({ id: `t${++n}`, from: `snake/tail${ch + 1}`, to: c.to, cable: tailCable });
+          c.to = `snake/in${ch + 1}`;
+          c.cable = inCable;
+        } else {
+          c.to = `${id}/in${ch + 1}`;
+          if (routed) mixer.inSource[Math.floor(ch / 8)] = 1;
+        }
+      }
+      if (type === "snake") return;
+      if (linked) state.rig.cables.push({ id: `t${++n}`, from: `${id}/aes50a`, to: "mixer/aes50a", cable: "cat5" });
+      if (!stageOuts) return;
+      // Wedges and the amp live on stage: plug them into the box's output with the same number.
+      const outs = ports.filter((q) => q.role === "bus-out" && q.jack === "xlr" && !q.panel && q.channel === undefined).map((q) => `mixer/${q.id}`);
+      const sbOuts = DEVICE_TYPES[type].ports.filter((q) => q.role === "sb-out").length;
+      for (const c of state.rig.cables) {
+        const k = outs.indexOf(c.from);
+        const dev = state.rig.devices.find((d) => `${d.id}/` === c.to.slice(0, d.id.length + 1));
+        if (k < 0 || k >= sbOuts || !(dev?.zone === "stage" || dev?.type === "power-amp")) continue;
+        c.from = `${id}/out${k + 1}`;
+      }
+    },
   };
   return h;
 }

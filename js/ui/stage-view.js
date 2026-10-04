@@ -58,7 +58,8 @@ function plugShape(j, kind, hue) {
 }
 
 export class StageView {
-  constructor(root, { store, manifest, patchView, getSkin, onOpenDante = () => {} }) {
+  constructor(root, { store, manifest, patchView, getSkin, onOpenDante = () => {}, canAddGear = () => false }) {
+    this.canAddGear = canAddGear;
     this.root = root;
     this.store = store;
     this.manifest = manifest;
@@ -67,12 +68,22 @@ export class StageView {
     this.onOpenDante = onOpenDante;
     this.selected = null;
     this.drag = null;
-    root.innerHTML = `<div class="stage-scroll"><div class="stage-canvas"></div></div>
+    root.innerHTML = `<div class="stage-gear" hidden></div><div class="stage-scroll"><div class="stage-canvas"></div></div>
       <div class="stage-help"><span>Tap a jack to patch it, or drag from one jack to another. Drag a plugged-in jack to move its cable. Tap a box for its details.</span>
         <span class="stage-legend"><i class="lg lg-signal"></i>signal <i class="lg lg-speaker"></i>speaker level <i class="lg lg-network"></i>network</span></div>
       <div class="stage-inspector" aria-live="polite"></div>`;
     this.canvas = root.querySelector(".stage-canvas");
     this.inspector = root.querySelector(".stage-inspector");
+    this.gear = root.querySelector(".stage-gear");
+    this.gear.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-gear]");
+      if (!b) return;
+      const [act, type] = b.dataset.gear.split(":");
+      if (act === "add") {
+        this.store.addDevice({ id: type === "snake" ? "snake" : "sb", type, label: DEVICE_TYPES[type].name });
+        this.patchView.toast(`${DEVICE_TYPES[type].name} on stage. Patch the band into it, then ${type === "snake" ? "its tails into the console" : "its AES50 A into the console's AES50 A, and set ROUTING"}.`, "");
+      } else this.store.removeDevice(type);
+    });
     patchView.bindRoot(this.inspector);
 
     this.canvas.addEventListener("pointerdown", (e) => this.pointerDown(e));
@@ -156,6 +167,8 @@ export class StageView {
     const fixed = this.fixedLinks(L);
     const cables = [];
     for (const f of fixed) cables.push(`<g class="cable cable-network fixed"><path class="cable-shadow" d="${cablePath(f.a, f.b)}"/><path class="cable-core" d="${cablePath(f.a, f.b)}"/></g>`);
+    // A snake's multicore: one thick jacket from the stage box to its fan-out at FOH.
+    for (const m of L.links || []) cables.push(`<g class="cable cable-multicore fixed"><title>Multicore: every snake channel and return in one cable, stage ↔ FOH</title><path class="cable-shadow" d="${cablePath(m.a, m.b)}"/><path class="cable-core" d="${cablePath(m.a, m.b)}"/></g>`);
 
     const plugs = [];
     for (const c of rig.cables) {
@@ -175,7 +188,8 @@ export class StageView {
     const jacks = [...L.jacks.values()].map((j) => this.jackSvg(j, rig));
     const nets = L.net.map((n) => this.netPortSvg(n));
 
-    this.canvas.innerHTML = `<svg class="stage-svg" viewBox="0 0 ${L.width} ${L.height}" width="${L.width}" height="${L.height}" role="group" aria-label="The rig: stage, console rear panel, amps and speakers">
+    // Never shrink below ~70 %: a wide rig scrolls sideways in its frame instead.
+    this.canvas.innerHTML = `<svg class="stage-svg" viewBox="0 0 ${L.width} ${L.height}" width="${L.width}" height="${L.height}" style="min-width:${Math.round(L.width * 0.7)}px" role="group" aria-label="The rig: stage, console rear panel, amps and speakers">
       <defs>
         <linearGradient id="sg-metal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3044"/><stop offset="1" stop-color="#1b2030"/></linearGradient>
         <linearGradient id="sg-panel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#262b3a"/><stop offset=".5" stop-color="#1e2230"/><stop offset="1" stop-color="#191c28"/></linearGradient>
@@ -187,10 +201,26 @@ export class StageView {
       <path class="drag-cable" d="" hidden/>
     </svg>`;
     this.dragPath = this.canvas.querySelector(".drag-cable");
+    this.renderGear(rig);
     if (this.selected && !L.boxes.some((b) => b.id === this.selected)) this.selected = null;
     if (this.selected) this.canvas.querySelector(`[data-box="${CSS.escape(this.selected)}"]`)?.classList.add("selected");
     this.lit = null;
     this.renderInspector();
+  }
+
+  // Free play: put a snake or a stage box on stage (or take it away).
+  renderGear(rig) {
+    const show = this.canAddGear();
+    this.gear.hidden = !show;
+    if (!show) return;
+    const mixer = mixerOf(rig);
+    const aes50 = DEVICE_TYPES[mixer.type].ports.some((p) => p.network === "aes50");
+    const kinds = ["snake", ...(aes50 ? ["s32", "sd8"] : [])];
+    const present = rig.devices.filter((d) => DEVICE_TYPES[d.type].stagebox);
+    const btn = (gear, text) => `<button type="button" class="chip" data-gear="${gear}">${esc(text)}</button>`;
+    this.gear.innerHTML = `<span class="stage-gear-label">Free play gear:</span>${
+      present.length ? present.map((d) => btn(`remove:${d.id}`, `Remove the ${DEVICE_TYPES[d.type].name}`)).join("") : kinds.map((k) => btn(`add:${k}`, `+ ${DEVICE_TYPES[k].name}`)).join("")
+    }<span class="stage-gear-note">${present.length ? "" : aes50 ? "A snake, or a digital stage box on AES50." : "Run the band through a 16 × 4 snake."}</span>`;
   }
 
   // Status of every source, speaker, channel and cable, from the analysis.
@@ -204,7 +234,9 @@ export class StageView {
     for (const d of rig.devices.filter((x) => DEVICE_TYPES[x.type].source)) {
       const mine = inputs.filter((i) => i.sourceDeviceId === d.id);
       const worst = mine.find((i) => i.status === "danger") || mine.find((i) => i.status !== "ok");
-      devices.set(d.id, !mine.length ? { tone: "idle", text: "Unpatched" } : worst ? { tone: tone(worst.status), text: worst.status === "danger" ? "✕ Danger" : "! Check" } : { tone: "ok", text: "✓ Signal" });
+      // Plugged in (into a snake or stage box) but no channel hears it.
+      const plugged = DEVICE_TYPES[d.type].ports.some((p) => cableAt(rig, `${d.id}/${p.id}`));
+      devices.set(d.id, !mine.length ? (plugged ? { tone: "warn", text: "! No channel" } : { tone: "idle", text: "Unpatched" }) : worst ? { tone: tone(worst.status), text: worst.status === "danger" ? "✕ Danger" : "! Check" } : { tone: "ok", text: "✓ Signal" });
     }
     const mixer = mixerOf(rig);
     const mixerPorts = mixer ? DEVICE_TYPES[mixer.type].ports : [];

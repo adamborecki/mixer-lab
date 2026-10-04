@@ -340,6 +340,7 @@ export const COMPACT = {
     muteGroups: 6,
     mainMute: true,
     auxOut: "xlr",
+    aes50: true, // AES50 A: an SD8 or S32 on Cat5; ROUTING picks LOCAL or AES50-A per block of 8 inputs
     main: { label: "MAIN LR", law: "level" },
     phones: { label: "PHONES", sources: null },
     solo: { mode: "pfl", label: "SOLO" },
@@ -598,6 +599,9 @@ export const COMPACT = {
     dca: 8,
     muteGroups: 6,
     mainMute: true,
+    // AES50 A on the rear panel: a stage box (S32, SD8) on Cat5. ROUTING picks, per
+    // block of 8 channels, LOCAL jacks or AES50-A (rig device `inSource`, 0 / 1).
+    aes50: true,
     main: { label: "MAIN LR", law: "level" },
     phones: { label: "PHONES", sources: null },
     solo: { mode: "pfl", label: "SOLO" },
@@ -723,6 +727,8 @@ export function compactPorts(def) {
     const phantom = def.phantom.channels.includes(i);
     for (const j of ch.jacks) {
       if (j === "mic") ports.push({ ...base, id: `ch${i + 1}-mic`, jack: "xlr", level: "mic", path: "mic", phantom, name: ch.portName || `Ch ${n} MIC`, ...(def.rio ? { panel: "rio" } : {}) });
+      // AES50-A n: a stage box's input n (no jack here; it arrives on the AES50 cable).
+      if (j === "mic" && def.aes50) ports.push({ ...base, id: `ch${i + 1}-aes`, jack: "aes50", level: "mic-or-line", path: "mic", phantom, remote: i, name: `AES50-A ${i + 1} (CH ${n})` });
       if (j === "line") ports.push({ ...base, id: `ch${i + 1}-line`, jack: "quarter", level: "line", path: "line", name: `Ch ${n} LINE` });
       if (j === "xlrMicLine") ports.push({ ...base, id: `ch${i + 1}-in`, jack: "xlr", level: "mic-or-line", path: "mic", phantom, name: `Ch ${n} input (XLR, MIC/LINE)` });
       // Dante RX n: the channel's network input (js/dante.js). No cable: Dante Controller patches it.
@@ -774,6 +780,7 @@ export function compactPorts(def) {
   } else if (o.includes("main")) {
     ports.push(out("main-l", "quarter", `${mainName} L`, { bus: "main", side: "L" }), out("main-r", "quarter", `${mainName} R`, { bus: "main", side: "R" }));
   }
+  if (def.aes50) ports.push({ id: "aes50a", dir: "in", jack: "ethercon", level: "line", role: "net", network: "aes50", name: "AES50 A" });
   if (o.includes("alt")) ports.push(out("alt-l", "quarter", "ALT OUT L", { bus: "alt", side: "L" }), out("alt-r", "quarter", "ALT OUT R", { bus: "alt", side: "R" }));
   if (o.includes("cr")) ports.push(out("cr-l", "quarter", "C-R OUT L", { bus: "cr", side: "L" }), out("cr-r", "quarter", "C-R OUT R", { bus: "cr", side: "R" }));
   for (const b of ["aux1", "aux2", "aux3", "aux4"]) if (o.includes(b)) ports.push(out(b, def.auxOut || "quarter", def.auxOut === "xlr" ? `${def.buses[b].label} OUT (XLR)` : `${def.buses[b].label} SEND`, { bus: b }));

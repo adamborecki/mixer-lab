@@ -11,7 +11,7 @@
 // Stem playback and synchronization live in js/transport.js. Switching mixers
 // rebuilds only the mixer graph: the stems keep playing on one timeline.
 
-import { DEVICE_TYPES, analyzeRig, mixerOf } from "./connection-model.js";
+import { DEVICE_TYPES, analyzeRig, mixerOf, rigLinks } from "./connection-model.js";
 import { dbToGain, listenDestinations, listenGroupOf, modelOf } from "./mixer-state.js";
 import { LoopPlayer } from "./loop-player.js";
 import { StemTransport } from "./transport.js";
@@ -22,7 +22,6 @@ import { buildCompactGraph } from "./graph-compact.js";
 import { COMPACT } from "./compact-defs.js";
 import { buildRecorder, buildReverb, buildRoomPair } from "./outboard-audio.js";
 import { splitRef } from "./connection-model.js";
-import { danteLinks } from "./dante.js";
 
 // Outboard gear with audio of its own (settings: js/devices.js).
 const OUTBOARD = { reverb: "reverb", "zoom-f8": "recorder", "stereo-mic-pair": "pair" };
@@ -142,7 +141,7 @@ export class AudioEngine {
     if (this.mixer.pop) this.firePops(state, change);
     // Output ROUTING and scene recalls change which speakers hear which bus.
     // Dante: a DAW track's output or a Dante Controller subscription moves audio like a cable.
-    const dante = change.type === "device" && (change.key?.startsWith("outs") || change.key?.startsWith("danteRx") || change.key?.startsWith("inPatch"));
+    const dante = change.type === "device" && (change.key?.startsWith("outs") || change.key?.startsWith("danteRx") || change.key?.startsWith("inPatch") || change.key?.startsWith("inSource"));
     if (change.type === "rig" || change.type === "replace" || change.type === "scene" || dante || (change.type === "bus" && change.bus === "routing")) this.rewire();
     this.applyAll();
   }
@@ -290,7 +289,7 @@ export class AudioEngine {
     // Speakers and amps are handled below.
     for (const d of this.devices.values()) if (d.rt.link) d.rt.link(this.transport.outs);
     const mixerPorts = DEVICE_TYPES[mixerOf(state.rig).type].ports;
-    for (const c of [...state.rig.cables, ...danteLinks(state.rig)]) {
+    for (const c of rigLinks(state.rig)) {
       // A channel input hears only the jack the analysis says is in use (INPUT PATCH).
       const port = c.to.startsWith("mixer/") && mixerPorts.find((p) => `mixer/${p.id}` === c.to);
       if (port && port.role === "channel-input" && rigInfo.channels[port.channel]?.fromPort !== c.from) continue;

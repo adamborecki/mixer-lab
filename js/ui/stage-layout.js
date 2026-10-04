@@ -103,8 +103,17 @@ export function layoutStage(rig, { order = () => 0, channelLabels = [], mixerNam
 
   for (const d of cols.stage) measured.stage.push(simpleBox(d, "stage"));
   for (const [id, panel] of Object.entries(panels)) measured.box.push(panelBox(mixer, id, panel, channelLabels));
-  for (const d of cols.box) measured.box.push(stageBoxBox(d));
   if (mixer) measured.foh.push(consoleBox(mixer, channelLabels, mixerName));
+  // A snake is two boxes: its stage end, and the fan of tails at FOH (under the console).
+  const multicores = [];
+  for (const d of cols.box) {
+    const type = DEVICE_TYPES[d.type];
+    if (type.passthrough) {
+      measured.box.push(stageBoxBox(d, (p) => p.end === "stage", [["INPUTS", (p) => p.dir === "in"], ["RETURNS", (p) => p.dir === "out"]]));
+      measured.foh.push(stageBoxBox(d, (p) => p.end === "foh", [["TAILS (to the console)", (p) => p.dir === "out"], ["RETURN SENDS", (p) => p.dir === "in"]], { id: `${d.id}-fan`, title: "Snake fan-out at FOH" }));
+      multicores.push([d.id, `${d.id}-fan`]);
+    } else measured.box.push(stageBoxBox(d));
+  }
   for (const d of cols.rack) measured.rack.push(rackBox(d));
   for (const d of cols.speakers) measured.speakers.push(simpleBox(d, "speakers"));
 
@@ -130,8 +139,17 @@ export function layoutStage(rig, { order = () => 0, channelLabels = [], mixerNam
     columns.push({ ...c, x, w });
     x += w + COL_GAP;
   }
-  return { width: x - COL_GAP + 16, height: height + 8, columns, boxes, jacks, net };
+  // The multicore: from the stage end's bottom to the fan-out's left edge.
+  const links = multicores.map(([a, b]) => {
+    const A = boxes.find((x) => x.id === a);
+    const B = boxes.find((x) => x.id === b);
+    return { kind: "multicore", a: { x: A.x + A.w / 2, y: A.y + A.h, side: "down" }, b: { x: B.x, y: B.y + 40, side: "left" } };
+  });
+  return { width: x - COL_GAP + 16, height: height + 8, columns, boxes, jacks, net, links };
 }
+
+// A stage box channel's number or letter ("IN 12" → "12", "Return B" → "B").
+const jackNum = (p) => (/(\d+)$/.exec(p.id) || /-([a-z])$/.exec(p.id) || [, shortLabel(p)])[1].toUpperCase();
 
 // A source or speaker: icon, name, and its jacks on one edge.
 function simpleBox(d, col) {
@@ -227,10 +245,10 @@ function consoleBox(mixer, channelLabels, mixerName) {
   add("RETURNS", [...rets.entries()].map(([n, ps]) => ({ label: `RET ${n}`, ports: ps })), { perRow, cellW: cw });
   add("OUTPUTS", outs.map((p) => ({ label: shortLabel(p), ports: [p], words: false })), { perRow: Math.max(4, Math.floor((perRow * cw) / 44)), cellW: 44 });
   const w = Math.max(320, PAD * 2 + Math.max(...sections.map((s) => s.w), 0));
-  // Network ports on the rear panel: Dante (CL3), AES50 (X32).
+  // Network ports on the rear panel: Dante (CL3, drawn only) and AES50 (X32, a real jack).
   if (type.ports.some((p) => p.jack === "dante")) net.push({ dx: w - 26, dy: y + 6, kind: "dante" });
-  if (type.ports.some((p) => p.jack === "aes50") || type.aes50) net.push({ dx: w - 26, dy: y + 6, kind: "aes50" });
-  if (net.length) y += 30;
+  ports.filter((p) => p.network).forEach((p, i) => jacks.push({ ref: `${mixer.id}/${p.id}`, dx: w - 26 - i * 44, dy: y + 8, side: "down", port: p, word: shortLabel(p), wordSide: "left" }));
+  if (net.length || ports.some((p) => p.network)) y += 32;
   return { box: { id: mixer.id, deviceId: mixer.id, kind: "console", title: `${mixerName || type.name} · rear panel`, sections }, w, h: y + 4, jacks, net };
 }
 
@@ -257,25 +275,26 @@ function panelBox(mixer, id, panel, channelLabels) {
   return { box: { id: `panel-${id}`, deviceId: mixer.id, kind: "stagebox", title: panel.name, sub: panel.sub, sections }, w, h: y + 36, jacks, net };
 }
 
-// A snake or digital stage box device in the rig.
-function stageBoxBox(d) {
+// A stage box in the rig: a snake's stage end or FOH fan, or a digital box
+// (S32, SD8) with its inputs, outputs and network jack.
+function stageBoxBox(d, keep = () => true, groups = [["INPUTS", (p) => p.dir === "in"], ["OUTPUTS", (p) => p.dir === "out"]], { id = d.id, title } = {}) {
   const type = DEVICE_TYPES[d.type];
-  const ports = type.ports.filter(isPhysical);
+  const ports = type.ports.filter((p) => isPhysical(p) && keep(p));
   const perRow = 8;
   let y = HEAD + 18;
   const sections = [];
   const jacks = [];
-  const add = (title, list) => {
-    if (!list.length) return;
-    const g = grid(d.id, list.map((p) => ({ label: shortLabel(p).replace(/^(IN|OUT|RET) /, ""), ports: [p], words: false })), { x0: PAD, y0: y + 8, perRow, col: "box" });
-    sections.push({ title, y, w: g.w });
+  for (const [name, test] of groups) {
+    const list = ports.filter((p) => !p.network && test(p));
+    if (!list.length) continue;
+    const g = grid(d.id, list.map((p) => ({ label: jackNum(p), ports: [p], words: false })), { x0: PAD, y0: y + 8, perRow, col: "box" });
+    sections.push({ title: name, y, w: g.w });
     jacks.push(...g.jacks);
     y += g.h + 26;
-  };
-  for (const s of type.sections || [{ title: "INPUT", filter: (p) => p.dir === "in" }, { title: "OUTPUT", filter: (p) => p.dir === "out" }]) add(s.title, ports.filter((p) => !p.network && s.filter(p)));
+  }
   const w = PAD * 2 + perRow * JACK;
   const netPorts = ports.filter((p) => p.network);
-  netPorts.forEach((p, i) => jacks.push({ ref: `${d.id}/${p.id}`, dx: w - 26 - i * 40, dy: y + 8, side: "down", port: p, word: shortLabel(p) }));
-  if (netPorts.length) y += 34;
-  return { box: { id: d.id, deviceId: d.id, kind: "stagebox", title: d.label || type.name, sections }, w, h: y + 4, jacks };
+  netPorts.forEach((p, i) => jacks.push({ ref: `${d.id}/${p.id}`, dx: w - 26 - i * 44, dy: y + 8, side: "down", port: p, word: shortLabel(p), wordSide: "left" }));
+  if (netPorts.length) y += 32;
+  return { box: { id, deviceId: d.id, kind: "stagebox", title: title || d.label || type.name, sections }, w, h: y + 4, jacks };
 }

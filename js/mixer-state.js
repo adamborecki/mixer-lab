@@ -271,6 +271,22 @@ export class MixerStore {
     return { ok: true, id };
   }
 
+  // Free play gear (a snake, a stage box): added unplugged; removing it pulls its cables.
+  addDevice(device) {
+    if (this.state.rig.devices.some((d) => d.id === device.id)) return;
+    this.state.rig.devices.push(device);
+    this.rigVersion++;
+    this.emit({ type: "rig" });
+  }
+
+  removeDevice(id) {
+    if (id === "mixer" || !this.state.rig.devices.some((d) => d.id === id)) return;
+    this.state.rig.devices = this.state.rig.devices.filter((d) => d.id !== id);
+    this.state.rig.cables = this.state.rig.cables.filter((c) => !c.from.startsWith(`${id}/`) && !c.to.startsWith(`${id}/`));
+    this.rigVersion++;
+    this.emit({ type: "rig" });
+  }
+
   disconnect(cableId) {
     const before = this.state.rig.cables.length;
     this.state.rig.cables = this.state.rig.cables.filter((c) => c.id !== cableId);

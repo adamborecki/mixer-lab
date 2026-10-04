@@ -33,6 +33,8 @@ export const PLUGS = {
   trs35: { id: "trs35", name: "3.5 mm TRS", family: "mini" },
   // Two 1/4" TS plugs (left + right) on one breakout tail: the far end of a stereo Y cable.
   dualts14: { id: "dualts14", name: '2× 1/4" TS (L + R)', family: "quarter-pair" },
+  // A locking RJ45 in a round XLR-sized shell: digital stage boxes (AES50, Dante).
+  ethercon: { id: "ethercon", name: "etherCON (RJ45)", family: "ethercon" },
 };
 
 export const JACKS = {
@@ -45,6 +47,7 @@ export const JACKS = {
   linepair: { id: "linepair", name: '1/4" L/R pair', accepts: ["quarter-pair"] },
   // A left and right RCA jack side by side (a tape/CD input), patched as one.
   rcapair: { id: "rcapair", name: "RCA L/R pair", accepts: ["rca"] },
+  ethercon: { id: "ethercon", name: "etherCON", accepts: ["ethercon"] },
 };
 
 export function plugFitsJack(plugId, jackId) {
@@ -68,6 +71,7 @@ export const CABLES = {
   "mini-rca": { id: "mini-rca", name: "3.5 mm ↔ RCA (Y) cable", ends: ["trs35", "rca"], kind: "signal", balanced: false, blurb: "Phone/laptop headphone out to RCA." },
   "mini-dual-ts": { id: "mini-dual-ts", name: '3.5 mm ↔ dual 1/4" (breakout) cable', ends: ["trs35", "dualts14"], kind: "signal", balanced: false, stereo: true, blurb: "Stereo Y: laptop headphone out to a left + right pair of 1/4\" line inputs." },
   mini: { id: "mini", name: "3.5 mm aux cable", ends: ["trs35", "trs35"], kind: "signal", balanced: false, blurb: "Phone/laptop aux cable." },
+  cat5: { id: "cat5", name: "Cat5e cable (etherCON)", ends: ["ethercon", "ethercon"], kind: "network", balanced: false, blurb: "Shielded network cable. One of these carries every channel between a digital stage box and the console, both ways." },
 };
 
 // The plug on the far end if `plugAtPort` goes into the near port, or null.
@@ -274,9 +278,101 @@ export const DEVICE_TYPES = {
   },
 };
 
+// ---------- stage boxes ----------
+
+// An analog snake: a stage box of XLR inputs, a multicore to FOH, and a fan of
+// XLR tails at the console. Returns go the other way (FOH sends → stage box
+// outputs). Purely passive: whatever goes in a channel comes out its tail,
+// phantom power included. `through` pairs each in with its out.
+const SNAKE_CH = 16;
+const SNAKE_RET = ["a", "b", "c", "d"];
+DEVICE_TYPES.snake = {
+  name: `Analog snake (${SNAKE_CH} × ${SNAKE_RET.length})`,
+  stagebox: true,
+  passthrough: true,
+  ports: [
+    ...Array.from({ length: SNAKE_CH }, (_, i) => ({ id: `in${i + 1}`, dir: "in", jack: "xlr", level: "any", role: "snake-in", end: "stage", through: `tail${i + 1}`, name: `Snake IN ${i + 1}` })),
+    ...Array.from({ length: SNAKE_CH }, (_, i) => ({ id: `tail${i + 1}`, dir: "out", jack: "xlr", level: "any", role: "snake-out", end: "foh", through: `in${i + 1}`, name: `Snake tail ${i + 1} (at FOH)` })),
+    ...SNAKE_RET.map((r) => ({ id: `send-${r}`, dir: "in", jack: "xlr", level: "any", role: "snake-in", end: "foh", through: `ret-${r}`, name: `Return ${r.toUpperCase()} send (at FOH)` })),
+    ...SNAKE_RET.map((r) => ({ id: `ret-${r}`, dir: "out", jack: "xlr", level: "any", role: "snake-out", end: "stage", through: `send-${r}`, name: `Snake RETURN ${r.toUpperCase()}` })),
+  ],
+  blurb: "Sixteen mic lines and four returns in one multicore: plug in on stage, the tails come out at FOH.",
+};
+
+// Digital stage boxes on AES50 (Behringer S32, SD8): remote mic preamps on
+// stage (the console's GAIN and 48V control them) and outputs, all on one
+// Cat5 cable to the console's AES50 A port. Input n arrives as AES50-A n;
+// output n carries the console's output n (its AES50-A output blocks are left
+// on OUT 1–8 / 9–16, the factory routing).
+function aes50Box(name, ins, outs, blurb) {
+  return {
+    name,
+    stagebox: true,
+    network: "aes50",
+    ports: [
+      ...Array.from({ length: ins }, (_, i) => ({ id: `in${i + 1}`, dir: "in", jack: "xlr", level: "mic-or-line", phantom: true, role: "sb-in", index: i, name: `${name.split(" ").pop()} IN ${i + 1}` })),
+      ...Array.from({ length: outs }, (_, i) => ({ id: `out${i + 1}`, dir: "out", jack: "xlr", level: "line", role: "sb-out", index: i, name: `${name.split(" ").pop()} OUT ${i + 1}` })),
+      { id: "aes50a", dir: "out", jack: "ethercon", level: "line", role: "net", network: "aes50", name: "AES50 A" },
+    ],
+    blurb,
+  };
+}
+DEVICE_TYPES.s32 = aes50Box("Behringer S32", 32, 16, "32 remote mic preamps and 16 outputs on stage, on one Cat5 cable to the console's AES50 A.");
+DEVICE_TYPES.sd8 = aes50Box("Behringer SD8", 8, 8, "8 remote mic preamps and 8 outputs: a small stage box for a drum riser or a side stage.");
+
 // The compact mixers' rear panels come from their definitions.
 // `panels`: jacks that physically live in another box (the CL3's Rio stage box); ports name theirs with `panel`.
 for (const def of Object.values(COMPACT)) DEVICE_TYPES[def.id] = { name: def.name, mixer: true, compact: true, ports: compactPorts(def), ...(def.rio ? { panels: { rio: def.rio } } : {}) };
+
+// ---------- links through stage boxes ----------
+
+// Cable-like links for signal that passes through a stage box: source → mixer
+// channel through a snake, mixer output → speaker through a snake return, a
+// stage box input → the console's AES50 channel, a console output → a stage box
+// output. The physical cables stay in rig.cables; these say where the signal ends up.
+export function throughLinks(rig) {
+  const links = [];
+  const byTo = new Map(rig.cables.map((c) => [c.to, c]));
+  const byFrom = new Map(rig.cables.map((c) => [c.from, c]));
+  const mixer = rig.devices.find(isMixer);
+  for (const d of rig.devices) {
+    const type = DEVICE_TYPES[d.type];
+    if (!type?.stagebox) continue;
+    if (type.passthrough) {
+      for (const p of type.ports.filter((q) => q.dir === "in")) {
+        const into = byTo.get(portRef(d.id, p.id));
+        const outOf = byFrom.get(portRef(d.id, p.through));
+        // `plug`: what actually goes into the far jack is the tail's plug (XLR into a combo = the mic path).
+        if (into && outOf) links.push({ id: `via-${into.id}-${outOf.id}`, from: into.from, to: outOf.to, cable: outOf.cable, plug: plugAtInput(rig, outOf), via: d.id });
+      }
+      continue;
+    }
+    // A digital box only passes audio while its network cable reaches the console.
+    const net = type.ports.find((q) => q.network);
+    const link = mixer && rig.cables.find((c) => c.from === portRef(d.id, net.id) && getPort(rig, c.to)?.network === net.network && c.to.startsWith(`${mixer.id}/`));
+    if (!link) continue;
+    const mixerPorts = DEVICE_TYPES[mixer.type].ports;
+    // The console's own XLR outputs, in order: stage box OUT n carries the nth.
+    const consoleOuts = mixerPorts.filter((q) => q.role === "bus-out" && q.jack === "xlr" && !q.panel && q.channel === undefined);
+    for (const p of type.ports) {
+      if (p.role === "sb-in") {
+        const into = byTo.get(portRef(d.id, p.id));
+        const ch = mixerPorts.find((q) => q.jack === net.network && q.remote === p.index);
+        if (into && ch) links.push({ id: `${net.network}-${into.id}`, from: into.from, to: portRef(mixer.id, ch.id), cable: into.cable, via: d.id });
+      }
+      if (p.role === "sb-out") {
+        const outOf = byFrom.get(portRef(d.id, p.id));
+        const src = consoleOuts[p.index];
+        if (outOf && src) links.push({ id: `${net.network}-${outOf.id}`, from: portRef(mixer.id, src.id), to: outOf.to, cable: outOf.cable, via: d.id });
+      }
+    }
+  }
+  return links;
+}
+
+// Every route the analysis and the engine follow: cables, Dante subscriptions,
+// and signal passing through stage boxes (these last win for the port they reach).
+export const rigLinks = (rig) => [...rig.cables, ...danteLinks(rig), ...throughLinks(rig)];
 
 // ---------- rig helpers ----------
 
@@ -356,11 +452,29 @@ export function checkConnection(rig, fromRef, toRef, cableId) {
   if (isMixer(from.device) && isMixer(to.device)) {
     return { ok: false, reason: "Patching the mixer into itself makes a feedback loop." };
   }
-  if (from.type.source && !isMixer(to.device) && to.role !== "rec-in") {
-    return { ok: false, reason: "In this lab, sources plug into the mixer (or a recorder) first." };
+  if (from.network || to.network) {
+    if (!(from.network && to.network)) return { ok: false, reason: "A network port only talks to another network port." };
+    if (from.network !== to.network) return { ok: false, reason: `${from.name} is ${from.network.toUpperCase()}; ${to.name} is ${to.network.toUpperCase()}. They don't talk to each other.` };
   }
-  if (to.role === "channel-input" && !from.type.source) {
-    return { ok: false, reason: "Only sources go into the mixer's channel inputs here." };
+  // Stage boxes: mic lines go out to FOH, returns come back to the stage.
+  if (to.role === "snake-in" && to.end === "stage" && isMixer(from.device)) {
+    return { ok: false, reason: "That snake channel runs back to the console. Send to the stage on a RETURN (A–D)." };
+  }
+  if (to.role === "snake-in" && to.end === "foh" && from.type.source) {
+    return { ok: false, reason: "The returns carry signal from FOH to the stage. Plug sources into the snake's inputs on stage." };
+  }
+  if ((to.role === "snake-in" || to.role === "sb-in") && from.level === "speaker") {
+    return { ok: false, reason: "Speaker level never goes down a snake or into a stage box. Keep the amp near its speakers." };
+  }
+  if (to.role === "sb-in" && isMixer(from.device)) {
+    return { ok: false, reason: "The stage box's inputs come back into the console: a feedback loop." };
+  }
+  const throughStage = to.role === "snake-in" || to.role === "sb-in";
+  if (from.type.source && !isMixer(to.device) && to.role !== "rec-in" && !throughStage) {
+    return { ok: false, reason: "In this lab, sources plug into the mixer (or a recorder, or a stage box) first." };
+  }
+  if (to.role === "channel-input" && !from.type.source && from.role !== "snake-out") {
+    return { ok: false, reason: "Only sources go into the mixer's channel inputs here (straight, or through a snake)." };
   }
   if (to.role === "return-in" && from.role !== "proc-out") {
     return { ok: false, reason: "The aux returns take an effects unit's outputs." };
@@ -396,7 +510,7 @@ const LINE_PAD_DB = -20; // 1/4" side of a combo jack is padded before the pream
 //   buses        per mixer output port: the endpoints it validly reaches
 export function analyzeRig(rig, channels = [], sources = {}) {
   // Dante routes count as patches: the network is the cable.
-  const byTo = new Map([...rig.cables, ...danteLinks(rig)].map((c) => [c.to, c]));
+  const byTo = new Map(rigLinks(rig).map((c) => [c.to, c]));
 
   const channelInfo = [];
   const mixer = mixerOf(rig);
@@ -404,6 +518,12 @@ export function analyzeRig(rig, channels = [], sources = {}) {
   for (const port of mixerPorts.filter((p) => p.role === "channel-input")) {
     // INPUT PATCH (CL3): a channel listens to its Rio jack or its Dante RX, never both.
     if (Array.isArray(mixer.inPatch) && port.channel < mixer.inPatch.length && (port.jack === "dante") !== (mixer.inPatch[port.channel] === 1)) {
+      channelInfo[port.channel] ||= { connected: false, signal: false, status: "empty", messages: [] };
+      continue;
+    }
+    // Input routing (X32): each block of 8 channels takes its local jacks or AES50-A (a stage box).
+    const block = Array.isArray(mixer.inSource) ? mixer.inSource[Math.floor(port.channel / 8)] : undefined;
+    if (block !== undefined && (port.jack === "aes50") !== (block === 1)) {
       channelInfo[port.channel] ||= { connected: false, signal: false, status: "empty", messages: [] };
       continue;
     }
@@ -448,7 +568,7 @@ export function analyzeRig(rig, channels = [], sources = {}) {
 function analyzeChannelInput(rig, cable, ch, sources, port) {
   if (!cable) return { connected: false, signal: false, status: "empty", messages: [] };
   const from = getPort(rig, cable.from);
-  const plug = plugAtInput(rig, cable);
+  const plug = cable.plug || plugAtInput(rig, cable);
   const path = port.path || (plug === "xlr" ? "mic" : "line");
   const sourceId = from.sourceId || from.device.sourceId || null;
   const source = sources[sourceId] || null;

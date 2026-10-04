@@ -212,10 +212,36 @@ const SOLVE = {
     a.st.setBus("sub1", "level", CR1604.LAWS.fader.toPos(-6));
     a.st.setBus("sub2", "level", CR1604.LAWS.fader.toPos(-6));
   },
+  // Stage boxes (Stage & patch): input routing, the Cat5 link, outputs on stage, a snake's tails and returns.
+  "x32-stagebox": (a) => a.st.setDevice("mixer", "inSource.0", 1),
+  "x32-stagebox-link": (a) => assert.ok(a.st.connect("sb/aes50a", "mixer/aes50a", "cat5").ok),
+  "x32-stagebox-out": (a) => {
+    a.unplugAt("amp/in-a");
+    assert.ok(a.st.connect("sb/out2", "amp/in-a", "xlr").ok);
+  },
+  "x32c-stagebox": (a) => a.st.setDevice("mixer", "inSource.0", 1),
+  "cr1604-snake": (a) => assert.ok(a.st.connect("snake/tail7", "mixer/ch7-mic", "xlr").ok),
+  "cr1604-snake-return": (a) => {
+    assert.ok(a.st.connect("mixer/aux1", "snake/send-a", "xlr-trs").ok);
+    a.st.setListen("aux1");
+  },
 };
 
 // Tempting wrong fixes: each must leave the scenario unsolved.
 const WRONG = {
+  "x32-stagebox": [["AES50-A on the wrong block (17–24)", (a) => a.st.setDevice("mixer", "inSource.2", 1)]],
+  "x32-stagebox-link": [
+    ["an XLR cable between the network ports", (a) => assert.equal(a.st.connect("sb/aes50a", "mixer/aes50a", "xlr").ok, false)],
+    ["input routing back to LOCAL", (a) => a.st.setDevice("mixer", "inSource.0", 0)],
+  ],
+  "x32-stagebox-out": [["OUT 3 routed to MAIN", (a) => a.st.setBus("routing", "out3", "main-l")]],
+  "cr1604-snake": [["a return into the console", (a) => a.st.connect("snake/ret-a", "mixer/ch7-mic", "xlr")]],
+  "cr1604-snake-return": [
+    ["AUX 1 into a snake input (it runs back to FOH)", (a) => {
+      assert.equal(a.st.connect("mixer/aux1", "snake/in1", "xlr-trs").ok, false);
+      a.st.setListen("aux1");
+    }],
+  ],
   "ui16-mud": [
     ["the cut without EQ ON", (a) => {
       a.set("guitars", "peq.lowMid.gain", -4);
