@@ -6364,3 +6364,156 @@ dialog::backdrop {
     order: 6;
   }
 }
+
+/* ---------- assignments, the Canvas export and bug reports ---------- */
+
+.bug-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  cursor: pointer;
+}
+.bug-btn:hover {
+  border-color: var(--accent);
+}
+.badge-assign {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: 0.02em;
+  background: color-mix(in srgb, var(--warn) 18%, transparent);
+  color: var(--warn);
+  vertical-align: middle;
+}
+.badge-assign.met {
+  background: color-mix(in srgb, var(--ok) 22%, transparent);
+  color: var(--ok);
+}
+.topic-card .badge-assign {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.8rem;
+  margin: 0;
+}
+.start-legacy {
+  margin: 0.4rem 0 0;
+  font-size: 0.88rem;
+  color: var(--text-dim);
+  text-align: left;
+}
+.start-legacy a,
+.dt-legacy a,
+.canvas-note a {
+  color: var(--accent);
+}
+.drawer-h {
+  margin: 0.9rem 0.2rem 0.45rem;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  color: var(--accent);
+}
+.dt-legacy {
+  margin: 0 0 0.45rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+.canvas-assignments {
+  display: grid;
+  gap: 0.5rem;
+}
+.canvas-assignment,
+.canvas-bugs {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.75rem;
+  background: var(--bg-sunken);
+}
+.canvas-assignment.done {
+  border-color: color-mix(in srgb, var(--ok) 55%, transparent);
+}
+.ca-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.3rem;
+}
+.ca-topics,
+.canvas-bug-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+.ca-topics li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.ca-topics li.done {
+  color: var(--ok);
+}
+.canvas-bugs {
+  margin: 0.5rem 0;
+}
+.canvas-bug-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 0.75rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+}
+.canvas-bug-list small {
+  grid-column: 1;
+  color: var(--text-dim);
+}
+.canvas-bug-list .linkish {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+}
+.canvas-bugs .chip {
+  margin-top: 0.4rem;
+}
+.bug-where {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+.bug-snap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.8rem;
+  font-size: 0.9rem;
+}
+.bug-extras {
+  margin: 0.8rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+.bug-copy-area {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}

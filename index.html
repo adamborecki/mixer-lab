@@ -26,8 +26,11 @@
       <button type="button" role="radio" class="mode-btn" data-mode="mixer" aria-label="By mixer" aria-checked="false"><span class="mode-long">By mixer</span><span class="mode-short" aria-hidden="true">Mixer</span></button>
       <button type="button" role="radio" class="mode-btn" data-mode="free" aria-label="Free play" aria-checked="false"><span class="mode-long">Free play</span><span class="mode-short" aria-hidden="true">Free</span></button>
     </div>
-    <button type="button" class="canvas-btn" data-open-canvas aria-label="Canvas Submission">
-      <span>Canvas</span><b class="canvas-count">0/10</b>
+    <button type="button" class="bug-btn" data-report-bug aria-label="Report a bug" title="Something weird? Report a bug">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7a4 4 0 0 1 8 0"/><rect x="7" y="7" width="10" height="12" rx="5"/><path d="M12 11v8M3 13h4M17 13h4M4 7l3 2M20 7l-3 2M4 20l3-3M20 20l-3-3"/></svg>
+    </button>
+    <button type="button" class="canvas-btn" data-open-canvas aria-label="Export to Canvas">
+      <span>Canvas</span><b class="canvas-count">A2 0/15</b>
     </button>
     <div id="mission-dock" class="mission-dock" aria-label="Current scenario" hidden></div>
   </header>
@@ -91,6 +94,7 @@
 
   <dialog id="drawer" class="drawer" aria-labelledby="drawer-title"></dialog>
   <dialog id="canvas" class="canvas-dialog" aria-labelledby="canvas-title"></dialog>
+  <dialog id="bug" class="canvas-dialog bug-dialog" aria-labelledby="bug-title"></dialog>
   <dialog id="credits" class="credits-dialog" aria-labelledby="credits-title"></dialog>
 
   <div id="load-errors" class="load-errors" role="alert" hidden></div>

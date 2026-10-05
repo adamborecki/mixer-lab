@@ -17,6 +17,15 @@ rm -rf "$OUT"
 mkdir -p "$OUT/branch"
 git archive "$ROOT_REF" | tar -x -C "$OUT"
 
+# Assignment 1 as it was (the `legacy` branch), for late submissions, at legacy/.
+# Not a preview: no banner of that kind, and it shares the live site's saved progress.
+LEGACY_REF="$REF_NS/legacy"
+if git rev-parse --verify --quiet "$LEGACY_REF" > /dev/null; then
+  mkdir -p "$OUT/legacy"
+  git archive "$LEGACY_REF" | tar -x -C "$OUT/legacy"
+  echo "legacy: $LEGACY_REF -> legacy/"
+fi
+
 slugify() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g'; }
 html() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
 

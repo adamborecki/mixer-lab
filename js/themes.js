@@ -170,7 +170,7 @@ export function nextInTheme(theme, solved = () => false) {
 // Every console with scenarios, simplest first: the generic analog mixer (its
 // scenarios are the Canvas ten), then the real ones in MIXER_ORDER.
 export const MIXERS = [
-  { model: "generic", skin: "analog", why: "Faders, MUTE and two aux sends: the ideas without any one maker's layout. The Canvas assignment runs here." },
+  { model: "generic", skin: "analog", why: "Faders, MUTE and two aux sends: the ideas without any one maker's layout. Assignment 1's ten scenarios ran here." },
   ...MIXER_ORDER,
 ];
 export const mixerEntry = (consoleId) => MIXERS.find((m) => m.model === consoleId) || null;

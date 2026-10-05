@@ -54,7 +54,7 @@ const freeLine = (f) => `Free play: ${statText(f)}`;
 const totalLine = (t) => `Total: ${statText(t)}`;
 
 // 53-bit string hash (cyrb53), shown as four groups of hex.
-function hash53(str) {
+export function hash53(str) {
   let h1 = 0xdeadbeef;
   let h2 = 0x41c6ce57;
   for (let i = 0; i < str.length; i++) {

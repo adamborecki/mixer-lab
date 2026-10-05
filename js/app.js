@@ -17,7 +17,10 @@ import { ListenBar } from "./ui/listen-bar.js";
 import { MixerView } from "./ui/mixer-view.js";
 import { PatchView } from "./ui/patch-view.js";
 import { MissionView, StartScreen, ThemeDrawer } from "./ui/mission-view.js";
-import { CANVAS_SCENARIOS, SCENARIO_BY_ID, THEMES_BY_ID, consoleOf, isCanvas, mixerEntry, nextInTheme, nextOnMixer, skinOf } from "./themes.js";
+import { SCENARIO_BY_ID, THEMES_BY_ID, consoleOf, mixerEntry, nextInTheme, nextOnMixer, skinOf } from "./themes.js";
+import { ASSIGNMENTS_BY_ID, CURRENT_ASSIGNMENT, assignmentProgress, nextTopic } from "./assignments.js";
+import { BugLog } from "./bugs.js";
+import { BugView } from "./ui/bug-view.js";
 import { SubmissionView } from "./ui/submission-view.js";
 import { RecorderView } from "./ui/recorder-view.js";
 import { DanteView } from "./ui/dante-view.js";
@@ -34,7 +37,7 @@ let mode = "topic";
 const hardwareOf = (sk) => sk.hardware || "generic";
 
 const store = new MixerStore(createMixerState(hardwareOf(skin)));
-// The real mixers' practice scenarios are remembered too; the Canvas report only lists SCENARIOS.
+// Every scenario's progress is remembered: the Canvas export (js/export.js) reports all of it.
 const progress = new Progress([...numberedScenarios(SCENARIOS), ...ALL_BOARD_SCENARIOS].map((s) => s.id), undefined, [...SCENARIOS, ...ALL_BOARD_SCENARIOS].map((s) => s.id));
 const engine = new AudioEngine(store, M);
 
@@ -93,7 +96,7 @@ const missionView = new MissionView($("#mission"), {
   dock: $("#mission-dock"),
   progress,
   getTerms: () => skin.terms,
-  onSelect: (id) => openScenario(id, { canvas: current.canvasMode, by: mode }),
+  onSelect: (id) => openScenario(id, { by: mode }),
   onReset: () => selectScenario(current.def.id),
   onClear: () => {
     for (const c of [...store.state.rig.cables]) store.disconnect(c.id);
@@ -124,7 +127,8 @@ const missionView = new MissionView($("#mission"), {
 
 const drawer = new ThemeDrawer($("#drawer"), {
   progress,
-  onSelect: (id, by) => openScenario(id, { canvas: by !== "mixer" && CANVAS_SCENARIOS.some((s) => s.id === id) && current.canvasMode, by }),
+  onSelect: (id, by) => openScenario(id, { by }),
+  onTopic: (themeId) => openScenario(nextInTheme(themeId, (id) => progress.has(id)).id),
   onFree: (skinId) => openFree(skinId),
   onHome: () => showStart(),
 });
@@ -226,10 +230,10 @@ function selectScenario(id) {
   const state = buildScenarioState(def, M.SOURCES_BY_ID, hardwareOf(skin));
   store.replace(state);
   resetUndo();
-  current = { def, canvasMode: current.canvasMode, baseline: captureBaseline(def, state, M.SOURCES_BY_ID, M.STEMS), session: { listened: new Set([state.listen]) } };
+  current = { def, baseline: captureBaseline(def, state, M.SOURCES_BY_ID, M.STEMS), session: { listened: new Set([state.listen]) } };
   lastEval = "";
   missionView.resetHints();
-  missionView.render(def, evaluateNow(), { canvasMode: current.canvasMode, skinId: skin.id, mode });
+  missionView.render(def, evaluateNow(), { skinId: skin.id, mode });
   const hash = def.id === "free-play" ? `#/free-play/${skin.id}` : mode === "mixer" ? `#/by-mixer/${def.id}` : `#/${def.id}`;
   if (location.hash !== hash) history.replaceState(null, "", hash);
   if (def.id !== "free-play") writePref("mixer-lab-last", def.id);
@@ -238,13 +242,12 @@ function selectScenario(id) {
 }
 
 // Opens a scenario on its own console. `by`: step through its topic ("topic")
-// or its mixer's list ("mixer"). `canvas`: step through the Canvas ten instead.
-function openScenario(id, { canvas = false, by = "topic" } = {}) {
+// or its mixer's list ("mixer").
+function openScenario(id, { by = "topic" } = {}) {
   const s = SCENARIO_BY_ID[id];
   if (!s) return openFree();
   mode = by === "mixer" ? "mixer" : "topic";
   writePref("mixer-lab-mode", mode);
-  current.canvasMode = mode === "topic" && canvas && isCanvas(s);
   useConsole(skinOf(consoleOf(s)), () => selectScenario(id));
 }
 
@@ -258,14 +261,15 @@ function openMixer(model = hardwareOf(skin)) {
 function openFree(skinId = skin.id) {
   if (!SKINS[skinId]) skinId = DEFAULT_SKIN;
   mode = "free";
-  current.canvasMode = false;
   useConsole(skinId, () => selectScenario("free-play"));
 }
 
+// The top bar's count: the current assignment's progress.
 function updateCanvasCount() {
-  const n = CANVAS_SCENARIOS.filter((s) => progress.has(s.id)).length;
+  const p = assignmentProgress(ASSIGNMENTS_BY_ID[CURRENT_ASSIGNMENT], (id) => progress.has(id));
   const el = document.querySelector(".canvas-count");
-  if (el.textContent !== `${n}/10`) el.textContent = `${n}/10`;
+  const text = `A${ASSIGNMENTS_BY_ID[CURRENT_ASSIGNMENT].number} ${p.done}/${p.need}`;
+  if (el.textContent !== text) el.textContent = text;
 }
 
 // Every band source in the rig: plain source devices, and each track of a DAW laptop.
@@ -339,7 +343,7 @@ function useConsole(id, build) {
   mixerView.setSkin(skin);
   renderFlow($("#flow"), skin);
   listenBar.render();
-  missionView.render(current.def, evaluateNow(), { canvasMode: current.canvasMode, skinId: skin.id, mode });
+  missionView.render(current.def, evaluateNow(), { skinId: skin.id, mode });
   document.body.dataset.skin = id;
   for (const b of document.querySelectorAll(".topbar .mode-btn")) {
     const on = b.dataset.mode === mode;
@@ -429,7 +433,12 @@ const startScreen = new StartScreen(overlay, {
     overlay.classList.add("dismissed");
     overlay.setAttribute("aria-hidden", "true");
     if (what === "resume") openFromHash(resumeHash);
-    else if (what === "canvas") openScenario(CANVAS_SCENARIOS.find((s) => !progress.has(s.id))?.id || CANVAS_SCENARIOS[0].id, { canvas: true });
+    else if (what.startsWith("assignment:")) {
+      // The next scenario in the assignment's first topic that's still short.
+      const a = ASSIGNMENTS_BY_ID[what.slice(11)];
+      const t = nextTopic(a, (id) => progress.has(id)) || { id: a.topics[0][0] };
+      openScenario(nextInTheme(t.id, (id) => progress.has(id)).id);
+    }
     else if (what === "free") openFree();
     else if (what.startsWith("theme:")) openScenario(nextInTheme(what.slice(6), (id) => progress.has(id)).id);
     else if (what.startsWith("mixer:")) openMixer(what.slice(6));
@@ -546,10 +555,33 @@ window.addEventListener("pagehide", () => progress.flush());
 
 // ---------- Canvas submission ----------
 
+const bugs = new BugLog();
 const submissionView = new SubmissionView($("#canvas"), {
-  scenarios: SCENARIOS,
   progress,
+  bugs,
   getUrl: () => location.origin + location.pathname,
+  onReportBug: () => bugView.open(),
+});
+
+// ---------- bug reports ----------
+
+// What the student was doing, attached to their report (state as a snapshot).
+const bugView = new BugView($("#bug"), {
+  bugs,
+  toast,
+  getContext: () => ({
+    scenario: current.def.id === "free-play" ? `free-play/${skin.id}` : current.def.id,
+    title: current.def.id === "free-play" ? "Free play" : current.def.title,
+    mixer: skin.name,
+    view: main.dataset.view === "patch" ? "Stage & patch" : "Console",
+    listen: store.state.listen,
+    url: location.href,
+    state: store.state,
+  }),
+  onSaved: () => submissionView.isOpen && submissionView.open(),
+});
+document.addEventListener("click", (e) => {
+  if (e.target.closest(".bug-btn[data-report-bug]")) bugView.open();
 });
 document.addEventListener("click", (e) => {
   if (e.target.closest("[data-open-canvas]")) submissionView.open();

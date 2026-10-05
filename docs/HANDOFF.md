@@ -61,6 +61,15 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 | `tests/*.test.mjs` | `routing`, `scenarios`, `skins` (node:test) |
 | `tools/make-excerpts.sh` | Regenerates delivery audio from the local WAV masters |
 
+## Canvas: assignments, the export, bug reports, and Assignment 1 at legacy/
+
+"Canvas" means two separate things, kept apart on purpose:
+
+- **Assignment 1 (the ten scenarios on Mixer A/B)** was due 2026-10-04. It is frozen on the `legacy` branch, served at `/mixer-lab/legacy/` (`tools/build-pages.sh`) for late submissions, with its original submission format. It shares the live site's saved progress, and its `Progress` keeps entries it doesn't know, so it never erases work from the current version ([BRANCH_PREVIEWS.md](BRANCH_PREVIEWS.md)).
+- **Assignments 2 on** (`js/assignments.js`, tests in `tests/export.test.mjs`): each lists topics and how many solved scenarios each needs (any mixer counts), by week of the unit: A2 weeks 1–2 (system, patching, phantom, house mix, monitor mixes), A3 week 3 (gain, solo/line check, snakes, low cut), A4 week 4 (recording, outputs, digital workflows incl. scenes for reset and handoff), A5 optional (EQ, compression, effects, groups). `CURRENT_ASSIGNMENT` is the one the start screen and the top bar's count point at. Change requirements there.
+- **Export to Canvas** (`js/export.js`, `js/ui/submission-view.js`): everything ever done (assignment progress, every solved or worked-on scenario with time and actions, Free play, bug reports, reflection) as text with a check code over every non-blank line. `node tools/verify-submission.mjs < pasted.txt` checks either format.
+- **Bug reports** (`js/bugs.js`, `js/ui/bug-view.js`): the bug button in the top bar (and in the export dialog). The student types what happened; the report gets the scenario, mixer, view, listening spot, browser and (opt-out) a deflate+base64 snapshot of the mixer state, saved in the browser and printed in the export. `node tools/decode-snapshot.mjs < pasted.txt` turns a snapshot back into JSON. Smaller extras: copy the report, or open a prefilled GitHub issue (no snapshot).
+
 ## Page layout: by topic, by mixer, free play (feature/more-mixers)
 
 Three ways in, side by side in the top bar (**By topic · By mixer · Free play**), because a student may come to the lab with a question or standing at a particular desk. Design principle: make students curious. Topics lead with their question ("Where is the amplifier?"); mixers lead with what makes them different.
@@ -76,7 +85,7 @@ Three ways in, side by side in the top bar (**By topic · By mixer · Free play*
 - **Pinned scenario** (`#mission-dock`, `MissionView.renderDock`): once the strip's goals scroll under the top bar, a slim copy hangs below it: title, goal ticks, the next unmet goal (or a broken keep), Hint, Next when solved, and "Story & goals" (the prompt, checklist and hints so far, as an overlay). It overlays the page, so showing it never moves the layout.
 - **Drawer** (`ThemeDrawer`): two tabs, frozen in its header with Start screen. By topic: the Canvas ten, then every topic with its scenarios, consoles and ticks. By mixer: every console with its scenarios (tagged with their topic) and a Free play link.
 - **Free play** is a mode, not a list item: its strip picks any console (`FREE_CONSOLES`).
-- **Canvas**: the ten scenarios run on the generic analog mixer (the old Mixer A, renamed). Mixer B is no longer offered (its skin stays in `SKINS` for the tests). Opening the Canvas assignment steps through the ten in order (`current.canvasMode`).
+- **The old ten** run on the generic analog mixer (the old Mixer A, renamed) and are that mixer's list in By mixer. Mixer B is no longer offered (its skin stays in `SKINS` for the tests).
 - URLs: `#/<scenario-id>` opens that scenario on its console; `#/free-play/<skin>` opens Free play.
 - **Your ears** (`js/ui/listen-bar.js`): the bottom bar is a small venue map (stage and wedges, house speakers, the audience, the desk). Each listening destination is a spot placed by the speakers it reaches (`places`, from `analyzeRig` endpoints and their `zone`/`pan`); the figure stands at the current one (headphones at the desk, red when silent). The Stage & patch diagram draws the same figure beside the heard speaker and a ghost figure (an ear button) beside every other one.
 - **Patch dialog picture** (`js/ui/connector-art.js`): shaded plug and panel-jack drawings. The dialog shows this jack, the hovered cable (its near end greyed and mirrored toward the jack) and the socket the far end goes into. Cable cards grey the near end, which is the same on every card, and draw the far end large.

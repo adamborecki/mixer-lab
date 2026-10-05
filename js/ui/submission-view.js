@@ -1,26 +1,29 @@
-// Canvas Submission dialog: progress list, name + reflection, generated text,
-// and a Copy button. Report text comes from js/submission.js; nothing is sent
-// anywhere and the name and reflection are never stored.
+// "Export to Canvas": progress toward each assignment, the bug reports waiting
+// to go in, name + reflection, the generated text (js/export.js) and Copy.
+// Nothing is sent anywhere; the name and reflection are never stored.
+// Assignment 1 (the ten scenarios) is exported from its original version at legacy/.
 
-import { MAX_NAME, MAX_REFLECTION, REFLECTION_PROMPT, buildSubmission, duration, summarize, validate } from "../submission.js";
+import { MAX_NAME, MAX_REFLECTION, REFLECTION_PROMPT, validate } from "../submission.js";
+import { buildExport, exportSummary } from "../export.js";
+import { LEGACY_URL, label } from "../assignments.js";
+import { contextLine } from "../bugs.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 export class SubmissionView {
-  constructor(dialog, { scenarios, progress, getUrl }) {
+  constructor(dialog, { progress, bugs, getUrl, onReportBug }) {
     this.dialog = dialog;
-    this.scenarios = scenarios;
     this.progress = progress;
+    this.bugs = bugs;
     this.getUrl = getUrl;
     this.showErrors = false;
     dialog.innerHTML = `<div class="patch-inner canvas-inner">
-      <header class="patch-head"><h2 id="canvas-title">Canvas Submission</h2>
+      <header class="patch-head"><h2 id="canvas-title">Export to Canvas</h2>
         <button type="button" class="patch-x" data-close-canvas aria-label="Close">✕</button></header>
-      <p class="canvas-count" aria-live="polite"></p>
-      <p class="canvas-note">Time counts only while this page is open and you're actively working. "Actions" are changes you make to the mixer or patch.</p>
-      <ul class="canvas-list"></ul>
-      <p class="canvas-note">Partial submissions are fine: hand in what you've solved so far. Your progress is saved in this browser only, so it survives a refresh but not clearing site data or switching browsers or devices.
-        <button type="button" class="linkish" data-canvas-reset>Clear my progress</button></p>
+      <p class="canvas-note">Everything you've done in Mixer Lab goes in, whichever assignment it's for: paste it into the Canvas assignment you're handing in. Time counts only while you're actively working; "actions" are changes to the mixer or patch.</p>
+      <div class="canvas-assignments"></div>
+      <p class="canvas-note">Assignment 1 (the ten scenarios) is handed in from <a href="${LEGACY_URL}">its original version</a>.</p>
+      <section class="canvas-bugs" aria-label="Bug reports"></section>
       <label class="canvas-field">Your name
         <input type="text" class="canvas-name" maxlength="${MAX_NAME}" autocomplete="name" required />
         <span class="canvas-error" data-err="name" role="alert"></span></label>
@@ -31,37 +34,55 @@ export class SubmissionView {
         <textarea class="canvas-preview" rows="12" readonly spellcheck="false"></textarea></label>
       <button type="button" class="btn btn-start canvas-copy" data-canvas-copy>Copy for Canvas</button>
       <p class="canvas-status" role="status" aria-live="polite"></p>
-      <p class="canvas-note">Your name and reflection are not saved or sent anywhere; they stay in this dialog until you close the page.</p>
+      <p class="canvas-note">Your progress and bug reports are saved in this browser only: they survive a refresh, not clearing site data or switching devices. Your name and reflection aren't saved or sent anywhere.
+        <button type="button" class="linkish" data-canvas-reset>Clear my progress</button></p>
     </div>`;
     this.$ = (s) => dialog.querySelector(s);
     dialog.addEventListener("input", () => this.renderPreview());
     dialog.addEventListener("click", (e) => {
+      const rm = e.target.closest("[data-bug-remove]");
       if (e.target === dialog || e.target.closest("[data-close-canvas]")) dialog.close();
       else if (e.target.closest("[data-canvas-copy]")) this.copy();
-      else if (e.target.closest("[data-canvas-reset]") && confirm("Clear your saved scenario progress in this browser?")) {
+      else if (e.target.closest("[data-report-bug]")) onReportBug();
+      else if (rm && confirm("Remove this bug report?")) {
+        this.bugs.remove(Number(rm.dataset.bugRemove));
+        this.open();
+      } else if (e.target.closest("[data-canvas-reset]") && confirm("Clear your saved scenario progress in this browser? Bug reports stay.")) {
         this.progress.clear();
         this.open();
       }
     });
   }
 
+  get isOpen() {
+    return this.dialog.open;
+  }
+
   open() {
-    this.renderList();
+    this.renderLists();
     this.status("");
     this.renderPreview();
     if (!this.dialog.open) this.dialog.showModal();
   }
 
   summary() {
-    return summarize(this.scenarios, (id) => this.progress.has(id), (id) => this.progress.statsFor(id));
+    return exportSummary({ isSolved: (id) => this.progress.has(id), statsFor: (id) => this.progress.statsFor(id) });
   }
 
-  renderList() {
+  renderLists() {
     const s = this.summary();
-    this.$(".canvas-count").textContent = `Completed: ${s.done} / ${s.total}`;
-    this.$(".canvas-list").innerHTML = s.rows
-      .map((r) => `<li class="${r.done ? "done" : ""}"><span class="canvas-mark" aria-hidden="true">${r.done ? "✓" : ""}</span>${r.number}. ${esc(r.title)}<span class="visually-hidden">${r.done ? " — solved" : " — not solved yet"}</span><small class="canvas-stat">${duration(r.sec)} · ${r.actions} actions</small></li>`)
+    this.$(".canvas-assignments").innerHTML = s.assignments
+      .map(
+        (p) => `<div class="canvas-assignment ${p.complete ? "done" : ""}">
+          <p class="ca-head"><strong>${esc(label(p.a))}: ${esc(p.a.title)}</strong><span>${p.done} / ${p.need}${p.complete ? " ✓" : ""}</span></p>
+          <ul class="ca-topics">${p.topics.map((t) => `<li class="${t.done >= t.need ? "done" : ""}"><span>${esc(t.question)}</span><b>${t.done}/${t.need}</b></li>`).join("")}</ul>
+        </div>`,
+      )
       .join("");
+    const bugs = this.bugs.list();
+    this.$(".canvas-bugs").innerHTML = `<p class="ca-head"><strong>Bug reports</strong><span>${bugs.length}</span></p>
+      ${bugs.length ? `<ol class="canvas-bug-list">${bugs.map((b, i) => `<li><span>${esc(b.text)}</span><small>${esc(contextLine(b))}</small><button type="button" class="linkish" data-bug-remove="${i}">Remove</button></li>`).join("")}</ol>` : ""}
+      <button type="button" class="chip" data-report-bug>Report a bug</button>`;
   }
 
   values() {
@@ -69,7 +90,7 @@ export class SubmissionView {
   }
 
   build() {
-    return buildSubmission({ ...this.values(), summary: this.summary(), url: this.getUrl() });
+    return buildExport({ ...this.values(), summary: this.summary(), bugs: this.bugs.list(), url: this.getUrl() });
   }
 
   renderPreview() {
@@ -95,28 +116,24 @@ export class SubmissionView {
       this.$(errors.name ? ".canvas-name" : ".canvas-reflection").focus();
       return;
     }
-    const preview = this.$(".canvas-preview");
-    const text = preview.value;
-    let ok = false;
+    const ok = await copyText(this.$(".canvas-preview"));
+    this.status(ok ? "Copied. Paste it into the Canvas assignment." : "Couldn't copy automatically. The text is selected: press Ctrl/⌘+C, then paste into Canvas.", ok ? "ok" : "warn");
+  }
+}
+
+// Copies a textarea's text; falls back to selecting it (http, old Safari, iframes).
+export async function copyText(area) {
+  try {
+    await navigator.clipboard.writeText(area.value);
+    return true;
+  } catch (e) {
+    area.focus();
+    area.select();
+    area.setSelectionRange(0, area.value.length);
     try {
-      await navigator.clipboard.writeText(text);
-      ok = true;
-    } catch (e) {
-      // Clipboard API missing or blocked (http, old Safari, iframe): fall back to a selection copy.
-      preview.focus();
-      preview.select();
-      preview.setSelectionRange(0, text.length);
-      try {
-        ok = document.execCommand("copy");
-      } catch (e2) {
-        ok = false;
-      }
-    }
-    if (ok) this.status("Copied. Paste it into the Canvas assignment.", "ok");
-    else {
-      preview.focus();
-      preview.select();
-      this.status("Couldn't copy automatically. The text is selected: press Ctrl/⌘+C, then paste into Canvas.", "warn");
+      return document.execCommand("copy");
+    } catch (e2) {
+      return false;
     }
   }
 }

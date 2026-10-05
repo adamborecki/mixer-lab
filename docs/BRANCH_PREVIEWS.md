@@ -7,6 +7,9 @@
 | Live site (`main`) | `https://adamborecki.github.io/mixer-lab/` |
 | A preview | `https://adamborecki.github.io/mixer-lab/branch/<slug>/` |
 | List of previews | `https://adamborecki.github.io/mixer-lab/branch/` |
+| Assignment 1, frozen for late work (`legacy`) | `https://adamborecki.github.io/mixer-lab/legacy/` |
+
+The `legacy` branch is the site as it was when Assignment 1 (the ten scenarios) was due. It isn't a preview: no preview banner, and it shares the live site's saved progress (its own banner says what it is). Its progress code keeps entries it doesn't know, so using it never erases work done in the current version. A push to `legacy` rebuilds the site.
 
 The slug is the branch name in lower case with every run of other characters turned into `-`. For example, `skin/yamaha-stagepas` becomes `skin-yamaha-stagepas`.
 
