@@ -31,6 +31,11 @@ export class StemTransport {
     this.keepAlive.gain.value = 0;
     this.keepAlive.connect(ctx.destination);
     this.outs = new Map(); // sourceId → GainNode
+    // sourceId → GainNode between the players and the output: a scenario's
+    // "who's on stage" mutes a stem here. The players keep running (and stay
+    // in lockstep); only this gain changes.
+    this.gates = new Map();
+    this.muted = new Set();
     this.sourceIds = [];
     this.mode = "excerpt";
     this.playing = false;
@@ -56,15 +61,32 @@ export class StemTransport {
     for (const [id, g] of this.outs) {
       if (want.has(id)) continue;
       g.disconnect();
+      this.gates.get(id).disconnect();
       this.outs.delete(id);
+      this.gates.delete(id);
     }
     for (const id of sourceIds) {
       if (this.outs.has(id)) continue;
       const g = this.ctx.createGain();
       g.connect(this.keepAlive);
       this.outs.set(id, g);
+      const gate = this.ctx.createGain();
+      gate.gain.value = this.muted.has(id) ? 0 : 1;
+      gate.connect(g);
+      this.gates.set(id, gate);
     }
     this.sourceIds = [...sourceIds];
+  }
+
+  // Silences these sources' stems (and un-silences the rest) with a short fade.
+  setMuted(ids) {
+    this.muted = new Set(ids);
+    const t = this.ctx.currentTime;
+    for (const [id, gate] of this.gates) {
+      gate.gain.cancelScheduledValues(t);
+      gate.gain.setValueAtTime(gate.gain.value, t);
+      gate.gain.linearRampToValueAtTime(this.muted.has(id) ? 0 : 1, t + 0.05);
+    }
   }
 
   stemOf(sourceId) {
@@ -244,7 +266,7 @@ export class StemTransport {
       src.loopStart = ls;
       src.loopEnd = le;
       const gain = this.envelope(when, EDGE_FADE, Infinity, 0);
-      src.connect(gain).connect(this.outs.get(id));
+      src.connect(gain).connect(this.gates.get(id));
       // Same start time, same offset, same loop points → sample-locked stems.
       src.start(when, ls);
       this.scheduled.push({ src, gain, endCtx: Infinity });
@@ -298,7 +320,7 @@ export class StemTransport {
       const src = this.ctx.createBufferSource();
       src.buffer = buffer;
       const gain = this.envelope(when, xfIn ? XF : EDGE_FADE, endAbs - startAbs, xfOut ? XF : EDGE_FADE);
-      src.connect(gain).connect(this.outs.get(id));
+      src.connect(gain).connect(this.gates.get(id));
       src.start(when + late, startAbs - fileStart + late, endAbs - startAbs - late);
       this.scheduled.push({ src, gain, endCtx: when + (endAbs - startAbs), k, cycle });
     }

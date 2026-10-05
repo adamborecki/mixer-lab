@@ -6266,3 +6266,12 @@ dialog::backdrop {
   white-space: normal;
   text-align: center;
 }
+
+/* Who's on stage in this scenario (doors: nobody; a speech; someone sitting out). */
+.mission-stage {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--text-dim);
+}

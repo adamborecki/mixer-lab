@@ -267,6 +267,24 @@ export const PRESHOW = {
 // Looping stereo assets, keyed by a source's `asset` field.
 export const LOOP_ASSETS = { preshow: PRESHOW };
 
+// Spoken clips that stand in for a band member's mic (a scenario's
+// `stage.voice`): the host making announcements into the singer's mic, for
+// example. Levelled so its average matches the sung lead vocal and its peak
+// sits at the lead vocal's peak (the level model reads the stem's numbers).
+// Looped with a 3 s pause after the speech, restarted when the scenario opens.
+export const VOICES = {
+  announcement: {
+    id: "announcement",
+    title: "Announcement",
+    speaker: "Adam Borecki",
+    speakerShort: "ADAM",
+    file: "audio/voice/announcement-adam.mp3",
+    originalFilename: "new talking - announcement - adam borecki.m4a",
+    duration: 14.71,
+    peakDb: -1.9,
+  },
+};
+
 // ---------- credits (shown in the app's Credits dialog and the docs) ----------
 
 export const CREDITS = [
@@ -284,6 +302,10 @@ export const CREDITS = [
       ["Mixing and mastering", "Eli Furie"],
     ],
     note: "Used with permission for this educational project.",
+  },
+  {
+    title: "Announcements",
+    lines: [["Voice", "Adam Borecki"]],
   },
   {
     title: "Preshow music",

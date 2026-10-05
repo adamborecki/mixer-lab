@@ -10,11 +10,19 @@ export function setNameMode(m) {
   mode = NAME_MODES.includes(m) ? m : "parts";
 }
 
-const byMusician = (src) => mode === "musicians" && !!src?.musician;
+// A scenario can put someone else on a mic (the host talking into the singer's
+// mic): sourceId → { musician, musicianShort }.
+let stand = {};
+export function setStandIns(map) {
+  stand = map || {};
+}
+
+const who = (src) => (src && stand[src.id]) || src;
+const byMusician = (src) => mode === "musicians" && !!who(src)?.musician;
 
 // The long name: "Eli Furie" or "Drums".
-export const sourceName = (src) => (byMusician(src) ? src.musician : src?.name || "");
+export const sourceName = (src) => (byMusician(src) ? who(src).musician : src?.name || "");
 // A channel strip's label: "ELI" or "DRUMS".
-export const sourceShort = (src) => (byMusician(src) ? src.musicianShort || src.musician : src?.shortName || "");
+export const sourceShort = (src) => (byMusician(src) ? who(src).musicianShort || who(src).musician : src?.shortName || "");
 // The other name, for a subtitle or tooltip: the part when showing musicians, and the reverse.
 export const sourceAlt = (src) => (byMusician(src) ? src.name : src?.musician || "");

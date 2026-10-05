@@ -270,6 +270,8 @@ export class MissionView {
     const prev = seq.list[i - 1];
     const next = seq.list[i + 1];
     const step = (s, dir) => (s ? `<button type="button" class="mstep" data-act="go" data-id="${esc(s.id)}" aria-label="${dir}: ${esc(shortTitle(s))}" title="${dir}: ${esc(shortTitle(s))}">${dir === "Previous" ? "‹" : "›"}</button>` : `<button type="button" class="mstep" disabled aria-label="${dir}">${dir === "Previous" ? "‹" : "›"}</button>`);
+    // Who's on stage, when it isn't simply the whole band (doors, speeches, someone sitting out).
+    const stageLine = this.getMusic().stageNote;
     // By mixer, the console is yours to choose; by topic, the scenario chooses it.
     const on = seq.mixer
       ? `<label class="mixer-pick">on the <select class="mixer-console" aria-label="Mixer">${MIXERS.map((m) => `<option value="${esc(m.model)}" ${m.model === consoleOf(def) ? "selected" : ""}>${esc(mixerName(m))}</option>`).join("")}</select></label>`
@@ -285,7 +287,7 @@ export class MissionView {
         </div>
         <div class="mission-nav">${step(prev, "Previous")}${step(next, "Next")}</div>
       </div>
-      <p class="mission-prompt">${esc(fillTerms(def.prompt, t))}</p>
+      <p class="mission-prompt">${esc(fillTerms(def.prompt, t))}${stageLine ? `<span class="mission-stage">${esc(stageLine)}</span>` : ""}</p>
       <div class="mission-goalrow">
         <p class="mission-goal"><strong>Goal:</strong> ${esc(fillTerms(def.goal, t))}</p>
         <ul class="checklist" aria-label="Progress"></ul>
@@ -468,11 +470,11 @@ export class MissionView {
   renderMusic() {
     const box = this.root.querySelector(".music");
     if (!box) return;
-    const { mode, sections, section, out } = this.getMusic();
+    const { mode, sections, section, out, silent } = this.getMusic();
     const resting = out.length ? ` Sitting out here: ${esc(listOf(out.map((s) => (nameMode() === "musicians" && s.musician ? s.musician : s.name.toLowerCase()))))}.` : "";
     if (!this.def || this.def.id !== "free-play") {
       box.classList.add("music-now");
-      box.innerHTML = section ? `<p class="music-note">♪ The band loops bars ${esc(section.bars)} of the song (${clock(section.start)}): ${esc(section.label.toLowerCase())}.${resting}</p>` : "";
+      box.innerHTML = silent ? `<p class="music-note">♪ The band isn't playing in this one.</p>` : section ? `<p class="music-note">♪ The band loops bars ${esc(section.bars)} of the song (${clock(section.start)}): ${esc(section.label.toLowerCase())}.${resting}</p>` : "";
       this.seekEl = this.timeEl = null;
       return;
     }

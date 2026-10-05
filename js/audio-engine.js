@@ -14,6 +14,7 @@
 import { DEVICE_TYPES, analyzeRig, mixerOf, rigLinks } from "./connection-model.js";
 import { dbToGain, listenDestinations, listenGroupOf, modelOf } from "./mixer-state.js";
 import { LoopPlayer } from "./loop-player.js";
+import { VoicePlayer } from "./voice-player.js";
 import { StemTransport } from "./transport.js";
 import { METER_FFT, RAMP, nodeKit } from "./graph-kit.js";
 import { buildGenericGraph } from "./graph-generic.js";
@@ -35,6 +36,9 @@ export class AudioEngine {
     this.ctx = null;
     this.transport = null;
     this.loops = new Map(); // sourceId → LoopPlayer (independent of the band's transport)
+    this.voices = new Map(); // voiceId → VoicePlayer (a spoken clip in place of a stem)
+    this.voiceLinks = new Map(); // sourceId → { voice, gain }: which mic carries which voice
+    this.stage = { muted: [], voices: {} };
     this.endpointNodes = new Map();
     this.routes = []; // [fromNode, toNode] connections that depend on the rig
     this.devices = new Map(); // deviceId → { type, rt }: reverb, recorder, mic pair
@@ -81,6 +85,7 @@ export class AudioEngine {
       const asset = source.asset && this.manifest.LOOP_ASSETS[source.asset];
       if (asset) this.loops.set(source.id, new LoopPlayer(this.ctx, { sourceId: source.id, url: asset.file, errors, emit: (evt) => this.emit(evt) }));
     }
+    for (const v of Object.values(this.manifest.VOICES || {})) this.voices.set(v.id, new VoicePlayer(this.ctx, { url: v.file, errors, emit: (evt) => this.emit(evt) }));
     this.buildGraph();
     this.syncDevices(this.store.state);
     this.lastCables = new Map(this.store.state.rig.cables.map((c) => [c.id, c]));
@@ -342,10 +347,12 @@ export class AudioEngine {
 
   // Loads the stems for these sources (excerpt loop or full song), then starts
   // them together. Nothing plays until the first audio is decoded.
-  async setSources(sourceIds, { mode = this.mode, section = "excerpt" } = {}) {
+  // `stage`: who's playing ({ muted: [sourceId], voices: { sourceId: voiceId } }, js/music.js stageFor).
+  async setSources(sourceIds, { mode = this.mode, section = "excerpt", stage = { muted: [], voices: {} } } = {}) {
     // Band stems only: loop-player sources (preshow) have their own timeline.
     const ids = sourceIds.filter((id) => this.manifest.SOURCES_BY_ID[id] && this.manifest.SOURCES_BY_ID[id].stem);
     this.transport.prepare(ids);
+    this.setStage(stage);
     this.rewire();
     // The band starts by itself after Start Audio, and after a reload (another
     // mixer, scenario or music choice) only if it was playing: Stop is remembered.
@@ -354,12 +361,36 @@ export class AudioEngine {
 
   play() {
     this.wantPlay = true;
+    for (const { voice } of this.voiceLinks.values()) voice.start();
     return this.transport && this.transport.play();
   }
 
   stop() {
     this.wantPlay = false;
+    for (const { voice } of this.voiceLinks.values()) voice.stop();
     if (this.transport) this.transport.stop();
+  }
+
+  // Mutes the stems of whoever isn't on stage, and puts each voice on its mic
+  // (into that source's transport output, after its muted stem). Voices start
+  // from the top; the band's players are never touched.
+  setStage(stage) {
+    this.stage = stage;
+    this.transport.setMuted(stage.muted);
+    for (const { voice, gain } of this.voiceLinks.values()) {
+      gain.disconnect();
+      voice.stop();
+    }
+    this.voiceLinks.clear();
+    for (const [sourceId, voiceId] of Object.entries(stage.voices)) {
+      const voice = this.voices.get(voiceId);
+      const out = this.transport.outs.get(sourceId);
+      if (!voice || !out) continue;
+      const gain = this.ctx.createGain();
+      voice.out.connect(gain).connect(out);
+      this.voiceLinks.set(sourceId, { voice, gain });
+      if (this.wantPlay !== false) voice.start();
+    }
   }
 
   seek(t) {

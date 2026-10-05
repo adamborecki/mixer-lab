@@ -10,8 +10,8 @@ import { DEFAULT_SKIN, SKINS } from "./mixer-models.js";
 import { MixerStore, computeMix, createMixerState } from "./mixer-state.js";
 import { ALL_BOARD_SCENARIOS, SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, captureBaseline, evaluateScenario, scenarioFor, scenariosFor } from "./scenarios.js";
 import { Progress, numberedScenarios } from "./progress.js";
-import { pickSection, sittingOut } from "./music.js";
-import { nameMode, setNameMode } from "./names.js";
+import { pickSection, sittingOut, stageFor, stageNote } from "./music.js";
+import { nameMode, setNameMode, setStandIns } from "./names.js";
 import { renderFlow } from "./ui/flow.js";
 import { ListenBar } from "./ui/listen-bar.js";
 import { MixerView } from "./ui/mixer-view.js";
@@ -23,7 +23,7 @@ import { RecorderView } from "./ui/recorder-view.js";
 import { DanteView } from "./ui/dante-view.js";
 import { StageView } from "./ui/stage-view.js";
 
-const M = { STEM_SET: manifest.STEM_SET, STEMS: manifest.STEMS, SOURCES_BY_ID: manifest.SOURCES_BY_ID, LOOP_ASSETS: manifest.LOOP_ASSETS };
+const M = { STEM_SET: manifest.STEM_SET, STEMS: manifest.STEMS, SOURCES_BY_ID: manifest.SOURCES_BY_ID, LOOP_ASSETS: manifest.LOOP_ASSETS, VOICES: manifest.VOICES };
 const $ = (sel) => document.querySelector(sel);
 
 let skin = SKINS[DEFAULT_SKIN];
@@ -102,7 +102,11 @@ const missionView = new MissionView($("#mission"), {
   getMusic: () => {
     const m = musicFor(current.def);
     const ids = rigSourceIds();
-    return { mode: musicMode, started: engine.started, sections: manifest.STEM_SET.sections, section: m.section, out: m.section ? sittingOut(m.section, ids, manifest.SOURCES_BY_ID) : [] };
+    // Who's on stage in this scenario: muted players aren't "sitting out" in the song, they're not playing at all.
+    const free = current.def.id === "free-play";
+    const stage = free ? { muted: [] } : stageFor(current.def, ids, manifest.SOURCES_BY_ID);
+    const out = m.section ? sittingOut(m.section, ids, manifest.SOURCES_BY_ID).filter((s) => !stage.muted.includes(s.id)) : [];
+    return { mode: musicMode, started: engine.started, sections: manifest.STEM_SET.sections, section: m.section, out, silent: !free && !!current.def.stage?.silent, stageNote: free ? "" : stageNote(current.def, manifest.SOURCES_BY_ID, manifest.VOICES) };
   },
   onMusicMode: (m) => {
     if (m === musicMode) return;
@@ -249,7 +253,11 @@ function loadSources() {
   const { mode, section } = musicFor(current.def);
   ready = false;
   pending.any = true;
-  engine.setSources(ids, { mode, section: section ? section.id : "excerpt" }).catch((err) => {
+  const stage = current.def.id === "free-play" ? { muted: [], voices: {} } : stageFor(current.def, ids, manifest.SOURCES_BY_ID);
+  // Whoever is talking into a mic is the name on it (Musicians names).
+  setStandIns(Object.fromEntries(Object.entries(stage.voices).map(([src, v]) => [src, { musician: manifest.VOICES[v].speaker, musicianShort: manifest.VOICES[v].speakerShort }])));
+  pending.patch = true;
+  engine.setSources(ids, { mode, section: section ? section.id : "excerpt", stage }).catch((err) => {
     loadingText = `Couldn't start audio: ${err.message}`;
     pending.any = true;
   });

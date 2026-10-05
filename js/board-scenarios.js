@@ -3623,6 +3623,38 @@ const ORDER = {
 
 const LISTS = { b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c], yam01v96: Y96, x32: [...X32F, ...BOXES.x32] };
 
+// Who is on stage (js/music.js stageFor). Every scenario's story was read for
+// this; anything not listed has the whole band playing (the 8-bar section it
+// loops may still rest someone: js/music.js pickSection). Every doors scenario
+// is silent too: the band isn't on stage yet, only the laptop plays.
+const SILENT = { silent: true };
+const HOST = { "lead-vocal": "announcement" }; // the host or MC talks into the singer's mic
+const STAGE = {
+  // Walk-in and changeover music: the laptop alone.
+  "mg102-2tr": SILENT,
+  "x1204usb-cdtape": SILENT,
+  "x1204usb-minus10": SILENT,
+  "stagepas400bt-mono": SILENT,
+  "vlz1202-tape": SILENT, // cueing the next set's intro, between sets
+  // Speeches before the band: the announcement, nobody else.
+  "b207mp3-speech": { silent: true, voice: HOST },
+  "stagepas400bt-speech": { silent: true, voice: HOST },
+  "mix8-speech": { silent: true, voice: HOST },
+  // The MC talking between songs, the band noodling behind.
+  "x1204usb-alt": { voice: HOST },
+  "dm2000-mute-group": { voice: HOST },
+  "cl3-mute-group": { voice: HOST },
+  "x32c-mute-group": { voice: HOST },
+  // The singer checking the mic before walking on.
+  "vlz1202-pfl": { only: ["lead-vocal"] },
+  // The backing singer went home / sits this one out.
+  "mix8-ol": { out: ["backing-vocals"] },
+  "mix8-overhead": { out: ["backing-vocals"] },
+  "mix8-guest": { out: ["backing-vocals"] },
+  "x1204usb-overhead": { out: ["backing-vocals"] },
+};
+const stageOf = (id) => STAGE[id] || (id.endsWith("-doors") ? SILENT : null);
+
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.
 function arrange(board) {
   const byId = Object.fromEntries(LISTS[board].map((s) => [s.id, s]));
@@ -3630,7 +3662,7 @@ function arrange(board) {
   const missing = ids.filter((id) => !byId[id]);
   const extra = Object.keys(byId).filter((id) => !ids.includes(id));
   if (missing.length || extra.length) throw new Error(`${board}: missing ${missing}, unordered ${extra}`);
-  return ids.map((id, i) => ({ board, number: i + 1, ...byId[id] }));
+  return ids.map((id, i) => ({ board, number: i + 1, ...byId[id], ...(stageOf(id) ? { stage: stageOf(id) } : {}) }));
 }
 
 export const BOARD_SCENARIOS = Object.fromEntries(Object.keys(ORDER).map((b) => [b, arrange(b)]));

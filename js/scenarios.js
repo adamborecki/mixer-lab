@@ -96,6 +96,7 @@ export function defaultCableFor(source) {
 export const SCENARIOS = [
   {
     id: "preshow",
+    stage: { silent: true }, // doors: the band isn't on stage yet
     number: 1,
     title: "Preshow music",
     who: "Stage manager",

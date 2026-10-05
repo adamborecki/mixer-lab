@@ -33,6 +33,10 @@ The masters are only ever read, never modified. MP3 was chosen because `decodeAu
 
 Each stem is cut into 20 s segments so the app can stream the song one segment ahead instead of holding seven full-length stems in memory. Segment `k` covers song time `[20k, 20k + 20)` plus 0.5 s of overlap on each side (none before 0:00 or after the end), so neighbouring segments can be crossfaded. There are 12 per stem (`STEM_SET.full.segments`); the last covers 220 s to the end at 238.222 s, so it is shorter (18.72 s with its overlap). Files are named `<stem file without .mp3>-NN.mp3`, for example `persephone-drums-00.mp3` to `persephone-drums-11.mp3`. Cuts are sample-exact, so every stem's segments line up on the same song clock.
 
+## Announcement (voice)
+
+`audio/voice/announcement-adam.mp3`: Adam Borecki making an announcement, 14.7 s, mono MP3 (`-q:a 4`). It stands in for the lead vocal mic in the speech and MC scenarios (`VOICES` in the manifest, `stage.voice` on a scenario). From the original `new talking - announcement - adam borecki.m4a` (kept locally, untracked, in the masters folder under `voice masters/`): leading silence trimmed, 70 Hz high-pass, gentle compression (3:1 from −26 dB), +16.5 dB and a limiter, so its average matches the sung lead vocal and its peak sits at about the lead vocal stem's (−1.9 dBFS vs −1.73). A 3 s pause is padded on the end so it repeats like someone pausing between announcements.
+
 ## Excerpt and loop
 
 All seven files are cut from the same span of the original timeline, so they stay sample-locked.
