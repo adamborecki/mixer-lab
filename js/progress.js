@@ -24,15 +24,22 @@ export class Progress {
     this.solved = new Set();
     this.stats = {}; // id -> { sec, actions }
     this.dirty = false;
+    // Entries this version doesn't know (the newer Mixer Lab shares this
+    // storage): kept as they are and written back on every save.
+    this.foreign = { solved: [], stats: {} };
     this.load();
   }
 
   load() {
     try {
       const data = JSON.parse(this.storage?.getItem(this.key) || "null");
-      if (data && Array.isArray(data.solved)) for (const id of data.solved) if (this.valid.has(id)) this.solved.add(id);
+      for (const id of Array.isArray(data?.solved) ? data.solved : []) {
+        if (this.valid.has(id)) this.solved.add(id);
+        else this.foreign.solved.push(id);
+      }
       for (const [id, v] of Object.entries(data?.stats || {})) {
         if (this.statValid.has(id)) this.stats[id] = { sec: Math.max(0, Math.floor(Number(v?.sec)) || 0), actions: Math.max(0, Math.floor(Number(v?.actions)) || 0) };
+        else this.foreign.stats[id] = v;
       }
     } catch (e) {
       /* unreadable or unavailable storage: start fresh */
@@ -41,7 +48,7 @@ export class Progress {
 
   save() {
     try {
-      this.storage?.setItem(this.key, JSON.stringify({ solved: [...this.solved], stats: this.stats }));
+      this.storage?.setItem(this.key, JSON.stringify({ solved: [...this.solved, ...this.foreign.solved], stats: { ...this.foreign.stats, ...this.stats } }));
       this.dirty = false;
     } catch (e) {
       /* private mode etc.: progress just lasts until reload */
@@ -78,10 +85,12 @@ export class Progress {
     return true;
   }
 
+  // Clears this version's scenarios only; the newer Mixer Lab's progress stays.
   clear() {
     this.solved.clear();
     this.stats = {};
     this.dirty = false;
+    if (this.foreign.solved.length || Object.keys(this.foreign.stats).length) return this.save();
     try {
       this.storage?.removeItem(this.key);
     } catch (e) {

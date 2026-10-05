@@ -5,7 +5,7 @@ name: Request branch preview
 on:
   push:
     # Keep in sync with PREVIEW_PREFIXES in tools/build-pages.sh.
-    branches: ["claude/**", "skin/**", "feature/**", "preview/**"]
+    branches: ["claude/**", "skin/**", "feature/**", "preview/**", "legacy"]
 
 permissions:
   actions: write

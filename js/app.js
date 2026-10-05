@@ -349,9 +349,26 @@ function showPreviewBanner() {
   document.body.prepend(bar);
 }
 
+// The frozen copy of Assignment 1 at /legacy/ (the `legacy` branch) says what
+// it is, and where the current lab is. It shares the live site's saved progress.
+function showLegacyBanner() {
+  if (!/\/legacy\//.test(location.pathname)) return;
+  document.title = `Assignment 1 · ${document.title}`;
+  document.body.classList.add("is-preview");
+  const bar = document.createElement("div");
+  bar.className = "preview-banner legacy-banner";
+  bar.setAttribute("role", "note");
+  const now = document.createElement("a");
+  now.href = location.pathname.replace(/legacy\/.*$/, "");
+  now.textContent = "Go to the current Mixer Lab";
+  bar.append("Assignment 1: the ten scenarios, kept as it was for late submissions · ", now);
+  document.body.prepend(bar);
+}
+
 // ---------- boot ----------
 
 showPreviewBanner();
+showLegacyBanner();
 
 setSkin(skin.id);
 setTab("scenario");
