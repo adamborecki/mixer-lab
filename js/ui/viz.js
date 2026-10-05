@@ -4,7 +4,7 @@
 // graph uses, so what the curve shows is what you hear. Each graph is an SVG
 // that redraws through view.bindings; the GR bar moves in updateViz().
 
-import { PEQ_BANDS, compIsOn, eqIsOn, hpfHz } from "../compact.js";
+import { compIsOn, eqIsOn, hpfHz, peqBands } from "../compact.js";
 import { shelfHz } from "../graph-kit.js";
 
 const SR = 48000;
@@ -49,11 +49,12 @@ export function biquadDb(type, f0, gainDb, Q, f, sr = SR) {
 
 // The channel's whole response at f: the high-pass (if it has one and it's
 // in) plus the four bands (if the EQ is on).
-export function channelEqDb(c, ch, f) {
+export function channelEqDb(c, ch, f, def = {}) {
   let db = 0;
-  const hp = c.hpf ? hpfHz(c, ch.hpf) : 0;
+  // L-20: EQ OFF bypasses LOW CUT as well.
+  const hp = c.hpf && !(def.eqOffBypassesHpf && !eqIsOn(ch)) ? hpfHz(c, ch.hpf) : 0;
   if (hp) db += biquadDb("highpass", hp, 0, 0.6, f);
-  if (ch.peq && eqIsOn(ch)) for (const b of PEQ_BANDS) db += biquadDb(b.type, shelfHz(b.type, ch.peq[b.id].freq), ch.peq[b.id].gain, ch.peq[b.id].q, f);
+  if (ch.peq && eqIsOn(ch)) for (const b of peqBands(def)) db += biquadDb(b.type, shelfHz(b.type, ch.peq[b.id].freq), ch.peq[b.id].gain, ch.peq[b.id].q, f);
   return db;
 }
 
@@ -95,7 +96,8 @@ export function eqGraph(view, def, i, opts = {}) {
   }
   const fill = svg("path", { class: "fill" }, root);
   const line = svg("path", { class: "curve" }, root);
-  const dots = PEQ_BANDS.map((b, k) => {
+  const bands = peqBands(def);
+  const dots = bands.map((b, k) => {
     const g = svg("g", { class: "band" }, root);
     svg("circle", { r: opts.small ? 3.5 : 6 }, g);
     if (!opts.small) svg("text", { "text-anchor": "middle", y: 3 }, g).textContent = String(k + 1);
@@ -112,18 +114,18 @@ export function eqGraph(view, def, i, opts = {}) {
       const ch = s.channels[i];
       if (!ch || !ch.peq) return;
       const on = eqIsOn(ch);
-      const pts = freqs.map((f) => [xOfF(f, W), yOfDb(channelEqDb(c, ch, f), H)]);
+      const pts = freqs.map((f) => [xOfF(f, W), yOfDb(channelEqDb(c, ch, f, def), H)]);
       const d = pts.map(([x, y], k) => `${k ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join("");
       line.setAttribute("d", d);
       fill.setAttribute("d", `${d}L${W} ${yOfDb(0, H)}L0 ${yOfDb(0, H)}Z`);
-      PEQ_BANDS.forEach((b, k) => {
+      bands.forEach((b, k) => {
         const p = ch.peq[b.id];
         dots[k].setAttribute("transform", `translate(${xOfF(p.freq, W).toFixed(1)} ${yOfDb(p.gain, H).toFixed(1)})`);
         dots[k].classList.toggle("sel", !!opts.band && opts.band() === b.id);
       });
       box.classList.toggle("is-off", !on);
       tag.textContent = on ? "" : "EQ OFF";
-      root.setAttribute("aria-label", `EQ curve, channel ${c.label}: ${on ? PEQ_BANDS.map((b) => `${b.label} ${ch.peq[b.id].gain > 0 ? "+" : ""}${ch.peq[b.id].gain} dB at ${Math.round(ch.peq[b.id].freq)} Hz`).join(", ") : "EQ switched off, flat"}`);
+      root.setAttribute("aria-label", `EQ curve, channel ${c.label}: ${on ? bands.map((b) => `${b.label} ${ch.peq[b.id].gain > 0 ? "+" : ""}${ch.peq[b.id].gain} dB at ${Math.round(ch.peq[b.id].freq)} Hz`).join(", ") : "EQ switched off, flat"}`);
     },
   });
   return box;

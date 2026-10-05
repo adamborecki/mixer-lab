@@ -1121,6 +1121,265 @@ const UI = [
   },
 ];
 
+// ---------- Zoom LiveTrak L-20 ----------
+
+const L20 = [
+  doors("l20", {
+    prompt: "“Doors in five. The laptop is on the stereo inputs 17/18 — preshow music, please.”",
+    hints: [
+      "The laptop's channel is 17/18, at the right of the channel faders. FADER MODE should be on MASTER.",
+      "Look at 17/18's fader. It controls how much of the laptop is in the MASTER mix.",
+      "With FADER MODE on MASTER, push channel 17/18's fader up.",
+    ],
+    complete: "FADER MODE decides which mix the faders belong to. MASTER is the house; MONITOR A–F are the wedges. Always check it before you move a fader.",
+  }),
+  {
+    id: "l20-gain",
+    short: "Tiny vocal",
+    title: "The tiny vocal",
+    who: "Lead singer",
+    prompt: "“Can you even hear me? I sound tiny.”",
+    goal: "The vocal at a healthy input level and heard in the house, with the rest of the mix unchanged.",
+    setup: { tweak: (st, h) => h.set("lead-vocal", "gainDb", 16) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "gain", kind: "goal", type: "sourceGain", source: "lead-vocal", label: "The vocal reaches a healthy input level" },
+      { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "lead-vocal", label: "The vocal is heard in the house" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: "lead-vocal", toleranceDb: 1, label: "Everything else in the house stays the same" },
+    ],
+    hints: [
+      "Gain first: a weak input stays weak whatever the fader does. Which knob sets the preamp?",
+      "GAIN is the knob at the top of each channel strip. The SIG light and the meter show the level after it.",
+      "Turn channel 5's GAIN up until the meter sits around the middle.",
+    ],
+    complete: "GAIN sets the preamp, the first stage of every input; the fader comes after it. The L-20's GAIN goes from +16 to +60 dB.",
+  },
+  {
+    id: "l20-pad",
+    short: "Hot keys",
+    title: "The keys are red",
+    who: "Keyboard player",
+    prompt: "“The SIG light on my keys is solid red and it sounds crunchy. Turning the fader down doesn't help.”",
+    goal: "The keys at a healthy input level, with the rest of the mix unchanged.",
+    setup: { tweak: (st, h) => h.set("keys", "pad", false) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "gain", kind: "goal", type: "sourceGain", source: "keys", label: "The keys reach a healthy input level" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: "keys", toleranceDb: 1, label: "Everything else in the house stays the same" },
+    ],
+    hints: [
+      "The distortion happens at the preamp, before the fader. What is coming into the keys' channel: mic level or line level?",
+      "Keyboards are line level, 26 dB hotter than the preamp's lowest GAIN can handle. Each input has a switch for exactly this.",
+      "Press PAD on channel 6. It takes 26 dB off before the GAIN, so the GAIN range becomes −10 to +34.",
+    ],
+    complete: "PAD is for line-level sources on the mic inputs. A fader can't undo clipping that happened in the preamp. (Inputs 1–2 have Hi-Z instead of PAD: it is for guitars and basses plugged in directly.)",
+  },
+  {
+    id: "l20-lowcut",
+    short: "Stage rumble",
+    title: "Rumble on the vocal mics",
+    who: "Sound lead",
+    prompt: "“There's a low rumble in the vocals whenever the drummer hits the kick. Both vocal mics are picking it up.”",
+    goal: "LOW CUT on both vocal channels at 100 Hz or more, with the bass left alone.",
+    setup: {
+      tweak: (st, h) => {
+        h.set("lead-vocal", "hpf", 0);
+        h.set("backing-vocals", "hpf", 0);
+      },
+    },
+    conditions: [
+      goal("vox", "Both vocals are high-passed at 100 Hz or more", (ctx) => ["lead-vocal", "backing-vocals"].every((s) => hpfHz("l20", mc(ctx, s)?.index ?? 0, sc(ctx, s)?.hpf ?? 0) >= 100)),
+      keep("bass", "The bass keeps its low end", (ctx) => (sc(ctx, "bass")?.hpf ?? 0) <= 0.02),
+      keep("eq", "EQ OFF isn't pressed (it would bypass LOW CUT)", (ctx) => ["lead-vocal", "backing-vocals"].every((s) => sc(ctx, s)?.eqOn !== false)),
+    ],
+    hints: ["SEL each vocal channel in turn: the CHANNEL STRIP section edits the selected channel.", "LOW CUT is a knob: all the way left is off, then 40 to 600 Hz.", "Turn LOW CUT to about 100 Hz on channels 4 and 5."],
+    complete: "LOW CUT is a 12 dB/octave high-pass. Vocals have nothing useful below about 100 Hz, so cut it there. (EQ OFF bypasses LOW CUT too.)",
+  },
+  {
+    id: "l20-mud",
+    short: "Muddy guitar",
+    title: "The muddy guitar",
+    who: "Sound lead",
+    prompt: "“The guitar sounds boxy and muddy, and it's covering the keys.”",
+    goal: "A cut of at least 3 dB in the guitar's MID, between 200 and 500 Hz, with the EQ on.",
+    setup: {},
+    conditions: [
+      goal("cut", "The guitar's MID is cut by 3 dB or more, between 200 and 500 Hz", (ctx) => {
+        const b = sc(ctx, "guitars")?.peq.mid;
+        return !!b && b.gain <= -3 && b.freq >= 200 && b.freq <= 500;
+      }),
+      keep("on", "The guitar's EQ is switched in", (ctx) => sc(ctx, "guitars")?.eqOn !== false),
+    ],
+    hints: ["SEL the guitar's channel (1). The EQ has HIGH, MID and LOW; only MID can move in frequency.", "MID FREQ chooses where the MID works. Mud lives around 200–500 Hz.", "Set MID FREQ to about 300 Hz and turn MID down 4 dB or more."],
+    complete: "A sweepable mid is the tool for finding a problem: boost it, sweep until it's worst, then cut there. Cutting is usually gentler than boosting.",
+  },
+  {
+    id: "l20-eq-on",
+    short: "EQ is bypassed",
+    title: "The EQ that does nothing",
+    who: "Lead singer",
+    prompt: "“At soundcheck we took the boom and the harshness out of my vocal. Tonight it sounds exactly like it did before we started.”",
+    goal: "The vocal's EQ working again, with the soundcheck settings kept.",
+    setup: {
+      tweak: (st, h) => {
+        h.set("lead-vocal", "peq.low.gain", -6);
+        h.set("lead-vocal", "peq.mid.gain", -5);
+        h.set("lead-vocal", "peq.mid.freq", 3000);
+        h.set("lead-vocal", "eqOn", false);
+      },
+    },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("on", "The vocal's EQ is working (EQ OFF isn't lit)", (ctx) => sc(ctx, "lead-vocal")?.eqOn === true),
+      keep("kept", "The soundcheck EQ stays (LOW and the 3 kHz MID still cut)", (ctx) => {
+        const p = sc(ctx, "lead-vocal")?.peq;
+        return !!p && p.low.gain <= -5 && p.mid.gain <= -4 && p.mid.freq >= 2500 && p.mid.freq <= 3500;
+      }),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: "lead-vocal", toleranceDb: 1, label: "Everything else in the house stays the same" },
+    ],
+    hints: ["The knobs look right, so the settings are fine. Is the EQ actually in the signal path?", "The L-20's EQ OFF button bypasses HIGH, MID, LOW and LOW CUT. Look at the CHANNEL STRIP section and the curve.", "SEL channel 5 and press EQ OFF so it is no longer lit."],
+    complete: "On the L-20 the EQ is on until EQ OFF is pressed, and EQ OFF takes LOW CUT out too. If a channel suddenly sounds untouched, check the button before the knobs.",
+  },
+  {
+    id: "l20-keys-wedge",
+    short: "Keys in the wedge",
+    title: "Keys in the singer's wedge",
+    who: "Lead singer",
+    prompt: "“I can't find my pitch — I can't hear the piano. Put some keys in my wedge, but I still need to be the loudest thing in it.”",
+    goal: "The keys audible in the singer's wedge (MONITOR A), at least 3 dB under the vocal, with the house and the guitarist's wedge unchanged.",
+    setup: { tweak: (st, h) => h.sendDb("keys", "monA", -Infinity) },
+    baseline: { main: { metric: "mainDbByChannel" }, guitarist: { metric: "monitorByChannel", bus: "monB" } },
+    conditions: [
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "monA", label: "You listened to the singer's wedge (MONITOR A)" },
+      { id: "keys", kind: "goal", type: "monitorLittle", bus: "monA", source: "keys", below: ["lead-vocal"], byDb: 3, label: "The keys are in the wedge, under the vocal" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+      { id: "guitarist", kind: "keep", type: "monitorMixUnchanged", bus: "monB", baseline: "guitarist", toleranceDb: 1, label: "The guitarist's wedge stays the same" },
+    ],
+    hints: [
+      "The singer's wedge is MONITOR A. Listen to it first.",
+      "In FADER MODE, press A. Now every channel fader is that channel's level in MONITOR A, and the MASTER faders don't move.",
+      "In FADER MODE A, raise the keys' fader (channel 6) until it's audible but clearly under the vocal. Then go back to MASTER and check nothing moved there.",
+    ],
+    complete: "Each of the six monitor mixes has its own fader per channel. That is the whole point of the L-20: six different mixes from one set of faders, one FADER MODE at a time.",
+  },
+  {
+    id: "l20-less-guitar",
+    short: "Less guitar, singer",
+    title: "Less guitar in her wedge",
+    who: "Lead singer",
+    prompt: "“The guitar is drowning me in my wedge. Bring it down — but don't touch what the house or the guitarist hears.”",
+    goal: "The guitar at least 6 dB under the vocal in MONITOR A, with the house and the guitarist's wedge unchanged.",
+    setup: { tweak: (st, h) => h.sendDb("guitars", "monA", 3) },
+    baseline: { main: { metric: "mainDbByChannel" }, guitarist: { metric: "monitorByChannel", bus: "monB" } },
+    conditions: [
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "monA", label: "You listened to the singer's wedge (MONITOR A)" },
+      { id: "guitar", kind: "goal", type: "monitorLittle", bus: "monA", source: "guitars", below: ["lead-vocal"], byDb: 6, label: "The guitar is well under the vocal in the wedge" },
+      { id: "vocal", kind: "keep", type: "monitorPresent", bus: "monA", sources: ["lead-vocal"], minDb: -30, label: "The vocal is still clear in the wedge" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+      { id: "guitarist", kind: "keep", type: "monitorMixUnchanged", bus: "monB", baseline: "guitarist", toleranceDb: 1, label: "The guitarist's wedge stays the same" },
+    ],
+    hints: [
+      "Which mix is wrong, and which fader belongs to it?",
+      "MUTE and the MASTER fader would change the house and the guitarist's wedge too. Only FADER MODE A changes MONITOR A alone.",
+      "Press A in FADER MODE and pull the guitar's fader (channel 1) well down.",
+    ],
+    complete: "Changing the right mix without disturbing the others is the monitor engineer's job. Check FADER MODE before you touch a fader.",
+  },
+  {
+    id: "l20-out-of-house",
+    short: "Out of the house",
+    title: "Out of the house, still in the wedge",
+    who: "Bassist",
+    prompt: "“The venue's subs are booming, so take the bass out of the house for this song — but the guitarist still needs me in his wedge.”",
+    goal: "The bass out of the house, still in the guitarist's wedge (MONITOR B), with everything else unchanged.",
+    setup: {},
+    baseline: { main: { metric: "mainDbByChannel" }, singer: { metric: "monitorByChannel", bus: "monA" } },
+    conditions: [
+      goal("out", "The bass is out of the house", (ctx) => house(ctx, "bass") < AUDIBLE),
+      { id: "wedge", kind: "keep", type: "monitorPresent", bus: "monB", sources: ["bass"], minDb: -30, label: "The guitarist still hears the bass" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: "bass", toleranceDb: 1, label: "Everything else in the house stays the same" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "monA", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+    ],
+    hints: [
+      "Try MUTE first and listen to MONITOR B. What happens?",
+      "On the L-20 the MUTE comes before every fader, so it silences the channel in the MASTER and in all six monitor mixes.",
+      "Leave MUTE off. In FADER MODE MASTER, pull the bass's fader (channel 2) all the way down.",
+    ],
+    complete: "MUTE is for 'out of everything'. To take a channel out of one mix only, use that mix's fader: MASTER here, or a monitor letter.",
+  },
+  {
+    id: "l20-wedge-quiet",
+    short: "Wedge too quiet",
+    title: "The whole wedge is too quiet",
+    who: "Lead singer",
+    prompt: "“The mix in my wedge is perfect, it's just too quiet overall. Don't touch the balance.”",
+    goal: "MONITOR OUT A's volume up to at least −6 dB, with the wedge's mix, the house and the other wedge unchanged.",
+    setup: { tweak: (st) => (st.outA.level = LAWS.master.toPos(-20)) },
+    baseline: { main: { metric: "mainDbByChannel" }, singer: { metric: "monitorByChannel", bus: "monA" }, guitarist: { metric: "monitorByChannel", bus: "monB" } },
+    conditions: [
+      goal("vol", "MONITOR OUT A's volume is at −6 dB or higher", (ctx) => LAWS.master.toDb(ctx.state.outA.level) >= -6),
+      { id: "mix", kind: "keep", type: "monitorMixUnchanged", bus: "monA", baseline: "singer", toleranceDb: 1, label: "The balance in MONITOR A stays the same" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+      { id: "guitarist", kind: "keep", type: "monitorMixUnchanged", bus: "monB", baseline: "guitarist", toleranceDb: 1, label: "The guitarist's wedge stays the same" },
+    ],
+    hints: ["You'd have to move every fader to fix this one by one, and the balance would change.", "Each MONITOR OUT jack has its own volume knob, after the mix.", "In the OUTPUT section, turn MONITOR OUT A's VOL up."],
+    complete: "Move the faders to change who is in the mix; move the jack's knob to change how loud the whole mix is. It's the same split as channel faders and a master.",
+  },
+  {
+    id: "l20-switch",
+    short: "House mix in the wedge",
+    title: "The house mix in the wedge",
+    who: "Lead singer",
+    prompt: "“I hear the whole house mix in my wedge — and nothing I ask you to change in my mix does anything.”",
+    goal: "MONITOR OUT A carrying its own mix again, with the faders and the house unchanged.",
+    setup: { tweak: (st) => (st.routing.outA = "main") },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("own", "MONITOR OUT A carries MONITOR A", (ctx) => ctx.state.routing.outA === "monA"),
+      keep("mix", "The wedge's faders stay as they were", (ctx) => [["lead-vocal", 0], ["backing-vocals", -6], ["keys", -10], ["guitars", -12]].every(([src, db]) => Math.abs((sc(ctx, src)?.sends.monA ?? -1) - LAWS.level.toPos(db)) < 0.01)),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["Her faders are fine. What decides which mix leaves the jack?", "Each MONITOR OUT jack has a switch: its own mix, or the MASTER mix.", "In the OUTPUT section, switch MONITOR OUT A from MASTER to A."],
+    complete: "The faders only build a mix; the jack's switch decides whether it's sent out. With MASTER chosen, the jack copies the house mix and the A faders do nothing audible.",
+  },
+  {
+    id: "l20-reverb",
+    short: "Reverb on the horns",
+    title: "Reverb on the horns",
+    who: "Trumpet player",
+    prompt: "“Our solo sounds like we're in a closet. Can we have some reverb?”",
+    goal: "The trumpets sent to EFX 1 (a hall), with the dry mix and both wedges unchanged.",
+    setup: { tweak: (st, h) => h.sendDb("trumpets", "fx1", -Infinity) },
+    baseline: { main: { metric: "mainDbByChannel" }, singer: { metric: "monitorByChannel", bus: "monA" }, guitarist: { metric: "monitorByChannel", bus: "monB" } },
+    conditions: [
+      goal("send", "The trumpets are sent to EFX 1", (ctx) => into(ctx, "fx1", "trumpets") >= -40),
+      keep("return", "EFX 1 comes back into the MASTER", (ctx) => (ctx.mix.busDb?.fx1 ?? -Infinity) >= -20),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The dry house mix stays the same" },
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "monA", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+      { id: "guitarist", kind: "keep", type: "monitorMixUnchanged", bus: "monB", baseline: "guitarist", toleranceDb: 1, label: "The guitarist's wedge stays the same" },
+    ],
+    hints: ["The effects are built in: SEND EFX 1 and 2 on each channel, and an EFX RTN fader for each effect.", "SEL the trumpet channel (7). SEND EFX 1 is how much of it goes into the hall reverb.", "Turn channel 7's EFX 1 knob up. EFX 1 RTN on MASTER is how much comes back into the house."],
+    complete: "SEND EFX takes the signal after the MASTER fader, so the reverb follows the trumpets' fader in the house. EFX RTN decides how much comes back, and it has its own position in every mix.",
+  },
+  {
+    id: "l20-efx-mon",
+    short: "Reverb in her wedge",
+    title: "Reverb in her wedge only",
+    who: "Lead singer",
+    prompt: "“I'd love some of that hall reverb on my voice in my own wedge — but only mine, and please don't change the house.”",
+    goal: "EFX 1 returning into MONITOR A, with the house and its EFX return unchanged.",
+    setup: {},
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("ret", "EFX 1 RTN is up in FADER MODE A", (ctx) => LAWS.level.toDb(ctx.state.fx1.ret_monA) >= -20),
+      keep("house", "The house reverb stays as it was", (ctx) => Math.abs(ctx.state.fx1.level - LAWS.level.toPos(0)) < 0.02),
+      { id: "main", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The dry house mix stays the same" },
+    ],
+    hints: ["The vocal is already sent to EFX 1 on its channel. The send doesn't care which mix it ends up in. What does?", "The EFX RTN fader has a separate position for each FADER MODE.", "Press A in FADER MODE and raise EFX 1 RTN. Leave MASTER alone."],
+    complete: "Sends feed the effect once; each mix then takes as much of the return as it wants. The same hall can be dry in the house and wet in one wedge.",
+  },
+];
+
 // ---------- Mackie CR1604-VLZ ----------
 
 const C16 = [
@@ -3612,6 +3871,7 @@ const ORDER = {
   x1204usb: ["doors", "minus10", "overhead", "pfl", "comp", "fx", "slapback", "wedge", "pre", "ret-mon", "cdtape", "alt"],
   cr1604: ["doors", "phantom", "assign", "levelset", "sweep", "lowcut", "mute-pre", "drummer-quiet", "reverb", "efx-mon", "mono", "shift", "subgroup", "direct", "room", "snake", "snake-return"],
   ui16: ["doors", "gain", "48v", "more-keys", "hpf", "mud", "harsh", "eq-on", "comp", "comp-on", "trumpet-reverb", "delay", "out-of-house", "post", "guitar-mix"],
+  l20: ["doors", "gain", "pad", "lowcut", "mud", "eq-on", "keys-wedge", "less-guitar", "out-of-house", "wedge-quiet", "switch", "reverb", "efx-mon"],
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
   yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "mud", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
   x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9"],
@@ -3621,7 +3881,7 @@ const ORDER = {
   x32c: ["doors", "gain", "48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix", "stagebox"],
 };
 
-const LISTS = { b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c], yam01v96: Y96, x32: [...X32F, ...BOXES.x32] };
+const LISTS = { l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c], yam01v96: Y96, x32: [...X32F, ...BOXES.x32] };
 
 // Who is on stage (js/music.js stageFor). Every scenario's story was read for
 // this; anything not listed has the whole band playing (the 8-bar section it
@@ -3677,6 +3937,7 @@ export const MIXER_ORDER = [
   { model: "x1204usb", skin: "x1204usb", why: "Faders, compressors, built-in effects, PRE per channel, PFL or solo-in-place, an ALT bus with its own fader." },
   { model: "cr1604", skin: "mackie1604", why: "A full console: 16 channels, six auxes with SHIFT, four subgroups, mono out, four returns, direct outs to a recorder." },
   { model: "ui16", skin: "ui16", why: "Digital: the same jobs through pages and SEL. Sends on faders, a parametric EQ and a compressor on every channel." },
+  { model: "l20", skin: "l20", why: "A digital mixer with an analog heart: every knob is on the surface. FADER MODE gives each of six monitor mixes its own faders, EFX RTN has a level in every mix, and MONITOR OUT jacks choose between their own mix and the MASTER." },
   { model: "x32c", skin: "x32c", why: "A digital console laid out like the big ones: fader layers, a selected-channel strip, Sends on Faders, DCA and mute groups, a MAIN LR switch on every channel." },
   { model: "yam01v96", skin: "yam01v96", why: "The classic digital desk: analog GAIN and PAD on top, then LAYERs, FADER MODE for the aux sends, ON keys, and a display you page through for routing, EQ, dynamics and aux setup." },
   { model: "dm2000", skin: "dm2000", why: "The 01V96's big brother: 24 faders with an encoder each, a SELECTED CHANNEL section with every knob, 8 buses routed with keys and BUS TO ST, an OUTPUT PATCH, and Yamaha fader and mute groups." },

@@ -3372,7 +3372,8 @@ dialog::backdrop {
 }
 /* ---------- digital mixer (Soundcraft Ui16): mix bar, fader bank, SEL panel ---------- */
 
-.skin-ui16 .mixer-surface.dg-surface {
+.skin-ui16 .mixer-surface.dg-surface,
+.skin-l20 .mixer-surface.dg-surface {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 330px;
   gap: 0.75rem;
@@ -3485,7 +3486,8 @@ dialog::backdrop {
   align-items: stretch;
   gap: 4px;
 }
-.skin-ui16 .fader {
+.skin-ui16 .fader,
+.skin-l20 .fader {
   --fader-h: 190px;
   width: 34px;
 }
@@ -3646,10 +3648,12 @@ dialog::backdrop {
   font-size: 0.55rem;
 }
 @media (max-width: 899px) {
-  .skin-ui16 .mixer-surface.dg-surface {
+  .skin-ui16 .mixer-surface.dg-surface,
+  .skin-l20 .mixer-surface.dg-surface {
     grid-template-columns: minmax(0, 1fr);
   }
-  .skin-ui16 .fader {
+  .skin-ui16 .fader,
+  .skin-l20 .fader {
     --fader-h: 150px;
   }
 }
@@ -6516,4 +6520,49 @@ dialog::backdrop {
   width: 1px;
   height: 1px;
   opacity: 0;
+}
+
+/* ---------- Zoom LiveTrak L-20: FADER MODE, 18 strips, EFX RTN, MASTER, CHANNEL STRIP + outputs ---------- */
+
+.l20-mode {
+  align-items: center;
+}
+.l20-phantom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+.l20-phantom .lit-btn {
+  min-width: 0;
+  min-height: 28px;
+  padding: 0.15rem 0.5rem;
+}
+.l20-bank .dg-strip {
+  width: 58px;
+}
+.l20-efx {
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+.l20-efx .dg-note {
+  font-size: 0.55rem;
+  text-align: center;
+  margin: 0;
+}
+.l20-out {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+}
+.l20-out .lit-btn {
+  min-width: 0;
+  min-height: 26px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.6rem;
+}
+.l20-panel .dg-note {
+  margin: 0.2rem 0 0;
+  font-size: 0.65rem;
 }

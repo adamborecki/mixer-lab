@@ -83,6 +83,32 @@ The Free play gig on each one shows its limits:
 - **EQ shelves:** a printed "12 kHz" HI or "80 Hz" LOW shelf is taken as where the boost is (nearly) complete, so the Web Audio shelf (whose frequency is its half-gain point) sits an octave inside: 6 kHz and 160 Hz (`shelfHz` in `js/graph-kit.js`, also used by the CR1604-VLZ and the Ui16's EQ). Placed at the printed frequency, the boost fell where the MP3 stems and laptop speakers have almost nothing, and HI and LOW seemed to do nothing.
 - **The scenario checks' level model** leaves EQ, low cut, compression and effects out, as everywhere else.
 
+## Zoom LiveTrak L-20 (digital mixer, operated like an analog one)
+
+Definition `l20` in `js/compact-defs.js`; surface `js/ui/mixer-l20-view.js` (skin layout `"l20"`). Source: the L-20 Operation Manual (names and functions of parts, specifications, send effect specifications, mixer block diagram). Everything is on the surface, as on an analog desk: no menus, and one CHANNEL STRIP section for the selected channel.
+
+| On the mixer | In the lab |
+|---|---|
+| 16 mono XLR/TRS combo inputs, 2 stereo line inputs (17/18, 19/20: TS pair or RCA) | The same. Stereo inputs have no GAIN knob (`gain: { fixed: 0 }`) |
+| GAIN +16…+60 dB; PAD −26 dB (inputs 3–16); Hi-Z on 1–2 (+6…+50) | GAIN knob; `pad` (−26 dB, inputs 3–16); `hiZDb: −10` on 1–2, so Hi-Z shifts the range as the manual says. Hi-Z has no other effect (no passive pickups in the lab) |
+| 48V in groups of four (1–4, 5–8, 9–12, 13–16) | Four group buttons (`phantom.groups`) |
+| COMP (one knob, mono channels), LOW CUT 40–600 Hz 12 dB/oct, EQ: HIGH 10 kHz shelf, MID 100 Hz–8 kHz bell with MID FREQ, LOW 100 Hz shelf, ±15 dB; Φ; EQ OFF | `comp` (the Xenyx's one-knob compressor), `hpf`, `peqBands` (this mixer's three bands, `js/compact.js` `peqBands`), `polarity`; EQ OFF is `eqOn: false` and also bypasses LOW CUT (`eqOffBypassesHpf`). **The EQ starts on** (`eqStartsOn`), unlike the other digital desks |
+| Signal order: GAIN, COMP, LOW CUT, EQ, MUTE, then the fader | The same. MUTE is before every fader, so it silences a channel in the MASTER and in all six monitor mixes (`muteCutsPre`) |
+| FADER MODE: MASTER or A–F. The channel faders belong to that mix, each with its own position, set before PAN | The mode bar. MASTER is `level`; A–F are `sends.monA…monF` (tap `"pre"`, so independent of the MASTER fader) |
+| SEND EFX 1/2 (−∞…+10 dB), after the MASTER fader; 2 built-in effects; EFX RTN fader per mix | `sends.fx1/fx2` (tap `"post"`), buses `fx1/fx2` with `returnsTo`: the MASTER return is `level`, each monitor mix's is `ret_monA…ret_monF` (off to start) |
+| MONITOR OUT A–F (TRS): a switch for its own mix (A–F) or the MASTER, a knob for its volume; PHONES/SPEAKER switch | `routing` outputs `outA…outF` with `options` (own mix or `"main"`), a per-output `volume` (`state.outA.level`), and `outSwitches` `phonesA…F` |
+| MASTER OUT (XLR), MASTER fader and MUTE | `main-l/main-r` (XLR), `main`, `mainMute` |
+| PHONES with SELECT (MASTER, SOLO, A–F) | PHONES follows the MASTER and SOLO. To hear a monitor mix, use the Listen bar (MONITOR A–F) |
+
+**Not built:** the recorder (REC/PLAY, projects, overdubbing, punch), the USB audio interface and the USB button on 17–20, Bluetooth and the iPad app, the SOUND PAD, scenes (SAVE/RECALL/RESET), the slate mic, the metronome, the 15-band graphic EQ on the MASTER (iPad only), PHONES SELECT for A–F, panning in the monitor mixes (they are mono here), the headphone level of a PHONES jack (the PHONES/SPEAKER switch changes nothing because the lab has no headphone endpoint), and choosing the effect type (EFX 1 is a hall reverb, EFX 2 a delay, one preset each).
+
+**Guesses to check on the real unit:**
+- MUTE silencing the monitor mixes follows the block diagram (the MUTE sits before the FADER MODE faders); the manual's text doesn't say so.
+- SEND EFX is read from the diagram as taken after the MASTER-mode fader.
+- The EFX RTN faders start off in the monitor mixes; the factory positions aren't stated.
+- A monitor jack switched to MASTER carries both sides of the MASTER mix summed to mono, as for a speaker; the real jack carries stereo for headphones.
+- The COMP knob uses the Xenyx's curve (threshold −6 → −36 dBFS, ratio 1:1 → 8:1); the manual gives no numbers.
+
 ## Sound Devices 442 (field mixer)
 
 A four-input location mixer, in the lab because it's in the inventory and because it teaches what a live board hides: **two gain stages**, **output level matching**, and **checking a stereo pair in mono**. Same framework (definition `sd442` in `js/compact-defs.js`), with these options:

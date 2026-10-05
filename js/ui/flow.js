@@ -15,6 +15,7 @@ export function renderFlow(root, skin) {
   if (skin.layout === "cl") return renderFlowCL(root, skin);
   if (skin.layout === "dm2000") return renderFlowDM2000(root, skin);
   if (skin.layout === "f8") return renderFlowF8(root, skin);
+  if (skin.layout === "l20") return renderFlowL20(root, skin);
   const t = skin.terms;
   const c = skin.enabledControl;
   const enableWord = c.litWhenEnabled ? `${c.label} (lit = in Main)` : `${c.label} (lit = out of Main)`;
@@ -136,6 +137,35 @@ function renderFlowDigital(root, skin, def) {
           <li><strong>MUTE</strong> takes a channel out of every mix, wedges included.</li>
           <li>REVERB, DELAY and CHORUS are built in: their pages set the sends, their master is how much comes back into the MASTER mix.</li>
           <li>The outputs are line level on XLR: ${Object.values(def.buses).filter((b) => !b.fx).length} AUX outs and MASTER L/R. A speaker only makes sound if an amplifier is somewhere in the chain.</li>
+        </ul>
+      </div>
+    </details>`;
+}
+
+// The L-20: a digital mixer that is operated like an analog one.
+function renderFlowL20(root, skin) {
+  root.innerHTML = `
+    <details class="flow">
+      <summary>How the signal flows on the ${esc(skin.name)}</summary>
+      <div class="flow-body">
+        <ol class="flow-trunk" aria-label="Every channel">
+          <li class="flow-node">Input jack</li>
+          <li class="flow-node">GAIN <small>PAD / Hi-Z</small></li>
+          <li class="flow-node">COMP</li>
+          <li class="flow-node">LOW CUT</li>
+          <li class="flow-node">EQ</li>
+          <li class="flow-node">MUTE</li>
+          <li class="flow-node">FADER <small>one per mix</small></li>
+          <li class="flow-node">PAN</li>
+          <li class="flow-node flow-end">MASTER or MONITOR A–F</li>
+        </ol>
+        <ul class="flow-notes">
+          <li><strong>FADER MODE</strong> picks which mix the faders control: MASTER, or one of six monitor mixes. Each channel has its own fader position in each mix, so MONITOR A can have the singer loud and the MASTER can have her quiet.</li>
+          <li>The channel's <strong>MUTE</strong> comes before all of those faders: a muted channel is silent in the MASTER and in every monitor mix.</li>
+          <li><strong>SEND EFX 1 / 2</strong> take the signal after the MASTER fader. Each effect comes back through an <strong>EFX RTN</strong> fader that has its own position in every mix.</li>
+          <li><strong>EQ OFF</strong> bypasses HIGH, MID, LOW and LOW CUT. The EQ is on until you press it.</li>
+          <li>Each <strong>MONITOR OUT</strong> jack carries its own mix (A to F) or, with its switch on MASTER, a copy of the MASTER mix. Its knob is the jack's volume.</li>
+          <li>The outputs are line level (balanced). A speaker only makes sound if an amplifier is somewhere in the chain.</li>
         </ul>
       </div>
     </details>`;

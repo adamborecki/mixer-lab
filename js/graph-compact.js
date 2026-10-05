@@ -16,7 +16,7 @@
 //           MASTER ─► output limiter (ON / LINK) ─► [TONE replaces the mix] ─► XLR OUTPUT LEVEL;
 //           HEADPHONE selector OFF/L/R/M/ST (PFL replaces it; TONE ear-saver −20 dB).
 
-import { EQ_FOR, LAWS, PEQ_BANDS, compIsOn, eqIsOn, hpfHz, channelControl, channelGainDb, muteCutsPre, fxPreset, levelLaw, linkOf, reverbSetting, tapeIndex } from "./compact.js";
+import { EQ_FOR, LAWS, compIsOn, peqBands, eqIsOn, hpfHz, channelControl, channelGainDb, muteCutsPre, fxPreset, levelLaw, linkOf, reverbSetting, tapeIndex } from "./compact.js";
 import { HEADROOM_DB, dbToGain } from "./levels.js";
 import { DEVICE_TYPES } from "./connection-model.js";
 import { lowCutStage, popBuffer, shelfHz } from "./graph-kit.js";
@@ -135,10 +135,11 @@ export function buildCompactGraph(kit, def) {
     let node = afterCut;
     const peq = {};
     if (c.peq) {
-      for (const band of PEQ_BANDS) {
+      for (const band of peqBands(def)) {
         const f = track(ctx.createBiquadFilter());
         f.type = band.type;
         f.frequency.value = shelfHz(band.type, band.freq);
+        if (band.q) f.Q.value = band.q;
         f.gain.value = 0;
         node.connect(f);
         node = f;
@@ -306,7 +307,15 @@ export function buildCompactGraph(kit, def) {
     unit.out.L.connect(ret.L).connect(mainBus.L);
     unit.out.R.connect(ret.R).connect(mainBus.R);
     unit.setPreset(fxDef);
-    fxBuses[b] = { unit, ret };
+    // L-20: the effect also returns into each monitor mix, at that mix's own EFX RTN level.
+    const to = {};
+    for (const t of def.buses[b].returnsTo || []) {
+      to[t] = mono(0);
+      unit.out.L.connect(to[t]);
+      unit.out.R.connect(to[t]);
+      to[t].connect(auxBus[t]);
+    }
+    fxBuses[b] = { unit, ret, to };
   }
 
   // ---------- Xenyx built-in effects ----------
@@ -565,8 +574,14 @@ export function buildCompactGraph(kit, def) {
     matrices.push({ id: `mtx${k}`, master, sends });
   }
   // XLR OUT 1–16 carry whatever the ROUTING page patches to them.
+  // A jack that carries the whole MASTER mix (L-20 MONITOR OUT on MASTER): both sides, summed at half each.
+  const mainMono = def.routing ? mono(1) : null;
+  if (mainMono) {
+    masterOut.L.connect(mono(0.5)).connect(mainMono);
+    masterOut.R.connect(mono(0.5)).connect(mainMono);
+  }
   const routeSources = def.routing
-    ? { "main-l": masterOut.L, "main-r": masterOut.R, ...(mcMaster ? { mc: mcMaster } : {}), ...Object.fromEntries(busIds.filter((b) => !def.buses[b].fx).map((b) => [b, auxMaster[b]])), ...Object.fromEntries(matrices.map((m) => [m.id, m.master])) }
+    ? { "main-l": masterOut.L, "main-r": masterOut.R, main: mainMono, ...(mcMaster ? { mc: mcMaster } : {}), ...Object.fromEntries(busIds.filter((b) => !def.buses[b].fx).map((b) => [b, auxMaster[b]])), ...Object.fromEntries(matrices.map((m) => [m.id, m.master])) }
     : null;
   const routed = {};
   if (def.routing) {
@@ -685,9 +700,11 @@ export function buildCompactGraph(kit, def) {
         const s = strips[i];
         if (s.polarity) set(s.polarity.gain, ch.polarity ? -1 : 1);
         if (s.hpf) {
+          // L-20: EQ OFF bypasses LOW CUT too.
+          const cutting = ch.hpf > 0.02 && (!def.eqOffBypassesHpf || eqIsOn(ch));
           set(s.hpf.hp.frequency, hpfHz(c, ch.hpf) || c.hpf.min);
-          set(s.hpf.dry.gain, on(ch.hpf <= 0.02));
-          set(s.hpf.wet.gain, on(ch.hpf > 0.02));
+          set(s.hpf.dry.gain, on(!cutting));
+          set(s.hpf.wet.gain, on(cutting));
         }
         if (s.limiter) {
           const lim = state.lim?.mode !== "off";
@@ -808,6 +825,7 @@ export function buildCompactGraph(kit, def) {
         if (fxBuses[b]) {
           set(fxBuses[b].ret.L.gain, g);
           set(fxBuses[b].ret.R.gain, g);
+          for (const [t, node] of Object.entries(fxBuses[b].to)) set(node.gain, 0.5 * dbToGain(LAWS[def.buses[b].master.law].toDb(state[b][`ret_${t}`])));
         } else set(auxMaster[b].gain, g);
       }
       if (altToMain) for (const side of ["L", "R"]) set(altToMain[side].gain, on(!!state.alt.toMain));
@@ -823,8 +841,13 @@ export function buildCompactGraph(kit, def) {
         set(m.master.gain, st.mute ? 0 : dbToGain(LAWS.level.toDb(st.level)));
         for (const [src, list] of Object.entries(m.sends)) for (const { s, g } of list) set(s.gain, g * dbToGain(LAWS.level.toDb(st[src])));
       }
+      const outVol = {};
       if (routeSources) {
         for (const o of def.routing.outputs) {
+          if (def.routing.volume) {
+            outVol[o] = dbToGain(LAWS[def.routing.volume.law].toDb(state[o].level));
+            set(outputs[o].gain, outVol[o]);
+          }
           const want = state.routing[o];
           if (routed[o] === want) continue;
           if (routed[o] && routeSources[routed[o]]) routeSources[routed[o]].disconnect(outputs[o]);
@@ -871,7 +894,7 @@ export function buildCompactGraph(kit, def) {
           if (p === "sub-out" && f8sub) {
             set(f8sub.L.gain, g);
             set(f8sub.R.gain, g);
-          } else if (outputs[p]) set(outputs[p].gain, g);
+          } else if (outputs[p]) set(outputs[p].gain, g * (outVol[p] ?? 1));
         }
       }
       if (switched) {

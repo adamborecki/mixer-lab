@@ -789,6 +789,23 @@ export const COMPACT_GIGS = {
     pans: { "lead-vocal": 0, "backing-vocals": 0 },
     listen: "phones",
   },
+  l20: {
+    prompt: "The whole band on a Zoom LiveTrak L-20: guitar and bass on the Hi-Z inputs 1–2, drums on 3, both vocals on 4 and 5, keys on 6 (PAD on, it is line level), trumpets on 7, the laptop on 17/18 (level down). MASTER OUT feeds the house speakers. MONITOR OUT A is the singer's wedge and B the guitarist's: each is its own mix on FADER MODE A and B. EFX 1 (hall) is on the vocals.",
+    patch: { guitars: [0, "in"], bass: [1, "in"], drums: [2, "in"], "backing-vocals": [3, "in"], "lead-vocal": [4, "in"], keys: [5, "in"], trumpets: [6, "in"], preshow: [16, "lr"] },
+    padFor: ["keys"],
+    devices: ["spk-l", "spk-r", "wedge", "gwedge"],
+    cables: [
+      { from: "mixer/main-l", to: "spk-l/in", cable: "xlr" },
+      { from: "mixer/main-r", to: "spk-r/in", cable: "xlr" },
+      { from: "mixer/outA", to: "wedge/in", cable: "trs" },
+      { from: "mixer/outB", to: "gwedge/in", cable: "trs" },
+    ],
+    sends: {
+      monA: { "lead-vocal": 0, "backing-vocals": -6, keys: -10, guitars: -12 },
+      monB: { guitars: -2, bass: -4, "lead-vocal": -8, drums: -8, keys: -10 },
+      fx1: { "lead-vocal": -6, "backing-vocals": -8 },
+    },
+  },
   f8n: {
     prompt: "Filming the band with a Zoom F8n Pro as the recorder and camera mixer: drums, bass, guitar, keys, backing vocal and lead vocal on inputs 1–6, the room pair on 7/8 (Stereo Link, +48V). Every input records its own track; the track knobs build the L/R mix. MAIN OUT 1/2 (LINE) feed the main camera's two XLR inputs, SUB OUT (MIC level) the second camera's 3.5 mm mic jack. Listen in the HEADPHONE, or at either camera. The trumpets aren't on the recorder.",
     patch: { drums: [0, "in"], bass: [1, "in"], guitars: [2, "in"], keys: [3, "in"], "backing-vocals": [4, "in"], "lead-vocal": [5, "in"], "room-l": [6, "in"], "room-r": [7, "in"] },

@@ -107,6 +107,7 @@ const KEYS = {
   "camera-input": { inputLevel: range(0, 1, 1) }, // 0 = MIC, 1 = LINE
   sd442: { outLevel: range(0, 2, 1) }, // the 442's XLR OUTPUT LEVEL: 0 = MIC, 1 = −10, 2 = LINE
   f8n: { mainLevel: range(0, 1, 1), subLevel: range(0, 1, 1) },
+  l20: Object.fromEntries(["A", "B", "C", "D", "E", "F"].map((x) => [`phones${x}`, range(0, 1, 1)])), // MONITOR OUT PHONES/SPEAKER switches (0 = SPEAKER)
   x32: { inSource: range(0, 1, 1) }, // ROUTING inputs, per block of 8: 0 = LOCAL, 1 = AES50-A
   x32c: { inSource: range(0, 1, 1) },
   cl3: { danteRx: range(0, 16, 1), inPatch: range(0, 1, 1) }, // Dante Controller subscriptions (0 = none); INPUT PATCH 0 = Rio, 1 = Dante

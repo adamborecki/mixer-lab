@@ -337,6 +337,80 @@ export const COMPACT = {
     layout: { kind: "digital" },
   },
 
+  // Zoom LiveTrak L-20 (L-20 Operation Manual): 16 mono mic/line inputs and 2 stereo
+  // line inputs on 100 mm faders, one SELECTED-channel strip (COMP, LOW CUT, 3-band EQ
+  // with a sweepable mid, PAN, 2 SEND EFX), FADER MODE (MASTER or MONITOR A–F: each mix
+  // has its own fader per channel, set before PAN), 6 MONITOR OUT jacks that carry
+  // their own mix or the MASTER, 2 built-in effects. Signal order: GAIN, COMP, LOW CUT,
+  // EQ, MUTE, fader. Drawn by js/ui/mixer-l20-view.js.
+  l20: {
+    id: "l20",
+    name: "Zoom LiveTrak L-20",
+    blurb: "A 20-channel digital mixer that works like an analog one: every knob on the surface, six independent monitor mixes on FADER MODE A–F, two effects.",
+    digital: true,
+    phantom: { label: "48V", channels: Array.from({ length: 16 }, (_, i) => i), perChannel: true, groups: [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15]] },
+    channels: [
+      ...Array.from({ length: 16 }, (_, i) => ({
+        label: String(i + 1),
+        kind: "mono",
+        jacks: ["combo"],
+        // GAIN +16…+60 dB; PAD −26 dB (inputs 3–16) and Hi-Z −10 dB (inputs 1–2) shift the range down.
+        gain: { min: 16, max: 60, linePad: 0, ...(i < 2 ? { hiZDb: -10 } : { pad: 26 }) },
+        hpf: { min: 40, max: 600 }, // LOW CUT: off at the left, then 40–600 Hz, 12 dB/octave
+        comp: true, // one COMP knob (mono channels only)
+        peq: true,
+        polarity: true,
+        hiZ: i < 2,
+        sends: [...["monA", "monB", "monC", "monD", "monE", "monF"], "fx1", "fx2"],
+        mute: "mute",
+        solo: true,
+        peak: true,
+      })),
+      ...["17/18", "19/20"].map((label) => ({ label, kind: "stereo", jacks: ["linePair", "rcaPair"], gain: { fixed: 0 }, hpf: { min: 40, max: 600 }, peq: true, polarity: true, sends: [...["monA", "monB", "monC", "monD", "monE", "monF"], "fx1", "fx2"], mute: "mute", solo: true, peak: true })),
+    ],
+    // The EQ is HIGH 10 kHz shelf, MID 100 Hz–8 kHz bell (sweepable), LOW 100 Hz shelf, ±15 dB.
+    peqBands: [
+      { id: "low", label: "LOW", type: "lowshelf", freq: 100, min: 100, max: 100 },
+      { id: "mid", label: "MID", type: "peaking", freq: 1000, min: 100, max: 8000, q: 0.9 },
+      { id: "high", label: "HIGH", type: "highshelf", freq: 10000, min: 10000, max: 10000 },
+    ],
+    eqStartsOn: true, // the EQ is in until EQ OFF is pressed, which also bypasses LOW CUT
+    eqOffBypassesHpf: true,
+    sends: {
+      // FADER MODE A–F: each channel's own fader for that mix, after MUTE and before PAN: independent of the MASTER fader.
+      ...Object.fromEntries(["A", "B", "C", "D", "E", "F"].map((x) => [`mon${x}`, { label: `MONITOR ${x}`, bus: `mon${x}`, tap: "pre", law: "level" }])),
+      // SEND EFX 1/2: after the MASTER fader.
+      fx1: { label: "SEND EFX 1", bus: "fx1", tap: "post", law: "level" },
+      fx2: { label: "SEND EFX 2", bus: "fx2", tap: "post", law: "level" },
+    },
+    buses: {
+      ...Object.fromEntries(["A", "B", "C", "D", "E", "F"].map((x) => [`mon${x}`, { label: `MONITOR ${x}` }])),
+      // The EFX RTN fader has its own position in every mix (MASTER and A–F): `returnsTo`.
+      fx1: { label: "EFX 1", master: { label: "EFX 1 RTN", law: "level" }, fx: { name: "Hall 1", kind: "reverb", seconds: 2.2, number: 1 }, returnsTo: ["monA", "monB", "monC", "monD", "monE", "monF"] },
+      fx2: { label: "EFX 2", master: { label: "EFX 2 RTN", law: "level" }, fx: { name: "Delay", kind: "delay", seconds: 0.375, feedback: 0.35, number: 2 }, returnsTo: ["monA", "monB", "monC", "monD", "monE", "monF"] },
+    },
+    muteCutsPre: true, // MUTE comes before every fader: it silences the channel in the MASTER and in all six monitor mixes
+    mainMute: true,
+    // MONITOR OUT A–F: a TRS jack each. Its switch picks the jack's own mix (A–F) or the MASTER mix;
+    // its knob is the jack's volume. (The PHONES/SPEAKER switch is stored on the mixer but changes nothing here.)
+    routing: {
+      outputs: ["outA", "outB", "outC", "outD", "outE", "outF"],
+      names: Object.fromEntries(["A", "B", "C", "D", "E", "F"].map((x) => [`out${x}`, `MONITOR OUT ${x} (TRS)`])),
+      sources: ["main", "monA", "monB", "monC", "monD", "monE", "monF"],
+      options: Object.fromEntries(["A", "B", "C", "D", "E", "F"].map((x) => [`out${x}`, [`mon${x}`, "main"]])),
+      start: Object.fromEntries(["A", "B", "C", "D", "E", "F"].map((x) => [`out${x}`, `mon${x}`])),
+      volume: { law: "master", start: 0.5 },
+    },
+    outSwitches: ["A", "B", "C", "D", "E", "F"].map((x) => ({ key: `phones${x}`, ports: [`out${x}`], labels: ["SPEAKER", "PHONES"], levels: ["line", "line"], db: [0, 0], start: 0 })),
+    main: { label: "MASTER", law: "level" },
+    phones: { label: "PHONES", sources: null },
+    solo: { mode: "pfl", label: "SOLO" },
+    meter: [-48, -36, -24, -18, -12, -6, -3, 0],
+    peakLabel: "SIG",
+    outputs: ["mainXlrOnly", "l20mon"],
+    layout: { kind: "l20" },
+  },
+
   // Behringer X32 Compact (user manual): 16 local XLR inputs, 8 XLR outputs
   // (by default mix buses 1–6 on 1–6, Main L/R on 7–8), input faders on layers,
   // a separate bank for DCA groups and bus masters, Sends on Faders, 8 DCAs,
@@ -837,5 +911,7 @@ export function compactPorts(def) {
   // B207MP3: the speaker is inside the box. No jack (`internal`): nothing can be patched to it.
   if (o.includes("builtIn")) ports.push(out("spk", "internal", def.builtInSpeaker.name, { level: "speaker", bus: "main", side: "M", internal: true }));
   if (o.includes("thru")) ports.push(out("thru", "xlr", "THRU (XLR)", { bus: "thru", side: "M" }));
+  // L-20: MONITOR OUT A–F (balanced TRS), each carrying its own mix or the MASTER.
+  if (o.includes("l20mon")) for (const id of def.routing.outputs) ports.push(out(id, "quarter", def.routing.names[id], { routed: true, switchKey: def.outSwitches.find((w) => w.ports.includes(id)).key, switchLevels: ["line", "line"] }));
   return ports;
 }

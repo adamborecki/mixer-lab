@@ -45,6 +45,8 @@ export const PEQ_BANDS = [
   { id: "high", label: "HIGH", type: "highshelf", freq: 8000, min: 1500, max: 20000 },
 ];
 export const PEQ_Q = { min: 0.3, max: 8 };
+// A mixer's own EQ bands (the L-20's three, with one sweepable mid), else the Ui16's four.
+export const peqBands = (def) => def.peqBands || PEQ_BANDS;
 // The sweepable high-pass's frequency for a knob position, or 0 when off (the detent).
 export const hpfHz = (c, pos) => (c.hpf && pos > 0.02 ? c.hpf.min + (c.hpf.max - c.hpf.min) * Math.max(0, (pos - 0.05) / 0.95) : 0);
 // Whether a channel's parametric EQ and compressor are switched in.
@@ -88,12 +90,12 @@ function createChannel(def, i) {
     mgrp: def.muteGroups ? Object.fromEntries(Array.from({ length: def.muteGroups }, (_, k) => [`g${k + 1}`, false])) : undefined,
     // Fader groups (DM2000 A–H): moving one member's fader moves the others (done by the surface).
     fgrp: def.faderGroups ? Object.fromEntries(def.faderGroups.map((g) => [g, false])) : undefined,
-    peq: c.peq ? Object.fromEntries(PEQ_BANDS.map((b) => [b.id, { gain: 0, freq: b.freq, q: 0.7 }])) : undefined,
+    peq: c.peq ? Object.fromEntries(peqBands(def).map((b) => [b.id, { gain: 0, freq: b.freq, q: b.q ?? 0.7 }])) : undefined,
     dyn: c.dyn ? { threshold: 0, ratio: 1, makeup: 0 } : undefined,
     // The EQ and compressor each have an ON button, and in the lab both start
     // off (a teaching choice: many desks start with a flat EQ switched in).
     // Turning the knobs of an EQ or compressor that's off does nothing.
-    eqOn: c.peq ? false : undefined,
+    eqOn: c.peq ? !!def.eqStartsOn : undefined,
     compOn: c.dyn ? false : undefined,
     pan: 0,
     enabled: true,
@@ -123,6 +125,10 @@ export function createState(id) {
   if (def.mc) state.mc = { level: LAWS.level.toPos(0), mute: false };
   for (let k = 1; k <= (def.matrix || 0); k++) state[`mtx${k}`] = { level: LAWS.level.toPos(0), mute: false, ...Object.fromEntries(matrixSources(def).map((src) => [src, 0])) };
   if (def.routing) state.routing = Object.fromEntries(def.routing.outputs.map((o) => [o, def.routing.start[o] || "off"]));
+  // L-20 MONITOR OUT knobs: each routed jack has its own volume.
+  if (def.routing?.volume) for (const o of def.routing.outputs) state[o] = { level: def.routing.volume.start ?? 0.5 };
+  // L-20 EFX RTN: a return level into each monitor mix, off to start (the MASTER one is the bus's `level`).
+  for (const [b, bus] of Object.entries(def.buses)) for (const t of bus.returnsTo || []) state[b][`ret_${t}`] = 0;
   if (def.scenes) state.scenes = Array.from({ length: def.scenes }, () => null);
   // DCA groups (a fader and a MUTE each, nothing summed) and mute groups (X32).
   for (let k = 1; k <= (def.dca || 0); k++) state[`dca${k}`] = { level: LAWS.level.toPos(0), mute: false };
@@ -163,7 +169,7 @@ export function sanitizeChannel(def, ch, key, value) {
   if (a === "mgrp") return def.muteGroups && /^g\d+$/.test(b) && Number(b.slice(1)) <= def.muteGroups ? bool(value) : undefined;
   if (a === "pres") return def.sends[b]?.tap === "each" && (c.sends || []).includes(b) ? bool(value) : undefined;
   if (a === "peq") {
-    const band = c.peq && PEQ_BANDS.find((x) => x.id === b);
+    const band = c.peq && peqBands(def).find((x) => x.id === b);
     if (!band) return undefined;
     return { gain: range(-15, 15, 0.5), freq: range(band.min, band.max, 1), q: range(PEQ_Q.min, PEQ_Q.max, 0.05) }[k]?.(value);
   }
@@ -221,7 +227,9 @@ export function busKeys(def) {
   for (const [b, bus] of Object.entries(def.buses)) keys[b] = { ...(bus.master ? { level: range(0, 1) } : {}), ...(bus.preSwitch ? { pre: bool } : {}), ...(bus.solo ? { solo: bool } : {}), ...(bus.mute ? { mute: bool } : {}), ...(def.busToMain && !bus.fx ? { lr: bool, pan: range(-1, 1) } : {}) };
   if (def.mc) keys.mc = { level: range(0, 1), mute: bool };
   for (let k = 1; k <= (def.matrix || 0); k++) keys[`mtx${k}`] = { level: range(0, 1), mute: bool, ...Object.fromEntries(matrixSources(def).map((src) => [src, range(0, 1)])) };
-  if (def.routing) keys.routing = Object.fromEntries(def.routing.outputs.map((o) => [o, (v) => (def.routing.sources.includes(v) ? v : undefined)]));
+  if (def.routing) keys.routing = Object.fromEntries(def.routing.outputs.map((o) => [o, (v) => ((def.routing.options?.[o] || def.routing.sources).includes(v) ? v : undefined)]));
+  if (def.routing?.volume) for (const o of def.routing.outputs) keys[o] = { level: range(0, 1) };
+  for (const [b, bus] of Object.entries(def.buses)) for (const t of bus.returnsTo || []) keys[b][`ret_${t}`] = range(0, 1);
   for (let k = 1; k <= (def.dca || 0); k++) keys[`dca${k}`] = { level: range(0, 1), mute: bool };
   if (def.prePoint) keys.auxSetup = { prePoint: (v) => (v === "preOn" || v === "postOn" ? v : undefined) };
   if (def.muteGroups) keys.mgrp = Object.fromEntries(Array.from({ length: def.muteGroups }, (_, k) => [`g${k + 1}`, bool]));
@@ -263,7 +271,7 @@ export function fxPreset(def, program) {
 
 export function listenList(def) {
   const l = ["main"];
-  for (const b of Object.keys(def.buses)) if (/^(aux|mix|bus)\d+$/.test(b) && !def.buses[b].fx && !def.buses[b].noOut) l.push(b);
+  for (const b of Object.keys(def.buses)) if (/^((aux|mix|bus)\d+|mon[A-F])$/.test(b) && !def.buses[b].fx && !def.buses[b].noOut) l.push(b);
   if (def.mc) l.push("mc");
   for (let k = 1; k <= (def.matrix || 0); k++) l.push(`mtx${k}`);
   if (def.alt) l.push("alt");
@@ -298,7 +306,7 @@ export function channelControl(def, state, i) {
 // With output ROUTING (full X32) a port carries whatever is patched to it.
 export function listenGroupOf(portId, state) {
   const routed = state?.routing?.[portId];
-  if (routed) return routed === "main-l" || routed === "main-r" ? "main" : routed;
+  if (routed) return routed === "main-l" || routed === "main-r" || routed === "main" ? "main" : routed;
   if (/^(main|line|tape-out|rec-out|spk)-[lr]$/.test(portId) || portId === "sub-out" || portId === "tape-mini" || portId === "spk") return "main";
   if (portId === "mon-l" || portId === "mon-r") return "monitor";
   if (portId === "alt-l" || portId === "alt-r") return "alt";
@@ -320,7 +328,7 @@ export function channelGainDb(def, ch, input) {
   const stereoPad = input && input.path === "line" && (input.stereo || input.monoIn) && g.min !== undefined ? g.linePad || 0 : 0;
   // Dante playback arrives at its own level: the preamp's GAIN isn't in its path.
   if (input?.digital) return input.digitalDb;
-  return ch.gainDb + pad + stereoPad - (g.pad && ch.pad ? g.pad : 0);
+  return ch.gainDb + pad + stereoPad - (g.pad && ch.pad ? g.pad : 0) + (g.hiZDb && ch.hiZ ? g.hiZDb : 0);
 }
 
 // L and R gains of a Web Audio StereoPannerNode for a stereo input whose two

@@ -25,7 +25,7 @@ export const THEMES = [
     title: "Plugging in",
     question: "Which jack, which cable?",
     concept: "Mics, instruments, laptops and players each have their own level and connector. Get each one into an input that suits it, and into the house.",
-    ids: ["preshow", "build-rig", "missing-guitar", "b207mp3-doors", "mix8-doors", "mix8-guest", "stagepas400bt-doors", "stagepas400bt-mono", "mg102-doors", "mg102-2tr", "vlz1202-doors", "x1204usb-doors", "x1204usb-minus10", "x1204usb-cdtape", "cr1604-doors", "ui16-doors", "yam01v96-doors", "x32c-doors", "dm2000-doors", "x32-doors", "cl3-doors"],
+    ids: ["preshow", "build-rig", "missing-guitar", "b207mp3-doors", "mix8-doors", "mix8-guest", "stagepas400bt-doors", "stagepas400bt-mono", "mg102-doors", "mg102-2tr", "vlz1202-doors", "x1204usb-doors", "x1204usb-minus10", "x1204usb-cdtape", "cr1604-doors", "ui16-doors", "l20-doors", "yam01v96-doors", "x32c-doors", "dm2000-doors", "x32-doors", "cl3-doors"],
   },
   {
     id: "phantom",
@@ -39,7 +39,7 @@ export const THEMES = [
     title: "Gain staging",
     question: "Too hot, too quiet, or just right?",
     concept: "Set each input's GAIN (or TRIM) first, so the meter sits in the healthy band. Faders come after. Too hot clips; too low is noisy.",
-    ids: ["b207mp3-quiet-singer", "mix8-ol", "stagepas400bt-micline", "mg102-peak", "vlz1202-trim", "vlz1202-pad", "ui16-gain", "x32c-gain", "yam01v96-pad", "dm2000-pad", "cl3-gain", "sd442-hot-vocal", "sd442-master", "sd442-line", "f8n-trim"],
+    ids: ["b207mp3-quiet-singer", "mix8-ol", "stagepas400bt-micline", "mg102-peak", "vlz1202-trim", "vlz1202-pad", "ui16-gain", "l20-gain", "l20-pad", "x32c-gain", "yam01v96-pad", "dm2000-pad", "cl3-gain", "sd442-hot-vocal", "sd442-master", "sd442-line", "f8n-trim"],
   },
   {
     id: "solo",
@@ -60,21 +60,21 @@ export const THEMES = [
     title: "Monitor mixes",
     question: "What does the band hear?",
     concept: "Each wedge has its own mix from aux (MIX) sends. Pre-fader sends ignore the house faders; post-fader sends follow them. A wedge's master moves it all at once.",
-    ids: ["more-vocal", "more-piano", "monitor-quiet", "drummer-mix", "b207mp3-wedge", "b207mp3-wedge-quiet", "mix8-keys-wedge", "mix8-wedge-loud", "mix8-ballad", "stagepas400bt-monitor", "stagepas400bt-feedback", "mg102-less-drums", "mg102-one-knob", "vlz1202-wedge-quiet", "vlz1202-prefader", "x1204usb-wedge", "x1204usb-pre", "cr1604-mute-pre", "cr1604-drummer-quiet", "cr1604-shift", "ui16-more-keys", "ui16-out-of-house", "ui16-post", "ui16-guitar-mix", "x32c-drummer-quiet", "x32c-bus-mute", "x32c-out-of-house", "x32c-new-mix", "yam01v96-master", "yam01v96-pre-point", "yam01v96-new-mix", "dm2000-new-mix", "x32-bus9"],
+    ids: ["more-vocal", "more-piano", "monitor-quiet", "drummer-mix", "b207mp3-wedge", "b207mp3-wedge-quiet", "mix8-keys-wedge", "mix8-wedge-loud", "mix8-ballad", "stagepas400bt-monitor", "stagepas400bt-feedback", "mg102-less-drums", "mg102-one-knob", "vlz1202-wedge-quiet", "vlz1202-prefader", "x1204usb-wedge", "x1204usb-pre", "cr1604-mute-pre", "cr1604-drummer-quiet", "cr1604-shift", "ui16-more-keys", "ui16-out-of-house", "l20-keys-wedge", "l20-less-guitar", "l20-out-of-house", "l20-wedge-quiet", "l20-switch", "ui16-post", "ui16-guitar-mix", "x32c-drummer-quiet", "x32c-bus-mute", "x32c-out-of-house", "x32c-new-mix", "yam01v96-master", "yam01v96-pre-point", "yam01v96-new-mix", "dm2000-new-mix", "x32-bus9"],
   },
   {
     id: "filters",
     title: "Low cut and high-pass",
     question: "Where's the rumble coming from?",
     concept: "A high-pass filter (LOW CUT, HPF) removes the low rumble a voice doesn't need. Leave it off the kick and bass.",
-    ids: ["mg102-rumble", "vlz1202-lowcut", "cr1604-lowcut", "ui16-hpf", "x32c-lowcut", "sd442-hpf", "f8n-hpf"],
+    ids: ["mg102-rumble", "vlz1202-lowcut", "cr1604-lowcut", "ui16-hpf", "l20-lowcut", "x32c-lowcut", "sd442-hpf", "f8n-hpf"],
   },
   {
     id: "eq",
     title: "EQ",
     question: "Boomy, muddy, honky or harsh?",
     concept: "Name the problem, find its frequency, cut rather than boost. On a digital desk the EQ also has to be switched ON.",
-    ids: ["b207mp3-speech", "mix8-boomy", "stagepas400bt-speech", "mg102-thin-bass", "vlz1202-nasal", "cr1604-sweep", "ui16-mud", "ui16-harsh", "ui16-eq-on", "x32c-mud", "x32c-eq-on", "yam01v96-mud", "yam01v96-eq", "yam01v96-eq-on", "dm2000-mud", "dm2000-eq-on", "x32-mud", "x32-eq-on", "cl3-mud", "cl3-eq-on"],
+    ids: ["b207mp3-speech", "mix8-boomy", "stagepas400bt-speech", "mg102-thin-bass", "vlz1202-nasal", "cr1604-sweep", "ui16-mud", "ui16-harsh", "ui16-eq-on", "l20-mud", "l20-eq-on", "x32c-mud", "x32c-eq-on", "yam01v96-mud", "yam01v96-eq", "yam01v96-eq-on", "dm2000-mud", "dm2000-eq-on", "x32-mud", "x32-eq-on", "cl3-mud", "cl3-eq-on"],
   },
   {
     id: "dynamics",
@@ -88,7 +88,7 @@ export const THEMES = [
     title: "Effects",
     question: "Reverb on what, and how much?",
     concept: "Effects are fed by a send (post-fader) and come back on a return. The send picks what gets the effect; the return sets how much you hear.",
-    ids: ["stagepas400bt-reverb", "stagepas400bt-hall", "mg102-reverb-loud", "vlz1202-reverb", "vlz1202-efx", "x1204usb-fx", "x1204usb-slapback", "x1204usb-ret-mon", "cr1604-reverb", "cr1604-efx-mon", "ui16-trumpet-reverb", "ui16-delay", "x32c-reverb", "yam01v96-reverb", "dm2000-reverb", "x32-fx", "cl3-fx"],
+    ids: ["stagepas400bt-reverb", "stagepas400bt-hall", "mg102-reverb-loud", "vlz1202-reverb", "vlz1202-efx", "x1204usb-fx", "x1204usb-slapback", "x1204usb-ret-mon", "cr1604-reverb", "cr1604-efx-mon", "ui16-trumpet-reverb", "l20-reverb", "l20-efx-mon", "ui16-delay", "x32c-reverb", "yam01v96-reverb", "dm2000-reverb", "x32-fx", "cl3-fx"],
   },
   {
     id: "groups",

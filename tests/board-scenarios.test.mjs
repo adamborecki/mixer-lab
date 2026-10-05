@@ -178,6 +178,31 @@ const SOLVE = {
     a.set("backing-vocals", "pan", -1);
     a.st.setBus("lim", "mode", "on");
   },
+  "l20-doors": (a) => a.faderDb("preshow", 0),
+  "l20-gain": (a) => a.set("lead-vocal", "gainDb", 46),
+  "l20-pad": (a) => a.set("keys", "pad", true),
+  "l20-lowcut": (a) => {
+    a.set("lead-vocal", "hpf", 0.25);
+    a.set("backing-vocals", "hpf", 0.25);
+  },
+  "l20-mud": (a) => {
+    a.set("guitars", "peq.mid.gain", -4);
+    a.set("guitars", "peq.mid.freq", 300);
+  },
+  "l20-eq-on": (a) => a.set("lead-vocal", "eqOn", true),
+  "l20-keys-wedge": (a) => {
+    a.st.setListen("monA");
+    a.sendDb("keys", "monA", -6);
+  },
+  "l20-less-guitar": (a) => {
+    a.st.setListen("monA");
+    a.sendDb("guitars", "monA", -12);
+  },
+  "l20-out-of-house": (a) => a.set("bass", "level", 0),
+  "l20-wedge-quiet": (a) => a.st.setBus("outA", "level", LAWS.master.toPos(-3)),
+  "l20-switch": (a) => a.st.setBus("routing", "outA", "monA"),
+  "l20-reverb": (a) => a.sendDb("trumpets", "fx1", -10),
+  "l20-efx-mon": (a) => a.st.setBus("fx1", "ret_monA", LAWS.level.toPos(-6)),
   "ui16-doors": (a) => a.faderDb("preshow", 0),
   "ui16-gain": (a) => a.set("lead-vocal", "gainDb", 46),
   "ui16-more-keys": (a) => {
@@ -425,6 +450,32 @@ const WRONG = {
     a.set("backing-vocals", "pan", -1);
     a.st.setBus("lim", "mode", "on");
   }]],
+  "l20-gain": [["the fader up instead", (a) => a.faderDb("lead-vocal", 10)]],
+  "l20-pad": [["the keys' fader down instead of PAD", (a) => a.faderDb("keys", -20)]],
+  "l20-lowcut": [["LOW CUT on the bass too", (a) => {
+    a.set("lead-vocal", "hpf", 0.25);
+    a.set("backing-vocals", "hpf", 0.25);
+    a.set("bass", "hpf", 0.25);
+  }]],
+  "l20-mud": [["a cut at 3 kHz", (a) => {
+    a.set("guitars", "peq.mid.gain", -4);
+    a.set("guitars", "peq.mid.freq", 3000);
+  }]],
+  "l20-keys-wedge": [["the keys' MASTER fader up", (a) => {
+    a.st.setListen("monA");
+    a.nudge("keys", 6);
+  }]],
+  "l20-less-guitar": [["the guitar's MASTER fader down", (a) => {
+    a.st.setListen("monA");
+    a.nudge("guitars", -12);
+  }]],
+  "l20-out-of-house": [["MUTE", (a) => a.set("bass", "enabled", false)]],
+  "l20-wedge-quiet": [["every fader in MONITOR A up", (a) => {
+    for (const s of ["lead-vocal", "keys", "backing-vocals", "guitars"]) a.sendDb(s, "monA", 6);
+  }]],
+  "l20-switch": [["the vocal's A fader up", (a) => a.sendDb("lead-vocal", "monA", 6)]],
+  "l20-reverb": [["the send to EFX 2 (the delay)", (a) => a.sendDb("trumpets", "fx2", -10)]],
+  "l20-efx-mon": [["EFX 1 RTN up on MASTER", (a) => a.st.setBus("fx1", "level", LAWS.level.toPos(6))]],
   "ui16-gain": [["the fader up instead", (a) => a.faderDb("lead-vocal", 10)]],
   "ui16-more-keys": [["the keys' MIX fader up", (a) => {
     a.st.setListen("aux2");

@@ -585,3 +585,81 @@ describe("Behringer X32 (full size)", () => {
     assert.equal(st.state.scenes[4].name, "Test");
   });
 });
+
+describe("Zoom LiveTrak L-20", () => {
+  const idx = (st, src) => ch(st, src).index;
+
+  it("has 16 mono inputs and two stereo ones, and the EQ starts on", () => {
+    const def = COMPACT.l20;
+    assert.equal(def.channels.filter((c) => c.kind === "mono").length, 16);
+    assert.equal(def.channels.filter((c) => c.kind === "stereo").length, 2);
+    const s = createMixerState("l20");
+    assert.ok(s.channels.every((c) => c.eqOn === true));
+    for (const p of ["main-l", "main-r", "outA", "outF", "ch1-in", "ch17-lr", "ch17-rca", "ch18-lr"]) assert.ok(portIds("l20").includes(p), p);
+  });
+
+  it("PAD takes 26 dB off the preamp (inputs 3–16) and Hi-Z 10 dB (inputs 1–2)", () => {
+    const st = gig("l20");
+    const keys = idx(st, "keys"); // PAD is on in the gig
+    const before = ch(st, "keys").inputPeakDb;
+    st.setChannel(keys, "pad", false);
+    near(ch(st, "keys").inputPeakDb, before + 26);
+    const gtr = idx(st, "guitars"); // input 1
+    const g = ch(st, "guitars").inputPeakDb;
+    st.setChannel(gtr, "hiZ", true);
+    near(ch(st, "guitars").inputPeakDb, g - 10);
+    assert.equal(st.state.channels[gtr].pad, undefined, "inputs 1–2 have no PAD");
+  });
+
+  it("each monitor mix has its own fader per channel, independent of the MASTER fader", () => {
+    const st = gig("l20");
+    const v = idx(st, "lead-vocal");
+    const a = ch(st, "lead-vocal").aux.monA.monitorDb;
+    st.setChannel(v, "level", LAWS.level.toPos(-20)); // the MASTER fader
+    near(ch(st, "lead-vocal").aux.monA.monitorDb, a);
+    st.setChannel(v, "sends.monA", LAWS.level.toPos(-10));
+    near(ch(st, "lead-vocal").aux.monA.monitorDb, a - 10);
+    near(ch(st, "lead-vocal").aux.monB.monitorDb, ch(st, "lead-vocal").aux.monB.monitorDb);
+  });
+
+  it("MUTE comes before every fader: the channel leaves the MASTER and all the monitor mixes", () => {
+    const st = gig("l20");
+    const v = idx(st, "lead-vocal");
+    assert.ok(ch(st, "lead-vocal").aux.monA.monitorDb > -Infinity);
+    st.setChannel(v, "enabled", false);
+    const c = ch(st, "lead-vocal");
+    assert.equal(c.aux.monA.monitorDb, -Infinity);
+    assert.equal(c.heardMainDb, -Infinity);
+  });
+
+  it("MONITOR OUT carries its own mix or the MASTER, and its knob is the jack's volume", () => {
+    const st = gig("l20");
+    assert.equal(st.state.routing.outA, "monA");
+    assert.equal(listenGroupOf(st.state, "outA"), "monA");
+    st.setBus("routing", "outA", "main");
+    assert.equal(listenGroupOf(st.state, "outA"), "main");
+    st.setBus("routing", "outA", "monB"); // jack A can't carry mix B
+    assert.equal(st.state.routing.outA, "main");
+    st.setBus("outA", "level", 0.2);
+    assert.equal(st.state.outA.level, 0.2);
+  });
+
+  it("EQ OFF and LOW CUT: a mid cut and its frequency are kept when the EQ is switched off", () => {
+    const st = gig("l20");
+    st.setChannel(0, "peq.mid.gain", -6);
+    st.setChannel(0, "peq.mid.freq", 50); // clamped to the MID FREQ range, 100 Hz–8 kHz
+    assert.equal(st.state.channels[0].peq.mid.freq, 100);
+    st.setChannel(0, "eqOn", false);
+    assert.equal(st.state.channels[0].peq.mid.gain, -6);
+    assert.equal(st.state.channels[0].peq.high.freq, 10000);
+  });
+
+  it("each EFX RTN has its own level in every monitor mix, off to start", () => {
+    const st = new MixerStore(createMixerState("l20"));
+    assert.equal(st.state.fx1.ret_monC, 0);
+    st.setBus("fx1", "ret_monC", 0.6);
+    assert.equal(st.state.fx1.ret_monC, 0.6);
+    st.setBus("fx2", "ret_nope", 0.6);
+    assert.equal(st.state.fx2.ret_nope, undefined);
+  });
+});
