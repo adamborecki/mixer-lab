@@ -21,7 +21,7 @@ const TOP = 46; // below the column headings
 const HEAD = 30; // a box's title bar
 
 // Ports that are a socket you can plug a cable into.
-export const isPhysical = (p) => p.jack !== "dante" && p.jack !== "aes50";
+export const isPhysical = (p) => p.jack !== "dante" && p.jack !== "aes50" && !p.internal;
 
 // Which column a device belongs in.
 export function columnOf(device) {
@@ -250,7 +250,7 @@ function consoleBox(mixer, channelLabels, mixerName) {
   if (type.ports.some((p) => p.jack === "dante")) net.push({ dx: w - 26, dy: y + 6, kind: "dante" });
   ports.filter((p) => p.network).forEach((p, i) => jacks.push({ ref: `${mixer.id}/${p.id}`, dx: w - 26 - i * 44, dy: y + 8, side: "down", port: p, word: shortLabel(p), wordSide: "left" }));
   if (net.length || ports.some((p) => p.network)) y += 32;
-  return { box: { id: mixer.id, deviceId: mixer.id, kind: "console", title: `${mixerName || type.name} · rear panel`, sections }, w, h: y + 4, jacks, net };
+  return { box: { id: mixer.id, deviceId: mixer.id, kind: "console", title: `${mixerName || type.name} · ${type.builtInSpeaker ? "amp + speaker inside" : "rear panel"}`, sections }, w, h: y + 4, jacks, net };
 }
 
 // Mixer jacks that live in a stage box (the CL3's Rio3224-D).

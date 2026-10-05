@@ -14,6 +14,7 @@ import { JACK, layoutStage } from "./stage-layout.js";
 import { cableHue, portLabel } from "./patch-view.js";
 import { figureSvg } from "./listen-bar.js";
 import { listenGroupOf } from "../mixer-state.js";
+import { sourceName } from "../names.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const DIR = { right: [1, 0], left: [-1, 0], down: [0, 1], up: [0, -1] };
@@ -326,7 +327,7 @@ export class StageView {
       const icoX = b.kind === "source" ? b.x + 10 : b.x + b.w - 50;
       parts.push(`<g class="box-ico" transform="translate(${icoX} ${b.y + 8})">${icon(ico, { size: 40 })}</g>`);
       const tx = b.kind === "source" ? b.x + 56 : b.kind === "endpoint" ? b.x + 40 : b.x + 12;
-      const short = DEVICE_TYPES[d.type].source && d.sourceId ? this.manifest.SOURCES_BY_ID[d.sourceId]?.name || title : title.replace(/^(Powered|Passive) (speaker|wedge) · /, "");
+      const short = DEVICE_TYPES[d.type].source && d.sourceId ? sourceName(this.manifest.SOURCES_BY_ID[d.sourceId]) || title : title.replace(/^(Powered|Passive) (speaker|wedge) · /, "");
       const sub = b.kind === "source" ? (d.sourceId ? this.manifest.SOURCES_BY_ID[d.sourceId]?.device || type.name : type.name) : b.kind === "endpoint" ? (type.camera ? "Camera input" : type.amp === "internal" ? "Powered: amp inside" : "Passive: needs an amp") : type.name;
       parts.push(`<text class="box-name" x="${tx}" y="${b.y + 22}">${esc(clip(short, b.kind === "rack" ? 17 : 20))}</text><text class="box-sub" x="${tx}" y="${b.y + 37}">${esc(clip(sub, 26))}</text>`);
       if (st) parts.push(`<g class="pill pill-${st.tone}" transform="translate(${tx} ${b.y + 44})"><rect width="${8 + st.text.length * 6.2}" height="16" rx="8"/><text x="6" y="11.5">${esc(st.text)}</text></g>`);

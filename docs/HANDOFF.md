@@ -6,7 +6,7 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 
 - `main` is the live Canvas assignment (Mixer A and B, the ten scenarios). Don't merge into it without the course owner's say-so.
 - `feature/more-mixers` is the one feature branch. Everything since V1 is there, previewed at `/branch/feature-more-mixers/` ([BRANCH_PREVIEWS.md](BRANCH_PREVIEWS.md)). Push to see changes.
-- On that branch: 14 real mixers in the **Real mixers** menu, easiest first (`MIXER_ORDER` in `js/board-scenarios.js`): Mackie Mix8, Yamaha STAGEPAS 400BT, MG10/2, Mackie 1202-VLZ, Behringer Xenyx X1204USB, Mackie CR1604-VLZ, Soundcraft Ui16, Behringer X32 Compact, Yamaha 01V96i, Yamaha DM2000, Behringer X32, Yamaha CL3, Sound Devices 442, Zoom F8n Pro. About 225 practice scenarios ([SCENARIOS.md](SCENARIOS.md)); the Canvas submission still counts only the ten Mixer A/B ones.
+- On that branch: 15 real mixers, easiest first (`MIXER_ORDER` in `js/board-scenarios.js`): Behringer EUROLIVE B207MP3 (an active speaker with the mixer inside), Mackie Mix8, Yamaha STAGEPAS 400BT, MG10/2, Mackie 1202-VLZ, Behringer Xenyx X1204USB, Mackie CR1604-VLZ, Soundcraft Ui16, Behringer X32 Compact, Yamaha 01V96i, Yamaha DM2000, Behringer X32, Yamaha CL3, Sound Devices 442, Zoom F8n Pro. About 225 practice scenarios ([SCENARIOS.md](SCENARIOS.md)); the Canvas submission still counts only the ten Mixer A/B ones.
 - Teaching choices that look like bugs but aren't:
   - On every digital desk, EQ ON and COMP ON both start off. Every EQ or compressor move needs its ON button, and the graphs show it.
   - Each scenario loops the 8-bar section of the song that suits it ([audio/README.md](../audio/README.md), `js/music.js`).
@@ -50,6 +50,7 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 | `js/ui/mixer-dm2000-view.js` | The Yamaha DM2000 surface: analog INPUT section, SELECTED CHANNEL, the LCD's DISPLAY ACCESS pages, encoders, FADER/ENCODER MODE, layers, linked fader and mute groups ([DIGITAL_MIXER.md](DIGITAL_MIXER.md)) |
 | `js/ui/mixer-cl-view.js` | The Yamaha CL3 surface: SELECTED CHANNEL knobs, the touch screen (OVERVIEW, SELECTED CHANNEL, OUTPUT PATCH, SCENE), INPUT, Centralogic and master sections; reuses the X32 view's strips with Yamaha words ([DIGITAL_MIXER.md](DIGITAL_MIXER.md)) |
 | `js/ui/viz.js` | EQ curves and compressor graphs (with live GR) drawn from mixer state for the digital desks |
+| `js/names.js` | Track names by instrument or by the musician on the recording (`musician` / `musicianShort` in the manifest, from `CREDITS`). The **Names: Instruments / Musicians** switch sits beside Turn around (and alone above the views on phones); views call `sourceName` / `sourceShort`, never a source's `name` directly |
 | `js/music.js` | Which 8-bar section of the song each scenario loops ([audio/README.md](../audio/README.md)) |
 | `js/ui/mixer-x32-view.js` | The Behringer X32 and X32 Compact surface (from `def.surface`): input and group layers, SEL, Sends on Faders, DCA and mute group assignment, matrix and M/C panels, the ROUTING and SCENES pages ([DIGITAL_MIXER.md](DIGITAL_MIXER.md)) |
 | `js/ui/mixer-digital-view.js` | The digital mixer surface (Ui16): mix bar (sends on faders), SEL, the selected-channel panel ([DIGITAL_MIXER.md](DIGITAL_MIXER.md)) |
@@ -59,14 +60,19 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 | `tests/*.test.mjs` | `routing`, `scenarios`, `skins` (node:test) |
 | `tools/make-excerpts.sh` | Regenerates delivery audio from the local WAV masters |
 
-## Page layout and themes (feature/more-mixers)
+## Page layout: by topic, by mixer, free play (feature/more-mixers)
 
-The branch is organised by **themes** (`js/themes.js`, tested in `tests/themes.test.mjs`): sixteen concepts in teaching order (speakers and amps, plugging in, phantom power, gain staging, headphones and solo, the house mix, monitor mixes, low cut, EQ, compression, effects, groups, outputs and routing, digital workflows, snakes and stage boxes, recording and cameras). Every scenario is in exactly one theme; a theme lists them generic analog mixer first, then the real consoles in `MIXER_ORDER`. **The scenario picks its console** (`consoleOf`, `skinOf`); students never choose a console in scenario mode.
+Three ways in, side by side in the top bar (**By topic · By mixer · Free play**), because a student may come to the lab with a question or standing at a particular desk. Design principle: make students curious. Topics lead with their question ("Where is the amplifier?"); mixers lead with what makes them different.
 
-- **Start screen** (`StartScreen` in `js/ui/mission-view.js`): Continue, the Canvas assignment, Free play, and the theme cards with progress. Every card is a gesture, so it also starts the audio.
-- **Top bar**: Themes (the drawer), brand (back to the start screen), Scenarios / Free play, and Canvas with x/10.
-- **Mission strip** (`MissionView`): theme · step n of N (opens the drawer), title, console and who, the story, goal and live checklist, hints, Start over, "About this theme & the music". Solved → "Next: … on the <console>", which switches consoles.
-- **Drawer** (`ThemeDrawer`): the Canvas ten, then every theme with its scenarios, consoles and ticks.
+- **By mixer** (`MIXERS`, `mixerScenarios`, `nextOnMixer` in `js/themes.js`): pick the console, then work through its scenarios in its own order (the generic mixer's list is the Canvas ten). The mission strip's console name becomes a picker. URL: `#/by-mixer/<scenario-id>`.
+
+**Topics** are called themes in the code (`js/themes.js`, tested in `tests/themes.test.mjs`): sixteen concepts in teaching order (speakers and amps, plugging in, phantom power, gain staging, headphones and solo, the house mix, monitor mixes, low cut, EQ, compression, effects, groups, outputs and routing, digital workflows, snakes and stage boxes, recording and cameras). Every scenario is in exactly one theme; a theme lists them generic analog mixer first, then the real consoles in `MIXER_ORDER`. **The scenario picks its console** (`consoleOf`, `skinOf`); students never choose a console in scenario mode.
+
+- **Start screen** (`StartScreen` in `js/ui/mission-view.js`): Continue, the Canvas assignment, Free play, the topic cards (question first) and the mixer cards, with progress. Every card is a gesture, so it also starts the audio.
+- **Top bar** (sticky): Scenarios (the drawer), brand (back to the start screen), By topic / By mixer / Free play, and Canvas with x/10.
+- **Mission strip** (`MissionView`): topic (or "By mixer") · step n of N (opens the drawer), title, console and who, the story, goal and live checklist, hints, Start over, "About this topic & the music". Solved → "Next: …"; by topic that may switch consoles, by mixer it stays.
+- **Pinned scenario** (`#mission-dock`, `MissionView.renderDock`): once the strip's goals scroll under the top bar, a slim copy hangs below it: title, goal ticks, the next unmet goal (or a broken keep), Hint, Next when solved, and "Story & goals" (the prompt, checklist and hints so far, as an overlay). It overlays the page, so showing it never moves the layout.
+- **Drawer** (`ThemeDrawer`): two tabs. By topic: the Canvas ten, then every topic with its scenarios, consoles and ticks. By mixer: every console with its scenarios (tagged with their topic) and a Free play link.
 - **Free play** is a mode, not a list item: its strip picks any console (`FREE_CONSOLES`).
 - **Canvas**: the ten scenarios run on the generic analog mixer (the old Mixer A, renamed). Mixer B is no longer offered (its skin stays in `SKINS` for the tests). Opening the Canvas assignment steps through the ten in order (`current.canvasMode`).
 - URLs: `#/<scenario-id>` opens that scenario on its console; `#/free-play/<skin>` opens Free play.

@@ -322,7 +322,7 @@ DEVICE_TYPES.sd8 = aes50Box("Behringer SD8", 8, 8, "8 remote mic preamps and 8 o
 
 // The compact mixers' rear panels come from their definitions.
 // `panels`: jacks that physically live in another box (the CL3's Rio stage box); ports name theirs with `panel`.
-for (const def of Object.values(COMPACT)) DEVICE_TYPES[def.id] = { name: def.name, mixer: true, compact: true, ports: compactPorts(def), ...(def.rio ? { panels: { rio: def.rio } } : {}) };
+for (const def of Object.values(COMPACT)) DEVICE_TYPES[def.id] = { name: def.name, mixer: true, compact: true, ports: compactPorts(def), ...(def.rio ? { panels: { rio: def.rio } } : {}), ...(def.builtInSpeaker ? { builtInSpeaker: def.builtInSpeaker } : {}) };
 
 // ---------- links through stage boxes ----------
 
@@ -539,6 +539,13 @@ export function analyzeRig(rig, channels = [], sources = {}) {
     const type = DEVICE_TYPES[device.type];
     if (!type || !type.endpoint) continue;
     endpoints.push(analyzeEndpoint(rig, device, byTo));
+  }
+  // A mixer that is also the speaker (B207MP3): its own amp drives its own
+  // speaker, so the main mix always reaches a working endpoint (the box itself).
+  const builtIn = mixer && DEVICE_TYPES[mixer.type].builtInSpeaker;
+  if (builtIn) {
+    const port = mixerPorts.find((p) => p.internal && p.role === "bus-out");
+    endpoints.push({ deviceId: mixer.id, zone: mixer.zone || builtIn.zone || "foh", pan: 0, output: port.id, valid: true, status: "ok", messages: [], chain: [portRef(mixer.id, port.id)], viaAmp: null, builtIn: true });
   }
 
   const buses = {};

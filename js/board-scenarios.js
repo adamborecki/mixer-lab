@@ -458,6 +458,188 @@ const MG = [
   },
 ];
 
+// ---------- Behringer EUROLIVE B207MP3 ----------
+// An active speaker with the mixer inside: no speaker outputs, no aux sends.
+// The house is the box itself; THRU (before MAIN LEVEL and EQ) feeds a second
+// B207 on stage as the singer's wedge.
+
+const box = (ctx) => endpoint(ctx, "mixer");
+const B207 = [
+  {
+    id: "b207mp3-doors",
+    short: "Doors music",
+    title: "Doors music",
+    who: "Café owner",
+    prompt: "“People are coming in and it's dead quiet. The laptop's plugged into the speaker. Can we have some music?”",
+    goal: "The laptop's music playing from the B207.",
+    setup: {},
+    conditions: [
+      { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "preshow", label: "The music comes out of the B207" },
+      { id: "vocal", kind: "keep", type: "sourcePatched", source: "lead-vocal", label: "The singer's mic stays plugged in" },
+    ],
+    hints: [
+      "The laptop is plugged into the B207's CD INPUT (the RCA pair). Which knob belongs to it?",
+      "Each input has one LEVEL knob. The CD INPUT's is LEVEL 4.",
+      "Turn LEVEL 4 well up: a laptop is quieter than the CD player the input expects. There's no speaker to plug in: the speaker is this box.",
+    ],
+    complete: "The B207 is the speaker, the amp and the mixer in one box, so there's nothing to connect after the mixer. The CD INPUT's left and right are summed: one box plays both.",
+  },
+  {
+    id: "b207mp3-amp",
+    short: "Closet speaker",
+    title: "The speaker from the closet",
+    who: "Lead singer",
+    prompt: "“Someone found a speaker in the closet and plugged it into the back of the B207 as my monitor. It's silent.”",
+    goal: "A wedge on stage playing the B207's THRU through a working chain, nothing wired wrong.",
+    setup: {
+      tweak: (st, h) => {
+        h.cut("mixer/thru");
+        h.addDevice("closet");
+        h.addDevice("amp");
+        h.cable("mixer/thru", "closet/in", "xlr-trs");
+      },
+    },
+    conditions: [
+      goal("wedge", "A stage wedge is fed from THRU through a working chain", (ctx) => ctx.mix.rig.endpoints.some((e) => e.valid && e.output === "thru" && e.zone === "stage")),
+      { id: "broken", kind: "goal", type: "noBrokenChains", zone: "stage", label: "No speaker is hooked up wrong" },
+      keep("house", "The B207 keeps playing the band", (ctx) => !!box(ctx)?.valid && house(ctx, "lead-vocal") >= AUDIBLE),
+    ],
+    hints: [
+      "The B207 has an amp inside. Does that amp reach its THRU jack?",
+      "No: the amp only drives the B207's own speaker. THRU is line level. The closet speaker is passive: no amp inside.",
+      "Put the power amp in between (THRU → amp input A, amp output A → the wedge with a speaker cable), or use the second B207 instead.",
+    ],
+    complete: "“The amp is inside” only means inside that box. Everything the B207 sends out of THRU is line level, so a passive speaker on it still needs a power amp.",
+  },
+  {
+    id: "b207mp3-quiet-singer",
+    short: "Quiet singer",
+    title: "The quiet singer",
+    who: "Lead singer",
+    prompt: "“I can hardly hear myself out front. Everyone else is fine.”",
+    goal: "The lead vocal at least as loud as the backing vocal in the house, everything else unchanged.",
+    setup: { tweak: (st, h) => h.moveFader("lead-vocal", -14) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("up", "The lead vocal is at least as loud as the backing vocal", (ctx) => house(ctx, "lead-vocal") >= house(ctx, "backing-vocals")),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: "lead-vocal", toleranceDb: 1, label: "Everything else stays the same" },
+    ],
+    hints: [
+      "Only the singer is too quiet, so the fix is on the singer's channel, not MAIN LEVEL.",
+      "The B207 has no GAIN knob and no fader. Channel 1's LEVEL is both: −∞ to +30 dB.",
+      "Turn LEVEL 1 up until the singer sits on top again.",
+    ],
+    complete: "On the B207 each LEVEL knob is the input gain and the channel level at once. MAIN LEVEL would have made everything louder, not just the singer.",
+  },
+  {
+    id: "b207mp3-phantom",
+    short: "Silent overhead",
+    title: "The silent condenser",
+    who: "Drummer",
+    prompt: "“I put my condenser mic over the cajón on channel 3 instead of the keys. Nothing.”",
+    goal: "The drum mic heard from the B207.",
+    setup: {
+      tweak: (st, h) => {
+        h.unplug("keys");
+        h.cable("src-drums/out", "mixer/ch3-in", "xlr");
+        h.ch("drums").level = 0.85;
+      },
+    },
+    conditions: [
+      { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "drums", label: "The drum mic is heard" },
+      { id: "vocal", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The singer stays in the house" },
+    ],
+    hints: [
+      "A condenser mic needs power from the mixer. Where does it come from on the B207?",
+      "There's one PHANTOM button for channels 1, 2 and 3 (+48 V on the XLR).",
+      "Press PHANTOM. The dynamic vocal mics don't mind it.",
+    ],
+    complete: "One PHANTOM button powers all three combo inputs. Dynamic mics ignore it; condensers need it, and only through an XLR.",
+  },
+  {
+    id: "b207mp3-wedge",
+    short: "Link the wedge",
+    title: "Link the second speaker",
+    who: "Lead singer",
+    prompt: "“There's a second B207 at my feet, but nothing's coming out of it.”",
+    goal: "The second B207 playing the mix from THRU, and you've listened to it.",
+    setup: { tweak: (st, h) => h.cut("mixer/thru") },
+    conditions: [
+      { id: "chain", kind: "goal", type: "validChain", output: "thru", device: "b207-wedge", label: "The second B207 is fed from THRU" },
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "thru", label: "You listened to it" },
+      keep("house", "The first B207 keeps playing", (ctx) => !!box(ctx)?.valid),
+    ],
+    hints: [
+      "The B207 has no aux send. What output does it have?",
+      "THRU, on the back: an XLR carrying the mix (before MAIN LEVEL and the EQ). The second speaker takes it on its MAIN IN.",
+      "Run an XLR cable from THRU to the second B207, then listen there.",
+    ],
+    complete: "THRU passes the mix on to another powered speaker. It has its own LEVEL, so the second box can be louder or quieter than the first.",
+  },
+  {
+    id: "b207mp3-wedge-quiet",
+    short: "Quiet wedge",
+    title: "The quiet wedge",
+    who: "Lead singer",
+    prompt: "“My wedge is way too quiet. Out front it's fine.”",
+    goal: "The wedge at least 10 dB louder, the house unchanged.",
+    setup: { tweak: (st, h) => h.bus("thru", "level", LAWS.master.toPos(-20)) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("up", "THRU is at −10 dB or more", (ctx) => LAWS.master.toDb(ctx.state.thru.level) >= -10),
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "thru", label: "You listened to the wedge" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house stays the same" },
+    ],
+    hints: [
+      "Listen to the wedge. What sets its level?",
+      "THRU has its own LEVEL. MAIN LEVEL doesn't reach THRU: it's taken off before it.",
+      "Turn THRU LEVEL up.",
+    ],
+    complete: "THRU is taken before MAIN LEVEL, with its own knob, so the wedge and the house are set separately. The channel LEVELs move both.",
+  },
+  {
+    id: "b207mp3-small-room",
+    short: "Too loud",
+    title: "Too loud in a small room",
+    who: "Café owner",
+    prompt: "“It's a small room. The band is too loud for people to talk, but the singer says her wedge is perfect.”",
+    goal: "The house at least 10 dB quieter, the wedge and the balance left alone.",
+    setup: {},
+    baseline: { main: { metric: "mainDbByChannel" }, levels: { metric: "channelLevels" } },
+    conditions: [
+      { id: "down", kind: "goal", type: "mainLowered", source: "lead-vocal", baseline: "main", minDb: 10, label: "The house is at least 10 dB quieter" },
+      keep("wedge", "The wedge stays where it was", (ctx) => Math.abs(LAWS.master.toDb(ctx.state.thru.level)) < 1),
+      keep("balance", "Every channel's LEVEL stays put", (ctx) => ctx.state.channels.every((c, i) => Math.abs(c.level - ctx.baseline.levels[i]) < 0.01)),
+    ],
+    hints: [
+      "Everything is too loud, not one channel. Which knob turns the whole box down?",
+      "MAIN LEVEL sets how loud this box plays. It comes after THRU, so the wedge doesn't change.",
+      "Turn MAIN LEVEL down by about a quarter turn.",
+    ],
+    complete: "MAIN LEVEL is the volume of this box only. The channel LEVELs set the mix, which THRU passes on to the wedge, so they'd have turned the singer's wedge down too.",
+  },
+  {
+    id: "b207mp3-speech",
+    short: "Boomy speech",
+    title: "The boomy announcement",
+    who: "Event host",
+    prompt: "“Before the set I'm making announcements, and my voice sounds boomy in here.”",
+    goal: "The B207's LOW EQ cut by at least 4 dB, the mic still heard.",
+    setup: {},
+    conditions: [
+      goal("eq", "LOW is cut by 4 dB or more", (ctx) => ctx.state.mainEq.low <= -4),
+      keep("mid", "MID and HIGH aren't cut", (ctx) => ctx.state.mainEq.mid >= -1 && ctx.state.mainEq.high >= -1),
+      { id: "vocal", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The mic stays in the house" },
+    ],
+    hints: [
+      "Boom is too much low end. Where is the B207's EQ?",
+      "One EQ for the whole box: HIGH, MID and LOW (below 100 Hz), ±15 dB. There's no EQ per channel.",
+      "Turn LOW down, about −6 dB. Bring it back up for the band.",
+    ],
+    complete: "The B207's EQ shapes the whole box, every input at once. It's after THRU, so the wedge doesn't change.",
+  },
+];
+
 // ---------- Yamaha STAGEPAS 400BT ----------
 
 const SP = [
@@ -3422,6 +3604,7 @@ const BOXES = {
 };
 
 const ORDER = {
+  b207mp3: ["doors", "amp", "quiet-singer", "phantom", "wedge", "wedge-quiet", "small-room", "speech"],
   mix8: ["doors", "phones", "ol", "boomy", "pan", "keys-wedge", "wedge-loud", "speech", "ballad", "overhead", "guest"],
   stagepas400bt: ["doors", "micline", "monitor", "speech", "speakers", "reverb", "hall", "mono", "overhead", "sub", "feedback"],
   mg102: ["doors", "phantom", "peak", "less-drums", "one-knob", "thin-bass", "rumble", "reverb-loud", "2tr"],
@@ -3438,7 +3621,7 @@ const ORDER = {
   x32c: ["doors", "gain", "48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix", "stagebox"],
 };
 
-const LISTS = { f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c], yam01v96: Y96, x32: [...X32F, ...BOXES.x32] };
+const LISTS = { b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c], yam01v96: Y96, x32: [...X32F, ...BOXES.x32] };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.
 function arrange(board) {
@@ -3454,6 +3637,7 @@ export const BOARD_SCENARIOS = Object.fromEntries(Object.keys(ORDER).map((b) => 
 
 // The order to learn the real mixers in, simplest first (each builds on the last).
 export const MIXER_ORDER = [
+  { model: "b207mp3", skin: "b207mp3", why: "One box is the speaker, the amp and the mixer: one LEVEL per input, one EQ, and THRU to pass the mix on." },
   { model: "mix8", skin: "mix8", why: "Four channels, one post-fader AUX, no mute or solo: the basics with nowhere to hide." },
   { model: "stagepas400bt", skin: "stagepas400bt", why: "A powered mixer: MIC/LINE instead of GAIN, the amp inside, MONITOR OUT as the whole mix." },
   { model: "mg102", skin: "mg102", why: "GAIN, HPF and PEAK on every mic, and one AUX knob that has to choose between wedge and reverb." },

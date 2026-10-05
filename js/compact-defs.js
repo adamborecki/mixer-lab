@@ -28,6 +28,12 @@ export const EQ = {
     { id: "high", label: "HIGH", type: "highshelf", hz: 8000 },
     { id: "low", label: "LOW", type: "lowshelf", hz: 100 },
   ],
+  // B207MP3: one EQ for the whole box (MAIN EQ), ±15 dB.
+  b207: [
+    { id: "high", label: "HIGH", type: "highshelf", hz: 12000 },
+    { id: "mid", label: "MID", type: "peaking", hz: 2500 },
+    { id: "low", label: "LOW", type: "lowshelf", hz: 100 },
+  ],
 };
 
 // Channel kinds:
@@ -166,6 +172,41 @@ export const COMPACT = {
     meter: [-30, -18, -12, -6, 0, "LIMIT"],
     outputs: ["speakers", "monitor", "sub"],
     layout: { strip: ["head", "micLine", "hiZ", "eq", "reverb", "stMono", "peak", "level"] },
+  },
+
+  // An active speaker with the mixer and the amp inside it: no speaker jacks,
+  // because the box itself is the speaker. Each channel's LEVEL is its only
+  // gain control (input trim, −∞ … +30 dB); one 3-band EQ and MAIN LEVEL shape
+  // the box. THRU passes the mix on (before MAIN LEVEL and the EQ) to another
+  // speaker. Not modelled: the MP3 player (USB), MAIN IN (another speaker's THRU).
+  b207mp3: {
+    id: "b207mp3",
+    name: "Behringer EUROLIVE B207MP3",
+    blurb: "An active speaker with a 4-channel mixer inside: the amp and the speaker are the same box.",
+    phantom: { label: "PHANTOM", channels: [0, 1, 2] },
+    channels: [
+      { label: "1", kind: "mono", jacks: ["combo"], gain: { fixed: 16 } },
+      { label: "2", kind: "mono", jacks: ["combo"], gain: { fixed: 16 }, hiZ: { label: "INSTRUMENT" } },
+      { label: "3", kind: "mono", jacks: ["combo"], gain: { fixed: 16 } },
+      // CD INPUT: an RCA pair summed into the one speaker; −10 dBu sensitivity.
+      { label: "4", kind: "stereo", jacks: ["rcaPair"], gain: { fixed: -16 }, portName: "CD INPUT (RCA L/R)" },
+    ],
+    // LEVEL 1–4: the input trim and the channel level in one knob.
+    levelLaw: "trim30",
+    levelLabel: "LEVEL",
+    levelIsGain: true,
+    mono: true, // one speaker: no PAN, everything summed
+    sends: {},
+    buses: {},
+    thru: { label: "THRU" },
+    main: { label: "MAIN LEVEL", law: "master" },
+    mainEq: "b207",
+    poweredAmp: { watts: 150, ohms: 6, single: true },
+    builtInSpeaker: { name: 'Built-in 6.5" speaker', zone: "foh" },
+    phones: null,
+    meter: null, // no meter: a power LED and the limiter
+    outputs: ["builtIn", "thru"],
+    layout: { strip: ["head", "hiZ", "level"] },
   },
 
   x1204usb: {
@@ -793,5 +834,8 @@ export function compactPorts(def) {
   if (o.includes("speakers")) ports.push(out("spk-l", "quarter", "SPEAKERS L", { level: "speaker", bus: "main", side: "L" }), out("spk-r", "quarter", "SPEAKERS R", { level: "speaker", bus: "main", side: "R" }));
   if (o.includes("monitor")) ports.push(out("mon-l", "quarter", "MONITOR OUT L (MONO)", { bus: "monitor", side: "L" }), out("mon-r", "quarter", "MONITOR OUT R", { bus: "monitor", side: "R" }));
   if (o.includes("sub")) ports.push(out("sub-out", "quarter", "SUBWOOFER OUT", { bus: "main", side: "M" }));
+  // B207MP3: the speaker is inside the box. No jack (`internal`): nothing can be patched to it.
+  if (o.includes("builtIn")) ports.push(out("spk", "internal", def.builtInSpeaker.name, { level: "speaker", bus: "main", side: "M", internal: true }));
+  if (o.includes("thru")) ports.push(out("thru", "xlr", "THRU (XLR)", { bus: "thru", side: "M" }));
   return ports;
 }

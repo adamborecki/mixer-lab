@@ -1074,6 +1074,46 @@ Object.assign(WRONG, {
   }]],
 });
 
+// ---------- B207MP3 ----------
+Object.assign(SOLVE, {
+  "b207mp3-doors": (a) => a.faderDb("preshow", 22),
+  "b207mp3-amp": (a) => {
+    a.unplugAt("mixer/thru");
+    assert.ok(a.st.connect("mixer/thru", "amp/in-a", "xlr-trs").ok);
+    assert.ok(a.st.connect("amp/out-a", "closet/in", "speaker").ok);
+  },
+  "b207mp3-quiet-singer": (a) => a.nudge("lead-vocal", 14),
+  "b207mp3-phantom": (a) => a.st.setAllPhantom(true),
+  "b207mp3-wedge": (a) => {
+    assert.ok(a.st.connect("mixer/thru", "b207-wedge/in", "xlr").ok);
+    a.st.setListen("thru");
+  },
+  "b207mp3-wedge-quiet": (a) => {
+    a.st.setListen("thru");
+    a.st.setBus("thru", "level", LAWS.master.toPos(0));
+  },
+  "b207mp3-small-room": (a) => a.st.setBus("main", "level", LAWS.master.toPos(-12)),
+  "b207mp3-speech": (a) => a.st.setBus("mainEq", "low", -6),
+});
+Object.assign(WRONG, {
+  "b207mp3-amp": [["the amp's speaker out into the wedge, but the amp fed nothing", (a) => {
+    a.unplugAt("closet/in");
+    assert.ok(a.st.connect("amp/out-a", "closet/in", "speaker").ok);
+  }]],
+  "b207mp3-quiet-singer": [["MAIN LEVEL up", (a) => a.st.setBus("main", "level", LAWS.master.toPos(10))]],
+  "b207mp3-wedge-quiet": [["MAIN LEVEL up", (a) => {
+    a.st.setListen("thru");
+    a.st.setBus("main", "level", LAWS.master.toPos(10));
+  }], ["every channel LEVEL up", (a) => {
+    a.st.setListen("thru");
+    for (const s of ["lead-vocal", "backing-vocals", "keys"]) a.nudge(s, 10);
+  }]],
+  "b207mp3-small-room": [["every channel LEVEL down", (a) => {
+    for (const s of ["lead-vocal", "backing-vocals", "keys"]) a.nudge(s, -12);
+  }], ["THRU down", (a) => a.st.setBus("thru", "level", LAWS.master.toPos(-12))]],
+  "b207mp3-speech": [["MAIN LEVEL down", (a) => a.st.setBus("main", "level", LAWS.master.toPos(-6))]],
+});
+
 describe("board scenarios: data", () => {
   it("validate, and every board has at least nine, numbered from 1", () => {
     assert.deepEqual(validateScenarios(), []);

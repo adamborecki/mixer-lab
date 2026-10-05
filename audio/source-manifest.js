@@ -69,6 +69,9 @@ export const STEMS = {
 //              it names a looping `asset` (LOOP_ASSETS) that plays on its own timeline,
 //              independent of the band's transport. `peakDb` is its measured stereo peak.
 // reference    false: not part of the pre-patched "reference" rig (student patches it)
+// musician     who plays it on the recording (from CREDITS), and `musicianShort` for a
+//              channel strip: shown instead of `name` / `shortName` when the student
+//              switches track names to Musicians (js/names.js)
 // The band scenarios (everything but the preshow one). Each source lists the ones it appears in.
 const BAND = ["free-play", "build-rig", "find-amp", "more-vocal", "drummer-wedge", "more-piano", "monitor-quiet", "foh-vocal", "missing-guitar", "drummer-mix"];
 const without = (...ids) => BAND.filter((id) => !ids.includes(id));
@@ -80,6 +83,8 @@ export const SOURCES = [
     order: 1,
     name: "Drums",
     shortName: "DRUMS",
+    musician: "Eli Furie",
+    musicianShort: "ELI",
     device: "Drum overhead (condenser mic)",
     category: "Percussion",
     deviceType: "condenser-mic",
@@ -98,6 +103,8 @@ export const SOURCES = [
     order: 2,
     name: "Bass",
     shortName: "BASS",
+    musician: "Tyler Fraser",
+    musicianShort: "TYLER",
     device: "Bass guitar → DI box",
     category: "Rhythm section",
     deviceType: "di-box",
@@ -116,6 +123,8 @@ export const SOURCES = [
     order: 3,
     name: "Guitars",
     shortName: "GTR",
+    musician: "Caiden Craig",
+    musicianShort: "CAIDEN",
     device: "Guitar amp (dynamic mic)",
     category: "Instruments",
     deviceType: "dynamic-mic",
@@ -133,6 +142,8 @@ export const SOURCES = [
     order: 4,
     name: "Piano / keys",
     shortName: "KEYS",
+    musician: "Julian Berger",
+    musicianShort: "JULIAN",
     device: "Stage piano (line out)",
     category: "Instruments",
     deviceType: "line-source",
@@ -151,6 +162,8 @@ export const SOURCES = [
     order: 5,
     name: "Trumpets",
     shortName: "TPT",
+    musician: "Kaizo Hall and Takazo Hall",
+    musicianShort: "KAIZO & TAKAZO",
     device: "Horn mic (dynamic)",
     category: "Horns",
     deviceType: "dynamic-mic",
@@ -168,6 +181,8 @@ export const SOURCES = [
     order: 6,
     name: "Backing vocals + doubles",
     shortName: "BV",
+    musician: "Jake Flaa and Victoria Nguyen",
+    musicianShort: "JAKE & VICTORIA",
     device: "Backing vocal mic (dynamic)",
     category: "Vocals",
     deviceType: "dynamic-mic",
@@ -185,6 +200,8 @@ export const SOURCES = [
     order: 7,
     name: "Lead vocal",
     shortName: "VOX",
+    musician: "Giovanna",
+    musicianShort: "GIO",
     device: "Lead vocal mic (dynamic)",
     category: "Vocals",
     deviceType: "dynamic-mic",
@@ -202,6 +219,8 @@ export const SOURCES = [
     order: 9, // stereo channel strip "9/10"
     name: "Preshow music",
     shortName: "MUSIC",
+    musician: "Joth (“Bossa Nova”)",
+    musicianShort: "JOTH",
     device: "Laptop — Preshow Music",
     category: "Playback",
     deviceType: "stereo-laptop",

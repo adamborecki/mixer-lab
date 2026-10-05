@@ -26,6 +26,8 @@ export const LAWS = {
   master6: makeLaw([[0, -Infinity], [0.05, -50], [0.35, -20], [0.75, 0], [1, 6]]),
   // Zoom F8n track faders: MUTE at the bottom, then −48 … 0 … +24 dB.
   f8Fader: makeLaw([[0, -Infinity], [0.02, -48], [0.6733, 0], [1, 24]]),
+  // B207MP3 channel LEVEL: an input trim, −∞ … +30 dB (no separate gain).
+  trim30: makeLaw([[0, -Infinity], [0.05, -40], [0.5, 10], [1, 30]]),
   // A routing key (DM2000 BUS 1–8): off, or on at unity. Stored as 0 or 1.
   assign: { toDb: (pos) => (pos >= 0.5 ? 0 : -Infinity), toPos: (db) => (db > -Infinity ? 1 : 0) },
 };
@@ -137,6 +139,8 @@ export function createState(id) {
   if (def.reverb) state.reverb = { on: false, type: 0.15 };
   if (def.monitorOut) state.monitor = { level: 0 };
   if (def.masterEq) state.masterEq = { pos: 0.5 };
+  if (def.mainEq) state.mainEq = Object.fromEntries(EQ_FOR(def.mainEq).map((b) => [b.id, 0]));
+  if (def.thru) state.thru = { level: LAWS.master.toPos(0) };
   if (def.feedbackSuppressor) state.fbs = { on: false };
   if (def.xlrPad) state.xlrPad = { on: false };
   return state;
@@ -232,6 +236,8 @@ export function busKeys(def) {
   if (def.reverb) keys.reverb = { on: bool, type: range(0, 1) };
   if (def.monitorOut) keys.monitor = { level: range(0, 1) };
   if (def.masterEq) keys.masterEq = { pos: range(0, 1) };
+  if (def.mainEq) keys.mainEq = Object.fromEntries(EQ_FOR(def.mainEq).map((b) => [b.id, range(-EQ_RANGE_DB, EQ_RANGE_DB, 0.5)]));
+  if (def.thru) keys.thru = { level: range(0, 1) };
   if (def.feedbackSuppressor) keys.fbs = { on: bool };
   if (def.xlrPad) keys.xlrPad = { on: bool };
   return keys;
@@ -262,6 +268,7 @@ export function listenList(def) {
   for (let k = 1; k <= (def.matrix || 0); k++) l.push(`mtx${k}`);
   if (def.alt) l.push("alt");
   if (def.monitorOut) l.push("monitor");
+  if (def.thru) l.push("thru");
   def.channels.forEach((c, i) => c.insert && l.push(`insert${i + 1}`));
   if (def.phones) l.push("phones");
   l.push("rec");
@@ -292,7 +299,7 @@ export function channelControl(def, state, i) {
 export function listenGroupOf(portId, state) {
   const routed = state?.routing?.[portId];
   if (routed) return routed === "main-l" || routed === "main-r" ? "main" : routed;
-  if (/^(main|line|tape-out|rec-out|spk)-[lr]$/.test(portId) || portId === "sub-out" || portId === "tape-mini") return "main";
+  if (/^(main|line|tape-out|rec-out|spk)-[lr]$/.test(portId) || portId === "sub-out" || portId === "tape-mini" || portId === "spk") return "main";
   if (portId === "mon-l" || portId === "mon-r") return "monitor";
   if (portId === "alt-l" || portId === "alt-r") return "alt";
   if (portId === "cr-l" || portId === "cr-r") return "phones";
@@ -356,11 +363,13 @@ export function computeMix(def, state, sourcesById, stems, sourcePeakDb) {
       return { ...base, inputPeakDb: tapeDb, band: inputBand(tapeDb), faderDb: 0, mainDb: { L: side, R: side }, heardMainDb: heardBus("main") ? side : OFF, altDb: { L: OFF, R: OFF } };
     }
     const c = def.channels[i];
-    const inputPeakDb = live ? peak + source.outputDb + channelGainDb(def, ch, input) + HEADROOM_DB : OFF;
+    // B207MP3: the channel LEVEL is the input trim, so it counts in the input level, not as a fader.
+    const trimDb = def.levelIsGain ? levelLaw(def).toDb(ch.level) : 0;
+    const inputPeakDb = live ? peak + source.outputDb + channelGainDb(def, ch, input) + trimDb + HEADROOM_DB : OFF;
     // 442 1+2 LINK: channel 1's fader and PAN (now a balance) run both; 1 is left, 2 right.
     const link = linkOf(def, state, i);
     const ctl = channelControl(def, state, i);
-    const faderDb = levelLaw(def).toDb(link ? state.channels[link.leader].level : ch.level) + ctl.dcaDb;
+    const faderDb = (def.levelIsGain ? 0 : levelLaw(def).toDb(link ? state.channels[link.leader].level : ch.level)) + ctl.dcaDb;
     const levelled = inputPeakDb + faderDb;
     const muted = ctl.muted;
     const postDb = muted ? OFF : levelled;
@@ -420,8 +429,8 @@ export function computeMix(def, state, sourcesById, stems, sourcePeakDb) {
   });
 
   const outputs = {
-    "main-l": { peakDb: powerSum(channels.map((c) => c.mainDb.L)), endpoints: rig.buses["main-l"] || rig.buses["spk-l"] || [] },
-    "main-r": { peakDb: powerSum(channels.map((c) => c.mainDb.R)), endpoints: rig.buses["main-r"] || rig.buses["spk-r"] || [] },
+    "main-l": { peakDb: powerSum(channels.map((c) => c.mainDb.L)), endpoints: rig.buses["main-l"] || rig.buses["spk-l"] || rig.buses.spk || [] },
+    "main-r": { peakDb: powerSum(channels.map((c) => c.mainDb.R)), endpoints: rig.buses["main-r"] || rig.buses["spk-r"] || rig.buses.spk || [] },
     ...Object.fromEntries(buses.map((b) => [b, { peakDb: powerSum(channels.map((c) => c.aux[b].monitorDb)), endpoints: rig.buses[b] || [] }])),
   };
   const busDb = Object.fromEntries(buses.map((b) => [b, masterDb(b)]));

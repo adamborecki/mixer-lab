@@ -372,6 +372,26 @@ export function buildCompactGraph(kit, def) {
     mainMaster.R.connect(masterEq.R.lo).connect(masterEq.R.hi).connect(eqOut.R);
     masterOut = eqOut;
   }
+  // MAIN EQ (B207MP3): a 3-band EQ on the whole box, after MAIN LEVEL.
+  let mainEq = null;
+  if (def.mainEq) {
+    mainEq = {};
+    const eqOut = pair();
+    for (const side of ["L", "R"]) {
+      let node = masterOut[side];
+      mainEq[side] = {};
+      for (const band of EQ_FOR(def.mainEq)) {
+        const f = track(ctx.createBiquadFilter());
+        f.type = band.type;
+        f.frequency.value = band.hz;
+        if (band.type === "peaking") f.Q.value = 0.9;
+        mainEq[side][band.id] = f;
+        node = node.connect(f);
+      }
+      node.connect(eqOut[side]);
+    }
+    masterOut = eqOut;
+  }
   // Output limiter (442): ON = two limiters, LINK = one stereo limiter (same gain change both sides).
   let outLim = null;
   if (def.outputLimiter) {
@@ -437,6 +457,21 @@ export function buildCompactGraph(kit, def) {
     masterOut.R.connect(sub);
     sub.connect(lp);
     outputs["sub-out"] = lp;
+  }
+  if (def.outputs.includes("builtIn")) {
+    // The box's own speaker (B207MP3): one speaker, so left and right summed.
+    const spk = mono(Math.SQRT1_2);
+    masterOut.L.connect(spk);
+    masterOut.R.connect(spk);
+    outputs.spk = spk;
+  }
+  let thru = null;
+  if (def.thru) {
+    // THRU: the mix before MAIN LEVEL and the EQ, at its own LEVEL, mono.
+    thru = mono(1);
+    mainBus.L.connect(thru);
+    mainBus.R.connect(thru);
+    outputs.thru = thru;
   }
   if (def.monitorOut) {
     // A mix of the channels (and reverb), before MASTER LEVEL.
@@ -869,6 +904,10 @@ export function buildCompactGraph(kit, def) {
           set(spkHp.gateFull[side].gain, on(!subUsed));
         }
       }
+      if (mainEq) {
+        for (const side of ["L", "R"]) for (const [id, f] of Object.entries(mainEq[side])) set(f.gain, state.mainEq[id]);
+      }
+      if (thru) set(thru.gain, dbToGain(LAWS.master.toDb(state.thru.level)) * Math.SQRT1_2);
       if (monitor) {
         const g = dbToGain(LAWS.master.toDb(state.monitor.level));
         set(monitor.L.gain, g);

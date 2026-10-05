@@ -40,7 +40,8 @@ describe("every compact mixer", () => {
       for (const e of m.rig.endpoints) assert.equal(e.status, "ok", e.deviceId);
       for (const c of m.channels.filter((c) => c.sourceId)) {
         assert.equal(c.input.status, "ok", c.sourceId);
-        assert.equal(c.band, "good", c.sourceId);
+        // Where LEVEL is the gain (B207MP3), the laptop kept out at LEVEL 0 has no input level at all.
+        if (!(COMPACT[id].levelIsGain && c.sourceId === "preshow")) assert.equal(c.band, "good", c.sourceId);
         if (c.sourceId === "preshow") assert.equal(c.heardMainDb, -Infinity);
         else assert.ok(c.heardMainDb > -40, `${c.sourceId} in the house`);
       }

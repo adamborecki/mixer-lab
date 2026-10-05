@@ -6,6 +6,7 @@
 // Settings go through MixerStore.setDevice, so they behave like any other patch.
 
 import { DANTE, DAW_TRACKS, dvsChannelNames } from "../dante.js";
+import { sourceName, sourceShort } from "../names.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const RX_PAGE = 16;
@@ -92,7 +93,7 @@ export class DanteView {
     const rows = DAW_TRACKS.map(
       (sid, t) => `<tr>
         <td class="daw-num">${t + 1}</td>
-        <td class="daw-name">${esc(SOURCES_BY_ID[sid]?.name || sid)}</td>
+        <td class="daw-name">${esc(sourceName(SOURCES_BY_ID[sid]) || sid)}</td>
         <td class="daw-clip" aria-hidden="true"><span></span></td>
         <td><select data-daw-out="${t}" aria-label="Track ${t + 1} output">${opts(daw.outs[t])}</select></td>
       </tr>`,
@@ -104,7 +105,7 @@ export class DanteView {
 
   controllerHtml(mixer) {
     const { SOURCES_BY_ID } = this.manifest;
-    const names = dvsChannelNames(this.store.state.rig, Object.fromEntries(DAW_TRACKS.map((s) => [s, SOURCES_BY_ID[s]?.shortName || s])));
+    const names = dvsChannelNames(this.store.state.rig, Object.fromEntries(DAW_TRACKS.map((s) => [s, sourceShort(SOURCES_BY_ID[s]) || s])));
     const rx = mixer.danteRx.length;
     const first = this.rxPage * RX_PAGE;
     const pages = Math.ceil(rx / RX_PAGE);

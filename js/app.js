@@ -11,12 +11,13 @@ import { MixerStore, computeMix, createMixerState } from "./mixer-state.js";
 import { ALL_BOARD_SCENARIOS, SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, captureBaseline, evaluateScenario, scenarioFor, scenariosFor } from "./scenarios.js";
 import { Progress, numberedScenarios } from "./progress.js";
 import { pickSection, sittingOut } from "./music.js";
+import { nameMode, setNameMode } from "./names.js";
 import { renderFlow } from "./ui/flow.js";
 import { ListenBar } from "./ui/listen-bar.js";
 import { MixerView } from "./ui/mixer-view.js";
 import { PatchView } from "./ui/patch-view.js";
 import { MissionView, StartScreen, ThemeDrawer } from "./ui/mission-view.js";
-import { CANVAS_SCENARIOS, SCENARIO_BY_ID, THEMES_BY_ID, consoleOf, isCanvas, nextInTheme, skinOf } from "./themes.js";
+import { CANVAS_SCENARIOS, SCENARIO_BY_ID, THEMES_BY_ID, consoleOf, isCanvas, mixerEntry, nextInTheme, nextOnMixer, skinOf } from "./themes.js";
 import { SubmissionView } from "./ui/submission-view.js";
 import { RecorderView } from "./ui/recorder-view.js";
 import { DanteView } from "./ui/dante-view.js";
@@ -26,8 +27,9 @@ const M = { STEM_SET: manifest.STEM_SET, STEMS: manifest.STEMS, SOURCES_BY_ID: m
 const $ = (sel) => document.querySelector(sel);
 
 let skin = SKINS[DEFAULT_SKIN];
-// Scenarios (the scenario picks the console) or Free play (you pick it).
-let mode = "scenarios";
+// Three ways in: "topic" (the scenario picks the console), "mixer" (you pick
+// the console, then work through its scenarios) or "free" (any console, no goals).
+let mode = "topic";
 // Which mixer hardware the current skin draws ("generic" for the generic analog mixer).
 const hardwareOf = (sk) => sk.hardware || "generic";
 
@@ -88,9 +90,10 @@ function channelPatchPort(i) {
 }
 
 const missionView = new MissionView($("#mission"), {
+  dock: $("#mission-dock"),
   progress,
   getTerms: () => skin.terms,
-  onSelect: (id) => openScenario(id, { canvas: current.canvasMode }),
+  onSelect: (id) => openScenario(id, { canvas: current.canvasMode, by: mode }),
   onReset: () => selectScenario(current.def.id),
   onClear: () => {
     for (const c of [...store.state.rig.cables]) store.disconnect(c.id);
@@ -109,13 +112,14 @@ const missionView = new MissionView($("#mission"), {
   },
   onSeek: (t) => engine.seek(t),
   onFreeConsole: (id) => openFree(id),
-  onOpenDrawer: () => drawer.open(current.def.id),
+  onMixer: (model) => openMixer(model),
+  onOpenDrawer: (tab) => drawer.open(current.def.id, tab),
 });
 
 const drawer = new ThemeDrawer($("#drawer"), {
   progress,
-  onSelect: (id) => openScenario(id, { canvas: CANVAS_SCENARIOS.some((s) => s.id === id) && current.canvasMode }),
-  onFree: () => openFree(),
+  onSelect: (id, by) => openScenario(id, { canvas: by !== "mixer" && CANVAS_SCENARIOS.some((s) => s.id === id) && current.canvasMode, by }),
+  onFree: (skinId) => openFree(skinId),
   onHome: () => showStart(),
 });
 
@@ -187,22 +191,29 @@ function selectScenario(id) {
   current = { def, canvasMode: current.canvasMode, baseline: captureBaseline(def, state, M.SOURCES_BY_ID, M.STEMS), session: { listened: new Set([state.listen]) } };
   lastEval = "";
   missionView.resetHints();
-  missionView.render(def, evaluateNow(), { canvasMode: current.canvasMode, skinId: skin.id });
-  const hash = def.id === "free-play" ? `#/free-play/${skin.id}` : `#/${def.id}`;
+  missionView.render(def, evaluateNow(), { canvasMode: current.canvasMode, skinId: skin.id, mode });
+  const hash = def.id === "free-play" ? `#/free-play/${skin.id}` : mode === "mixer" ? `#/by-mixer/${def.id}` : `#/${def.id}`;
   if (location.hash !== hash) history.replaceState(null, "", hash);
   if (def.id !== "free-play") writePref("mixer-lab-last", def.id);
   refresh();
   if (engine.started) loadSources();
 }
 
-// Opens a scenario on its own console. `canvas`: step through the Canvas ten
-// rather than the scenario's theme.
-function openScenario(id, { canvas = false } = {}) {
+// Opens a scenario on its own console. `by`: step through its topic ("topic")
+// or its mixer's list ("mixer"). `canvas`: step through the Canvas ten instead.
+function openScenario(id, { canvas = false, by = "topic" } = {}) {
   const s = SCENARIO_BY_ID[id];
   if (!s) return openFree();
-  mode = "scenarios";
-  current.canvasMode = canvas && isCanvas(s);
+  mode = by === "mixer" ? "mixer" : "topic";
+  writePref("mixer-lab-mode", mode);
+  current.canvasMode = mode === "topic" && canvas && isCanvas(s);
   useConsole(skinOf(consoleOf(s)), () => selectScenario(id));
+}
+
+// By mixer: the console's first unsolved scenario (by default the console you're on).
+function openMixer(model = hardwareOf(skin)) {
+  if (!mixerEntry(model)) model = "generic";
+  openScenario(nextOnMixer(model, (id) => progress.has(id)).id, { by: "mixer" });
 }
 
 // Free play on any console (by default the one you're on).
@@ -286,9 +297,9 @@ function useConsole(id, build) {
   mixerView.setSkin(skin);
   renderFlow($("#flow"), skin);
   listenBar.render();
-  missionView.render(current.def, evaluateNow(), { canvasMode: current.canvasMode, skinId: skin.id });
+  missionView.render(current.def, evaluateNow(), { canvasMode: current.canvasMode, skinId: skin.id, mode });
   document.body.dataset.skin = id;
-  for (const b of document.querySelectorAll(".mode-btn")) {
+  for (const b of document.querySelectorAll(".topbar .mode-btn")) {
     const on = b.dataset.mode === mode;
     b.setAttribute("aria-checked", String(on));
     b.classList.toggle("active", on);
@@ -301,9 +312,31 @@ document.querySelector(".mode-switch").addEventListener("click", (e) => {
   const b = e.target.closest(".mode-btn");
   if (!b || b.dataset.mode === mode) return;
   if (b.dataset.mode === "free") openFree();
+  else if (b.dataset.mode === "mixer") openMixer();
   else openScenario(readPref("mixer-lab-last") || nextInTheme(THEMES_BY_ID.system, (id) => progress.has(id)).id);
 });
-document.querySelector("[data-open-drawer]").addEventListener("click", () => drawer.open(current.def.id));
+document.querySelector("[data-open-drawer]").addEventListener("click", () => drawer.open(current.def.id, mode === "mixer" ? "mixer" : "topic"));
+
+// ---------- track names: instruments or the musicians on the recording ----------
+
+function setNames(m) {
+  setNameMode(m);
+  writePref("mixer-lab-names", nameMode());
+  document.body.classList.toggle("names-musicians", nameMode() === "musicians");
+  for (const b of document.querySelectorAll("[data-names]")) {
+    const on = b.dataset.names === nameMode();
+    b.setAttribute("aria-checked", String(on));
+    b.classList.toggle("active", on);
+  }
+  missionView.renderMusic();
+  if (danteView.isOpen) danteView.sync();
+  pending.any = pending.patch = true;
+}
+document.querySelector(".names-switch").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-names]");
+  if (b) setNames(b.dataset.names);
+});
+setNames(readPref("mixer-lab-names") || "parts");
 
 // ---------- views: the console (front) or the stage and patch (back) ----------
 
@@ -357,6 +390,7 @@ const startScreen = new StartScreen(overlay, {
     else if (what === "canvas") openScenario(CANVAS_SCENARIOS.find((s) => !progress.has(s.id))?.id || CANVAS_SCENARIOS[0].id, { canvas: true });
     else if (what === "free") openFree();
     else if (what.startsWith("theme:")) openScenario(nextInTheme(what.slice(6), (id) => progress.has(id)).id);
+    else if (what.startsWith("mixer:")) openMixer(what.slice(6));
   },
 });
 
@@ -374,7 +408,7 @@ function showStart() {
   const last = readPref("mixer-lab-last");
   const target = resumeHash || (last ? `#/${last}` : "");
   resumeHash = target;
-  const s = SCENARIO_BY_ID[target.replace(/^#\//, "")];
+  const s = SCENARIO_BY_ID[target.replace(/^#\/(by-mixer\/)?/, "")];
   const label = target.startsWith("#/free-play") ? `Free play on the ${SKINS[target.split("/")[2]]?.name || "mixer"}` : s ? `${s.title} · ${SKINS[skinOf(consoleOf(s))].name}` : "";
   startScreen.render({ resume: label });
   overlay.classList.remove("dismissed");
@@ -388,18 +422,22 @@ document.addEventListener("click", (e) => {
   }
 });
 
-// "#/x32-stagebox" opens that scenario on its console; "#/free-play/x32" Free play.
+// "#/x32-stagebox" opens that scenario on its console (by topic);
+// "#/by-mixer/x32-stagebox" the same, stepping through the X32's list;
+// "#/free-play/x32" Free play.
 function openFromHash(hash) {
   const [id, sk] = hash.replace(/^#\/?/, "").split("/");
   if (id === "free-play") openFree(sk);
+  else if (id === "by-mixer" && SCENARIO_BY_ID[sk]) openScenario(sk, { by: "mixer" });
   else if (SCENARIO_BY_ID[id]) openScenario(id);
   else openFree();
 }
 
 window.addEventListener("hashchange", () => {
   const [id, sk] = location.hash.replace(/^#\/?/, "").split("/");
-  if (id === current.def.id && (id !== "free-play" || sk === skin.id)) return;
-  if (id === "free-play" || SCENARIO_BY_ID[id]) openFromHash(location.hash);
+  if (id === current.def.id && (id !== "free-play" || sk === skin.id) && mode === "topic") return;
+  if (id === "by-mixer" && sk === current.def.id && mode === "mixer") return;
+  if (id === "free-play" || id === "by-mixer" || SCENARIO_BY_ID[id]) openFromHash(location.hash);
 });
 
 // ---------- frame loop ----------

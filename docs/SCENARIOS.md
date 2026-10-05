@@ -130,6 +130,7 @@ Every real mixer has its own practice list (`js/board-scenarios.js`), nine to fi
 
 Students arrive knowing the basics from Mixer A/B (GAIN, faders, AUX sends, Main, PFL). The Real mixers menu is numbered in this order (`MIXER_ORDER` in `js/board-scenarios.js`), and each mixer's Scenario page says where it sits and what comes next:
 
+0. **Behringer EUROLIVE B207MP3**: an active speaker with the mixer inside. One LEVEL per input, one EQ for the box, THRU to pass the mix on.
 1. **Mackie Mix8**: four channels, one post-fader AUX, no mute or solo. The basics with nowhere to hide.
 2. **Yamaha STAGEPAS 400BT**: a powered mixer. MIC/LINE instead of GAIN, the amp inside, MONITOR OUT is the whole mix.
 3. **Yamaha MG10/2**: GAIN, HPF and PEAK on every mic; one AUX knob that has to choose between wedge and reverb.
@@ -152,6 +153,7 @@ Every list goes: get sound, gain and tone, the wedges, that mixer's own controls
 | Mixer | Scenarios | Controls covered |
 |---|---|---|
 | Mix8 (11) | Doors music · Silent headphones · The OL light · Boomy vocal · Spread the stage · Keys in the wedge · Wedge too loud · Cue it in the phones · The ballad · Acoustic set · Guest guitarist | TAPE IN TO CR/PHONES, CR/PHONES level, GAIN + OL, LOW EQ, PAN and BAL, AUX, AUX MASTER, post-fader AUX, 48V on 1–2, mic vs line channels |
+| B207MP3 (8) | Doors music · The speaker from the closet · The quiet singer · The silent condenser · Link the second speaker · The quiet wedge · Too loud in a small room · The boomy announcement | LEVEL 4 (CD INPUT), THRU is line level (a passive speaker still needs an amp), LEVEL as the gain, PHANTOM 1–3, THRU → a second powered speaker, THRU LEVEL, MAIN LEVEL after THRU, the box's 3-band EQ |
 | STAGEPAS 400BT (11) | Doors music · Weak bass · Silent monitor · Speech mode · Silent speakers · Reverb on the voices · A long hall · Half the song is missing · Overhead on channel 3 · Add the subwoofer · Squealing wedge | channel LEVEL, MIC/LINE, MONITOR OUT, MASTER EQ, SPEAKERS L/R (amp inside), REVERB sends, TYPE/TIME, ST/MONO, PHANTOM on CH1/2 only, SUBWOOFER OUT, FEEDBACK SUPP. |
 | MG10/2 (9) | Doors music · Silent overhead · PEAK light · Too much drums · One knob, two jobs · Thin bass · Stage rumble · Too much reverb · Free up 9/10 (2TR IN) | stereo LEVEL, +48V, GAIN + PEAK, AUX (AUX1 left / AUX2 right), LOW EQ, 80 Hz HPF, RETURN, 2TR IN |
 | 1202-VLZ (12) | Doors music · Clipping drums · Nasal vocal · Quiet house · Check the singer first · Quiet wedge · Low cut · Reverb on the harmonies · Wedge follows the faders · Reverb in the wedge · Cue the next song · Drums for the video crew | TRIM + OL, MID EQ, XLR −30 dB PAD, SOLO (PFL) on a muted channel, AUX 1 MASTER, LOW CUT, AUX 2 + RET 1, AUX 1 PRE, EFX TO MON, C-R SOURCE TAPE, MUTE/ALT 3-4 + ASSIGN TO MAIN |

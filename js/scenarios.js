@@ -44,11 +44,14 @@ export const PLAYBACK_DEVICES = {
   // The STAGEPAS 400BT's own speakers: passive, driven by the amp in its mixer.
   "sp-l": { type: "passive-speaker", label: "STAGEPAS 400S speaker · left", short: "STAGEPAS left", zone: "foh", pan: -1 },
   "sp-r": { type: "passive-speaker", label: "STAGEPAS 400S speaker · right", short: "STAGEPAS right", zone: "foh", pan: 1 },
+  closet: { type: "passive-speaker", label: "Passive speaker from the closet · singer's wedge", short: "closet speaker", zone: "stage", pan: 0 },
   pwedge: { type: "passive-speaker", label: "Passive wedge · drummer", short: "drummer's wedge", zone: "stage", pan: 0 },
   // A third wedge, for scenarios that build a new monitor mix (Ui16 AUX 3).
   gwedge: { type: "powered-speaker", label: "Powered wedge · guitarist", short: "guitarist's wedge", zone: "stage", pan: -0.5 },
   ffill: { type: "powered-speaker", label: "Powered speaker · front fill", short: "front fill", zone: "foh", pan: 0 },
   hwedge: { type: "powered-speaker", label: "Powered wedge · horns", short: "horns' wedge", zone: "stage", pan: 0.4 },
+  // A second B207MP3 on stage as a wedge, fed into its MAIN IN from the first one's THRU.
+  "b207-wedge": { type: "powered-speaker", label: "Second B207MP3 · MAIN IN, as the singer's wedge", short: "2nd B207 (wedge)", zone: "stage", pan: 0 },
   sub: { type: "powered-speaker", label: "Powered subwoofer", short: "subwoofer", zone: "foh", pan: 0 },
   lobby: { type: "powered-speaker", label: "Powered speaker · lobby", short: "lobby", zone: "lobby", pan: 0 },
   // A video camera's two XLR audio inputs (each with a MIC/LINE switch, starting at LINE).
@@ -738,6 +741,13 @@ export const COMPACT_GIGS = {
     sends: { auxPan: { "lead-vocal": -0, "backing-vocals": 6, drums: -10, bass: -6 } },
     bipolarSides: { "lead-vocal": "left", "backing-vocals": "right", drums: "left", bass: "left" },
   },
+  b207mp3: {
+    prompt: "A coffee-house set on one Behringer B207MP3: the box is the speaker, the amp and the mixer. The singer on 1, the backing singer on 2, the keys on 3, the laptop on the CD INPUT (level down). THRU feeds a second B207 on stage as the singer's wedge.",
+    patch: { "lead-vocal": [0, "in"], "backing-vocals": [1, "in"], keys: [2, "in"], preshow: [3, "rca"] },
+    devices: ["b207-wedge"],
+    cables: [{ from: "mixer/thru", to: "b207-wedge/in", cable: "xlr" }],
+    sends: {},
+  },
   stagepas400bt: {
     prompt: "A small gig on a Yamaha STAGEPAS 400BT: vocals on 1 and 2, guitar and bass on 3 and 4, keys on 5/6, the laptop on 7/8 (level down). SPEAKERS L/R drive the two STAGEPAS speakers directly — the amp is in the mixer — and MONITOR OUT feeds the singer's wedge.",
     patch: { "lead-vocal": [0, "mic"], "backing-vocals": [1, "mic"], guitars: [2, "in"], bass: [3, "in"], keys: [4, "l"], preshow: [5, "mini"] },
@@ -1023,8 +1033,9 @@ function buildCompactState(model, sourcesById) {
     if (def.phantom.perChannel && s.phantom === "required") ch.phantom = true;
     if (c.gain.switch) ch.micLine = s.signalLevel === "line" ? "line" : "mic";
     else if (c.gain.min !== undefined) ch.gainDb = clamp(-s.outputDb - (channelGainDb(def, { ...ch, gainDb: 0 }, input)), c.gain.min, c.gain.max);
-    ch.level = levelLaw(def).toPos(s.mixDb);
-    if (!ch.stereo) ch.pan = gig.pans?.[s.id] ?? s.pan;
+    // A LEVEL that is also the gain (B207MP3) has to make up the source's level as well.
+    ch.level = levelLaw(def).toPos(def.levelIsGain ? s.mixDb - s.outputDb - channelGainDb(def, ch, input) : s.mixDb);
+    if (!ch.stereo && !def.mono) ch.pan = gig.pans?.[s.id] ?? s.pan;
     if (c.lowCut && !["drums", "bass"].includes(s.id)) ch.lowCut = true;
     for (const [sid, levels] of Object.entries(gig.sends)) {
       if (!(sid in ch.sends) || !(s.id in levels)) continue;

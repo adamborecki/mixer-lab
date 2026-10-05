@@ -260,3 +260,27 @@ export class LitButton {
     if (ariaLabel) this.el.setAttribute("aria-label", ariaLabel);
   }
 }
+
+// A push-lock switch drawn as the hardware is: the cap sticks out (up) or is
+// pushed in (down), with both positions named as printed (MIC above LINE).
+// Works with the same bindings as LitButton: setLit(down, ariaLabel).
+export class PushSwitch {
+  constructor({ up, down, onPress, title }) {
+    this.el = document.createElement("button");
+    this.el.type = "button";
+    this.el.className = "push-sw";
+    this.el.innerHTML = `<span class="push-well" aria-hidden="true"><span class="push-cap"></span></span>
+      <span class="push-legend" aria-hidden="true"><span class="push-pos" data-pos="up"><i class="push-ico up"></i>${up}</span><span class="push-pos" data-pos="down"><i class="push-ico down"></i>${down}</span></span>`;
+    if (title) this.el.title = title;
+    this.el.addEventListener("click", () => onPress());
+    this.down = null;
+  }
+
+  setLit(down, ariaLabel) {
+    if (down === this.down && !ariaLabel) return;
+    this.down = down;
+    this.el.classList.toggle("is-down", !!down);
+    this.el.setAttribute("aria-pressed", String(!!down));
+    if (ariaLabel) this.el.setAttribute("aria-label", ariaLabel);
+  }
+}

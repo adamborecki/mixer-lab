@@ -30,6 +30,20 @@ Six real mixers from Chapman's inventory, built as data: the Mackie Mix8, Mackie
 | Levels | knobs | knobs | knobs | knobs | **60 mm faders** |
 | Outputs | MAIN, C-R, AUX, TAPE | MAIN XLR (30 dB PAD) + ¼″, ALT, C-R, AUX 1/2, TAPE, inserts | ST, REC, C-R, AUX1/2, inserts | **SPEAKERS L/R (speaker level)**, MONITOR, SUB | MAIN XLR, ALT 3-4, C-R, AUX 1/2, CD/TAPE |
 
+### Behringer EUROLIVE B207MP3 (an active speaker with a mixer inside)
+
+Not a mixer with an amp (like the STAGEPAS) but a **speaker** with an amp and a mixer in it. The box itself is the house speaker, so it has no speaker outputs at all.
+
+- **Channels 1–3:** XLR/¼″ combo jacks (sensitivity −40 to +4 dBu, either jack). **LEVEL 1–3 is the only gain control**: an input trim, −∞ to +30 dB (`levelIsGain`, law `trim30`). Ch 2 has **INSTRUMENT** (1 MΩ). One **PHANTOM** button (+48 V) for 1–3.
+- **Channel 4:** CD INPUT (RCA L/R, −10 to +4 dBu) with LEVEL 4, summed into the one speaker.
+- **EQ:** one 3-band EQ for the whole box (HIGH >12 kHz, MID 2.5 kHz, LOW <100 Hz, ±15 dB), after MAIN LEVEL (`mainEq`).
+- **MAIN LEVEL:** this box's volume. **THRU** (XLR) carries the mix **before MAIN LEVEL and the EQ**, with its own LEVEL, to link another speaker (`thru`).
+- **The speaker:** a mixer port `spk` with `internal: true` (no jack). `analyzeRig` adds the mixer itself as a working endpoint (`builtInSpeaker`); the diagram and patch lists leave the port out.
+- **Gig:** both vocals on 1–2, keys on 3, the laptop on CD INPUT (LEVEL 4 down); THRU feeds a second B207 on stage as the singer's wedge.
+- **Source:** Behringer EUROLIVE B207MP3 quick start guide (controls, specifications).
+- **Not modelled:** the MP3 player (USB stick, MP3 LEVEL, display buttons) and MAIN IN (another speaker's THRU summed in). INSTRUMENT switches but changes nothing (no passive pickups in the lab). No meter: a SIGNAL LED and the LIMITER LED, read from the output.
+- **To check on the real unit:** the LEVEL knob's taper (here +10 dB at 12 o'clock), and whether THRU has a MIC/LINE switch (the spec sheet lists one; the control list doesn't).
+
 The Free play gig on each one shows its limits:
 - **Mix8:** only two mic channels, so only part of the band fits.
 - **1202-VLZ:** the wedge on AUX 1 with PRE pressed, the reverb on AUX 2.

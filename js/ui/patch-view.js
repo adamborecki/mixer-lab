@@ -24,6 +24,7 @@ import { F8, PAIR, REVERB, TECHNIQUES, cardStats, techniqueOf } from "../devices
 
 import { CONNECTOR_GUIDE, deviceIconName, icon, jackIconName, levelIconName, plugIconName } from "./icons.js";
 import { jackArt, plugArt } from "./connector-art.js";
+import { nameMode, sourceName } from "../names.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
@@ -147,7 +148,7 @@ export class PatchView {
         <div class="source-top">
           <span class="source-order" aria-label="Input list number">${esc(listNo)}</span>
           <span class="dev-ico">${icon(deviceIconName(d), { size: 40 })}</span>
-          <div class="source-names"><strong>${esc(src.name)}</strong><span>${esc(src.device)}</span></div>
+          <div class="source-names"><strong>${esc(sourceName(src))}</strong><span>${nameMode() === "musicians" && src.musician ? `${esc(src.name)} · ` : ""}${esc(src.device)}</span></div>
           <span class="status-pill status-${status}">${status === "ok" ? "✓ Signal" : status === "idle" ? "Unpatched" : status === "bad" ? "✕ Danger" : "! Check"}</span>
         </div>
         <div class="tags">${tags}</div>
@@ -171,7 +172,7 @@ export class PatchView {
     const state = this.store.state;
     const lands = DEVICE_TYPES[d.type].ports.map((p) => {
       const c = mix.channels.find((x) => x.input.sourceDeviceId === d.id && x.input.sourceId === p.sourceId);
-      return `<li><span>${esc(p.name)} · ${esc(SOURCES_BY_ID[p.sourceId]?.name || p.sourceId)}</span><b>${c ? `→ CH ${esc(state.channels[c.index].label)}` : "not reaching the console"}</b></li>`;
+      return `<li><span>${esc(p.name)} · ${esc(sourceName(SOURCES_BY_ID[p.sourceId]) || p.sourceId)}</span><b>${c ? `→ CH ${esc(state.channels[c.index].label)}` : "not reaching the console"}</b></li>`;
     });
     const n = lands.filter((l) => l.includes("→ CH")).length;
     const status = n === lands.length ? "ok" : n ? "warn" : "idle";
@@ -280,6 +281,8 @@ export class PatchView {
 
     const outRows = outs
       .map((p) => {
+        // B207MP3: the speaker is inside the mixer, so there is nothing to patch.
+        if (p.internal) return { p, html: `<li class="out-row out-internal"><p class="port-internal"><strong>${esc(p.name)}</strong> inside the box: its own amp drives it, no cable.</p><p class="port-msg ok">✓ The mix plays from this box. MAIN LEVEL and the EQ set how loud and how it sounds.</p></li>` };
         const reached = mix.rig.buses[p.id] || [];
         const cable = cableAt(rig, p.ref);
         const target = cable ? getPort(rig, cable.to) : null;
