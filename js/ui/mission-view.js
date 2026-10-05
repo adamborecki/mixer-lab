@@ -15,7 +15,7 @@
 import { fillTerms, shortTitle } from "../scenarios.js";
 import { SKINS } from "../mixer-models.js";
 import { CANVAS_SCENARIOS, MIXERS, THEMES, consoleOf, mixerScenarios, skinOf, themeOf, themeScenarios } from "../themes.js";
-import { ASSIGNMENTS, ASSIGNMENTS_BY_ID, CURRENT_ASSIGNMENT, LEGACY_URL, assignmentOfTopic, assignmentProgress, label, nextTopic } from "../assignments.js";
+import { ASSIGNMENTS, ASSIGNMENTS_BY_ID, CURRENT_ASSIGNMENT, legacyHref, assignmentOfTopic, assignmentProgress, label, nextTopic } from "../assignments.js";
 import { nameMode } from "../names.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -99,7 +99,7 @@ export class StartScreen {
         <button type="button" class="start-big start-canvas" data-choose="assignment:${cur.id}"><strong>${esc(label(cur))}: ${esc(cur.title)}</strong><span>${esc(cur.weeks || "")} · ${cp.done} of ${cp.need} · ${nt ? `next: ${esc(nt.question)}` : "all done ✓"}</span></button>
         <button type="button" class="start-big start-free" data-choose="free"><strong>Free play</strong><span>No goals: any console, the whole band, break things</span></button>
       </div>
-      <p class="start-legacy">Late with Assignment 1 (the ten scenarios)? <a href="${LEGACY_URL}">Finish it in the original version</a>: your saved progress is there too.</p>
+      <p class="start-legacy">Late with Assignment 1 (the ten scenarios)? <a href="${legacyHref()}">Finish it in the original version</a>: your saved progress is there too.</p>
       <h2 class="start-h">By topic <small>one question, answered on mixer after mixer</small></h2>
       <div class="theme-grid">${THEMES.map(card).join("")}</div>
       <h2 class="start-h">By mixer <small>standing at one of these? Start with it</small></h2>
@@ -158,7 +158,7 @@ export class ThemeDrawer {
     const current = themeOf(currentId)?.id;
     // The assignments: each topic it asks for, how far along, one tap to the next scenario there.
     const assignment = (a) => {
-      if (a.legacy) return `<p class="dt-legacy">${esc(label(a))}: ${esc(a.title)}. ${esc(a.note)} <a href="${LEGACY_URL}">Open the original</a></p>`;
+      if (a.legacy) return `<p class="dt-legacy">${esc(label(a))}: ${esc(a.title)}. ${esc(a.note)} <a href="${legacyHref()}">Open the original</a></p>`;
       const ap = assignmentProgress(a, (id) => p.has(id));
       return `<details class="drawer-theme drawer-canvas" ${a.id === CURRENT_ASSIGNMENT ? "open" : ""}>
         <summary><span class="theme-num">A${a.number}</span><span class="dt-name"><strong>${esc(a.title)}</strong><small>${esc([a.weeks, a.optional ? "optional" : ""].filter(Boolean).join(" · "))}</small></span><span class="dt-prog">${ap.done}/${ap.need}</span></summary>

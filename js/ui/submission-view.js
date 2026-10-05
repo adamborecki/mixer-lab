@@ -5,7 +5,7 @@
 
 import { MAX_NAME, MAX_REFLECTION, REFLECTION_PROMPT, validate } from "../submission.js";
 import { buildExport, exportSummary } from "../export.js";
-import { LEGACY_URL, label } from "../assignments.js";
+import { label, legacyHref } from "../assignments.js";
 import { contextLine } from "../bugs.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -22,7 +22,7 @@ export class SubmissionView {
         <button type="button" class="patch-x" data-close-canvas aria-label="Close">✕</button></header>
       <p class="canvas-note">Everything you've done in Mixer Lab goes in, whichever assignment it's for: paste it into the Canvas assignment you're handing in. Time counts only while you're actively working; "actions" are changes to the mixer or patch.</p>
       <div class="canvas-assignments"></div>
-      <p class="canvas-note">Assignment 1 (the ten scenarios) is handed in from <a href="${LEGACY_URL}">its original version</a>.</p>
+      <p class="canvas-note">Assignment 1 (the ten scenarios) is handed in from <a href="${legacyHref()}">its original version</a>.</p>
       <section class="canvas-bugs" aria-label="Bug reports"></section>
       <label class="canvas-field">Your name
         <input type="text" class="canvas-name" maxlength="${MAX_NAME}" autocomplete="name" required />

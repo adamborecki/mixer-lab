@@ -7,8 +7,11 @@
 // To change what's required: edit `topics` ([topic id, how many]).
 
 import { THEMES_BY_ID, themeScenarios } from "./themes.js";
+import { liveUrl, previewSlug } from "./deploy-context.js";
 
 export const LEGACY_URL = "legacy/";
+// The link to Assignment 1's frozen copy: always the live site's legacy/, even from a branch preview.
+export const legacyHref = (href = globalThis.location?.href || "") => (previewSlug(new URL(href, "https://x/").pathname) ? liveUrl(href) : "") + LEGACY_URL;
 // The one the start screen and the top bar's count point at.
 export const CURRENT_ASSIGNMENT = "a2";
 
