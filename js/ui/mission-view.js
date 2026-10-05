@@ -160,9 +160,8 @@ export class ThemeDrawer {
     this.el.innerHTML = `<div class="drawer-inner">
       <header class="drawer-head"><h2 id="drawer-title">Scenarios</h2>
         <button type="button" class="chip" data-home>Start screen</button>
-        <button type="button" class="chip" data-free>Free play</button>
-        <button type="button" class="patch-x" data-close-drawer aria-label="Close">✕</button></header>
-      <div class="mode-switch drawer-tabs" role="tablist" aria-label="Group the scenarios">${tabBtn("topic", "By topic")}${tabBtn("mixer", "By mixer")}</div>
+        <button type="button" class="patch-x" data-close-drawer aria-label="Close">✕</button>
+        <div class="mode-switch drawer-tabs" role="tablist" aria-label="Group the scenarios">${tabBtn("topic", "By topic")}${tabBtn("mixer", "By mixer")}</div></header>
       ${
         tab === "mixer"
           ? MIXERS.map(mixer).join("")
@@ -175,7 +174,11 @@ export class ThemeDrawer {
       }
     </div>`;
     if (!this.el.open) this.el.showModal();
-    this.el.querySelector(".drawer-row.current")?.scrollIntoView({ block: "center" });
+    // Scroll the drawer itself to the current scenario. (scrollIntoView would
+    // also scroll the page behind the dialog, which made it jump.)
+    const cur = this.el.querySelector(".drawer-row.current");
+    const head = this.el.querySelector(".drawer-head");
+    this.el.scrollTop = cur ? Math.max(0, cur.getBoundingClientRect().top - this.el.getBoundingClientRect().top + this.el.scrollTop - head.offsetHeight - 80) : 0;
   }
 }
 
@@ -183,8 +186,8 @@ export class ThemeDrawer {
 
 export class MissionView {
   // `dock`: the slim copy pinned under the top bar while the strip is scrolled away.
-  constructor(root, { dock, progress, getTerms, getMusic, onSelect, onReset, onClear, onMusicMode, onSeek, onFreeConsole, onMixer, onOpenDrawer }) {
-    Object.assign(this, { root, dock, progress, getTerms, getMusic, onSelect, onReset, onClear, onMusicMode, onSeek, onFreeConsole, onMixer, onOpenDrawer });
+  constructor(root, { dock, progress, getTerms, getMusic, onSelect, onReset, onClear, onMusicMode, onSeek, onFreeConsole, onMixer, onOpenDrawer, onUndo, canUndo }) {
+    Object.assign(this, { root, dock, progress, getTerms, getMusic, onSelect, onReset, onClear, onMusicMode, onSeek, onFreeConsole, onMixer, onOpenDrawer, onUndo, canUndo });
     this.hints = 0;
     this.more = false;
     this.mode = "topic";
@@ -193,7 +196,11 @@ export class MissionView {
       const b = e.target.closest("[data-act]");
       if (!b) return;
       const act = b.dataset.act;
-      if (act === "hint") this.showHint();
+      if (act === "hint") {
+        // From the pinned bar, open it so the hint is visible there.
+        if (e.currentTarget === dock) this.dockOpen = true;
+        this.showHint();
+      } else if (act === "undo") this.onUndo();
       else if (act === "dock-more") this.toggleDock();
       else if (act === "dock-top") {
         this.toggleDock(false);
@@ -267,9 +274,16 @@ export class MissionView {
     }
     const seq = this.sequence(def);
     const i = seq.list.findIndex((s) => s.id === def.id);
-    const prev = seq.list[i - 1];
-    const next = seq.list[i + 1];
-    const step = (s, dir) => (s ? `<button type="button" class="mstep" data-act="go" data-id="${esc(s.id)}" aria-label="${dir}: ${esc(shortTitle(s))}" title="${dir}: ${esc(shortTitle(s))}">${dir === "Previous" ? "‹" : "›"}</button>` : `<button type="button" class="mstep" disabled aria-label="${dir}">${dir === "Previous" ? "‹" : "›"}</button>`);
+    // Every step of this topic (or this mixer, or the Canvas ten), one tap away.
+    const steps = seq.list
+      .map((s, k) => {
+        const done = this.progress.has(s.id);
+        const here = s.id === def.id;
+        const where = seq.mixer || consoleOf(s) === consoleOf(def) ? "" : `<small>${esc(consoleName(s))}</small>`;
+        return `<li><button type="button" class="mstep-chip ${here ? "current" : ""} ${done ? "done" : ""}" data-act="go" data-id="${esc(s.id)}" ${here ? 'aria-current="step"' : ""} title="${esc(s.title)}${done ? " (solved)" : ""}">
+          <span class="ms-num" aria-hidden="true">${done ? "✓" : k + 1}</span><span class="ms-name">${esc(shortTitle(s))}${where}</span>${done ? '<span class="visually-hidden">, solved</span>' : ""}</button></li>`;
+      })
+      .join("");
     // Who's on stage, when it isn't simply the whole band (doors, speeches, someone sitting out).
     const stageLine = this.getMusic().stageNote;
     // By mixer, the console is yours to choose; by topic, the scenario chooses it.
@@ -285,8 +299,8 @@ export class MissionView {
           <h1>${esc(def.title)}</h1>
           <p class="mission-on">${on}${def.who ? ` · ${esc(def.who)}` : ""}${isCanvas(def) ? ' · <span class="badge-canvas">Counts for Canvas</span>' : ""}</p>
         </div>
-        <div class="mission-nav">${step(prev, "Previous")}${step(next, "Next")}</div>
       </div>
+      <ol class="mission-steps" aria-label="${esc(seq.mixer ? `Scenarios on the ${consoleName(def)}` : seq.label)}">${steps}</ol>
       <p class="mission-prompt">${esc(fillTerms(def.prompt, t))}${stageLine ? `<span class="mission-stage">${esc(stageLine)}</span>` : ""}</p>
       <div class="mission-goalrow">
         <p class="mission-goal"><strong>Goal:</strong> ${esc(fillTerms(def.goal, t))}</p>
@@ -309,6 +323,10 @@ export class MissionView {
     if (result) this.update(result);
     else this.renderDock();
     this.recheckDock?.();
+    // Scroll the step row (only the row, never the page) so this step shows.
+    const row = this.root.querySelector(".mission-steps");
+    const cur = row?.querySelector(".current");
+    if (cur) row.scrollLeft = cur.parentElement.offsetLeft - row.clientWidth / 2 + cur.offsetWidth / 2;
   }
 
   renderFree(def, skinId) {
@@ -386,6 +404,7 @@ export class MissionView {
           <span class="check-text">${i.kind === "keep" ? "<em>Keep:</em> " : ""}${esc(fillTerms(i.label, t))}
             <span class="visually-hidden">${i.met ? "— done" : "— not yet"}</span>
             ${i.detail && !i.met ? `<small>${esc(i.detail)}</small>` : ""}
+            ${i.kind === "keep" && !i.met ? `<span class="keep-fix">That broke something you had to keep. ${this.canUndo() ? '<button type="button" class="chip" data-act="undo">Undo</button>' : ""}<button type="button" class="chip" data-act="reset">Start over</button></span>` : ""}
           </span>
         </li>`,
       )
@@ -453,7 +472,8 @@ export class MissionView {
       <span class="dock-ticks" role="img" aria-label="${goals.filter((g) => g.met).length} of ${goals.length} goals met">${ticks}</span>
       <span class="dock-next ${broken && !solved ? "is-broken" : ""}">${esc(next)}</span>
       <span class="dock-actions">
-        ${hintsLeft && !solved ? `<button type="button" class="chip dock-btn" data-act="hint">${this.hints ? "Another hint" : "Hint"}</button>` : ""}
+        ${hintsLeft && !solved && !broken ? `<button type="button" class="chip dock-btn" data-act="hint">${this.hints ? "Another hint" : "Hint"}</button>` : ""}
+        ${broken && !solved ? `${this.canUndo() ? '<button type="button" class="chip dock-btn" data-act="undo">Undo</button>' : ""}<button type="button" class="chip dock-btn" data-act="reset">Start over</button>` : ""}
         ${solved && nextUp ? `<button type="button" class="btn btn-start dock-btn" data-act="next" data-id="${esc(nextUp.id)}">Next: ${esc(shortTitle(nextUp))} →</button>` : ""}
         <button type="button" class="chip dock-btn" data-act="dock-more" aria-expanded="${!!this.dockOpen}">Story &amp; goals</button>
       </span>

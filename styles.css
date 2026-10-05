@@ -5340,12 +5340,13 @@ dialog::backdrop {
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   grid-template-areas:
     "head head"
+    "steps steps"
     "prompt goal"
     "actions goal"
     "banner banner"
     "hints hints"
     "more more";
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto auto 1fr;
   align-items: start;
   gap: 0.55rem 1.25rem;
 }
@@ -5821,7 +5822,7 @@ dialog::backdrop {
   }
   .mission-inner {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "head" "prompt" "goal" "banner" "hints" "actions" "more";
+    grid-template-areas: "head" "steps" "prompt" "goal" "banner" "hints" "actions" "more";
     grid-template-rows: none;
     padding: 0.75rem;
   }
@@ -6095,9 +6096,14 @@ dialog::backdrop {
   font-weight: 700;
   max-width: 100%;
 }
+.drawer-head {
+  flex-wrap: wrap;
+}
 .drawer-tabs {
-  margin: 0 0 0.6rem;
+  flex-basis: 100%;
   width: max-content;
+  max-width: max-content;
+  margin-top: 0.2rem;
 }
 
 /* ---------- the pinned scenario: stays under the top bar once the strip scrolls away ---------- */
@@ -6274,4 +6280,87 @@ dialog::backdrop {
   font-size: 0.85rem;
   font-style: italic;
   color: var(--text-dim);
+}
+
+/* ---------- the steps of this topic or mixer: every scenario one tap away ---------- */
+
+.mission-steps {
+  grid-area: steps;
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0.25rem;
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.mstep-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  min-height: 36px;
+  padding: 0.25rem 0.75rem 0.25rem 0.3rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.mstep-chip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.mstep-chip.current {
+  border-color: var(--accent);
+  background: rgba(124, 224, 255, 0.16);
+  color: var(--text);
+  font-weight: 700;
+}
+.ms-num {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.mstep-chip.done .ms-num {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: var(--bg);
+}
+.ms-name small {
+  margin-left: 0.35rem;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+/* A "keep" that broke: undo it or start again, right where it's reported. */
+.keep-fix {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--warn);
+}
+.keep-fix .chip {
+  min-height: 32px;
+  padding: 0.2rem 0.75rem;
+  font-size: 0.82rem;
+}
+/* The pinned panel is a plain column: don't inherit the strip's grid areas. */
+.dock-more > * {
+  grid-area: auto;
+}
+@media (max-width: 899px) {
+  .dock-more {
+    order: 6;
+  }
 }

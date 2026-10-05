@@ -118,6 +118,8 @@ const missionView = new MissionView($("#mission"), {
   onFreeConsole: (id) => openFree(id),
   onMixer: (model) => openMixer(model),
   onOpenDrawer: (tab) => drawer.open(current.def.id, tab),
+  onUndo: () => undoLast(),
+  canUndo: () => undo.stack.length > 0,
 });
 
 const drawer = new ThemeDrawer($("#drawer"), {
@@ -141,6 +143,7 @@ renderFlow($("#flow"), skin);
 store.subscribe((state, change) => {
   pending.any = true;
   if (change.type !== "replace") countAction(change);
+  if (change.type !== "replace" && change.type !== "listen") noteForUndo(change);
   if (change.type === "listen") current.session.listened.add(state.listen);
   if (change.type === "rig" || change.type === "replace" || change.type === "scene" || (change.type === "bus" && change.bus === "routing") || (change.type === "channel" && change.key === "phantom")) pending.patch = true;
   // Recorder settings show on its Outputs card (the mic pair and reverb update their own readouts);
@@ -151,6 +154,8 @@ store.subscribe((state, change) => {
 
 function refresh() {
   const state = store.state;
+  // What Undo goes back to: the state before the next change.
+  undo.snap = structuredClone(state);
   const mix = computeMix(state, M.SOURCES_BY_ID, M.STEMS);
   lastMix = mix;
   mixerView.sync(mix);
@@ -184,6 +189,34 @@ function evaluateNow() {
   return current.def.conditions.length ? evaluateScenario(current.def, store.state, current.baseline, M.SOURCES_BY_ID, M.STEMS, current.session) : null;
 }
 
+// ---------- undo ----------
+
+// One step per action: a drag of one knob is one step (as in countAction).
+const undo = { stack: [], snap: null, key: "", at: 0 };
+function noteForUndo(change) {
+  const key = `${change.type}:${change.index ?? change.bus ?? change.id ?? ""}:${change.key ?? ""}`;
+  const now = performance.now();
+  if (undo.snap && !(key === undo.key && now - undo.at < 600)) {
+    undo.stack.push(undo.snap);
+    if (undo.stack.length > 50) undo.stack.shift();
+  }
+  undo.key = key;
+  undo.at = now;
+}
+function undoLast() {
+  const prev = undo.stack.pop();
+  if (!prev) return;
+  undo.key = "";
+  store.replace(prev);
+  lastEval = "";
+  toast("Undone", "");
+}
+function resetUndo() {
+  undo.stack = [];
+  undo.snap = structuredClone(store.state);
+  undo.key = "";
+}
+
 // ---------- scenarios ----------
 
 // Builds a scenario on the current console (the skin must already be the right one).
@@ -192,6 +225,7 @@ function selectScenario(id) {
   const def = scenarioFor(available.find((s) => s.id === id) || SCENARIOS_BY_ID["free-play"], hardwareOf(skin));
   const state = buildScenarioState(def, M.SOURCES_BY_ID, hardwareOf(skin));
   store.replace(state);
+  resetUndo();
   current = { def, canvasMode: current.canvasMode, baseline: captureBaseline(def, state, M.SOURCES_BY_ID, M.STEMS), session: { listened: new Set([state.listen]) } };
   lastEval = "";
   missionView.resetHints();
