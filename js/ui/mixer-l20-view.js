@@ -237,7 +237,7 @@ function buildSidePanel(view, def, ui, rerender) {
   panel.appendChild(
     section(
       "EQ",
-      knob(view, { label: "HIGH", sheetLabel: `Ch ${n} EQ HIGH (10 kHz shelf)`, min: -15, max: 15, step: 0.5, defaultValue: 0, bipolar: true, tone: "eq", format: gainDb, onInput: set("peq.high.gain") }, (s) => ch(s).peq.high.gain),
+      eqKnob("high", "HIGH", "HIGH (10 kHz shelf)"),
       eqKnob("mid", "MID", "MID"),
       knob(view, { label: "MID FREQ", sheetLabel: `Ch ${n} EQ MID FREQ`, defaultValue: logPos(midBand.freq, midBand.min, midBand.max), tone: "eq", format: (v) => `${hz(logFreq(v, midBand.min, midBand.max))} Hz`, onInput: (v) => store.setChannel(i, "peq.mid.freq", logFreq(v, midBand.min, midBand.max)) }, (s) => logPos(ch(s).peq.mid.freq, midBand.min, midBand.max)),
       eqKnob("low", "LOW", "LOW (100 Hz shelf)"),

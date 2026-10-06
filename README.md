@@ -39,7 +39,7 @@ Patching is tap-based: tap a port, pick a cable, pick the other end. Bad choices
 
 In the scenarios and Free play, Aux 1 feeds the lead singer's powered wedge and Aux 2 goes through the power amp to the drummer's passive wedge. The wedge scenarios ask the student to listen to the right wedge before fixing it. Free play can also play the whole song (3:58, with a seek slider) instead of the 8-bar loop.
 
-**Real mixers** (the second menu in the top bar, on `feature/more-mixers`) has 14 real boards, easiest first, each with its own practice scenarios and Free play gig. See [docs/HANDOFF.md](docs/HANDOFF.md).
+**By mixer** (in the top bar) lists 18 consoles, from the generic Mixer A to the Yamaha CL3, each with its own practice scenarios and Free play gig. Assignment 1 as it was due is frozen at `/legacy/`. See [docs/HANDOFF.md](docs/HANDOFF.md).
 
 ## V1 scope
 

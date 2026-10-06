@@ -4,9 +4,10 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 
 ## Branches and current state (October 2026)
 
-- `main` is the live Canvas assignment (Mixer A and B, the ten scenarios). Don't merge into it without the course owner's say-so.
-- `feature/more-mixers` is the one feature branch. Everything since V1 is there, previewed at `/branch/feature-more-mixers/` ([BRANCH_PREVIEWS.md](BRANCH_PREVIEWS.md)). Push to see changes.
-- On that branch: 17 mixers, easiest first (`MIXER_ORDER` in `js/board-scenarios.js`): Behringer EUROLIVE B207MP3 (an active speaker with the mixer inside), Mackie Mix8, Yamaha STAGEPAS 400BT, MG10/2, Mackie 1202-VLZ, Behringer Xenyx X1204USB, Mackie CR1604-VLZ, a Generic digital mixer, Soundcraft Ui16, Zoom LiveTrak L-20, Behringer X32 Compact, Yamaha 01V96i, Yamaha DM2000, Behringer X32, Yamaha CL3, Sound Devices 442, Zoom F8n Pro. About 225 practice scenarios ([SCENARIOS.md](SCENARIOS.md)); the Canvas submission still counts only the ten Mixer A/B ones.
+- `main` is the live site: every mixer, topic and scenario below. `feature/more-mixers` was merged into it on 2026-10-06 and deleted. Don't push to `main` without the course owner's say-so.
+- `legacy` is Assignment 1 (the ten Mixer A/B scenarios) frozen for late submissions, served at `/legacy/` (see Canvas below). Leave it alone unless Assignment 1 itself needs a fix.
+- New work goes on a `feature/...` or `claude/...` branch, previewed at `/branch/<slug>/` ([BRANCH_PREVIEWS.md](BRANCH_PREVIEWS.md)).
+- 17 mixers, easiest first (`MIXER_ORDER` in `js/board-scenarios.js`): Behringer EUROLIVE B207MP3 (an active speaker with the mixer inside), Mackie Mix8, Yamaha STAGEPAS 400BT, MG10/2, Mackie 1202-VLZ, Behringer Xenyx X1204USB, Mackie CR1604-VLZ, a Generic digital mixer, Soundcraft Ui16, Zoom LiveTrak L-20, Behringer X32 Compact, Yamaha 01V96i, Yamaha DM2000, Behringer X32, Yamaha CL3, Sound Devices 442, Zoom F8n Pro. About 240 scenarios in all ([SCENARIOS.md](SCENARIOS.md)). Export to Canvas lists every one a student has solved or worked on.
 - Teaching choices that look like bugs but aren't:
   - On every digital desk, EQ ON and COMP ON both start off. Every EQ or compressor move needs its ON button, and the graphs show it.
   - Each scenario loops the 8-bar section of the song that suits it ([audio/README.md](../audio/README.md), `js/music.js`).
@@ -63,13 +64,13 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 
 ## Canvas: the export, bug reports, and Assignment 1 at legacy/
 
-There are no per-assignment requirements in the lab any more (the Assignments 2–5 by week were removed on `feature/more-mixers` on 2026-10-05, untested). The topics in `js/themes.js` stay as a way into the scenarios. Canvas means:
+There are no per-assignment requirements in the lab any more (Assignments 2–5 by week were removed on 2026-10-05). The topics in `js/themes.js` stay as a way into the scenarios. Canvas means:
 
 - **Assignment 1 (the ten scenarios on Mixer A/B)** was due 2026-10-04. It is frozen on the `legacy` branch, served at `/mixer-lab/legacy/` (`tools/build-pages.sh`) for late submissions, with its original submission format. It shares the live site's saved progress, and its `Progress` keeps entries it doesn't know, so it never erases work from the current version ([BRANCH_PREVIEWS.md](BRANCH_PREVIEWS.md)).
 - **Export to Canvas** (`js/export.js`, `js/ui/submission-view.js`): everything ever done (every solved or worked-on scenario with time and actions, Free play, bug reports, reflection) as text with a check code over every non-blank line. `node tools/verify-submission.mjs < pasted.txt` checks either format.
 - **Bug reports** (`js/bugs.js`, `js/ui/bug-view.js`): the bug button in the top bar (and in the export dialog). The student types what happened; the report gets the scenario, mixer, view, listening spot, browser and (opt-out) a deflate+base64 snapshot of the mixer state, saved in the browser and printed in the export. `node tools/decode-snapshot.mjs < pasted.txt` turns a snapshot back into JSON. Smaller extras: copy the report, or open a prefilled GitHub issue (no snapshot).
 
-## Page layout: by topic, by mixer, free play (feature/more-mixers)
+## Page layout: by topic, by mixer, free play
 
 Three ways in, side by side in the top bar (**By topic · By mixer · Free play**), because a student may come to the lab with a question or standing at a particular desk. Design principle: make students curious. Topics lead with their question ("Where is the amplifier?"); mixers lead with what makes them different.
 
@@ -205,7 +206,7 @@ One stereo input (9/10), no balance control on it, and its meter reads a mono fo
 4. **More physical-routing exercises** built on the semantic port model.
 5. Later: more aux buses and more skins.
 
-On `feature/more-mixers` (ideas, roughly in order):
+Ideas, roughly in order:
 
 - Dante, part 2: record the console back into the DAW over Dante (the other half of a virtual soundcheck), more Dante devices (a Dante-to-analog box, a second console), and clock or sample-rate faults to find. See [DANTE.md](DANTE.md).
 - Recording on the Zoom F8n board itself (the outboard F8 already records WAV takes; the board doesn't), and SUB OUT routing.

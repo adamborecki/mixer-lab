@@ -6464,6 +6464,14 @@ dialog::backdrop {
 .l20-bank .dg-strip {
   width: 58px;
 }
+/* PAD or Hi-Z: on its own line under the GAIN knob (beside it, "Hi-Z" doesn't fit). */
+.l20-bank .dg-extra:has(> .lit-btn) {
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.l20-bank .dg-extra .lit-btn {
+  white-space: nowrap;
+}
 .l20-efx {
   border-left: 1px solid rgba(255, 255, 255, 0.12);
 }
