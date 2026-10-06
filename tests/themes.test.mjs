@@ -2,7 +2,8 @@
 // in a teaching order that starts on the generic mixer.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ALL_BOARD_SCENARIOS, SCENARIOS } from "../js/scenarios.js";
+import { ALL_BOARD_SCENARIOS, MIXER_ORDER, SCENARIOS } from "../js/scenarios.js";
+import { FREE_CONSOLES } from "../js/ui/mission-view.js";
 import { SKINS } from "../js/mixer-models.js";
 import { CANVAS_SCENARIOS, THEMES, consoleOf, isCanvas, nextInTheme, skinOf, themeOf, themeScenarios } from "../js/themes.js";
 
@@ -48,5 +49,11 @@ describe("themes", () => {
     const list = themeScenarios("phantom");
     assert.equal(nextInTheme("phantom").id, list[0].id);
     assert.equal(nextInTheme("phantom", (id) => id === list[0].id).id, list[1].id);
+  });
+});
+
+describe("Free play's console picker", () => {
+  it("offers every real mixer, so a new one can't be left out", () => {
+    for (const m of MIXER_ORDER) assert.ok(FREE_CONSOLES.includes(m.skin), `${m.skin} is missing from FREE_CONSOLES`);
   });
 });
