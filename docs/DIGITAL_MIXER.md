@@ -49,7 +49,7 @@ An unbranded desk for learning what every digital mixer shares before meeting a 
 
 - **SEL, then edit:** one channel strip on the left edits whatever is selected (a channel or a MIX): GAIN, 48V, LOW CUT, a 4-band EQ and a compressor (each with its ON key, both starting off), pan, TO MAIN, and the sends.
 - **Layers:** CH 1-8, CH 9-16, AUX / FX (the stereo AUX 1/2 strip and the two effect returns) on the input faders; MIX 1-4 and MAIN on the right.
-- **Sends on Faders:** SEL a MIX, press SENDS ON FADERS, and the input faders become sends to it.
+- **Sends on Faders:** SEL a MIX, press SENDS ON FADERS, and the input faders become sends to it. The key (`sofKey` in `js/ui/mixer-x32-view.js`) is a lit key in the GROUP / BUS section beside the layer keys, as on the desk (in MASTER on the CL3), with a line under it saying what the faders are right now; the input section's title adds "SENDS TO MIX n" while it's on.
 - **Outputs:** XLR OUT 1-4 carry MIX 1-4, OUT 5/6 are MAIN L/R (`x32Outs`, now numbered from the definition's MIX buses).
 - **Gig and scenarios:** the X32 Compact's gig on 16 inputs, and 14 practice scenarios cloned from the X32 Compact's with generic hints (`GDIG` in `js/board-scenarios.js`); the tests reuse the X32 Compact's solutions.
 - **Not built:** DCAs, mute groups, matrices, scenes, output routing, input routing.

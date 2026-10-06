@@ -20,7 +20,7 @@
 import { DYN, PEQ_BANDS, PEQ_Q, compIsOn, eqIsOn, hpfHz } from "../compact.js";
 import { formatPan } from "../levels.js";
 import { button, buildSelPanel, el, knob, row } from "./mixer-digital-view.js";
-import { busPanel, channelStrip, emptyStrip, fxReturnStrip, groupSlots, groupStrip, layerBar, mainPanel, mainStrip, matrixPanel, routingPage, scenesPage, termsOf } from "./mixer-x32-view.js";
+import { busPanel, channelStrip, emptyStrip, fxReturnStrip, groupSlots, groupStrip, layerBar, mainPanel, mainStrip, matrixPanel, routingPage, scenesPage, sofKey, sofTitle, termsOf } from "./mixer-x32-view.js";
 import { compGraph, eqGraph } from "./viz.js";
 
 const hz = (f) => (f >= 1000 ? `${(f / 1000).toFixed(f >= 10000 ? 0 : 1)}k` : `${Math.round(f)}`);
@@ -56,7 +56,7 @@ export function renderCL(view, def) {
   const slots = [...(inLayer.channels || []).map((i) => channelStrip(view, def, i, ui, rerender)), ...(inLayer.fx || []).map((b) => fxReturnStrip(view, def, b)), ...(inLayer.buses || []).map((b) => groupStrip(view, def, b, ui, rerender))];
   while (slots.length < sf.bank) slots.push(emptyStrip());
   inBank.append(...slots);
-  const inputs = row("x32-section x32-inputs", el("h4", "x32-title", "INPUT"), layerBar(sf.inputLayers, ui.layer, (id) => ((ui.layer = id), rerender()), "INPUT section bank"), inBank);
+  const inputs = row("x32-section x32-inputs", el("h4", "x32-title", sofTitle("INPUT", def, ui)), layerBar(sf.inputLayers, ui.layer, (id) => ((ui.layer = id), rerender()), "INPUT section bank"), inBank);
 
   const gLayer = sf.groupLayers.find((l) => l.id === ui.glayer) || sf.groupLayers[0];
   const cBank = el("div", "mixer-strips x32-bank");
@@ -66,10 +66,7 @@ export function renderCL(view, def) {
   const centralogic = row("x32-section cl-centralogic", el("h4", "x32-title", "CENTRALOGIC"), layerBar(sf.groupLayers, gLayer.id, (id) => ((ui.glayer = id), rerender()), "Centralogic Bank Select"), cBank);
 
   // ---------- master section ----------
-  const sof = el("button", `x32-sof${ui.sof ? " on" : ""}`, T.sof);
-  sof.type = "button";
-  sof.setAttribute("aria-pressed", String(ui.sof));
-  sof.addEventListener("click", () => ((ui.sof = !ui.sof), rerender()));
+  const sof = sofKey(def, ui, rerender);
   const udk = el("div", "cl-udk");
   udk.setAttribute("role", "group");
   udk.setAttribute("aria-label", "USER DEFINED keys: mute group masters");

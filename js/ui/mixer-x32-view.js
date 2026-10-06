@@ -32,6 +32,37 @@ export function muteKey(view, def, name, muted, setMuted, note = "") {
     : button(view, { label: "MUTE", tone: "mute", small: false, get: muted, onPress: () => setMuted(!muted(view.store.state)), aria: (s) => `${name} MUTE: ${muted(s) ? `on${note}` : "off"}` });
 }
 
+// SENDS ON FADERS: a lit key plus a line saying what the faders are right now.
+// The X32 has it in the group/bus section beside the layer keys; the CL3 in MASTER.
+export function sofKey(def, ui, rerender) {
+  const key = el("button", `lit-btn x32-sof${ui.sof ? " lit" : ""}`);
+  key.type = "button";
+  key.setAttribute("aria-pressed", String(ui.sof));
+  key.append(el("span", "lit-led"), el("span", "lit-text", termsOf(def).sof));
+  key.addEventListener("click", () => {
+    ui.sof = !ui.sof;
+    rerender();
+  });
+  const sel = ui.sel;
+  const mix = sel.kind === "bus" && !def.buses[sel.b]?.fx ? def.buses[sel.b].label : null;
+  const ch = sel.kind === "ch" ? def.channels[sel.i].label : null;
+  const what = !ui.sof
+    ? mix
+      ? `Press it: the input faders become each channel's send to ${mix}.`
+      : "SEL a MIX, then press it: the input faders become each channel's send to that MIX."
+    : mix
+      ? `On: the input faders are each channel's send to ${mix}. Press again for channel levels.`
+      : ch
+        ? `On: the MIX faders are channel ${ch}'s sends to each MIX. SEL a MIX to put its sends on the input faders.`
+        : "On: SEL a MIX to put its sends on the input faders.";
+  const note = el("p", `x32-sof-note${ui.sof ? " on" : ""}`, what);
+  note.setAttribute("aria-live", "polite");
+  return row("x32-sof-box", key, note);
+}
+
+// An input section's title, plus what its faders are while SENDS ON FADERS shows a MIX.
+export const sofTitle = (title, def, ui) => (ui.sof && ui.sel.kind === "bus" && !def.buses[ui.sel.b]?.fx ? `${title} · SENDS TO ${def.buses[ui.sel.b].label}` : title);
+
 export function renderX32(view, def) {
   const sf = def.surface;
   if (!view.x32 || view.x32.id !== def.id) view.x32 = { id: def.id, layer: sf.inputLayers[0].id, glayer: "bus", sel: { kind: "ch", i: 6 }, sof: false, assign: null, mgrpEdit: false, page: "home" };
@@ -81,7 +112,7 @@ export function renderX32(view, def) {
   inBank.append(...slots);
   const inputs = row(
     "x32-section x32-inputs",
-    el("h4", "x32-title", "INPUT CHANNELS"),
+    el("h4", "x32-title", sofTitle("INPUT CHANNELS", def, ui)),
     layerBar(sf.inputLayers, ui.layer, (id) => {
       ui.layer = id;
       rerender();
@@ -118,15 +149,7 @@ export function renderX32(view, def) {
     view.bindings.push({ kind: "fn", run: (s) => (lines.innerHTML = homeText(def, s, ui, view)) });
     display.appendChild(lines);
   }
-  const sof = el("button", `x32-sof${ui.sof ? " on" : ""}`, "SENDS ON FADERS");
-  sof.type = "button";
-  sof.setAttribute("aria-pressed", String(ui.sof));
-  sof.addEventListener("click", () => {
-    ui.sof = !ui.sof;
-    rerender();
-  });
   display.prepend(el("h4", "x32-title", "MAIN DISPLAY"));
-  display.appendChild(sof);
 
   // ---------- group / bus section ----------
   const gLayer = sf.groupLayers.find((l) => l.id === ui.glayer) || sf.groupLayers[0];
@@ -140,6 +163,7 @@ export function renderX32(view, def) {
       ui.glayer = id;
       rerender();
     }, "Group fader layer"),
+    sofKey(def, ui, rerender),
     grBank,
     muteGroupBar(view, def, ui, rerender),
   );
