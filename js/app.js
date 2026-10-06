@@ -10,6 +10,7 @@ import { DEFAULT_SKIN, SKINS } from "./mixer-models.js";
 import { MixerStore, computeMix, createMixerState } from "./mixer-state.js";
 import { ALL_BOARD_SCENARIOS, SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, captureBaseline, evaluateScenario, scenarioFor, scenariosFor } from "./scenarios.js";
 import { Progress, numberedScenarios } from "./progress.js";
+import { FREE_PLAY_STAT_IDS, freePlayStatId } from "./export.js";
 import { pickSection, sittingOut, stageFor, stageNote } from "./music.js";
 import { nameMode, setNameMode, setStandIns } from "./names.js";
 import { renderFlow } from "./ui/flow.js";
@@ -37,7 +38,8 @@ const hardwareOf = (sk) => sk.hardware || "generic";
 
 const store = new MixerStore(createMixerState(hardwareOf(skin)));
 // Every scenario's progress is remembered: the Canvas export (js/export.js) reports all of it.
-const progress = new Progress([...numberedScenarios(SCENARIOS), ...ALL_BOARD_SCENARIOS].map((s) => s.id), undefined, [...SCENARIOS, ...ALL_BOARD_SCENARIOS].map((s) => s.id));
+// Free play's time is kept per console ("free-play/l20"); plain "free-play" is from before that.
+const progress = new Progress([...numberedScenarios(SCENARIOS), ...ALL_BOARD_SCENARIOS].map((s) => s.id), undefined, [...SCENARIOS, ...ALL_BOARD_SCENARIOS].map((s) => s.id).concat(FREE_PLAY_STAT_IDS));
 const engine = new AudioEngine(store, M);
 
 let current = { def: SCENARIOS_BY_ID["free-play"], baseline: {}, session: { listened: new Set() } };
@@ -512,7 +514,8 @@ document.addEventListener("click", (e) => {
 // ---------- activity (time and actions per scenario, for the Canvas report) ----------
 
 // Active time only: a second counts when the page is visible and the student
-// touched something in the last minute. A drag counts as one action, not one per pixel.
+// touched something in the last minute, and not on the start screen or while
+// writing the Canvas export or a bug report. A drag counts as one action, not one per pixel.
 const IDLE_MS = 60000;
 let lastActivity = performance.now();
 let lastAction = { key: "", at: 0 };
@@ -527,11 +530,15 @@ function countAction(change) {
     return;
   }
   lastAction = { key, at: now };
-  progress.record(current.def.id, { actions: 1 });
+  progress.record(statId(), { actions: 1 });
 }
 
+// Where the time goes: the scenario, or Free play on this console.
+const statId = () => (current.def.id === "free-play" ? freePlayStatId(skin.id) : current.def.id);
+const working = () => !document.hidden && overlay.classList.contains("dismissed") && !$("#canvas").open && !$("#bug").open;
+
 setInterval(() => {
-  if (!document.hidden && performance.now() - lastActivity < IDLE_MS) progress.record(current.def.id, { sec: 1 });
+  if (working() && performance.now() - lastActivity < IDLE_MS) progress.record(statId(), { sec: 1 });
 }, 1000);
 setInterval(() => progress.flush(), 5000);
 document.addEventListener("visibilitychange", () => progress.flush());

@@ -92,6 +92,50 @@ describe("activity stats", () => {
   });
 });
 
+describe("progress shared by several tabs (and legacy/)", () => {
+  it("adds this tab's time to what another tab saved instead of writing over it", () => {
+    const store = memory();
+    const stats = [...ids, "free-play/l20"];
+    const a = new Progress(ids, store, stats);
+    const b = new Progress(ids, store, stats);
+    a.record(ids[0], { sec: 60, actions: 3 });
+    a.flush();
+    b.record(ids[0], { sec: 30, actions: 1 });
+    b.record("free-play/l20", { sec: 10 });
+    b.add(ids[1]);
+    b.flush();
+    a.record(ids[0], { sec: 5 });
+    a.flush();
+    const c = new Progress(ids, store, stats);
+    assert.deepEqual(c.statsFor(ids[0]), { sec: 95, actions: 4 });
+    assert.deepEqual(c.statsFor("free-play/l20"), { sec: 10, actions: 0 });
+    assert.equal(c.has(ids[1]), true);
+    assert.equal(a.has(ids[1]), true, "a tab picks up the other's solved scenarios when it saves");
+  });
+  it("keeps ids it doesn't know (another version's), and a cleared key stays cleared", () => {
+    const store = memory({ [PROGRESS_KEY]: JSON.stringify({ solved: ["old-one"], stats: { "old-one": { sec: 7, actions: 1 } } }) });
+    const a = new Progress(ids, store);
+    const b = new Progress(ids, store);
+    a.record(ids[0], { sec: 2 });
+    a.flush();
+    const saved = JSON.parse(store.data[PROGRESS_KEY]);
+    assert.deepEqual(saved.solved, ["old-one"]);
+    assert.deepEqual(saved.stats["old-one"], { sec: 7, actions: 1 });
+    b.clear();
+    a.record(ids[0], { sec: 1 });
+    a.flush();
+    assert.deepEqual(JSON.parse(store.data[PROGRESS_KEY]), { solved: [], stats: { [ids[0]]: { sec: 1, actions: 0 } } });
+  });
+  it("without storage, work still adds up until the page closes", () => {
+    const p = new Progress(ids, null);
+    p.record(ids[0], { sec: 3 });
+    p.flush();
+    p.record(ids[0], { sec: 2 });
+    p.flush();
+    assert.deepEqual(p.statsFor(ids[0]), { sec: 5, actions: 0 });
+  });
+});
+
 describe("submission text", () => {
   it("has the name, count, every scenario, reflection, URL and a check code", () => {
     const text = build({}, [ids[0]]);
