@@ -24,6 +24,9 @@ export const SKINS = {
       pfl: "PFL",
       phantom: "48V",
       lowCut: "LOW CUT",
+      eqHigh: "HI",
+      eqMid: "MID",
+      eqLow: "LOW",
       phones: "PHONES",
       stereo: "STEREO",
     },
@@ -34,16 +37,16 @@ export const SKINS = {
     layout: "console",
     // Channel strip, top to bottom. Each section is a block; each row is a
     // list of controls (a lone control needs no wrapper). Parts: phantom,
-    // gain, aux1, aux2, pan, pfl, meter, enabled, level, and optionally lowCut.
+    // gain, eqHigh, eqMid, eqLow, aux1, aux2, pan, pfl, meter, enabled, level, and optionally lowCut.
     strip: [
-      { className: "strip-top", rows: [{ parts: ["phantom", "lowCut"], className: "strip-row strip-switches" }, ["gain"], ["aux1"], ["aux2"], ["pan"], ["pfl"]] },
+      { className: "strip-top", rows: [{ parts: ["phantom", "lowCut"], className: "strip-row strip-switches" }, ["gain"], { parts: ["eqHigh", "eqMid", "eqLow"], className: "strip-row strip-eq" }, ["aux1"], ["aux2"], ["pan"], ["pfl"]] },
       { className: "strip-bottom", rows: [["enabled"], { parts: ["meter", "level"], className: "fader-row" }] },
     ],
     // A stereo input is still ONE strip. Same skin, but it drops the parts that
     // don't apply to a linked L/R line input (phantom, pan). A skin could instead
     // draw a stereo pair as two meters or a balance knob by changing this data.
     stereoStrip: [
-      { className: "strip-top", rows: [["gain"], ["aux1"], ["aux2"], ["pfl"]] },
+      { className: "strip-top", rows: [["gain"], { parts: ["eqHigh", "eqMid", "eqLow"], className: "strip-row strip-eq" }, ["aux1"], ["aux2"], ["pfl"]] },
       { className: "strip-bottom", rows: [["enabled"], { parts: ["meter", "level"], className: "fader-row" }] },
     ],
     // Analog-style meter: 0 = nominal (−18 dBFS), with CLIP at the top.
@@ -80,6 +83,9 @@ export const SKINS = {
       mainShort: "MAIN",
       pfl: "PFL",
       phantom: "+48V",
+      eqHigh: "HI",
+      eqMid: "MID",
+      eqLow: "LOW",
       phones: "PHONES",
       stereo: "STEREO",
     },
@@ -95,6 +101,7 @@ export const SKINS = {
           ["enabled"],
           { parts: ["meter"], className: "tile-meter" },
           { parts: ["gain", "pan"], className: "tile-row tile-knobs" },
+          { parts: ["eqHigh", "eqMid", "eqLow"], className: "tile-row tile-knobs tile-eq" },
           { parts: ["aux1", "aux2"], className: "tile-row tile-knobs tile-sends" },
           { parts: ["level"], className: "tile-row tile-knobs tile-level" },
           { parts: ["pfl"], className: "tile-row tile-foot" },
@@ -108,6 +115,7 @@ export const SKINS = {
           ["enabled"],
           { parts: ["meter"], className: "tile-meter" },
           { parts: ["gain"], className: "tile-row tile-knobs" },
+          { parts: ["eqHigh", "eqMid", "eqLow"], className: "tile-row tile-knobs tile-eq" },
           { parts: ["aux1", "aux2"], className: "tile-row tile-knobs tile-sends" },
           { parts: ["level"], className: "tile-row tile-knobs tile-level" },
           { parts: ["pfl"], className: "tile-row tile-foot" },
@@ -178,9 +186,10 @@ export const SKINS = {
   ...compactSkin("mg102", "Yamaha MG10/2", "10-channel, AUX1/AUX2 knob", { aux1: "AUX1", aux2: "AUX2", phones: "C-R/PHONES", pfl: "PFL" }),
   ...compactSkin("x1204usb", "Behringer Xenyx X1204USB", "12-input, COMP, AUX 1 + FX, faders", { aux1: "AUX 1", aux2: "FX", alt: "ALT 3-4", phones: "PHONES/CTRL R", pfl: "SOLO", gain: "TRIM", level: "fader", levelShort: "FADER", main: "MAIN MIX fader" }),
   ...compactSkin("ui16", "Soundcraft Ui16", "digital: SEL + mixes on faders", { aux3: "AUX 3", aux4: "AUX 4", aux1: "AUX 1", aux2: "AUX 2", fx1: "REVERB", fx2: "DELAY", fx3: "CHORUS", phones: "PHONES", pfl: "SOLO", level: "fader", levelShort: "FADER", main: "MASTER fader" }, { layout: "digital", dragAxis: "vertical" }),
+  ...compactSkin("gdig", "Generic digital mixer", "SEL, fader layers, sends on faders", { mix1: "MIX 1", mix2: "MIX 2", mix3: "MIX 3", mix4: "MIX 4", fx1: "FX 1", fx2: "FX 2", phones: "PHONES", pfl: "SOLO", level: "fader", levelShort: "FADER", main: "MAIN fader" }, { layout: "x32", dragAxis: "vertical" }),
   ...compactSkin("x32c", "Behringer X32 Compact", "digital console: layers, SEL, DCAs", { mix1: "MIX 1", mix2: "MIX 2", mix3: "MIX 3", mix4: "MIX 4", mix5: "MIX 5", mix6: "MIX 6", fx1: "FX 1", fx2: "FX 2", phones: "PHONES", pfl: "SOLO", level: "fader", levelShort: "FADER", main: "MAIN LR fader" }, { layout: "x32", dragAxis: "vertical" }),
   ...compactSkin("x32", "Behringer X32", "full console: matrices, routing, scenes", { mix1: "MIX 1", mix2: "MIX 2", mix3: "MIX 3", mix4: "MIX 4", mix5: "MIX 5", mix6: "MIX 6", mix7: "MIX 7", mix8: "MIX 8", mix9: "MIX 9", mix10: "MIX 10", mix11: "MIX 11", mix12: "MIX 12", mix13: "MIX 13", mix14: "MIX 14", mix15: "MIX 15", mix16: "MIX 16", mtx1: "MATRIX 1", mtx2: "MATRIX 2", mtx3: "MATRIX 3", mtx4: "MATRIX 4", mtx5: "MATRIX 5", mtx6: "MATRIX 6", mc: "M/C", phones: "PHONES", pfl: "SOLO", level: "fader", levelShort: "FADER", main: "MAIN LR fader" }, { layout: "x32", dragAxis: "vertical" }),
-  ...compactSkin("l20", "Zoom LiveTrak L-20", "digital that works like analog: FADER MODE, six monitor mixes", { monA: "MONITOR A", monB: "MONITOR B", monC: "MONITOR C", monD: "MONITOR D", monE: "MONITOR E", monF: "MONITOR F", fx1: "EFX 1", fx2: "EFX 2", phones: "PHONES", pfl: "SOLO", level: "fader", levelShort: "FADER", main: "MASTER fader" }, { layout: "l20", dragAxis: "vertical" }),
+  ...compactSkin("l20", "Zoom LiveTrak L-20", "digital, six monitor mixes", { monA: "MONITOR A", monB: "MONITOR B", monC: "MONITOR C", monD: "MONITOR D", monE: "MONITOR E", monF: "MONITOR F", fx1: "EFX 1", fx2: "EFX 2", phones: "PHONES", pfl: "SOLO", level: "fader", levelShort: "FADER", main: "MASTER fader" }, { layout: "l20", dragAxis: "vertical" }),
   ...compactSkin("yam01v96", "Yamaha 01V96i", "digital: layers, FADER MODE, display", { aux1: "AUX 1", aux2: "AUX 2", aux3: "AUX 3", aux4: "AUX 4", aux5: "AUX 5", aux6: "AUX 6", aux7: "AUX 7", aux8: "AUX 8", phones: "PHONES", pfl: "SOLO", enabled: "ON", level: "fader", levelShort: "FADER", main: "STEREO fader" }, { layout: "01v96", dragAxis: "vertical", enabledControl: { label: "ON", litWhenEnabled: true, litText: "", unlitText: "Off" } }),
   ...compactSkin("cl3", "Yamaha CL3", "touring console: Centralogic, touch screen, Rio", { mix1: "MIX 1", mix2: "MIX 2", mix3: "MIX 3", mix4: "MIX 4", mix5: "MIX 5", mix6: "MIX 6", mix7: "MIX 7", mix8: "MIX 8", mix9: "MIX 9", mix10: "MIX 10", mix11: "MIX 11", mix12: "MIX 12", mix13: "MIX 13", mix14: "MIX 14", mix15: "MIX 15", mix16: "MIX 16", mtx1: "MATRIX 1", mtx2: "MATRIX 2", mtx3: "MATRIX 3", mtx4: "MATRIX 4", mtx5: "MATRIX 5", mtx6: "MATRIX 6", mtx7: "MATRIX 7", mtx8: "MATRIX 8", phones: "PHONES", pfl: "CUE", enabled: "ON", level: "fader", levelShort: "FADER", main: "STEREO fader" }, { layout: "cl", dragAxis: "vertical", enabledControl: { label: "ON", litWhenEnabled: true, litText: "", unlitText: "Off" } }),
   ...compactSkin("dm2000", "Yamaha DM2000", "large digital console: encoders, buses, groups", { aux1: "AUX 1", aux2: "AUX 2", aux3: "AUX 3", aux4: "AUX 4", aux5: "AUX 5", aux6: "AUX 6", aux7: "AUX 7", aux8: "AUX 8", bus1: "BUS 1", bus2: "BUS 2", bus3: "BUS 3", bus4: "BUS 4", bus5: "BUS 5", bus6: "BUS 6", bus7: "BUS 7", bus8: "BUS 8", mtx1: "MATRIX 1", mtx2: "MATRIX 2", mtx3: "MATRIX 3", mtx4: "MATRIX 4", phones: "PHONES", pfl: "SOLO", enabled: "ON", level: "fader", levelShort: "FADER", main: "STEREO fader" }, { layout: "dm2000", dragAxis: "vertical", enabledControl: { label: "ON", litWhenEnabled: true, litText: "", unlitText: "Off" } }),

@@ -955,6 +955,12 @@ Object.assign(WRONG, {
   "x32-scene-store": [["stored over scene 2", (a) => a.st.storeScene(1, "Encore")]],
 });
 
+// The generic digital mixer is the X32 Compact's model with no brand on it: the same fixes (and mistakes) apply.
+for (const k of ["doors", "gain", "48v", "lowcut", "lr", "mud", "eq-on", "comp-on", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "new-mix"]) {
+  SOLVE[`gdig-${k}`] = SOLVE[`x32c-${k}`];
+  if (WRONG[`x32c-${k}`]) WRONG[`gdig-${k}`] = WRONG[`x32c-${k}`];
+}
+
 // The CL3 reuses the X32's and 01V96's jobs: the same fixes (and the same mistakes) apply.
 const CL3_FROM = { doors: "x32-doors", gain: "x32c-gain", "48v": "x32c-48v", on: "yam01v96-on", "eq-on": "x32-eq-on", "comp-on": "x32-comp-on", sof: "x32c-sof", "routing-house": "x32-routing-house", "routing-wedge": "x32-routing-wedge", dca: "x32c-dca", "mute-group": "x32c-mute-group", matrix: "x32-matrix", fx: "x32-fx", "scene-recall": "x32-scene-recall", "scene-store": "x32-scene-store" };
 for (const [k, src] of Object.entries(CL3_FROM)) {

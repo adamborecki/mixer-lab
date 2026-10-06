@@ -411,6 +411,65 @@ export const COMPACT = {
     layout: { kind: "l20" },
   },
 
+  // Generic digital mixer: an unbranded desk in the X32 / 01V mould, for learning what every digital
+  // mixer shares before meeting a real one. 16 inputs and a stereo AUX strip on fader layers,
+  // ONE selected-channel strip (SEL), Sends on Faders, 4 MIX buses and 2 effects, a MAIN switch on every
+  // channel. No DCAs, mute groups, matrices or scenes. Drawn by js/ui/mixer-x32-view.js.
+  gdig: {
+    id: "gdig",
+    name: "Generic digital mixer",
+    blurb: "An unbranded digital console: fader layers, SEL a channel to edit it in one channel strip, Sends on Faders, 4 MIX buses and 2 effects.",
+    digital: true,
+    phantom: { label: "48V", channels: Array.from({ length: 16 }, (_, i) => i), perChannel: true },
+    channels: [
+      ...Array.from({ length: 16 }, (_, i) => ({
+        label: String(i + 1),
+        kind: "mono",
+        jacks: ["mic"],
+        gain: { min: -6, max: 60 },
+        hpf: { min: 20, max: 400 },
+        peq: true,
+        dyn: true,
+        polarity: true,
+        sends: ["mix1", "mix2", "mix3", "mix4", "fx1", "fx2"],
+        mute: "mute",
+        solo: true,
+        peak: true,
+      })),
+      { label: "AUX 1/2", kind: "stereo", jacks: ["linePair"], gain: { min: -12, max: 20 }, peq: true, dyn: true, sends: ["mix1", "mix2", "mix3", "mix4", "fx1", "fx2"], mute: "mute", solo: true, peak: true },
+    ],
+    sends: {
+      ...Object.fromEntries([1, 2, 3, 4].map((n) => [`mix${n}`, { label: `MIX ${n}`, bus: `mix${n}`, tap: "each", pre: false, law: "level" }])),
+      fx1: { label: "FX 1", bus: "fx1", tap: "post", law: "level" },
+      fx2: { label: "FX 2", bus: "fx2", tap: "post", law: "level" },
+    },
+    buses: {
+      ...Object.fromEntries([1, 2, 3, 4].map((n) => [`mix${n}`, { label: `MIX ${n}`, master: { label: `MIX ${n}`, law: "level" }, mute: true }])),
+      fx1: { label: "FX 1", master: { label: "FX 1 RTN", law: "level" }, fx: { name: "Hall reverb", kind: "reverb", seconds: 2.4, number: 1 } },
+      fx2: { label: "FX 2", master: { label: "FX 2 RTN", law: "level" }, fx: { name: "Stereo delay", kind: "delay", seconds: 0.375, feedback: 0.35, number: 2 } },
+    },
+    muteCutsPre: true, // a channel MUTE silences its bus sends too
+    lrSwitch: true, // TO MAIN: each channel reaches the main mix only with it on
+    mainMute: true,
+    main: { label: "MAIN", law: "level" },
+    phones: { label: "PHONES", sources: null },
+    solo: { mode: "pfl", label: "SOLO" },
+    meter: [-54, -48, -42, -36, -30, -24, -18, -12, -6, "CLIP"],
+    peakLabel: "CLIP",
+    outputs: ["x32Outs"], // XLR OUT 1–4 carry MIX 1–4, OUT 5/6 the MAIN L/R
+    layout: { kind: "x32" },
+    surface: {
+      terms: { main: "MAIN", mainL: "MAIN L", mainR: "MAIN R", lr: "TO MAIN", inputs: "INPUT CHANNELS", groups: "BUS CHANNELS", display: "DISPLAY" },
+      inputLayers: [
+        { id: "ch1", label: "CH 1-8", channels: [0, 1, 2, 3, 4, 5, 6, 7] },
+        { id: "ch9", label: "CH 9-16", channels: [8, 9, 10, 11, 12, 13, 14, 15] },
+        { id: "aux", label: "AUX / FX", channels: [16], fx: ["fx1", "fx2"] },
+      ],
+      groupLayers: [{ id: "bus", label: "MIX 1-4", buses: ["mix1", "mix2", "mix3", "mix4"] }],
+      bank: 8,
+    },
+  },
+
   // Behringer X32 Compact (user manual): 16 local XLR inputs, 8 XLR outputs
   // (by default mix buses 1–6 on 1–6, Main L/R on 7–8), input faders on layers,
   // a separate bank for DCA groups and bus masters, Sends on Faders, 8 DCAs,
@@ -887,9 +946,10 @@ export function compactPorts(def) {
     ports.push(out("main-l", "xlr", "STEREO OUT L", { bus: "main", side: "L" }), out("main-r", "xlr", "STEREO OUT R", { bus: "main", side: "R" }));
     for (const n of [1, 2, 3, 4]) ports.push(out(`aux${n}`, "xlr", `OMNI OUT ${n} (AUX ${n})`, { bus: `aux${n}` }));
   } else if (o.includes("x32Outs")) {
-    // XLR OUT 1–6 carry MIX 1–6, XLR OUT 7–8 the MAIN L/R (the factory routing).
-    for (const n of [1, 2, 3, 4, 5, 6]) ports.push(out(`mix${n}`, "xlr", `XLR OUT ${n} (MIX ${n})`, { bus: `mix${n}` }));
-    ports.push(out("main-l", "xlr", "XLR OUT 7 (MAIN L)", { bus: "main", side: "L" }), out("main-r", "xlr", "XLR OUT 8 (MAIN R)", { bus: "main", side: "R" }));
+    // XLR OUT 1–n carry the MIX buses (6 on the X32 Compact, 4 on the generic digital mixer), the next two the MAIN L/R (the factory routing).
+    const mixes = Object.keys(def.buses).filter((b) => /^mix\d+$/.test(b) && !def.buses[b].fx);
+    for (const b of mixes) ports.push(out(b, "xlr", `XLR OUT ${b.slice(3)} (MIX ${b.slice(3)})`, { bus: b }));
+    ports.push(out("main-l", "xlr", `XLR OUT ${mixes.length + 1} (MAIN L)`, { bus: "main", side: "L" }), out("main-r", "xlr", `XLR OUT ${mixes.length + 2} (MAIN R)`, { bus: "main", side: "R" }));
   } else if (o.includes("mainXlrOnly")) {
     ports.push(out("main-l", "xlr", `${mainName} L (XLR)`, { bus: "main", side: "L" }), out("main-r", "xlr", `${mainName} R (XLR)`, { bus: "main", side: "R" }));
   } else if (o.includes("main")) {

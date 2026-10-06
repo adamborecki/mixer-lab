@@ -14,7 +14,7 @@ import { formatDb, formatPan } from "../levels.js";
 import { compGraph, eqGraph, updateViz } from "./viz.js";
 
 // How a desk draws its processing graphs.
-export const vizTheme = (def) => (def.id === "yam01v96" ? "lcd" : def.id === "cl3" ? "cl" : def.id.startsWith("x32") ? "x32" : "ui16");
+export const vizTheme = (def) => (def.id === "yam01v96" ? "lcd" : def.id === "cl3" ? "cl" : def.id.startsWith("x32") || def.id === "gdig" ? "x32" : "ui16");
 
 // The ON switch of a channel's EQ or compressor ("eqOn" / "compOn").
 export function procOn(view, def, i, key, label, what) {

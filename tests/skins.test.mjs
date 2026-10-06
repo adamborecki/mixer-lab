@@ -3,10 +3,10 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { SKINS, enabledLit, enabledAfterPress, enabledStatusText, globalPhantomState } from "../js/mixer-models.js";
 import { SCENARIOS } from "../js/scenarios.js";
-import { createMixerState } from "../js/mixer-state.js";
+import { CHANNEL_COUNT, MixerStore, createMixerState } from "../js/mixer-state.js";
 
 const { analog, compact } = SKINS;
-const PARTS = new Set(["phantom", "gain", "aux1", "aux2", "pan", "pfl", "meter", "enabled", "level"]);
+const PARTS = new Set(["phantom", "gain", "eqHigh", "eqMid", "eqLow", "aux1", "aux2", "pan", "pfl", "meter", "enabled", "level"]);
 // Controls only some mixers have; a skin places each at most once.
 const OPTIONAL = new Set(["lowCut"]);
 
@@ -73,5 +73,27 @@ describe("skin definitions", () => {
     const text = SCENARIOS.flatMap((s) => [s.prompt, s.goal, s.complete, ...s.hints, ...s.conditions.map((c) => c.label)]).filter(Boolean).join(" ");
     const keys = [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
     for (const skin of [analog, compact]) for (const k of keys) assert.ok(k in skin.terms, `${skin.id}: {${k}}`);
+  });
+});
+
+describe("the generic mixers' 3-band EQ", () => {
+  it("every channel (the stereo strip too) starts flat, and both skins have HI, MID and LOW", () => {
+    const st = new MixerStore(createMixerState());
+    for (const c of st.state.channels) assert.deepEqual(c.eq, { high: 0, mid: 0, low: 0 });
+    for (const skin of [analog, compact]) for (const k of ["eqHigh", "eqMid", "eqLow"]) assert.ok(skin.terms[k], `${skin.id}: ${k}`);
+  });
+
+  it("a band moves in half-dB steps within ±15 dB, and nothing else is accepted", () => {
+    const st = new MixerStore(createMixerState());
+    st.setChannel(0, "eq.mid", 4.3);
+    assert.equal(st.state.channels[0].eq.mid, 4.5);
+    st.setChannel(0, "eq.low", -40);
+    assert.equal(st.state.channels[0].eq.low, -15);
+    st.setChannel(0, "eq.high", 99);
+    assert.equal(st.state.channels[0].eq.high, 15);
+    st.setChannel(0, "eq.bogus", 3);
+    assert.equal(st.state.channels[0].eq.bogus, undefined);
+    st.setChannel(CHANNEL_COUNT - 1, "eq.mid", -6); // the stereo strip has an EQ too
+    assert.equal(st.state.channels[CHANNEL_COUNT - 1].eq.mid, -6);
   });
 });

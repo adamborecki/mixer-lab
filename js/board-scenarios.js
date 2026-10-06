@@ -3523,6 +3523,70 @@ const DM = [
 ];
 
 
+// ---------- Generic digital mixer ----------
+
+// An unbranded desk built on the X32 Compact's model: the same jobs, said in no brand's words.
+const GDIG = [
+  doors("gdig", {
+    prompt: "“Doors in five. The laptop is on AUX 1/2 — preshow music, please.”",
+    hints: ["The laptop isn't on channels 1–16. The input faders show one layer at a time.", "Press the AUX / FX layer button: the first strip is AUX 1/2.", "On the AUX / FX layer, push AUX 1/2's fader up."],
+    complete: "On a digital mixer the faders are shared: the layer buttons decide which channels they control right now. Always check the layer before you grab a fader.",
+  }),
+  like("gdig", "x32c-gain", {
+    setup: { tweak: (st, h) => h.set("lead-vocal", "gainDb", -6) },
+    hints: ["Gain first. On a digital mixer the preamp's knob is in the channel strip, for whichever channel is selected.", "Press SEL on channel 7: the channel strip on the left now edits it.", "Turn the channel strip's GAIN up until the meter sits around the middle."],
+    complete: "One set of channel-strip knobs serves every channel: SEL decides which. Check the strip's title before you turn anything.",
+  }),
+  like("gdig", "x32c-48v", {
+    hints: ["A condenser needs phantom power. On this mixer it's switched per channel.", "SEL channel 1: 48V is in the channel strip's INPUT section.", "SEL channel 1 and press 48V."],
+    complete: "48V is switched per channel from the selected-channel strip. Mute the channel first to keep the pop out of the speakers.",
+  }),
+  like("gdig", "x32c-lowcut", {
+    hints: ["SEL each vocal channel in turn.", "LOW CUT is in the channel strip's INPUT section: a frequency from 20 to 400 Hz.", "SEL channel 6, set LOW CUT around 100 Hz; then SEL channel 7 and do the same."],
+    complete: "LOW CUT is part of every channel's input section: set it per channel, after GAIN.",
+  }),
+  like("gdig", "x32c-lr", {
+    hints: ["The guitar reaches the wedge, so the mic, GAIN and channel all work. What's between the channel and the house?", "Each channel has a TO MAIN switch: on, it goes to the main mix. It's in the channel strip (PAN & SENDS).", "SEL channel 3 and switch TO MAIN on."],
+    complete: "Every channel needs TO MAIN on to reach the house. Turning it off is also a clean way to keep a channel in the wedges only.",
+  }),
+  eqMud("gdig", {
+    hints: ["SEL channel 3 and, in the channel strip's EQ, turn LO MID's GAIN down a few dB with FREQ near 300 Hz.", "Nothing changed? The EQ starts switched off: press EQ ON. The curve in the strip shows it."],
+    complete: "Every processing block on a digital mixer has its own on button. Set it, switch it in, check the curve.",
+  }),
+  eqOff("gdig", {
+    hints: ["SEL channel 7. The EQ curve is flat, grey and marked EQ OFF: the bands are set but switched out.", "In the channel strip's EQ section, press EQ ON. Leave the bands alone."],
+    complete: "A dialled-in EQ does nothing while it's switched off. On a digital mixer, check the EQ ON key and the curve before the knobs.",
+  }),
+  compOff("gdig", {
+    hints: ["SEL channel 7: the compressor graph says COMP OFF, and the GR bar never moves.", "In the channel strip's COMPRESSOR section, press COMP ON."],
+    complete: "A compressor dialled in but switched off does nothing at all. After setting one, check that GR moves.",
+  }),
+  like("gdig", "x32c-sof", {
+    hints: ["The singer's wedge is MIX 1 (XLR OUT 1). Listen to it.", "SEL MIX 1 on the MIX 1-4 layer, then press SENDS ON FADERS: the input faders become sends to MIX 1.", "With SENDS ON FADERS lit, push channel 7's fader up. Then switch SENDS ON FADERS off."],
+    complete: "SENDS ON FADERS turns the input faders into one MIX's sends: the quickest way to work on a wedge. Switch it off afterwards, or your next fader move changes a wedge instead of the house.",
+  }),
+  like("gdig", "x32c-drummer-quiet", {
+    hints: ["The drummer's wedge is MIX 2. One fader moves the whole of it.", "The MIX 1-4 layer on the right-hand faders shows the MIX masters.", "On the MIX 1-4 layer, push MIX 2's fader up towards 0 dB."],
+    complete: "The MIX master moves the whole wedge; the sends keep its balance. Same idea as an analog AUX master, on a fader layer.",
+  }),
+  like("gdig", "x32c-bus-mute", {
+    hints: ["Every send to the wedge is still there. So look at the whole bus.", "Bus masters have their own MUTE, on the MIX 1-4 layer.", "On the MIX 1-4 layer, switch MIX 1's MUTE off."],
+    complete: "A muted bus master silences that whole mix while every send looks fine. Check the master before you chase channels.",
+  }),
+  like("gdig", "x32c-reverb", {
+    hints: ["FX 1 is a hall reverb fed by a send from each channel, returning on FX 1 RTN (AUX / FX layer).", "SEL channel 7: its sends are in the channel strip, FX 1 among them.", "Turn up channel 7's FX 1 send."],
+    complete: "Effects are buses too: a send per channel in, an FX return fader back into the main mix.",
+  }),
+  like("gdig", "x32c-out-of-house", {
+    hints: ["Try MUTE and listen to MIX 2. On this mixer, MUTE takes a channel out of its sends too.", "You need the bass out of the house only. Two ways: its fader (its MIX 2 send is PRE), or one switch in the channel strip.", "SEL channel 2 and switch TO MAIN off (or pull its fader down)."],
+    complete: "TO MAIN off is the cleanest way: the channel stays in every send, with its fader untouched for the next song. MUTE would have taken the drummer's bass too.",
+  }),
+  like("gdig", "x32c-new-mix", {
+    hints: ["SEL MIX 3 and use SENDS ON FADERS to build the mix; listen to MIX 3 as you go.", "Sends to MIX 3 start POST here, so they'd follow the house faders. Each channel's PRE for MIX 3 is in its channel strip.", "SEL channels 1, 3 and 7 in turn and press PRE next to their MIX 3 send. Guitar and vocal near 0 dB, drums lower."],
+    complete: "A new monitor mix: the sends set the balance, PRE makes it independent of the house. The routing (MIX 3 → XLR OUT 3) was already there.",
+  }),
+];
+
 // ---------- Zoom F8n Pro ----------
 // A recorder with a mixer inside: TRIM sets each iso, the track knobs build
 // the L/R mix for the cameras. The camera lessons of the 442, plus routing.
@@ -3878,10 +3942,11 @@ const ORDER = {
   f8n: ["track", "trim", "room", "hpf", "pfl", "balance", "link", "camera", "dslr", "iso-safety"],
   dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
   cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "dante-back", "dante-fix", "scene-recall", "scene-store"],
+  gdig: ["doors", "gain", "48v", "lowcut", "lr", "mud", "eq-on", "comp-on", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "new-mix"],
   x32c: ["doors", "gain", "48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix", "stagebox"],
 };
 
-const LISTS = { l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c], yam01v96: Y96, x32: [...X32F, ...BOXES.x32] };
+const LISTS = { gdig: GDIG, l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c], yam01v96: Y96, x32: [...X32F, ...BOXES.x32] };
 
 // Who is on stage (js/music.js stageFor). Every scenario's story was read for
 // this; anything not listed has the whole band playing (the 8-bar section it
@@ -3936,6 +4001,7 @@ export const MIXER_ORDER = [
   { model: "vlz1202", skin: "vlz1202", why: "Two auxes with a PRE switch, effects send and return, MUTE/ALT 3-4, solo and a C-R SOURCE matrix." },
   { model: "x1204usb", skin: "x1204usb", why: "Faders, compressors, built-in effects, PRE per channel, PFL or solo-in-place, an ALT bus with its own fader." },
   { model: "cr1604", skin: "mackie1604", why: "A full console: 16 channels, six auxes with SHIFT, four subgroups, mono out, four returns, direct outs to a recorder." },
+  { model: "gdig", skin: "gdig", why: "Your first digital mixer, with no brand on it: fader layers, SEL a channel to edit it in one strip, EQ and compressor that must be switched ON, Sends on Faders for the wedges. Everything the real digital desks share." },
   { model: "ui16", skin: "ui16", why: "Digital: the same jobs through pages and SEL. Sends on faders, a parametric EQ and a compressor on every channel." },
   { model: "l20", skin: "l20", why: "A digital mixer with an analog heart: every knob is on the surface. FADER MODE gives each of six monitor mixes its own faders, EFX RTN has a level in every mix, and MONITOR OUT jacks choose between their own mix and the MASTER." },
   { model: "x32c", skin: "x32c", why: "A digital console laid out like the big ones: fader layers, a selected-channel strip, Sends on Faders, DCA and mute groups, a MAIN LR switch on every channel." },

@@ -4,7 +4,7 @@
 import { RangeControl, LitButton } from "./controls.js";
 import { MeterView } from "../meters.js";
 import { enabledLit, enabledAfterPress, enabledStatusText, globalPhantomState } from "../mixer-models.js";
-import { GAIN_MAX_DB, GAIN_MIN_DB, dbToLevel, formatDb, formatPan, levelToDb } from "../mixer-state.js";
+import { EQ_BANDS, EQ_RANGE_DB, GAIN_MAX_DB, GAIN_MIN_DB, dbToLevel, formatDb, formatPan, levelToDb } from "../mixer-state.js";
 import { render1604, update1604 } from "./mixer-1604-view.js";
 import { renderCompact, updateCompact } from "./mixer-compact-view.js";
 import { renderDigital, updateDigital } from "./mixer-digital-view.js";
@@ -166,6 +166,33 @@ export class MixerView {
           }),
           (s) => s.channels[i].gainDb,
         ).el,
+      // 3-band EQ: one knob per band, centre = flat.
+      ...Object.fromEntries(
+        EQ_BANDS.map((band) => {
+          const key = `eq${band.id[0].toUpperCase()}${band.id.slice(1)}`;
+          return [
+            key,
+            () =>
+              this.bind(
+                this.knob({
+                  label: t[key],
+                  sheetLabel: `Ch ${num} EQ ${t[key]}`,
+                  min: -EQ_RANGE_DB,
+                  max: EQ_RANGE_DB,
+                  step: 0.5,
+                  keyStepMul: 2,
+                  defaultValue: 0,
+                  bipolar: true,
+                  tone: "eq",
+                  size: "xs",
+                  format: (v) => (Math.abs(v) < 0.25 ? "0 dB" : `${v > 0 ? "+" : "−"}${Math.abs(v)} dB`),
+                  onInput: (v) => store.setChannel(i, `eq.${band.id}`, v),
+                }),
+                (s) => s.channels[i].eq[band.id],
+              ).el,
+          ];
+        }),
+      ),
       aux1: () => sendKnob("aux1"),
       aux2: () => sendKnob("aux2"),
       pan: () =>

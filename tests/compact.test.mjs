@@ -663,3 +663,21 @@ describe("Zoom LiveTrak L-20", () => {
     assert.equal(st.state.fx2.ret_nope, undefined);
   });
 });
+
+describe("Generic digital mixer", () => {
+  it("is the X32 Compact's model without the brand, DCAs or mute groups: 4 MIX outs, then MAIN L/R", () => {
+    const def = COMPACT.gdig;
+    assert.equal(def.dca, undefined);
+    assert.equal(def.muteGroups, undefined);
+    const outs = DEVICE_TYPES.gdig.ports.filter((p) => p.dir === "out");
+    assert.deepEqual(outs.map((p) => p.id), ["mix1", "mix2", "mix3", "mix4", "main-l", "main-r"]);
+    assert.equal(outs.find((p) => p.id === "main-l").name, "XLR OUT 5 (MAIN L)");
+    // the X32 Compact's own numbering is unchanged
+    assert.equal(DEVICE_TYPES.x32c.ports.find((p) => p.id === "main-r").name, "XLR OUT 8 (MAIN R)");
+  });
+
+  it("starts with EQ ON and COMP ON off, like the other digital desks", () => {
+    const s = createMixerState("gdig");
+    assert.ok(s.channels.every((c) => c.eqOn === false && c.compOn === false));
+  });
+});

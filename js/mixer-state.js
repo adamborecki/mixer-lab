@@ -14,6 +14,13 @@ export const CHANNEL_LAYOUT = [
 export const CHANNEL_COUNT = CHANNEL_LAYOUT.length;
 export const GAIN_MIN_DB = 0;
 export const GAIN_MAX_DB = 60;
+// The generic mixers' 3-band EQ (Mixer A and B): the same three bands as the Mackie compacts.
+export const EQ_BANDS = [
+  { id: "high", label: "HI", type: "highshelf", hz: 12000 },
+  { id: "mid", label: "MID", type: "peaking", hz: 2500 },
+  { id: "low", label: "LOW", type: "lowshelf", hz: 80 },
+];
+export const EQ_RANGE_DB = 15;
 // Aux/monitor buses (all pre-fader in V1). Each needs a master in state, a
 // send on every channel, a mixer output port, and a word in each skin.
 export const BUSES = ["aux1", "aux2"];
@@ -61,6 +68,7 @@ export function createChannel(index) {
     gainDb: GAIN_MIN_DB,
     phantom: false,
     lowCut: false, // 75 Hz high-pass right after the preamp (mono strips)
+    eq: { high: 0, mid: 0, low: 0 }, // 3-band EQ in dB (±15): 12 kHz shelf, 2.5 kHz bell, 80 Hz shelf
     enabled: true, // Skin A shows this as MUTE (lit = false); Skin B as ON (lit = true)
     pan: 0, // mono strips only; a stereo strip keeps its left and right sides where they are
     level: 0, // fader / level knob position, 0…1
@@ -210,6 +218,16 @@ export class MixerStore {
       return;
     }
     if (ch.stereo && (key === "phantom" || key === "pan" || key === "lowCut")) return; // not on a stereo line strip
+    // "eq.high", "eq.mid", "eq.low": a nested control.
+    if (key.startsWith("eq.")) {
+      const band = key.slice(3);
+      if (!EQ_BANDS.some((b) => b.id === band)) return;
+      const v = Math.round(clamp(Number(value), -EQ_RANGE_DB, EQ_RANGE_DB) * 2) / 2;
+      if (!Number.isFinite(v) || ch.eq[band] === v) return;
+      ch.eq[band] = v;
+      this.emit({ type: "channel", index, key });
+      return;
+    }
     const v = sanitizeChannelValue(key, value);
     if (v === undefined || ch[key] === v) return;
     ch[key] = v;

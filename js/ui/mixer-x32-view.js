@@ -352,6 +352,7 @@ export function mainStrip(view, def, ui, rerender) {
 
 // MUTE GRP: off, the six buttons mute their groups; on, they pick a group to assign.
 export function muteGroupBar(view, def, ui, rerender) {
+  if (!def.muteGroups) return null; // no mute groups on this desk (the generic digital mixer)
   const store = view.store;
   const barEl = el("div", "x32-mgrp");
   const edit = el("button", `x32-layer${ui.mgrpEdit ? " on" : ""}`, "MUTE GRP");
@@ -550,17 +551,17 @@ function homeText(def, s, ui, view) {
     const c = s.channels[ui.sel.i];
     const name = view.dgHeads[ui.sel.i]?.querySelector(".strip-name")?.textContent || "—";
     lines.push(`<p class="x32-big">Ch ${esc(c.label)} · ${esc(name)}</p>`);
-  } else lines.push(`<p class="x32-big">${esc(ui.sel.kind === "main" ? "MAIN LR" : ui.sel.kind === "mc" ? "M/C" : ui.sel.kind === "mtx" ? `MATRIX ${ui.sel.b.slice(3)}` : def.buses[ui.sel.b].label)} selected</p>`);
+  } else lines.push(`<p class="x32-big">${esc(ui.sel.kind === "main" ? termsOf(def).main : ui.sel.kind === "mc" ? "M/C" : ui.sel.kind === "mtx" ? `MATRIX ${ui.sel.b.slice(3)}` : def.buses[ui.sel.b].label)} selected</p>`);
   if (ui.assign) {
     const what = ui.assign.type === "dca" ? `DCA ${ui.assign.n}` : `mute group ${ui.assign.n}`;
     lines.push(`<p class="x32-warn">Assigning ${what}: press SEL on the input channels to add or remove them. ${ui.assign.type === "dca" ? `Press DCA ${ui.assign.n}'s SEL again` : "Switch MUTE GRP off"} to finish.</p>`);
   } else if (ui.sof && ui.sel.kind === "bus") lines.push(`<p class="x32-warn">SENDS ON FADERS: the input faders are each channel's send to ${esc(def.buses[ui.sel.b].label)}.</p>`);
   else if (ui.sof && ui.sel.kind === "ch") lines.push(`<p class="x32-warn">SENDS ON FADERS: on a BUS layer, the bus faders are channel ${esc(s.channels[ui.sel.i].label)}'s sends to each MIX.</p>`);
   else if (ui.sof) lines.push(`<p class="x32-warn">SENDS ON FADERS: select a MIX (or a channel) to see its sends on the faders.</p>`);
-  else lines.push(`<p>Input faders: channel levels into MAIN LR.</p>`);
+  else lines.push(`<p>Input faders: channel levels into ${esc(termsOf(def).main)}.</p>`);
   const dcaUsed = Array.from({ length: def.dca || 0 }, (_, k) => k + 1).filter((k) => s.channels.some((c) => c.dca?.[`d${k}`]));
   if (dcaUsed.length) lines.push(`<p>${dcaUsed.map((k) => `DCA ${k}: ${s.channels.filter((c) => c.dca[`d${k}`]).map((c) => esc(c.label)).join(", ")}${s[`dca${k}`].mute ? " (muted)" : ""}`).join("<br>")}</p>`);
-  const groups = Object.keys(s.mgrp).filter((g) => s.channels.some((c) => c.mgrp?.[g]));
+  const groups = Object.keys(s.mgrp || {}).filter((g) => s.channels.some((c) => c.mgrp?.[g]));
   if (groups.length) lines.push(`<p>${groups.map((g) => `Mute group ${g.slice(1)}: ${s.channels.filter((c) => c.mgrp[g]).map((c) => esc(c.label)).join(", ")}${s.mgrp[g] ? " (muted)" : ""}`).join("<br>")}</p>`);
   const subs = Object.keys(def.buses).filter((b) => s[b]?.lr);
   if (subs.length) lines.push(`<p>Subgroups into MAIN LR: ${subs.map((b) => esc(def.buses[b].label)).join(", ")}</p>`);

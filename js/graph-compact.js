@@ -528,7 +528,7 @@ export function buildCompactGraph(kit, def) {
     outputs["main-r"] = xlr.R;
     outputs["line-l"] = masterOut.L;
     outputs["line-r"] = masterOut.R;
-  } else if (def.outputs.includes("main") || def.outputs.includes("mainXlrOnly")) {
+  } else if (def.outputs.includes("main") || def.outputs.includes("mainXlrOnly") || def.outputs.includes("x32Outs")) {
     outputs["main-l"] = masterOut.L;
     outputs["main-r"] = masterOut.R;
   }

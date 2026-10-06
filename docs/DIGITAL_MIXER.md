@@ -43,6 +43,17 @@ Soundcraft's Ui16 product description (inputs, 4 aux sends, 3 Lexicon effects, 4
 - **EQ and compression** are heard but, as on every mixer, the scenario level model leaves them out.
 - **Meters** show each channel after its EQ, and the master meters the main mix (or the solo).
 
+## Generic digital mixer
+
+An unbranded desk for learning what every digital mixer shares before meeting a real one (definition `gdig`, picked from Free play's console list and the Real mixers menu, just before the Ui16). It is the X32 Compact's surface and model (`js/ui/mixer-x32-view.js`, skin layout `"x32"`) with the brand, DCAs, mute groups, stage box and scenes taken out, and its own words in `def.surface.terms` (TO MAIN, MAIN, MIX 1-4).
+
+- **SEL, then edit:** one channel strip on the left edits whatever is selected (a channel or a MIX): GAIN, 48V, LOW CUT, a 4-band EQ and a compressor (each with its ON key, both starting off), pan, TO MAIN, and the sends.
+- **Layers:** CH 1-8, CH 9-16, AUX / FX (the stereo AUX 1/2 strip and the two effect returns) on the input faders; MIX 1-4 and MAIN on the right.
+- **Sends on Faders:** SEL a MIX, press SENDS ON FADERS, and the input faders become sends to it.
+- **Outputs:** XLR OUT 1-4 carry MIX 1-4, OUT 5/6 are MAIN L/R (`x32Outs`, now numbered from the definition's MIX buses).
+- **Gig and scenarios:** the X32 Compact's gig on 16 inputs, and 14 practice scenarios cloned from the X32 Compact's with generic hints (`GDIG` in `js/board-scenarios.js`); the tests reuse the X32 Compact's solutions.
+- **Not built:** DCAs, mute groups, matrices, scenes, output routing, input routing.
+
 ## Behringer X32 Compact
 
 The second digital mixer, laid out like a full console rather than a tablet app (X32 COMPACT user manual). Definition `x32c` in `js/compact-defs.js`; surface `js/ui/mixer-x32-view.js` (skin layout `"x32"`), which reuses the Ui16's channel panel and widgets.

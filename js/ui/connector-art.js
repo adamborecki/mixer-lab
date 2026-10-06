@@ -59,12 +59,16 @@ function xlrPlug(male, { text = true } = {}) {
   const shell = `<path d="M50 ${y - r}H${fx}V${y + r}H50Q44 ${y + r} 44 ${y + r - 6}V${y - r + 6}Q44 ${y - r} 50 ${y - r}Z" fill="url(#${M})" stroke="#0b0d11"/>
     <rect x="58" y="${y - r}" width="26" height="${2 * r}" fill="url(#${P})"/>
     ${male ? "" : `<rect x="100" y="${y - r - 4}" width="14" height="6" rx="2" fill="#1c1f26" stroke="#0b0d11"/>${text ? `<text x="107" y="${y - r - 7}" font-size="6" fill="#9aa1b0" text-anchor="middle" font-family="sans-serif">PUSH</text>` : ""}`}`;
-  const faceE = `<ellipse cx="${fx}" cy="${y}" rx="7" ry="${r}" fill="url(#${M})" stroke="#0b0d11"/><ellipse cx="${fx + 1}" cy="${y}" rx="5" ry="${r - 4}" fill="url(#${F})"/>`;
-  // Pins 1–3 in a triangle, seen nearly side-on: gold pins (male) or holes (female).
-  const pinYs = [y - 9, y + 3, y + 9];
+  // The shell's open end, seen three-quarter on. A male plug has its three pins recessed inside the
+  // shell (the shell guards them); a female plug has three holes, and the latch on top.
+  const faceE = `<ellipse cx="${fx}" cy="${y}" rx="11" ry="${r}" fill="url(#${M})" stroke="#0b0d11"/><ellipse cx="${fx + 1.5}" cy="${y}" rx="8.5" ry="${r - 3}" fill="url(#${F})"/>`;
+  // Pin 1 on top, 2 and 3 below it: the same triangle as the jack's face.
+  const pinYs = [y - 10, y + 5, y + 10];
+  const pinXs = [fx + 2, fx - 1, fx + 4];
   const ends = male
-    ? pinYs.map((py, i) => `<rect x="${fx}" y="${py - 1.8}" width="${16 - i * 2}" height="3.6" rx="1.6" fill="url(#${G})" stroke="#5a4310" stroke-width=".5"/>`).join("")
-    : pinYs.map((py) => `<ellipse cx="${fx + 2}" cy="${py}" rx="1.5" ry="2.4" fill="#000"/>`).join("");
+    ? `<path d="M${fx - 10} ${y - r + 3}h10" stroke="#0b0d11" stroke-width="3" opacity=".0"/>` +
+      pinYs.map((py, i) => `<ellipse cx="${pinXs[i]}" cy="${py}" rx="3" ry="3.6" fill="url(#${G})" stroke="#5a4310" stroke-width=".5"/><ellipse cx="${pinXs[i] - 0.6}" cy="${py - 1.2}" rx="0.9" ry="1.2" fill="#fff" opacity=".55"/>`).join("")
+    : pinYs.map((py, i) => `<ellipse cx="${pinXs[i]}" cy="${py}" rx="2.4" ry="3.2" fill="#000" stroke="#555b68" stroke-width=".4"/>`).join("");
   return svg(170, 80, metal(M) + plastic(P) + face(F) + gold(G), tail(y, { h: 22, plasticId: P }) + shell + faceE + ends);
 }
 
@@ -110,8 +114,8 @@ function dualPlug() {
   const inner = one.replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
   return `<svg class="conn-art" viewBox="0 0 170 80" width="170" height="80" aria-hidden="true" focusable="false">
     <path d="M0 40H18M18 40C26 40 26 22 36 22M18 40C26 40 26 58 36 58" stroke="#2f3440" stroke-width="5" fill="none"/>
-    <g transform="translate(26 4) scale(.82 .45)">${inner}</g><g transform="translate(26 40) scale(.82 .45)">${inner}</g>
-    <text x="160" y="22" font-size="9" fill="#e6e9f0" font-family="sans-serif" font-weight="700">L</text><text x="160" y="62" font-size="9" fill="#e6e9f0" font-family="sans-serif" font-weight="700">R</text></svg>`;
+    <g transform="translate(24 5) scale(.72 .42)">${inner}</g><g transform="translate(24 41) scale(.72 .42)">${inner}</g>
+    <text x="156" y="25" font-size="9" fill="#e6e9f0" font-family="sans-serif" font-weight="700">L</text><text x="156" y="61" font-size="9" fill="#e6e9f0" font-family="sans-serif" font-weight="700">R</text></svg>`;
 }
 
 // plugId: the model's plug ids (xlr, trs14, ts14, rca, trs35, dualts14, ethercon).
@@ -155,16 +159,18 @@ function panel(inner, defs, label) {
 
 function xlrSocket(cx, cy, female, M, F, { combo = false } = {}) {
   const r = 34;
+  // A combo jack's XLR holes sit further out, around the 1/4" hole in the middle.
+  const o = combo ? 1.35 : 1;
   const pins = [
-    [cx, cy - 15],
-    [cx - 15, cy + 9],
-    [cx + 15, cy + 9],
+    [cx, cy - 15 * o],
+    [cx - 15 * o, cy + 9 * o],
+    [cx + 15 * o, cy + 9 * o],
   ];
   return `<circle cx="${cx}" cy="${cy}" r="${r + 6}" fill="url(#${M})" stroke="#0b0d11"/>
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${F})" stroke="#000"/>
     ${female ? `<rect x="${cx - 7}" y="${cy - r - 9}" width="14" height="8" rx="2" fill="#1c1f26" stroke="#000"/>` : `<rect x="${cx - 4}" y="${cy - r}" width="8" height="7" fill="#000"/>`}
     ${pins.map(([x, y]) => (female ? `<circle cx="${x}" cy="${y}" r="4.6" fill="#000" stroke="#555b68"/>` : `<circle cx="${x}" cy="${y}" r="3.6" fill="#d4b25a" stroke="#6e5216"/>`)).join("")}
-    ${combo ? `<circle cx="${cx}" cy="${cy}" r="11" fill="url(#${M})" stroke="#000"/><circle cx="${cx}" cy="${cy}" r="5.5" fill="#000"/>` : ""}`;
+    ${combo ? `<circle cx="${cx}" cy="${cy}" r="9.5" fill="url(#${M})" stroke="#000"/><circle cx="${cx}" cy="${cy}" r="6.2" fill="#000"/>` : ""}`;
 }
 
 function quarterSocket(cx, cy, N, { r = 20, hole = 7 } = {}) {
@@ -189,7 +195,7 @@ export function jackArt(jackId, dir = "in") {
     case "xlr":
       return panel(xlrSocket(60, 56, dir === "in", M, F) + label(dir === "in" ? "XLR IN (female)" : "XLR OUT (male)"), defs);
     case "combo":
-      return panel(xlrSocket(60, 56, true, M, F, { combo: true }) + label("XLR / 1/4\" COMBO"), defs);
+      return panel(xlrSocket(60, 56, true, M, F, { combo: true }) + label("XLR + 1/4\""), defs);
     case "quarter":
       return panel(quarterSocket(60, 56, N, { r: 26, hole: 8 }) + label('1/4" JACK'), defs);
     case "mini":

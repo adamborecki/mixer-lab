@@ -6,7 +6,7 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 
 - `main` is the live Canvas assignment (Mixer A and B, the ten scenarios). Don't merge into it without the course owner's say-so.
 - `feature/more-mixers` is the one feature branch. Everything since V1 is there, previewed at `/branch/feature-more-mixers/` ([BRANCH_PREVIEWS.md](BRANCH_PREVIEWS.md)). Push to see changes.
-- On that branch: 16 real mixers, easiest first (`MIXER_ORDER` in `js/board-scenarios.js`): Behringer EUROLIVE B207MP3 (an active speaker with the mixer inside), Mackie Mix8, Yamaha STAGEPAS 400BT, MG10/2, Mackie 1202-VLZ, Behringer Xenyx X1204USB, Mackie CR1604-VLZ, Soundcraft Ui16, Zoom LiveTrak L-20, Behringer X32 Compact, Yamaha 01V96i, Yamaha DM2000, Behringer X32, Yamaha CL3, Sound Devices 442, Zoom F8n Pro. About 225 practice scenarios ([SCENARIOS.md](SCENARIOS.md)); the Canvas submission still counts only the ten Mixer A/B ones.
+- On that branch: 17 mixers, easiest first (`MIXER_ORDER` in `js/board-scenarios.js`): Behringer EUROLIVE B207MP3 (an active speaker with the mixer inside), Mackie Mix8, Yamaha STAGEPAS 400BT, MG10/2, Mackie 1202-VLZ, Behringer Xenyx X1204USB, Mackie CR1604-VLZ, a Generic digital mixer, Soundcraft Ui16, Zoom LiveTrak L-20, Behringer X32 Compact, Yamaha 01V96i, Yamaha DM2000, Behringer X32, Yamaha CL3, Sound Devices 442, Zoom F8n Pro. About 225 practice scenarios ([SCENARIOS.md](SCENARIOS.md)); the Canvas submission still counts only the ten Mixer A/B ones.
 - Teaching choices that look like bugs but aren't:
   - On every digital desk, EQ ON and COMP ON both start off. Every EQ or compressor move needs its ON button, and the graphs show it.
   - Each scenario loops the 8-bar section of the song that suits it ([audio/README.md](../audio/README.md), `js/music.js`).
@@ -196,7 +196,7 @@ python3 -m http.server 8124   # then http://localhost:8124/?debug=1
 
 ## Known limitations / deferred
 
-One stereo input (9/10), no balance control on it, and its meter reads a mono fold-down of L/R; two aux buses (a stereo strip sums to mono into them); no EQ, dynamics, effects or feedback; simplified electrical model; one cable per port; sources must go into the mixer; solved scenarios are remembered in this browser's localStorage (ids plus active seconds and action counts per scenario; the submission name and reflection are never stored); iPhone silent switch mutes Web Audio. Free play remembers its last music choice for the session.
+One stereo input (9/10), no balance control on it, and its meter reads a mono fold-down of L/R; two aux buses (a stereo strip sums to mono into them); a 3-band EQ per channel but no dynamics, effects or feedback on Mixer A and B; simplified electrical model; one cable per port; sources must go into the mixer; solved scenarios are remembered in this browser's localStorage (ids plus active seconds and action counts per scenario; the submission name and reflection are never stored); iPhone silent switch mutes Web Audio. Free play remembers its last music choice for the session.
 
 ## Next planned work
 

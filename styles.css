@@ -1913,6 +1913,33 @@ dialog::backdrop {
   justify-content: center;
   gap: 0.25rem;
 }
+.skin-analog .strip-eq {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+}
+.skin-analog .strip-eq .ctl-xs .knob {
+  width: 27px;
+  height: 27px;
+}
+/* Three knobs across one narrow strip: the dB reading shows only while a knob is being turned. */
+.strip-eq .ctl {
+  position: relative;
+}
+.strip-eq .ctl-value {
+  visibility: hidden;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 2;
+}
+.strip-eq .ctl.active .ctl-value {
+  visibility: visible;
+}
 .skin-analog .strip-bottom {
   display: flex;
   flex-direction: column;
@@ -3660,7 +3687,8 @@ dialog::backdrop {
 
 /* ---------- Behringer X32 Compact: channel strip | inputs | display | groups ---------- */
 
-.skin-x32c .mixer-surface.x32-surface {
+.skin-x32c .mixer-surface.x32-surface,
+.skin-gdig .mixer-surface.x32-surface {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
   gap: 0.6rem;
@@ -3670,7 +3698,8 @@ dialog::backdrop {
   border-radius: var(--radius-md);
   padding: 0.6rem;
 }
-.skin-x32c .fader {
+.skin-x32c .fader,
+.skin-gdig .fader {
   --fader-h: 170px;
   width: 32px;
 }
@@ -3787,10 +3816,12 @@ dialog::backdrop {
   width: 80px;
 }
 @media (max-width: 899px) {
-  .skin-x32c .mixer-surface.x32-surface {
+  .skin-x32c .mixer-surface.x32-surface,
+.skin-gdig .mixer-surface.x32-surface {
     grid-template-columns: minmax(0, 1fr);
   }
-  .skin-x32c .fader {
+  .skin-x32c .fader,
+.skin-gdig .fader {
     --fader-h: 140px;
   }
   .x32-display {
@@ -5516,11 +5547,14 @@ dialog::backdrop {
 }
 .free-pick {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
   font-weight: 600;
 }
 .free-console {
+  max-width: 100%;
+  min-width: 0;
   min-height: 42px;
   padding: 0.4rem 0.7rem;
   border-radius: var(--radius-sm);

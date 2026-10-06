@@ -1,15 +1,15 @@
 // Audio graph of the generic mixer that Mixer A and Mixer B draw. Built by
 // js/audio-engine.js; reads only semantic state. See docs/AUDIO_ENGINE.md.
 //
-//   channel input ─► preamp gain ─► clipper ─► low cut ─► tap
+//   channel input ─► preamp gain ─► clipper ─► low cut ─► EQ (HI, MID, LOW) ─► tap
 //   tap ─► input meter
 //   tap ─► enabled ─► fader ─► pan ─► Main bus ─► Main master ─► Main L / Main R outs
 //   tap ─► Aux 1 send (pre-fader) ─► Aux 1 bus ─► Aux 1 master ─► Aux 1 out
 //   tap ─► Aux 2 send (pre-fader) ─► Aux 2 bus ─► Aux 2 master ─► Aux 2 out
 //   tap ─► PFL switch ─► PFL bus ─► phones level ─► listening ("pfl")
 
-import { BUSES, CHANNEL_COUNT, CHANNEL_LAYOUT, HEADROOM_DB, dbToGain, levelToDb } from "./mixer-state.js";
-import { lowCutStage } from "./graph-kit.js";
+import { BUSES, CHANNEL_COUNT, CHANNEL_LAYOUT, EQ_BANDS, HEADROOM_DB, dbToGain, levelToDb } from "./mixer-state.js";
+import { lowCutStage, shelfHz } from "./graph-kit.js";
 
 export function buildGenericGraph(kit) {
   const { ctx, gain, stereoGain, analyser } = kit;
@@ -70,7 +70,20 @@ export function buildGenericGraph(kit) {
     const pfl = gain(0, true);
     input.connect(pre).connect(clip);
     const lowCut = lowCutStage(kit, clip, chan);
-    const tap = lowCut.out;
+    // 3-band EQ after the low cut: a shelf at each end, a bell in the middle. Flat until a knob moves.
+    const eq = {};
+    let eqNode = lowCut.out;
+    for (const band of EQ_BANDS) {
+      const f = kit.track(ctx.createBiquadFilter());
+      f.type = band.type;
+      f.frequency.value = shelfHz(band.type, band.hz);
+      if (band.type === "peaking") f.Q.value = 0.9;
+      f.gain.value = 0;
+      eqNode.connect(f);
+      eqNode = f;
+      eq[band.id] = f;
+    }
+    const tap = eqNode;
     tap.connect(meter);
     tap.connect(enabled).connect(fader);
     if (pan) fader.connect(pan).connect(mainBus);
@@ -81,7 +94,7 @@ export function buildGenericGraph(kit) {
       tap.connect(sends[b]).connect(auxBus[b]); // pre-fader
     }
     tap.connect(pfl).connect(pflBus);
-    strips.push({ input, pre, clip, lowCut, meter, enabled, fader, pan, sends, pfl, stereo });
+    strips.push({ input, pre, clip, lowCut, eq, meter, enabled, fader, pan, sends, pfl, stereo });
   }
 
   return {
@@ -102,6 +115,7 @@ export function buildGenericGraph(kit) {
         set(s.pre.gain, dbToGain(preDb));
         set(s.lowCut.dry.gain, ch.lowCut ? 0 : 1);
         set(s.lowCut.wet.gain, ch.lowCut ? 1 : 0);
+        for (const b of EQ_BANDS) set(s.eq[b.id].gain, ch.eq[b.id]);
         set(s.enabled.gain, ch.enabled ? 1 : 0);
         set(s.fader.gain, dbToGain(levelToDb(ch.level)));
         if (s.pan) set(s.pan.pan, ch.pan);

@@ -842,6 +842,28 @@ export const COMPACT_GIGS = {
     hpf: { guitars: 0.12, trumpets: 0.12, "backing-vocals": 0.15, "lead-vocal": 0.15, keys: 0.05 },
     dyn: { "lead-vocal": { threshold: -16, ratio: 3, makeup: 3 }, bass: { threshold: -14, ratio: 4, makeup: 3 } },
   },
+  gdig: {
+    prompt: "The whole band on a generic digital mixer: inputs 1–7 on the CH 1-8 layer, the laptop on AUX 1/2 (the AUX / FX layer, fader down). MIX 1 (XLR OUT 1) feeds the singer's wedge, MIX 2 (XLR OUT 2) the drummer's wedge through the amp, MAIN comes out of XLR OUT 5/6. FX 1 is a hall reverb, FX 2 a delay. SEL a channel to edit it in the channel strip; SEL a MIX and press SENDS ON FADERS to mix that wedge on the input faders.",
+    patch: { drums: [0, "mic"], bass: [1, "mic"], guitars: [2, "mic"], keys: [3, "mic"], trumpets: [4, "mic"], "backing-vocals": [5, "mic"], "lead-vocal": [6, "mic"], preshow: [16, "lr"] },
+    cableFor: { keys: "xlr-trs" }, // the stage piano's 1/4" out into an XLR input
+    devices: ["spk-l", "spk-r", "wedge", "amp", "pwedge"],
+    cables: [
+      { from: "mixer/main-l", to: "spk-l/in", cable: "xlr" },
+      { from: "mixer/main-r", to: "spk-r/in", cable: "xlr" },
+      { from: "mixer/mix1", to: "wedge/in", cable: "xlr" },
+      { from: "mixer/mix2", to: "amp/in-a", cable: "xlr" },
+      { from: "amp/out-a", to: "pwedge/in", cable: "speaker" },
+    ],
+    sends: {
+      mix1: { "lead-vocal": 0, "backing-vocals": -6, keys: -10, guitars: -12 },
+      mix2: { drums: -8, bass: -3, keys: -12, "lead-vocal": -8 },
+      fx1: { "lead-vocal": -10, "backing-vocals": -12, trumpets: -14 },
+      fx2: { "lead-vocal": -20 },
+    },
+    preFor: ["mix1", "mix2"], // the wedge mixes are pre-fader
+    hpf: { guitars: 0.1, trumpets: 0.1, "backing-vocals": 0.15, "lead-vocal": 0.15 },
+    dyn: { "lead-vocal": { threshold: -16, ratio: 3, makeup: 3 } },
+  },
   x32c: {
     prompt: "The whole band on a Behringer X32 Compact: inputs 1–7 on the CH 1-8 layer, the laptop on AUX IN 1/2 (the AUX/FX layer, fader down). MIX 1 (XLR OUT 1) feeds the singer's wedge, MIX 2 (XLR OUT 2) the drummer's wedge through the amp, MAIN LR comes out of XLR OUT 7/8. FX 1 is a hall reverb, FX 2 a delay. SEL a channel to edit it in the channel strip; SEL a MIX and press SENDS ON FADERS to mix that wedge on the input faders.",
     patch: { drums: [0, "mic"], bass: [1, "mic"], guitars: [2, "mic"], keys: [3, "mic"], trumpets: [4, "mic"], "backing-vocals": [5, "mic"], "lead-vocal": [6, "mic"], preshow: [16, "lr"] },

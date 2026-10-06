@@ -10,7 +10,7 @@ export function renderFlow(root, skin) {
   if (skin.layout === "cr1604") return renderFlow1604(root, skin);
   if (skin.layout === "compact") return renderFlowCompact(root, skin, COMPACT[skin.hardware]);
   if (skin.layout === "digital") return renderFlowDigital(root, skin, COMPACT[skin.hardware]);
-  if (skin.layout === "x32") return renderFlowX32(root, skin);
+  if (skin.layout === "x32") return skin.id === "gdig" ? renderFlowGdig(root, skin) : renderFlowX32(root, skin);
   if (skin.layout === "01v96") return renderFlow01v96(root, skin);
   if (skin.layout === "cl") return renderFlowCL(root, skin);
   if (skin.layout === "dm2000") return renderFlowDM2000(root, skin);
@@ -303,6 +303,35 @@ function renderFlowX32(root, skin) {
           <li><strong>SENDS ON FADERS</strong>: SEL a MIX and the input faders become sends to it; SEL a channel and the BUS faders become its sends.</li>
           <li>A <strong>DCA</strong> sums nothing: its fader just moves its channels' faders (and their post-fader sends). A muted DCA, or an active <strong>mute group</strong>, mutes its channels.</li>
           <li><strong>MAIN LR</strong> off keeps a channel out of the house but still in its sends. <strong>MUTE</strong> takes it out of everything, wedges included.</li>
+        </ul>
+      </div>
+    </details>`;
+}
+
+// The generic digital mixer: what every digital desk shares, in no brand's words.
+function renderFlowGdig(root, skin) {
+  root.innerHTML = `
+    <details class="flow">
+      <summary>How the signal flows on the ${esc(skin.name)}</summary>
+      <div class="flow-body">
+        <ol class="flow-trunk" aria-label="Every channel">
+          <li class="flow-node">XLR input</li>
+          <li class="flow-node">GAIN</li>
+          <li class="flow-node">LOW CUT</li>
+          <li class="flow-node">COMP</li>
+          <li class="flow-node">EQ</li>
+          <li class="flow-node">MUTE</li>
+          <li class="flow-node">FADER</li>
+          <li class="flow-node">PAN · TO MAIN</li>
+          <li class="flow-node flow-end">MAIN → XLR OUT 5/6</li>
+        </ol>
+        <ul class="flow-notes">
+          <li><strong>SEL</strong> a channel: the channel strip on the left edits its GAIN, 48V, LOW CUT, EQ, compressor, pan, TO MAIN and sends. There are no knobs on the channels themselves.</li>
+          <li>The input faders show one <strong>layer</strong> at a time: CH 1-8, CH 9-16, AUX / FX. The right-hand faders are the MIX masters and the MAIN fader.</li>
+          <li><strong>MIX 1–4</strong> are buses for wedges; XLR OUT 1–4 carry them. Each channel's send to each MIX is PRE or POST.</li>
+          <li><strong>SENDS ON FADERS</strong>: SEL a MIX and the input faders become sends to it; SEL a channel and the MIX faders become its sends.</li>
+          <li><strong>EQ ON</strong> and <strong>COMP ON</strong> must be pressed before the knobs do anything. The curves show what is switched in.</li>
+          <li><strong>TO MAIN</strong> off keeps a channel out of the house but still in its sends. <strong>MUTE</strong> takes it out of everything, wedges included.</li>
         </ul>
       </div>
     </details>`;
