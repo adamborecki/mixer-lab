@@ -3764,6 +3764,26 @@ dialog::backdrop {
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
+/* On, it flashes like the desk's key (steady with reduced motion: see the global rule). */
+.lit-btn.x32-sof.lit {
+  animation: sof-flash 1s step-end infinite;
+}
+.lit-btn.x32-sof.lit .lit-led {
+  animation: sof-flash-led 1s step-end infinite;
+}
+@keyframes sof-flash {
+  50% {
+    border-color: rgba(255, 255, 255, 0.2);
+    background: linear-gradient(#2b3150, #1c2038);
+    box-shadow: none;
+  }
+}
+@keyframes sof-flash-led {
+  50% {
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+  }
+}
 .x32-sof-note {
   flex: 1 1 14rem;
   margin: 0;
