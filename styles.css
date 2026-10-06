@@ -2490,11 +2490,6 @@ dialog::backdrop {
   display: grid;
   gap: 0.8rem;
 }
-.canvas-count {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.15rem;
-}
 .canvas-list {
   list-style: none;
   margin: 0;
@@ -5340,24 +5335,6 @@ dialog::backdrop {
   font-weight: 600;
   cursor: pointer;
 }
-.canvas-count {
-  background: var(--warn);
-  color: var(--bg);
-  border-radius: 999px;
-  padding: 0.12rem 0.5rem;
-  font-size: 0.85rem;
-}
-.badge-canvas {
-  display: inline-block;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  padding: 0.05rem 0.45rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--warn) 22%, transparent);
-  color: var(--warn);
-  vertical-align: middle;
-}
 
 /* ---------- the mission strip (js/ui/mission-view.js) ---------- */
 
@@ -5637,9 +5614,6 @@ dialog::backdrop {
 .drawer-theme summary::-webkit-details-marker {
   display: none;
 }
-.drawer-canvas {
-  border-color: color-mix(in srgb, var(--warn) 45%, transparent);
-}
 .theme-num {
   flex: none;
   display: grid;
@@ -5774,9 +5748,6 @@ dialog::backdrop {
 .start-resume {
   background: linear-gradient(135deg, rgba(124, 224, 255, 0.22), rgba(124, 155, 255, 0.18));
   border-color: var(--accent);
-}
-.start-canvas {
-  border-color: color-mix(in srgb, var(--warn) 55%, transparent);
 }
 .start-h {
   font-family: var(--font-display);
@@ -6419,29 +6390,6 @@ dialog::backdrop {
 .bug-btn:hover {
   border-color: var(--accent);
 }
-.badge-assign {
-  display: inline-block;
-  margin-left: 0.4rem;
-  padding: 0.05rem 0.45rem;
-  border-radius: 999px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  font-style: normal;
-  letter-spacing: 0.02em;
-  background: color-mix(in srgb, var(--warn) 18%, transparent);
-  color: var(--warn);
-  vertical-align: middle;
-}
-.badge-assign.met {
-  background: color-mix(in srgb, var(--ok) 22%, transparent);
-  color: var(--ok);
-}
-.topic-card .badge-assign {
-  position: absolute;
-  top: 0.85rem;
-  right: 0.8rem;
-  margin: 0;
-}
 .start-legacy {
   margin: 0.4rem 0 0;
   font-size: 0.88rem;
@@ -6449,67 +6397,8 @@ dialog::backdrop {
   text-align: left;
 }
 .start-legacy a,
-.dt-legacy a,
 .canvas-note a {
   color: var(--accent);
-}
-.drawer-h {
-  margin: 0.9rem 0.2rem 0.45rem;
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.75rem;
-  color: var(--accent);
-}
-.dt-legacy {
-  margin: 0 0 0.45rem;
-  padding: 0.55rem 0.7rem;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius-md);
-  font-size: 0.85rem;
-  color: var(--text-dim);
-  line-height: 1.45;
-}
-.canvas-assignments {
-  display: grid;
-  gap: 0.5rem;
-}
-.canvas-assignment,
-.canvas-bugs {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  padding: 0.55rem 0.75rem;
-  background: var(--bg-sunken);
-}
-.canvas-assignment.done {
-  border-color: color-mix(in srgb, var(--ok) 55%, transparent);
-}
-.ca-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin: 0 0 0.3rem;
-}
-.ca-topics,
-.canvas-bug-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.15rem;
-  font-size: 0.85rem;
-  color: var(--text-dim);
-}
-.ca-topics li {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-.ca-topics li.done {
-  color: var(--ok);
-}
-.canvas-bugs {
-  margin: 0.5rem 0;
 }
 .canvas-bug-list li {
   display: grid;

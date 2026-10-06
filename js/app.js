@@ -18,7 +18,6 @@ import { MixerView } from "./ui/mixer-view.js";
 import { PatchView } from "./ui/patch-view.js";
 import { MissionView, StartScreen, ThemeDrawer } from "./ui/mission-view.js";
 import { SCENARIO_BY_ID, THEMES_BY_ID, consoleOf, mixerEntry, nextInTheme, nextOnMixer, skinOf } from "./themes.js";
-import { ASSIGNMENTS_BY_ID, CURRENT_ASSIGNMENT, assignmentProgress, nextTopic } from "./assignments.js";
 import { BugLog } from "./bugs.js";
 import { BugView } from "./ui/bug-view.js";
 import { SubmissionView } from "./ui/submission-view.js";
@@ -180,7 +179,6 @@ function refresh() {
       lastEval = key;
       if (result.complete) progress.add(current.def.id);
       missionView.update(result);
-      updateCanvasCount();
       if (result.complete && !wasComplete) toast(`Solved: ${current.def.title}`, "ok");
     }
   }
@@ -262,14 +260,6 @@ function openFree(skinId = skin.id) {
   if (!SKINS[skinId]) skinId = DEFAULT_SKIN;
   mode = "free";
   useConsole(skinId, () => selectScenario("free-play"));
-}
-
-// The top bar's count: the current assignment's progress.
-function updateCanvasCount() {
-  const p = assignmentProgress(ASSIGNMENTS_BY_ID[CURRENT_ASSIGNMENT], (id) => progress.has(id));
-  const el = document.querySelector(".canvas-count");
-  const text = `A${ASSIGNMENTS_BY_ID[CURRENT_ASSIGNMENT].number} ${p.done}/${p.need}`;
-  if (el.textContent !== text) el.textContent = text;
 }
 
 // Every band source in the rig: plain source devices, and each track of a DAW laptop.
@@ -433,12 +423,6 @@ const startScreen = new StartScreen(overlay, {
     overlay.classList.add("dismissed");
     overlay.setAttribute("aria-hidden", "true");
     if (what === "resume") openFromHash(resumeHash);
-    else if (what.startsWith("assignment:")) {
-      // The next scenario in the assignment's first topic that's still short.
-      const a = ASSIGNMENTS_BY_ID[what.slice(11)];
-      const t = nextTopic(a, (id) => progress.has(id)) || { id: a.topics[0][0] };
-      openScenario(nextInTheme(t.id, (id) => progress.has(id)).id);
-    }
     else if (what === "free") openFree();
     else if (what.startsWith("theme:")) openScenario(nextInTheme(what.slice(6), (id) => progress.has(id)).id);
     else if (what.startsWith("mixer:")) openMixer(what.slice(6));
@@ -639,7 +623,6 @@ showPreviewBanner();
 resumeHash = /^#\/[a-z]/.test(location.hash) ? location.hash : "";
 openFromHash(resumeHash || `#/free-play/${DEFAULT_SKIN}`);
 setView(readPref("mixer-lab-view") === "patch" ? "patch" : "console");
-updateCanvasCount();
 showStart();
 requestAnimationFrame(frame);
 

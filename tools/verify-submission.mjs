@@ -1,6 +1,6 @@
 // Usage: node tools/verify-submission.mjs < submission.txt
 // Recomputes the check code of a pasted Mixer Lab Canvas submission: the v2
-// export (Assignments 2 on) or Assignment 1's original format.
+// export or Assignment 1's original format.
 import { verifySubmission } from "../js/submission.js";
 import { verifyExport } from "../js/export.js";
 
@@ -10,8 +10,6 @@ const v2 = verifyExport(text);
 const r = v2.ok || v2.reason !== "not a Mixer Lab v2 export" ? v2 : verifySubmission(text);
 if (r.ok && r.preview) console.log(`WARNING: made on branch preview "${r.preview}", not the assignment site`);
 if (!r.ok) console.log(`INVALID: ${r.reason}`);
-else if (r.assignments) {
-  console.log(`OK: ${r.name}, ${r.solved} scenarios solved, ${r.bugs} bug report(s)`);
-  for (const a of r.assignments) console.log(`  ${a.complete ? "[x]" : "[ ]"} ${a.label}: ${a.done} / ${a.need}`);
-} else console.log(`OK: ${r.name}, ${r.done} / ${r.total} scenarios (Assignment 1 format)`);
+else if (r.solved !== undefined) console.log(`OK: ${r.name}, ${r.solved} scenarios solved, ${r.bugs} bug report(s)`);
+else console.log(`OK: ${r.name}, ${r.done} / ${r.total} scenarios (Assignment 1 format)`);
 process.exit(r.ok ? 0 : 1);

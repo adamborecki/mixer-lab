@@ -5,7 +5,7 @@
 
 import { MAX_NAME, MAX_REFLECTION, REFLECTION_PROMPT, validate } from "../submission.js";
 import { buildExport, exportSummary } from "../export.js";
-import { label, legacyHref } from "../assignments.js";
+import { legacyHref } from "../deploy-context.js";
 import { contextLine } from "../bugs.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -21,7 +21,6 @@ export class SubmissionView {
       <header class="patch-head"><h2 id="canvas-title">Export to Canvas</h2>
         <button type="button" class="patch-x" data-close-canvas aria-label="Close">✕</button></header>
       <p class="canvas-note">Everything you've done in Mixer Lab goes in, whichever assignment it's for: paste it into the Canvas assignment you're handing in. Time counts only while you're actively working; "actions" are changes to the mixer or patch.</p>
-      <div class="canvas-assignments"></div>
       <p class="canvas-note">Assignment 1 (the ten scenarios) is handed in from <a href="${legacyHref()}">its original version</a>.</p>
       <section class="canvas-bugs" aria-label="Bug reports"></section>
       <label class="canvas-field">Your name
@@ -71,14 +70,6 @@ export class SubmissionView {
 
   renderLists() {
     const s = this.summary();
-    this.$(".canvas-assignments").innerHTML = s.assignments
-      .map(
-        (p) => `<div class="canvas-assignment ${p.complete ? "done" : ""}">
-          <p class="ca-head"><strong>${esc(label(p.a))}: ${esc(p.a.title)}</strong><span>${p.done} / ${p.need}${p.complete ? " ✓" : ""}</span></p>
-          <ul class="ca-topics">${p.topics.map((t) => `<li class="${t.done >= t.need ? "done" : ""}"><span>${esc(t.question)}</span><b>${t.done}/${t.need}</b></li>`).join("")}</ul>
-        </div>`,
-      )
-      .join("");
     const bugs = this.bugs.list();
     this.$(".canvas-bugs").innerHTML = `<p class="ca-head"><strong>Bug reports</strong><span>${bugs.length}</span></p>
       ${bugs.length ? `<ol class="canvas-bug-list">${bugs.map((b, i) => `<li><span>${esc(b.text)}</span><small>${esc(contextLine(b))}</small><button type="button" class="linkish" data-bug-remove="${i}">Remove</button></li>`).join("")}</ol>` : ""}

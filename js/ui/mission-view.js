@@ -15,7 +15,7 @@
 import { fillTerms, shortTitle } from "../scenarios.js";
 import { SKINS } from "../mixer-models.js";
 import { CANVAS_SCENARIOS, MIXERS, THEMES, consoleOf, mixerScenarios, skinOf, themeOf, themeScenarios } from "../themes.js";
-import { ASSIGNMENTS, ASSIGNMENTS_BY_ID, CURRENT_ASSIGNMENT, legacyHref, assignmentOfTopic, assignmentProgress, label, nextTopic } from "../assignments.js";
+import { legacyHref } from "../deploy-context.js";
 import { nameMode } from "../names.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -25,13 +25,6 @@ const SCENARIO_CONSOLE = (id) => {
   const s = [...CANVAS_SCENARIOS, ...MIXERS.flatMap((m) => mixerScenarios(m.model))].find((x) => x.id === id);
   return s ? consoleOf(s) : null;
 };
-// "A2 · 1/3": which assignment a topic counts for, and how far along it is.
-function topicBadge(themeId, progress) {
-  const a = assignmentOfTopic(themeId);
-  if (!a) return "";
-  const t = assignmentProgress(a, (id) => progress.has(id)).topics.find((x) => x.id === themeId);
-  return `<span class="badge-assign ${t.done >= t.need ? "met" : ""}" title="${esc(label(a))}: ${t.done} of ${t.need} needed">A${a.number} · ${t.done}/${t.need}</span>`;
-}
 const listOf = (xs) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 const clock = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
@@ -76,14 +69,11 @@ export class StartScreen {
   render({ resume } = {}) {
     const p = this.progress;
     const solved = (id) => p.has(id);
-    const cur = ASSIGNMENTS_BY_ID[CURRENT_ASSIGNMENT];
-    const cp = assignmentProgress(cur, solved);
-    const nt = nextTopic(cur, solved);
     // A topic leads with its question: something to wonder about, not a chapter title.
     const card = (t, i) => {
       const { done, total } = themeProgress(t, p);
       return `<button type="button" class="theme-card topic-card" data-choose="theme:${t.id}">
-        <span class="theme-num">${i + 1}</span>${topicBadge(t.id, p)}
+        <span class="theme-num">${i + 1}</span>
         <strong>${esc(t.question)}</strong>
         <span class="theme-q">${esc(t.title)}</span>
         <span class="theme-meter" aria-label="${done} of ${total} solved"><i style="width:${(100 * done) / total}%"></i></span>
@@ -96,7 +86,6 @@ export class StartScreen {
       <p class="start-overlay-sub">Pick a question you want answered, or the mixer in front of you. Headphones recommended; on iPhone turn off Silent Mode.</p>
       <div class="start-top">
         ${resume ? `<button type="button" class="start-big start-resume" data-choose="resume"><strong>▶ Continue</strong><span>${esc(resume)}</span></button>` : ""}
-        <button type="button" class="start-big start-canvas" data-choose="assignment:${cur.id}"><strong>${esc(label(cur))}: ${esc(cur.title)}</strong><span>${esc(cur.weeks || "")} · ${cp.done} of ${cp.need} · ${nt ? `next: ${esc(nt.question)}` : "all done ✓"}</span></button>
         <button type="button" class="start-big start-free" data-choose="free"><strong>Free play</strong><span>No goals: any console, the whole band, break things</span></button>
       </div>
       <p class="start-legacy">Late with Assignment 1 (the ten scenarios)? <a href="${legacyHref()}">Finish it in the original version</a>: your saved progress is there too.</p>
@@ -156,20 +145,10 @@ export class ThemeDrawer {
       ${p.has(s.id) ? '<span class="visually-hidden">solved</span>' : ""}
     </button></li>`;
     const current = themeOf(currentId)?.id;
-    // The assignments: each topic it asks for, how far along, one tap to the next scenario there.
-    const assignment = (a) => {
-      if (a.legacy) return `<p class="dt-legacy">${esc(label(a))}: ${esc(a.title)}. ${esc(a.note)} <a href="${legacyHref()}">Open the original</a></p>`;
-      const ap = assignmentProgress(a, (id) => p.has(id));
-      return `<details class="drawer-theme drawer-canvas" ${a.id === CURRENT_ASSIGNMENT ? "open" : ""}>
-        <summary><span class="theme-num">A${a.number}</span><span class="dt-name"><strong>${esc(a.title)}</strong><small>${esc([a.weeks, a.optional ? "optional" : ""].filter(Boolean).join(" · "))}</small></span><span class="dt-prog">${ap.done}/${ap.need}</span></summary>
-        <ol class="drawer-list">${ap.topics.map((t) => `<li><button type="button" class="drawer-row ${t.done >= t.need ? "done" : ""}" data-topic="${t.id}"><span class="dr-tick" aria-hidden="true">${t.done >= t.need ? "✓" : ""}</span><span class="dr-title">${esc(t.question)}</span><span class="dr-console">${t.done}/${t.need}</span></button></li>`).join("")}</ol>
-        <p class="dt-concept">${esc(a.about || "")} <button type="button" class="linkish" data-open-canvas>Export to Canvas</button></p>
-      </details>`;
-    };
     const theme = (t, i) => {
       const { done, total } = themeProgress(t, p);
       return `<details class="drawer-theme" ${t.id === current ? "open" : ""}>
-        <summary><span class="theme-num">${i + 1}</span><span class="dt-name"><strong>${esc(t.question)}</strong><small>${esc(t.title)} ${topicBadge(t.id, p)}</small></span><span class="dt-prog">${done}/${total}</span></summary>
+        <summary><span class="theme-num">${i + 1}</span><span class="dt-name"><strong>${esc(t.question)}</strong><small>${esc(t.title)}</small></span><span class="dt-prog">${done}/${total}</span></summary>
         <p class="dt-concept">${esc(t.concept)}</p>
         <ol class="drawer-list">${themeScenarios(t).map((s, k) => row(s, k + 1)).join("")}</ol>
       </details>`;
@@ -192,10 +171,7 @@ export class ThemeDrawer {
       ${
         tab === "mixer"
           ? MIXERS.map(mixer).join("")
-          : `<h3 class="drawer-h">Assignments</h3>
-      ${ASSIGNMENTS.map(assignment).join("")}
-      <h3 class="drawer-h">Topics</h3>
-      ${THEMES.map(theme).join("")}`
+          : THEMES.map(theme).join("")
       }
     </div>`;
     if (!this.el.open) this.el.showModal();
@@ -320,10 +296,7 @@ export class MissionView {
         </button>
         <div class="mission-title">
           <h1>${esc(def.title)}</h1>
-          <p class="mission-on">${on}${def.who ? ` · ${esc(def.who)}` : ""}${(() => {
-            const a = assignmentOfTopic(themeOf(def.id)?.id);
-            return a ? ` · <span class="badge-canvas">Counts for ${esc(label(a))}</span>` : "";
-          })()}</p>
+          <p class="mission-on">${on}${def.who ? ` · ${esc(def.who)}` : ""}</p>
         </div>
       </div>
       <ol class="mission-steps" aria-label="${esc(seq.mixer ? `Scenarios on the ${consoleName(def)}` : seq.label)}">${steps}</ol>

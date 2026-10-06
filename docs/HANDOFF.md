@@ -61,13 +61,12 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 | `tests/*.test.mjs` | `routing`, `scenarios`, `skins` (node:test) |
 | `tools/make-excerpts.sh` | Regenerates delivery audio from the local WAV masters |
 
-## Canvas: assignments, the export, bug reports, and Assignment 1 at legacy/
+## Canvas: the export, bug reports, and Assignment 1 at legacy/
 
-"Canvas" means two separate things, kept apart on purpose:
+There are no per-assignment requirements in the lab any more (the Assignments 2–5 by week were removed on `feature/more-mixers` on 2026-10-05, untested). The topics in `js/themes.js` stay as a way into the scenarios. Canvas means:
 
 - **Assignment 1 (the ten scenarios on Mixer A/B)** was due 2026-10-04. It is frozen on the `legacy` branch, served at `/mixer-lab/legacy/` (`tools/build-pages.sh`) for late submissions, with its original submission format. It shares the live site's saved progress, and its `Progress` keeps entries it doesn't know, so it never erases work from the current version ([BRANCH_PREVIEWS.md](BRANCH_PREVIEWS.md)).
-- **Assignments 2 on** (`js/assignments.js`, tests in `tests/export.test.mjs`): each lists topics and how many solved scenarios each needs (any mixer counts), by week of the unit: A2 weeks 1–2 (system, patching, phantom, house mix, monitor mixes), A3 week 3 (gain, solo/line check, snakes, low cut), A4 week 4 (recording, outputs, digital workflows incl. scenes for reset and handoff), A5 optional (EQ, compression, effects, groups). `CURRENT_ASSIGNMENT` is the one the start screen and the top bar's count point at. Change requirements there.
-- **Export to Canvas** (`js/export.js`, `js/ui/submission-view.js`): everything ever done (assignment progress, every solved or worked-on scenario with time and actions, Free play, bug reports, reflection) as text with a check code over every non-blank line. `node tools/verify-submission.mjs < pasted.txt` checks either format.
+- **Export to Canvas** (`js/export.js`, `js/ui/submission-view.js`): everything ever done (every solved or worked-on scenario with time and actions, Free play, bug reports, reflection) as text with a check code over every non-blank line. `node tools/verify-submission.mjs < pasted.txt` checks either format.
 - **Bug reports** (`js/bugs.js`, `js/ui/bug-view.js`): the bug button in the top bar (and in the export dialog). The student types what happened; the report gets the scenario, mixer, view, listening spot, browser and (opt-out) a deflate+base64 snapshot of the mixer state, saved in the browser and printed in the export. `node tools/decode-snapshot.mjs < pasted.txt` turns a snapshot back into JSON. Smaller extras: copy the report, or open a prefilled GitHub issue (no snapshot).
 
 ## Page layout: by topic, by mixer, free play (feature/more-mixers)
@@ -78,8 +77,8 @@ Three ways in, side by side in the top bar (**By topic · By mixer · Free play*
 
 **Topics** are called themes in the code (`js/themes.js`, tested in `tests/themes.test.mjs`): sixteen concepts in teaching order (speakers and amps, plugging in, phantom power, gain staging, headphones and solo, the house mix, monitor mixes, low cut, EQ, compression, effects, groups, outputs and routing, digital workflows, snakes and stage boxes, recording and cameras). Every scenario is in exactly one theme; a theme lists them generic analog mixer first, then the real consoles in `MIXER_ORDER`. **The scenario picks its console** (`consoleOf`, `skinOf`); students never choose a console in scenario mode.
 
-- **Start screen** (`StartScreen` in `js/ui/mission-view.js`): Continue, the Canvas assignment, Free play, the topic cards (question first) and the mixer cards, with progress. Every card is a gesture, so it also starts the audio.
-- **Top bar** (sticky): Scenarios (the drawer), brand (back to the start screen), By topic / By mixer / Free play, and Canvas with x/10.
+- **Start screen** (`StartScreen` in `js/ui/mission-view.js`): Continue, Free play, the topic cards (question first) and the mixer cards, with progress. Every card is a gesture, so it also starts the audio.
+- **Top bar** (sticky): Scenarios (the drawer), brand (back to the start screen), By topic / By mixer / Free play, and Canvas (opens the export).
 - **Mission strip** (`MissionView`): topic (or "By mixer") · step n of N (opens the drawer), title, console and who, a row of every step in this topic / mixer / the Canvas ten (tap to jump; the row scrolls, never the page), the story, goal and live checklist, hints, Start over, "About this topic & the music". Solved → "Next: …"; by topic that may switch consoles, by mixer it stays.
 - **Undo** (`undoLast` in `js/app.js`): up to 50 steps, one per action (a knob drag is one step), cleared when a scenario opens. A broken "Keep" offers Undo and Start over on the item itself and in the pinned bar.
 - **Pinned scenario** (`#mission-dock`, `MissionView.renderDock`): once the strip's goals scroll under the top bar, a slim copy hangs below it: title, goal ticks, the next unmet goal (or a broken keep), Hint, Next when solved, and "Story & goals" (the prompt, checklist and hints so far, as an overlay). It overlays the page, so showing it never moves the layout.

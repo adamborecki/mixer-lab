@@ -20,3 +20,7 @@ export const PREVIEW = previewSlug(globalThis.location?.pathname);
 // Previews share the live site's origin, so each one keeps its own saved data
 // instead of mixing it into a student's real progress.
 export const storageKey = (key, slug = PREVIEW) => (slug ? `${key}@${slug}` : key);
+
+// The link to Assignment 1's frozen copy: always the live site's legacy/, even from a branch preview.
+export const LEGACY_URL = "legacy/";
+export const legacyHref = (href = globalThis.location?.href || "") => (previewSlug(new URL(href, "https://x/").pathname) ? liveUrl(href) : "") + LEGACY_URL;
