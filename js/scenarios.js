@@ -3,9 +3,9 @@
 // signal flow. Nothing here knows which skin is showing, and no condition is
 // ever satisfied by a "done" button. See docs/SCENARIOS.md.
 
-import { SOURCES_BY_ID, STEMS, sourcesForScenario } from "../audio/source-manifest.js";
+import { SONG, SOURCES_BY_ID, STEMS, sourcesForScenario } from "../audio/source-manifest.js";
 import { CABLES, DEVICE_TYPES, analyzeRig, cableEndFor, channelPortRef, getPort, plugFitsJack } from "./connection-model.js";
-import { BUSES, computeMix, createMixerState, dbToLevel, levelToDb, clamp, listenGroupOf } from "./mixer-state.js";
+import { BUSES, computeMix, createMixerState, dbToLevel, levelToDb, clamp, listenGroupOf, sourcePeakDb } from "./mixer-state.js";
 import * as CR1604 from "./cr1604.js";
 import { createF8, createPair, createReverb } from "./devices.js";
 import { createDaw } from "./dante.js";
@@ -27,7 +27,7 @@ const REVERB_CABLES = [
   { from: "reverb/out-l", to: "mixer/ret1-l", cable: "trs" },
   { from: "reverb/out-r", to: "mixer/ret1-r", cable: "trs" },
 ];
-const REVERB_SENDS = { "lead-vocal": -6, "backing-vocals": -10, trumpets: -14 };
+const REVERB_SENDS = { "lead-vocal": -6, "backing-vocals": -10, "harmony-vocal": -10, trumpets: -14, strings: -14, winds: -16, brass: -16 };
 
 // ---------- rig inventory ----------
 
@@ -152,6 +152,7 @@ export const SCENARIOS = [
   },
   {
     id: "find-amp",
+    song: "nostradamus",
     number: 3,
     title: "Where is the amplifier?",
     who: "Venue tech",
@@ -221,6 +222,7 @@ export const SCENARIOS = [
   },
   {
     id: "drummer-wedge",
+    song: "nostradamus",
     number: 5,
     title: "Build the drummer's wedge",
     who: "Drummer",
@@ -336,6 +338,7 @@ export const SCENARIOS = [
   },
   {
     id: "foh-vocal",
+    song: "nostradamus",
     number: 8,
     title: "“The vocal is too loud in the house”",
     who: "Band leader",
@@ -373,6 +376,7 @@ export const SCENARIOS = [
   },
   {
     id: "missing-guitar",
+    song: "nostradamus",
     number: 9,
     title: "“Where did the guitar go?”",
     who: "Guitarist",
@@ -455,9 +459,10 @@ export const SCENARIOS = [
       patch: "reference",
       cables: [...HOUSE_CABLES, ...MONITOR_CABLES],
       channels: "mixed",
+      // Every band: Persephone's keys and trumpets, NOSTRADAMUS's extra guitars, harmony and pads, FTW's sections and synths.
       sends: {
-        aux1: { drums: -10, bass: -6, guitars: -6, keys: -5, trumpets: -12, "backing-vocals": -4, "lead-vocal": 0 },
-        aux2: { drums: -2, bass: 0, guitars: -6, keys: -8, trumpets: -12, "backing-vocals": -8, "lead-vocal": -3 },
+        aux1: { drums: -10, bass: -6, guitars: -6, keys: -5, trumpets: -12, "backing-vocals": -4, "lead-vocal": 0, "lead-guitar": -8, "bridge-guitar": -10, "harmony-vocal": -4, pads: -12, percussion: -14, strings: -10, winds: -12, brass: -14, synths: -10 },
+        aux2: { drums: -2, bass: 0, guitars: -6, keys: -8, trumpets: -12, "backing-vocals": -8, "lead-vocal": -3, "lead-guitar": -8, "bridge-guitar": -10, "harmony-vocal": -10, pads: -14, percussion: -6, strings: -14, winds: -16, brass: -14, synths: -12 },
       },
       listen: "main",
       patchAlso: ["preshow"], // the preshow laptop is patched to stereo input 9/10 ...
@@ -1012,16 +1017,243 @@ export const COMPACT_GIGS = {
   },
 };
 
+// The same gigs with NOSTRADAMUS on stage: the parts both bands have stay on
+// the same channels, so a scenario's hints hold for either song; the extra
+// guitars, the harmony mic and the pads laptop take the channels Persephone's
+// keys, trumpets and preshow laptop had, where they fit. Each entry replaces
+// those keys of the Persephone gig.
+const NOS_VOX_FX = { "lead-vocal": -10, "backing-vocals": -12, "harmony-vocal": -12 };
+const NOS_HPF = { guitars: 0.1, "lead-guitar": 0.1, "bridge-guitar": 0.1, "backing-vocals": 0.15, "lead-vocal": 0.15, "harmony-vocal": 0.15 };
+const NOS_DESK_PATCH = { drums: [0, "mic"], bass: [1, "mic"], guitars: [2, "mic"], "lead-guitar": [3, "mic"], "bridge-guitar": [4, "mic"], "backing-vocals": [5, "mic"], "lead-vocal": [6, "mic"], "harmony-vocal": [7, "mic"] };
+const NOS_WEDGES = (a, b) => ({
+  [a]: { "lead-vocal": 0, "backing-vocals": -6, "harmony-vocal": -6, guitars: -12 },
+  [b]: { drums: -8, bass: -3, "lead-vocal": -8, guitars: -12 },
+});
+const NOSTRADAMUS_GIGS = {
+  mix8: {
+    prompt: "A duo set from NOSTRADAMUS on a Mackie Mix8: two mic channels (lead and backing vocal), the pads laptop on stereo channel 3/4. The rest of the band has no channel left. The singer's wedge is on the AUX send, which on this mixer is post-fader.",
+    patch: { "lead-vocal": [0, "mic"], "backing-vocals": [1, "mic"], pads: [2, "lr"] },
+    sends: { aux: { "lead-vocal": 0, "backing-vocals": -8, pads: -12 } },
+  },
+  vlz1202: {
+    prompt: "NOSTRADAMUS on a Mackie 1202-VLZ: drums, bass and two vocals on the four mic channels, the pads laptop on 5/6. The guitars and the harmony mic have no channel left. AUX 1 (switched to PRE) feeds the singer's wedge; AUX 2 feeds a reverb that comes back on AUX RETURN 1.",
+    patch: { drums: [0, "mic"], bass: [1, "mic"], "lead-vocal": [2, "mic"], "backing-vocals": [3, "mic"], pads: [4, "lr"] },
+    sends: { aux1: { drums: -10, bass: -6, "lead-vocal": 0, "backing-vocals": -4, pads: -10 }, aux2: { "lead-vocal": -6, "backing-vocals": -8 } },
+  },
+  mg102: {
+    prompt: "NOSTRADAMUS on a Yamaha MG10/2: lead and backing vocal on 1 and 2, drums and bass on the XLRs of 3/4 and 5/6, the pads laptop on 7/8. The guitars and the harmony mic have no channel left. Each channel's one AUX knob feeds either the singer's wedge (AUX1, left) or the reverb (AUX2, right).",
+    patch: { "lead-vocal": [0, "mic"], "backing-vocals": [1, "mic"], drums: [2, "mic"], bass: [3, "mic"], pads: [4, "lr"] },
+  },
+  b207mp3: {
+    prompt: "A coffee-house set from NOSTRADAMUS on one Behringer B207MP3: the box is the speaker, the amp and the mixer. The singer on 1, the backing singer on 2, the rhythm guitar's amp mic on 3, the pads laptop on the CD INPUT. THRU feeds a second B207 on stage as the singer's wedge.",
+    patch: { "lead-vocal": [0, "in"], "backing-vocals": [1, "in"], guitars: [2, "in"], pads: [3, "rca"] },
+  },
+  stagepas400bt: {
+    prompt: "NOSTRADAMUS on a Yamaha STAGEPAS 400BT: lead and backing vocal on 1 and 2, rhythm guitar and bass on 3 and 4, the pads laptop on 7/8. SPEAKERS L/R drive the two STAGEPAS speakers directly — the amp is in the mixer — and MONITOR OUT feeds the singer's wedge.",
+    patch: { "lead-vocal": [0, "mic"], "backing-vocals": [1, "mic"], guitars: [2, "in"], bass: [3, "in"], pads: [5, "mini"] },
+  },
+  x1204usb: {
+    prompt: "NOSTRADAMUS on a Behringer Xenyx X1204USB: lead and backing vocal, rhythm guitar and bass on the four mic channels, the pads laptop on 5/6 (switched to −10 dBV). AUX 1, with PRE pressed on each channel, feeds the singer's wedge; the FX send feeds the built-in effects, which come back on RETURN 2. The lead vocal has a little COMP.",
+    patch: { "lead-vocal": [0, "mic"], "backing-vocals": [1, "mic"], guitars: [2, "mic"], bass: [3, "mic"], pads: [4, "lr"] },
+    sends: { aux1: { "lead-vocal": 0, "backing-vocals": -6, guitars: -10, bass: -10, pads: -10 }, fx: { "lead-vocal": -6, "backing-vocals": -8 } },
+    minus10: ["pads"],
+  },
+  l20: {
+    prompt: "All of NOSTRADAMUS on a Zoom LiveTrak L-20: rhythm guitar and bass on the Hi-Z inputs 1–2, drums on 3, backing and lead vocal on 4 and 5, lead guitar and bridge guitar on 6 and 7, the harmony mic on 8, the pads laptop on 17/18. MASTER OUT feeds the house speakers. MONITOR OUT A is the singer's wedge and B the guitarist's: each is its own mix on FADER MODE A and B. EFX 1 (hall) is on the vocals.",
+    patch: { guitars: [0, "in"], bass: [1, "in"], drums: [2, "in"], "backing-vocals": [3, "in"], "lead-vocal": [4, "in"], "lead-guitar": [5, "in"], "bridge-guitar": [6, "in"], "harmony-vocal": [7, "in"], pads: [16, "lr"] },
+    padFor: [],
+    sends: {
+      monA: { "lead-vocal": 0, "backing-vocals": -6, "harmony-vocal": -6, guitars: -12 },
+      monB: { guitars: -2, "lead-guitar": -4, bass: -4, "lead-vocal": -8, drums: -8 },
+      fx1: { "lead-vocal": -6, "backing-vocals": -8, "harmony-vocal": -8 },
+    },
+  },
+  f8n: {
+    prompt: "Filming NOSTRADAMUS with a Zoom F8n Pro as the recorder and camera mixer: drums, bass, rhythm guitar, lead guitar, backing vocal and lead vocal on inputs 1–6, the room pair on 7/8 (Stereo Link, +48V). Every input records its own track; the track knobs build the L/R mix. MAIN OUT 1/2 (LINE) feed the main camera's two XLR inputs, SUB OUT (MIC level) the second camera's 3.5 mm mic jack. Listen in the HEADPHONE, or at either camera. The bridge guitar, the harmony mic and the pads aren't on the recorder.",
+    patch: { drums: [0, "in"], bass: [1, "in"], guitars: [2, "in"], "lead-guitar": [3, "in"], "backing-vocals": [4, "in"], "lead-vocal": [5, "in"], "room-l": [6, "in"], "room-r": [7, "in"] },
+    cableFor: {},
+  },
+  ui16: {
+    prompt: "All of NOSTRADAMUS on a Soundcraft Ui16 digital mixer: drums, bass, the three guitars, backing and lead vocal on inputs 1–7, the harmony mic on 8, the pads laptop on the RCA line in (13/14). AUX 1 feeds the singer's powered wedge, AUX 2 the drummer's wedge through the power amp; REVERB and DELAY are built in. Pick a mix in the bar above the faders, and SEL a channel to edit it.",
+    patch: { drums: [0, "in"], bass: [1, "in"], guitars: [2, "in"], "lead-guitar": [3, "in"], "bridge-guitar": [4, "in"], "backing-vocals": [5, "in"], "lead-vocal": [6, "in"], "harmony-vocal": [7, "in"], pads: [12, "rca"] },
+    sends: { ...NOS_WEDGES("aux1", "aux2"), fx1: { ...NOS_VOX_FX, "lead-guitar": -16 }, fx2: { "lead-vocal": -18 } },
+    hpf: { ...NOS_HPF, guitars: 0.12, "lead-guitar": 0.12, "bridge-guitar": 0.12 },
+  },
+  gdig: {
+    prompt: "All of NOSTRADAMUS on a generic digital mixer: inputs 1–8 on the CH 1-8 layer, the pads laptop on AUX 1/2 (the AUX / FX layer). MIX 1 (XLR OUT 1) feeds the singer's wedge, MIX 2 (XLR OUT 2) the drummer's wedge through the amp, MAIN comes out of XLR OUT 5/6. FX 1 is a hall reverb, FX 2 a delay. SEL a channel to edit it in the channel strip; SEL a MIX and press SENDS ON FADERS to mix that wedge on the input faders.",
+    patch: { ...NOS_DESK_PATCH, pads: [16, "lr"] },
+    cableFor: {},
+    sends: { ...NOS_WEDGES("mix1", "mix2"), fx1: { ...NOS_VOX_FX, "lead-guitar": -16 }, fx2: { "lead-vocal": -20 } },
+    hpf: NOS_HPF,
+  },
+  x32c: {
+    prompt: "All of NOSTRADAMUS on a Behringer X32 Compact: inputs 1–8 on the CH 1-8 layer, the pads laptop on AUX IN 1/2 (the AUX/FX layer). MIX 1 (XLR OUT 1) feeds the singer's wedge, MIX 2 (XLR OUT 2) the drummer's wedge through the amp, MAIN LR comes out of XLR OUT 7/8. FX 1 is a hall reverb, FX 2 a delay. SEL a channel to edit it in the channel strip; SEL a MIX and press SENDS ON FADERS to mix that wedge on the input faders.",
+    patch: { ...NOS_DESK_PATCH, pads: [16, "lr"] },
+    cableFor: {},
+    sends: { ...NOS_WEDGES("mix1", "mix2"), fx1: { ...NOS_VOX_FX, "lead-guitar": -16 }, fx2: { "lead-vocal": -20 } },
+    hpf: NOS_HPF,
+  },
+  x32: {
+    prompt: "All of NOSTRADAMUS on a full-size Behringer X32: inputs 1–8 on the CH 1-16 layer, the room pair on 17 and 18 (CH 17-32), the pads laptop on AUX IN 1/2. XLR OUT 1 carries MIX 1 to the singer's wedge, OUT 2 MIX 2 to the drummer's amp and wedge, OUT 15/16 MAIN L/R to the house: see the ROUTING page. MIX 13–15 feed the FX rack (room, plate, delay). Scene 1 is this mix, scene 2 the acoustic set.",
+    patch: { ...NOS_DESK_PATCH, "room-l": [16, "mic"], "room-r": [17, "mic"], pads: [32, "lr"] },
+    cableFor: {},
+    sends: { ...NOS_WEDGES("mix1", "mix2"), mix13: { ...NOS_VOX_FX, drums: -18 }, mix14: { "lead-guitar": -12, "backing-vocals": -14 }, mix15: { "lead-vocal": -22 } },
+    hpf: NOS_HPF,
+  },
+  cl3: {
+    prompt: "All of NOSTRADAMUS on a Yamaha CL3: the mics plug into a Rio3224-D stage box (Rio IN 1–8 feed channels 1–8, the room pair 17 and 18), the pads laptop into OMNI IN 1/2 on ST IN 1. The OUTPUT PATCH sends MIX 1 to Rio OUT 1 (the singer's wedge), MIX 2 to Rio OUT 2 (the drummer's amp and wedge) and STEREO to Rio OUT 15/16 (the house). MIX 13–15 feed the effects rack, back on ST IN 2–4. SEL a channel and use the touch screen: OVERVIEW and SELECTED CHANNEL. Scene 1 is this mix, scene 2 the acoustic set.",
+    patch: { ...NOS_DESK_PATCH, "room-l": [16, "mic"], "room-r": [17, "mic"], pads: [32, "lr"] },
+    cableFor: {},
+    sends: { ...NOS_WEDGES("mix1", "mix2"), mix13: { ...NOS_VOX_FX, drums: -18 }, mix14: { "lead-guitar": -12, "backing-vocals": -14 }, mix15: { "lead-vocal": -22 } },
+    hpf: NOS_HPF,
+  },
+  dm2000: {
+    prompt: "All of NOSTRADAMUS on a Yamaha DM2000: inputs 1–8 on the top-panel analog inputs, the pads laptop on 2TR IN, channel 89/90 (layer 73-96). STEREO OUT feeds the house. The OUTPUT PATCH puts AUX 1 on OMNI OUT 1 (the singer's wedge) and AUX 2 on OMNI OUT 2 (the drummer's amp and wedge). AUX 7 feeds the reverb (back on CH 73/74), AUX 8 the delay (CH 75/76). BUS 1–8 are empty. SEL a channel: the SELECTED CHANNEL section and the display follow it. Scene 1 is this mix, scene 2 the acoustic set.",
+    patch: { ...NOS_DESK_PATCH, pads: [24, "lr"] },
+    padFor: [],
+    sends: { ...NOS_WEDGES("aux1", "aux2"), aux7: { ...NOS_VOX_FX, "lead-guitar": -16 }, aux8: { "lead-vocal": -20 } },
+  },
+  yam01v96: {
+    prompt: "All of NOSTRADAMUS on a Yamaha 01V96i: inputs 1–8, the pads laptop on 2TR IN (not yet in the mix). AUX 1 (OMNI OUT 1) feeds the singer's wedge, AUX 2 (OMNI OUT 2) the drummer's wedge through the amp, STEREO OUT the house. AUX 7 feeds the reverb (back on ST IN 1), AUX 8 the delay (ST IN 2). FADER MODE turns the faders into an aux's sends; SEL a channel and page through the display.",
+    patch: { ...NOS_DESK_PATCH, pads: ["tape"] },
+    padFor: [],
+    sends: { ...NOS_WEDGES("aux1", "aux2"), aux7: { ...NOS_VOX_FX, "lead-guitar": -16 }, aux8: { "lead-vocal": -20 } },
+  },
+};
+
+// FTW's gigs: drums, bass, guitar and vocals on Persephone's channels, the
+// percussion, string, wind and brass section mics on the next ones (4, 5, 6
+// and 8 where there are enough), the synths laptop where Persephone's preshow
+// laptop went. Small mixers take what fits; the orchestra waits on stage.
+const FTW_FX = { "lead-vocal": -10, strings: -14, winds: -16, brass: -16 };
+const FTW_HPF = { guitars: 0.1, percussion: 0.08, strings: 0.08, winds: 0.1, brass: 0.1, "lead-vocal": 0.15 };
+const FTW_DESK_PATCH = { drums: [0, "mic"], bass: [1, "mic"], guitars: [2, "mic"], percussion: [3, "mic"], strings: [4, "mic"], winds: [5, "mic"], "lead-vocal": [6, "mic"], brass: [7, "mic"] };
+const FTW_WEDGES = (a, b) => ({
+  [a]: { "lead-vocal": 0, synths: -10, guitars: -12, strings: -14 },
+  [b]: { drums: -8, bass: -3, percussion: -6, "lead-vocal": -8 },
+});
+const FTW_GIGS = {
+  mix8: {
+    prompt: "A stripped-down FTW on a Mackie Mix8: the vocal and the guitar amp on the two mic channels, the synths laptop on stereo channel 3/4. The rest of the band and the orchestra have no channel left. The singer's wedge is on the AUX send, which on this mixer is post-fader.",
+    patch: { "lead-vocal": [0, "mic"], guitars: [1, "mic"], synths: [2, "lr"] },
+    sends: { aux: { "lead-vocal": 0, guitars: -10, synths: -10 } },
+  },
+  vlz1202: {
+    prompt: "FTW on a Mackie 1202-VLZ: drums, bass, the vocal and the guitar on the four mic channels, the synths laptop on 5/6. The percussion and the orchestra have no channel left. AUX 1 (switched to PRE) feeds the singer's wedge; AUX 2 feeds a reverb that comes back on AUX RETURN 1.",
+    patch: { drums: [0, "mic"], bass: [1, "mic"], "lead-vocal": [2, "mic"], guitars: [3, "mic"], synths: [4, "lr"] },
+    sends: { aux1: { drums: -10, bass: -6, "lead-vocal": 0, guitars: -8, synths: -10 }, aux2: { "lead-vocal": -6 } },
+  },
+  mg102: {
+    prompt: "FTW on a Yamaha MG10/2: the vocal and the guitar on 1 and 2, drums and bass on the XLRs of 3/4 and 5/6, the synths laptop on 7/8. The percussion and the orchestra have no channel left. Each channel's one AUX knob feeds either the singer's wedge (AUX1, left) or the reverb (AUX2, right).",
+    patch: { "lead-vocal": [0, "mic"], guitars: [1, "mic"], drums: [2, "mic"], bass: [3, "mic"], synths: [4, "lr"] },
+    sends: { auxPan: { "lead-vocal": -0, guitars: -10, drums: -10, bass: -6 } },
+    bipolarSides: { "lead-vocal": "left", guitars: "left", drums: "left", bass: "left" },
+  },
+  b207mp3: {
+    prompt: "An acoustic FTW on one Behringer B207MP3: the box is the speaker, the amp and the mixer. The vocal on 1, the guitar amp's mic on 2, the bass DI on 3, the synths laptop on the CD INPUT. THRU feeds a second B207 on stage as the singer's wedge.",
+    patch: { "lead-vocal": [0, "in"], guitars: [1, "in"], bass: [2, "in"], synths: [3, "rca"] },
+  },
+  stagepas400bt: {
+    prompt: "FTW on a Yamaha STAGEPAS 400BT: the vocal and the brass mic on 1 and 2, guitar and bass on 3 and 4, the synths laptop on 7/8. SPEAKERS L/R drive the two STAGEPAS speakers directly — the amp is in the mixer — and MONITOR OUT feeds the singer's wedge.",
+    patch: { "lead-vocal": [0, "mic"], brass: [1, "mic"], guitars: [2, "in"], bass: [3, "in"], synths: [5, "mini"] },
+    sends: { reverb: { "lead-vocal": -8, brass: -12 } },
+  },
+  x1204usb: {
+    prompt: "FTW on a Behringer Xenyx X1204USB: the vocal, the string section mic, guitar and bass on the four mic channels, the synths laptop on 5/6 (switched to −10 dBV). AUX 1, with PRE pressed on each channel, feeds the singer's wedge; the FX send feeds the built-in effects, which come back on RETURN 2. The vocal has a little COMP.",
+    patch: { "lead-vocal": [0, "mic"], strings: [1, "mic"], guitars: [2, "mic"], bass: [3, "mic"], synths: [4, "lr"] },
+    sends: { aux1: { "lead-vocal": 0, strings: -12, guitars: -10, bass: -10, synths: -10 }, fx: { "lead-vocal": -6, strings: -12 } },
+    minus10: ["synths"],
+  },
+  sd442: {
+    prompt: "Shooting FTW for video with a Sound Devices 442 on a cart: the room pair on channels 1 and 2 (1+2 LINK on, P48 on), the vocal on 3 and the string section mic on 4. The XLR master outs feed the camera's two XLR inputs, both outputs and camera inputs at LINE. Listen in the HEADPHONE (try M to check the pair in mono), or at the camera.",
+    patch: { "room-l": [0, "in"], "room-r": [1, "in"], "lead-vocal": [2, "in"], strings: [3, "in"] },
+    hpf: { "lead-vocal": 0.25, strings: 0.1 },
+    pans: { "lead-vocal": 0, strings: 0 },
+  },
+  l20: {
+    prompt: "All of FTW on a Zoom LiveTrak L-20: guitar and bass on the Hi-Z inputs 1–2, drums on 3, percussion on 4, the vocal on 5, strings, brass and woodwinds on 6, 7 and 8, the synths laptop on 17/18. MASTER OUT feeds the house speakers. MONITOR OUT A is the singer's wedge and B the guitarist's: each is its own mix on FADER MODE A and B. EFX 1 (hall) is on the vocal and the orchestra.",
+    patch: { guitars: [0, "in"], bass: [1, "in"], drums: [2, "in"], percussion: [3, "in"], "lead-vocal": [4, "in"], strings: [5, "in"], brass: [6, "in"], winds: [7, "in"], synths: [16, "lr"] },
+    padFor: [],
+    sends: {
+      monA: { "lead-vocal": 0, synths: -10, guitars: -12, strings: -14 },
+      monB: { guitars: -2, bass: -4, drums: -8, "lead-vocal": -8 },
+      fx1: FTW_FX,
+    },
+  },
+  f8n: {
+    prompt: "Filming FTW with a Zoom F8n Pro as the recorder and camera mixer: drums, bass, guitar, percussion, strings and the vocal on inputs 1–6, the room pair on 7/8 (Stereo Link, +48V). Every input records its own track; the track knobs build the L/R mix. MAIN OUT 1/2 (LINE) feed the main camera's two XLR inputs, SUB OUT (MIC level) the second camera's 3.5 mm mic jack. Listen in the HEADPHONE, or at either camera. The winds, brass and synths aren't on the recorder.",
+    patch: { drums: [0, "in"], bass: [1, "in"], guitars: [2, "in"], percussion: [3, "in"], strings: [4, "in"], "lead-vocal": [5, "in"], "room-l": [6, "in"], "room-r": [7, "in"] },
+    cableFor: {},
+    hpf: { "lead-vocal": 0.25, strings: 0.1 },
+  },
+  ui16: {
+    prompt: "All of FTW on a Soundcraft Ui16 digital mixer: drums, bass, guitar, percussion, strings, woodwinds, the vocal and brass on inputs 1–8, the synths laptop on the RCA line in (13/14). AUX 1 feeds the singer's powered wedge, AUX 2 the drummer's wedge through the power amp; REVERB and DELAY are built in. Pick a mix in the bar above the faders, and SEL a channel to edit it.",
+    patch: { drums: [0, "in"], bass: [1, "in"], guitars: [2, "in"], percussion: [3, "in"], strings: [4, "in"], winds: [5, "in"], "lead-vocal": [6, "in"], brass: [7, "in"], synths: [12, "rca"] },
+    sends: { ...FTW_WEDGES("aux1", "aux2"), fx1: FTW_FX, fx2: { "lead-vocal": -18 } },
+    hpf: FTW_HPF,
+  },
+  gdig: {
+    prompt: "All of FTW on a generic digital mixer: inputs 1–8 on the CH 1-8 layer (the band, the vocal, and the percussion, string, wind and brass section mics), the synths laptop on AUX 1/2 (the AUX / FX layer). MIX 1 (XLR OUT 1) feeds the singer's wedge, MIX 2 (XLR OUT 2) the drummer's wedge through the amp, MAIN comes out of XLR OUT 5/6. FX 1 is a hall reverb, FX 2 a delay. SEL a channel to edit it in the channel strip; SEL a MIX and press SENDS ON FADERS to mix that wedge on the input faders.",
+    patch: { ...FTW_DESK_PATCH, synths: [16, "lr"] },
+    cableFor: {},
+    sends: { ...FTW_WEDGES("mix1", "mix2"), fx1: FTW_FX, fx2: { "lead-vocal": -20 } },
+    hpf: FTW_HPF,
+  },
+  x32c: {
+    prompt: "All of FTW on a Behringer X32 Compact: inputs 1–8 on the CH 1-8 layer (the band, the vocal, and the percussion, string, wind and brass section mics), the synths laptop on AUX IN 1/2 (the AUX/FX layer). MIX 1 (XLR OUT 1) feeds the singer's wedge, MIX 2 (XLR OUT 2) the drummer's wedge through the amp, MAIN LR comes out of XLR OUT 7/8. FX 1 is a hall reverb, FX 2 a delay. SEL a channel to edit it in the channel strip; SEL a MIX and press SENDS ON FADERS to mix that wedge on the input faders.",
+    patch: { ...FTW_DESK_PATCH, synths: [16, "lr"] },
+    cableFor: {},
+    sends: { ...FTW_WEDGES("mix1", "mix2"), fx1: FTW_FX, fx2: { "lead-vocal": -20 } },
+    hpf: FTW_HPF,
+  },
+  x32: {
+    prompt: "All of FTW on a full-size Behringer X32: inputs 1–8 on the CH 1-16 layer (the band, the vocal, and the percussion, string, wind and brass section mics), the room pair on 17 and 18 (CH 17-32), the synths laptop on AUX IN 1/2. XLR OUT 1 carries MIX 1 to the singer's wedge, OUT 2 MIX 2 to the drummer's amp and wedge, OUT 15/16 MAIN L/R to the house: see the ROUTING page. MIX 13–15 feed the FX rack (room, plate, delay). Scene 1 is this mix, scene 2 the acoustic set.",
+    patch: { ...FTW_DESK_PATCH, "room-l": [16, "mic"], "room-r": [17, "mic"], synths: [32, "lr"] },
+    cableFor: {},
+    sends: { ...FTW_WEDGES("mix1", "mix2"), mix13: { "lead-vocal": -12, strings: -12, winds: -14, drums: -18 }, mix14: { brass: -12, strings: -16 }, mix15: { "lead-vocal": -22 } },
+    hpf: FTW_HPF,
+  },
+  cl3: {
+    prompt: "All of FTW on a Yamaha CL3: the mics plug into a Rio3224-D stage box (Rio IN 1–8 feed channels 1–8: the band, the vocal, and the percussion, string, wind and brass section mics; the room pair 17 and 18), the synths laptop into OMNI IN 1/2 on ST IN 1. The OUTPUT PATCH sends MIX 1 to Rio OUT 1 (the singer's wedge), MIX 2 to Rio OUT 2 (the drummer's amp and wedge) and STEREO to Rio OUT 15/16 (the house). MIX 13–15 feed the effects rack, back on ST IN 2–4. SEL a channel and use the touch screen: OVERVIEW and SELECTED CHANNEL. Scene 1 is this mix, scene 2 the acoustic set.",
+    patch: { ...FTW_DESK_PATCH, "room-l": [16, "mic"], "room-r": [17, "mic"], synths: [32, "lr"] },
+    cableFor: {},
+    sends: { ...FTW_WEDGES("mix1", "mix2"), mix13: { "lead-vocal": -12, strings: -12, winds: -14, drums: -18 }, mix14: { brass: -12, strings: -16 }, mix15: { "lead-vocal": -22 } },
+    hpf: FTW_HPF,
+  },
+  dm2000: {
+    prompt: "All of FTW on a Yamaha DM2000: inputs 1–8 on the top-panel analog inputs (the band, the vocal, and the percussion, string, wind and brass section mics), the synths laptop on 2TR IN, channel 89/90 (layer 73-96). STEREO OUT feeds the house. The OUTPUT PATCH puts AUX 1 on OMNI OUT 1 (the singer's wedge) and AUX 2 on OMNI OUT 2 (the drummer's amp and wedge). AUX 7 feeds the reverb (back on CH 73/74), AUX 8 the delay (CH 75/76). BUS 1–8 are empty. SEL a channel: the SELECTED CHANNEL section and the display follow it. Scene 1 is this mix, scene 2 the acoustic set.",
+    patch: { ...FTW_DESK_PATCH, synths: [24, "lr"] },
+    padFor: [],
+    sends: { ...FTW_WEDGES("aux1", "aux2"), aux7: FTW_FX, aux8: { "lead-vocal": -20 } },
+  },
+  yam01v96: {
+    prompt: "All of FTW on a Yamaha 01V96i: inputs 1–8 (the band, the vocal, and the percussion, string, wind and brass section mics), the synths laptop on 2TR IN (not yet in the mix). AUX 1 (OMNI OUT 1) feeds the singer's wedge, AUX 2 (OMNI OUT 2) the drummer's wedge through the amp, STEREO OUT the house. AUX 7 feeds the reverb (back on ST IN 1), AUX 8 the delay (ST IN 2). FADER MODE turns the faders into an aux's sends; SEL a channel and page through the display.",
+    patch: { ...FTW_DESK_PATCH, synths: ["tape"] },
+    padFor: [],
+    sends: { ...FTW_WEDGES("aux1", "aux2"), aux7: FTW_FX, aux8: { "lead-vocal": -20 } },
+  },
+};
+
+// Each band's version of the gigs, over Persephone's.
+const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS };
+
+// A mixer's Free play gig for the band on stage.
+export function gigFor(model) {
+  const base = COMPACT_GIGS[model];
+  const over = SONG_GIGS[SONG]?.[model];
+  return base && over ? { ...base, ...over } : base;
+}
+
 // Free play on a real mixer describes that mixer's gig (the shared text names
 // Mixer A/B's two wedges).
 export function scenarioFor(def, model = "generic") {
   if (def.id !== "free-play" || !COMPACT_GIGS[model]) return def;
-  return { ...def, prompt: COMPACT_GIGS[model].prompt, goal: "No objective — try a monitor mix, the reverb, or plugging in what has no channel yet." };
+  return { ...def, prompt: gigFor(model).prompt, goal: "No objective — try a monitor mix, the reverb, or plugging in what has no channel yet." };
 }
 
 function buildCompactState(model, sourcesById) {
   const def = COMPACT[model];
-  const gig = COMPACT_GIGS[model];
+  const gig = gigFor(model);
   const state = compactModel(model).createState();
   const sources = sourcesForScenario("free-play").filter((s) => sourcesById[s.id]);
   for (const s of sources) state.rig.devices.push({ id: sourceDeviceId(s.id), type: s.deviceType, sourceId: s.id, label: s.device });
@@ -1053,7 +1285,7 @@ function buildCompactState(model, sourcesById) {
   }
 
   // Gain-stage and mix what is patched.
-  const mix = compactModel(model).computeMix(state, sourcesById, STEMS, (src) => (src && src.stem ? STEMS[src.stem]?.monoPeakDb ?? null : src?.peakDb ?? null));
+  const mix = compactModel(model).computeMix(state, sourcesById, STEMS, (src) => sourcePeakDb(src, STEMS));
   for (const s of sources) {
     const where = gig.patch[s.id];
     if (!where || where[0] === "tape") continue;

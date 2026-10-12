@@ -26,6 +26,11 @@ const SCENARIO_CONSOLE = (id) => {
   return s ? consoleOf(s) : null;
 };
 const listOf = (xs) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+// "An 8-bar loop" (or 6, FTW's): from a section's "a–b" bars label.
+const barsLoop = (section) => {
+  const [a, b] = section.bars.split(/[–-]/).map(Number);
+  return b > a ? `${b - a + 1 === 8 ? "An" : "A"} ${b - a + 1}-bar loop` : "A loop";
+};
 const clock = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
 // The consoles Free play offers, in learning order (the generic one first).
@@ -187,8 +192,8 @@ export class ThemeDrawer {
 
 export class MissionView {
   // `dock`: the slim copy pinned under the top bar while the strip is scrolled away.
-  constructor(root, { dock, progress, getTerms, getMusic, onSelect, onReset, onClear, onMusicMode, onSeek, onFreeConsole, onMixer, onOpenDrawer, onUndo, canUndo }) {
-    Object.assign(this, { root, dock, progress, getTerms, getMusic, onSelect, onReset, onClear, onMusicMode, onSeek, onFreeConsole, onMixer, onOpenDrawer, onUndo, canUndo });
+  constructor(root, { dock, progress, getTerms, getMusic, onSelect, onReset, onClear, onMusicMode, onSong, onSeek, onFreeConsole, onMixer, onOpenDrawer, onUndo, canUndo }) {
+    Object.assign(this, { root, dock, progress, getTerms, getMusic, onSelect, onReset, onClear, onMusicMode, onSong, onSeek, onFreeConsole, onMixer, onOpenDrawer, onUndo, canUndo });
     this.hints = 0;
     this.more = false;
     this.mode = "topic";
@@ -211,6 +216,7 @@ export class MissionView {
       else if (act === "clear") this.onClear();
       else if (act === "next" || act === "go") this.onSelect(b.dataset.id);
       else if (act === "music") this.onMusicMode(b.dataset.mode);
+      else if (act === "song") this.onSong(b.dataset.song);
       else if (act === "more") this.toggleMore();
       else if (act === "drawer") this.onOpenDrawer(this.mode === "mixer" ? "mixer" : "topic");
     };
@@ -485,29 +491,35 @@ export class MissionView {
     </div>`;
   }
 
-  // Which part of the song is playing; Free play chooses a section or the whole song.
+  // Which song and which part of it is playing; Free play chooses the song, and a section or the whole song.
   renderMusic() {
     const box = this.root.querySelector(".music");
     if (!box) return;
-    const { mode, sections, section, out, silent } = this.getMusic();
+    const { mode, song, songs, duration, sections, section, out, silent } = this.getMusic();
     const resting = out.length ? ` Sitting out here: ${esc(listOf(out.map((s) => (nameMode() === "musicians" && s.musician ? s.musician : s.name.toLowerCase()))))}.` : "";
+    const songName = `“${esc(song.title)}” by ${esc(song.artist)}`;
     if (!this.def || this.def.id !== "free-play") {
       box.classList.add("music-now");
-      box.innerHTML = silent ? `<p class="music-note">♪ The band isn't playing in this one.</p>` : section ? `<p class="music-note">♪ The band loops bars ${esc(section.bars)} of the song (${clock(section.start)}): ${esc(section.label.toLowerCase())}.${resting}</p>` : "";
+      box.innerHTML = silent ? `<p class="music-note">♪ The band isn't playing in this one.</p>` : section ? `<p class="music-note">♪ ${songName}: the band loops bars ${esc(section.bars)} of the song (${clock(section.start)}), ${esc(section.label.toLowerCase())}.${resting}</p>` : "";
       this.seekEl = this.timeEl = null;
       return;
     }
     box.classList.remove("music-now");
     const opt = (m, label, sub) => `<button type="button" role="radio" class="chip music-chip ${mode === m ? "active" : ""}" aria-checked="${mode === m}" data-act="music" data-mode="${m}">${esc(label)} <small>${esc(sub)}</small></button>`;
+    const songOpt = (sg) => `<button type="button" role="radio" class="chip music-chip ${sg.id === song.id ? "active" : ""}" aria-checked="${sg.id === song.id}" data-act="song" data-song="${esc(sg.id)}">${esc(sg.title)} <small>${esc(sg.artist)}</small></button>`;
+    const len = clock(duration);
     box.innerHTML = `
+      <div class="music-modes" role="radiogroup" aria-label="Song"><span class="music-title">Song</span>
+        ${songs.map(songOpt).join("")}
+      </div>
       <div class="music-modes" role="radiogroup" aria-label="Band audio"><span class="music-title">Band audio</span>
-        ${sections.map((s) => opt(s.id, s.label, `bars ${s.bars}`)).join("")}${opt("full", "Full song", "3:58")}
+        ${sections.map((s) => opt(s.id, s.label, `bars ${s.bars}`)).join("")}${opt("full", "Full song", len)}
       </div>
       <div class="music-pos" ${mode === "full" ? "" : "hidden"}>
-        <input type="range" class="seek" min="0" max="238" step="0.5" value="0" aria-label="Song position" />
-        <span class="music-time" aria-hidden="true">0:00 / 3:58</span>
+        <input type="range" class="seek" min="0" max="${Math.round(duration * 2) / 2}" step="0.5" value="0" aria-label="Song position" />
+        <span class="music-time" aria-hidden="true">0:00 / ${len}</span>
       </div>
-      <p class="music-note">${mode === "full" ? "The whole song streams about 20 seconds ahead (~18 MB in total). Drag to jump to any part." : `An 8-bar loop from ${clock(section.start)} into the song.${resting}`}</p>`;
+      <p class="music-note">${mode === "full" ? "The whole song streams about 20 seconds ahead. Drag to jump to any part." : `${barsLoop(section)} from ${clock(section.start)} into the song.${resting}`}</p>`;
     this.seekEl = box.querySelector(".seek");
     this.timeEl = box.querySelector(".music-time");
   }

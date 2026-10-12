@@ -13,6 +13,7 @@ import * as CR1604 from "./cr1604.js";
 import { DAW_TRACKS } from "./dante.js";
 
 const AUDIBLE = -45; // as AUDIBLE_DB in js/scenarios.js
+const ORCHESTRA = ["strings", "winds", "brass"]; // FTW's section mics
 const OFF = -60;
 
 // ---------- reading the mix ----------
@@ -350,6 +351,27 @@ const VLZ = [
       "Press MUTE/ALT on channels 1 and 2, then press ASSIGN TO MAIN in the ALT 3-4 section.",
     ],
     complete: "MUTE/ALT plus ASSIGN TO MAIN turns ALT 3-4 into a subgroup: the drums and bass reach the house through it and also come out of the ALT outputs for the recorder.",
+  },
+  {
+    id: "vlz1202-pads",
+    short: "Plug in the pads",
+    title: "The pads aren't in the house",
+    who: "Band leader",
+    prompt: "“Where are my pads and effects? The laptop's running, but its cable is hanging loose behind the rack.”",
+    goal: "The pads laptop plugged into a stereo channel and heard on both sides of the house, with the rest of the mix unchanged.",
+    setup: { tweak: (st, h) => h.unplug("pads") },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "patched", kind: "goal", type: "sourcePatched", source: "pads", label: "The laptop is on a working input" },
+      { id: "stereo", kind: "goal", type: "sourceHeardInMain", source: "pads", stereo: true, label: "The pads are heard on both sides of the house" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: "pads", toleranceDb: 1, label: "The rest of the house stays the same" },
+    ],
+    hints: [
+      "A laptop's headphone jack is a stereo line output. It belongs on a stereo line channel (5/6 or 7/8), not a mic input.",
+      "The 3.5 mm → dual 1/4\" breakout splits it into a left and a right plug, for the stereo channel's L and R jacks.",
+      "Plug the laptop into channel 5/6's L and R with the 3.5 mm → dual 1/4\" cable. Its LEVEL is already up.",
+    ],
+    complete: "The pads play in time with the band from a laptop, so they come in as a stereo line source: one stereo channel, one LEVEL, left and right kept apart all the way to the speakers.",
   },
 ];
 
@@ -2586,7 +2608,7 @@ const X32 = [
     conditions: [
       { id: "listen", kind: "goal", type: "listenedTo", dest: "mix1", label: "You listened to the singer's wedge" },
       { id: "send", kind: "goal", type: "sendRaised", bus: "mix1", source: "lead-vocal", baseline: "send", minDb: 4, label: "The vocal's send to MIX 1 is up" },
-      { id: "heard", kind: "goal", type: "monitorRaised", bus: "mix1", source: "lead-vocal", baseline: "vox", minDb: 4, label: "The singer hears more of herself" },
+      { id: "heard", kind: "goal", type: "monitorRaised", bus: "mix1", source: "lead-vocal", baseline: "vox", minDb: 4, label: "The singer hears more of their own voice" },
       { id: "rest", kind: "keep", type: "monitorMixUnchanged", bus: "mix1", baseline: "singer", except: "lead-vocal", toleranceDb: 1, label: "The rest of the singer's wedge stays the same" },
       { id: "drummer", kind: "keep", type: "monitorMixUnchanged", bus: "mix2", baseline: "drummer", toleranceDb: 1, label: "The drummer's wedge stays the same" },
       { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
@@ -2725,6 +2747,57 @@ const X32 = [
     hints: ["SEL MIX 3 and use SENDS ON FADERS to build the mix; listen to MIX 3 as you go.", "Sends to MIX 3 start POST here, so they'd follow the house faders. Each channel's PRE for MIX 3 is in its channel strip.", "SEL 01, 03 and 07 in turn and press PRE next to their MIX 3 send. Guitar and vocal near 0 dB, drums lower."],
     complete: "A new monitor mix: the sends set the balance, PRE makes it independent of the house. The routing (MIX 3 → XLR OUT 3) was already there.",
   },
+  // Written for FTW: an orchestra's section mics.
+  {
+    id: "x32c-orchestra",
+    short: "One fader for the orchestra",
+    title: "One fader for the orchestra",
+    who: "Music director",
+    prompt: "“In the quiet bridge the orchestra has to sit back, about 6 dB, all together. One fader, please, and don't touch the channel faders: the balance inside the orchestra is right.”",
+    goal: "Strings, woodwinds and brass on one DCA, at least 4 dB down in the house; the band, the vocal and the channel faders unchanged.",
+    setup: { listen: "main" },
+    baseline: { main: { metric: "mainDbByChannel" }, levels: { metric: "channelLevels" }, singer: { metric: "monitorByChannel", bus: "mix1" } },
+    conditions: [
+      goal("dca", "The three section mics share one DCA (nothing else is on it)", (ctx) =>
+        Object.keys(sc(ctx, "strings")?.dca || {}).some((d) => ORCHESTRA.every((s) => sc(ctx, s)?.dca[d]) && ["drums", "bass", "guitars", "percussion", "lead-vocal"].every((s) => !sc(ctx, s)?.dca[d])),
+      ),
+      goal("down", "The orchestra is at least 4 dB down in the house", (ctx) => ORCHESTRA.every((s) => ctx.baseline.main[mc(ctx, s).index] - house(ctx, s) >= 4)),
+      { id: "band", kind: "keep", type: "mainUnchanged", baseline: "main", except: ORCHESTRA, toleranceDb: 1, label: "The band and the vocal stay where they are" },
+      keep("faders", "The channel faders don't move", (ctx) => ctx.state.channels.every((c, i) => Math.abs(c.level - ctx.baseline.levels[i]) < 0.01)),
+      { id: "singer", kind: "keep", type: "monitorMixUnchanged", bus: "mix1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge stays the same" },
+    ],
+    hints: [
+      "A DCA moves several channels' levels at once without moving their faders. The right-hand faders have a DCA 1-8 layer.",
+      "On the DCA 1-8 layer, press DCA 1's SEL to start assigning, press SEL on the strings (05), woodwinds (06) and brass (08), then DCA 1's SEL again to finish.",
+      "Then pull DCA 1's fader down about 6 dB.",
+    ],
+    complete: "One DCA rode three section mics and kept the orchestra's own balance, with no channel fader moving. That's how a show with an orchestra is mixed: the band, the vocals and the orchestra each on their own DCA.",
+  },
+  {
+    id: "x32c-sections-48v",
+    short: "Silent section mics",
+    title: "The silent section mics",
+    who: "String section leader",
+    prompt: "“We can hear ourselves on stage, but there's nothing of the strings or the woodwinds coming out of the PA.”",
+    goal: "The strings and the woodwinds heard in the house again.",
+    setup: {
+      tweak: (st, h) => {
+        h.set("strings", "phantom", false);
+        h.set("winds", "phantom", false);
+      },
+    },
+    conditions: [
+      { id: "strings", kind: "goal", type: "sourceHeardInMain", source: "strings", label: "The strings are heard in the house" },
+      { id: "winds", kind: "goal", type: "sourceHeardInMain", source: "winds", label: "The woodwinds are heard in the house" },
+      { id: "vox", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The vocal stays in the house" },
+    ],
+    hints: [
+      "Both section mics are condensers. What does a condenser need that a dynamic mic doesn't?",
+      "On the X32, 48V is per channel: SEL the channel, and it's in the channel strip's INPUT section.",
+      "SEL channel 05 and press 48V, then SEL channel 06 and press 48V.",
+    ],
+    complete: "Section mics in front of an orchestra are usually condensers, for their reach and detail, so each needs its 48V. The brass mic is a dynamic and worked all along.",
+  },
 ];
 
 
@@ -2803,7 +2876,7 @@ const Y96 = [
     conditions: [
       { id: "listen", kind: "goal", type: "listenedTo", dest: "aux1", label: "You listened to the singer's wedge" },
       { id: "send", kind: "goal", type: "sendRaised", bus: "aux1", source: "lead-vocal", baseline: "send", minDb: 4, label: "The vocal's AUX 1 send is up" },
-      { id: "heard", kind: "goal", type: "monitorRaised", bus: "aux1", source: "lead-vocal", baseline: "vox", minDb: 4, label: "The singer hears more of herself" },
+      { id: "heard", kind: "goal", type: "monitorRaised", bus: "aux1", source: "lead-vocal", baseline: "vox", minDb: 4, label: "The singer hears more of their own voice" },
       { id: "rest", kind: "keep", type: "monitorMixUnchanged", bus: "aux1", baseline: "singer", except: "lead-vocal", toleranceDb: 1, label: "The rest of the singer's wedge stays the same" },
       { id: "drummer", kind: "keep", type: "monitorMixUnchanged", bus: "aux2", baseline: "drummer", toleranceDb: 1, label: "The drummer's wedge stays the same" },
       { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
@@ -3585,6 +3658,83 @@ const GDIG = [
     hints: ["SEL MIX 3 and use SENDS ON FADERS to build the mix; listen to MIX 3 as you go.", "Sends to MIX 3 start POST here, so they'd follow the house faders. Each channel's PRE for MIX 3 is in its channel strip.", "SEL channels 1, 3 and 7 in turn and press PRE next to their MIX 3 send. Guitar and vocal near 0 dB, drums lower."],
     complete: "A new monitor mix: the sends set the balance, PRE makes it independent of the house. The routing (MIX 3 → XLR OUT 3) was already there.",
   }),
+  // Written for FTW: a quiet section mic.
+  {
+    id: "gdig-winds",
+    short: "Quiet woodwinds",
+    title: "The quiet woodwinds",
+    who: "Woodwind player",
+    prompt: "“Our section mic barely moves the meter, and when you push the fader you get more hiss than flute.”",
+    goal: "The woodwinds at a healthy input level, the rest of the house unchanged.",
+    setup: { tweak: (st, h) => h.set("winds", "gainDb", 20) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "gain", kind: "goal", type: "sourceGain", source: "winds", label: "The woodwinds reach a healthy input level" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: "winds", toleranceDb: 1, label: "Everything else in the house stays the same" },
+    ],
+    hints: [
+      "Soft instruments a few feet from one mic make a very small signal. Where does a weak signal get its level: the preamp, or the fader?",
+      "GAIN is in the channel strip's INPUT section, for whichever channel is selected. The meter shows the level after it.",
+      "SEL channel 6 and turn GAIN up until the meter sits around the middle. Leave its fader where it is.",
+    ],
+    complete: "A quiet source needs more preamp gain, not more fader: gain lifts the signal above the noise once, at the start. The fader then sets its place in the mix, which for soft woodwinds behind a band is quite low.",
+  },
+  // Written for NOSTRADAMUS: three guitars and a harmony part.
+  {
+    id: "gdig-spread",
+    short: "Spread the guitars",
+    title: "Three guitars in one spot",
+    who: "Lead guitarist",
+    prompt: "“All the guitars are piled up in the middle. Out front you can't tell my lead from the rhythm part. Spread us out.”",
+    goal: "Rhythm and lead guitar panned to opposite sides, at least a third of the way out; the lead vocal still in the middle and everyone still heard.",
+    setup: {
+      tweak: (st, h) => {
+        for (const g of ["guitars", "lead-guitar", "bridge-guitar"]) h.set(g, "pan", 0);
+      },
+    },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("spread", "Rhythm and lead guitar sit on opposite sides", (ctx) => {
+        const r = sc(ctx, "guitars")?.pan ?? 0;
+        const l = sc(ctx, "lead-guitar")?.pan ?? 0;
+        return Math.abs(r) >= 0.3 && Math.abs(l) >= 0.3 && Math.sign(r) !== Math.sign(l);
+      }),
+      keep("vox", "The lead vocal stays in the middle", (ctx) => Math.abs(sc(ctx, "lead-vocal")?.pan ?? 0) < 0.1),
+      { id: "rhythm", kind: "keep", type: "sourceHeardInMain", source: "guitars", label: "The rhythm guitar is still heard" },
+      { id: "lead", kind: "keep", type: "sourceHeardInMain", source: "lead-guitar", label: "The lead guitar is still heard" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", except: ["guitars", "lead-guitar", "bridge-guitar"], toleranceDb: 1, label: "Everyone else in the house stays the same" },
+    ],
+    hints: [
+      "PAN places a channel between the left and right speakers. Right now all three guitars sit in the centre, on top of the vocals.",
+      "SEL a guitar channel: its PAN knob is in the channel strip's PAN & SENDS section.",
+      "SEL channel 3 (rhythm) and pan it left; SEL channel 4 (lead) and pan it right. Leave the vocals centred.",
+    ],
+    complete: "Panning gives parts in the same range their own place, so the ear can pick them apart without anything getting louder. The lead vocal, kick and bass stay in the middle: they hold the mix together.",
+  },
+  {
+    id: "gdig-harmony",
+    short: "Harmony in the wedge",
+    title: "The harmony in my wedge",
+    who: "Lead singer",
+    prompt: "“I can't hear the harmony part in my wedge, so I keep drifting onto it. Give me some, but keep me on top.”",
+    goal: "The harmony vocal in MIX 1 (the singer's wedge), at least 3 dB under the lead vocal; the house and the drummer's wedge unchanged.",
+    music: "bars-18", // the second verse: lead and harmony sing all the way through
+    setup: { tweak: (st, h) => h.sendDb("harmony-vocal", "mix1", -Infinity) },
+    baseline: { main: { metric: "mainDbByChannel" }, singer: { metric: "monitorByChannel", bus: "mix1" }, drummer: { metric: "monitorByChannel", bus: "mix2" } },
+    conditions: [
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "mix1", label: "You listened to the singer's wedge" },
+      { id: "harmony", kind: "goal", type: "monitorLittle", bus: "mix1", source: "harmony-vocal", below: ["lead-vocal"], byDb: 3, label: "The harmony is in the wedge, under the lead vocal" },
+      { id: "rest", kind: "keep", type: "monitorMixUnchanged", bus: "mix1", baseline: "singer", except: "harmony-vocal", toleranceDb: 1, label: "The rest of the singer's wedge stays the same" },
+      { id: "drummer", kind: "keep", type: "monitorMixUnchanged", bus: "mix2", baseline: "drummer", toleranceDb: 1, label: "The drummer's wedge stays the same" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: [
+      "The singer's wedge is MIX 1. Listen to it: there's no harmony in it at all.",
+      "SEL the harmony mic's channel (8): its sends are in the channel strip, MIX 1 among them. Or SEL MIX 1 and use SENDS ON FADERS.",
+      "Turn channel 8's MIX 1 send up until you hear the harmony, a few dB under the lead vocal.",
+    ],
+    complete: "A singer holding a harmony needs to hear the other part, but under their own voice: a wedge is for pitch and timing, not a finished mix. The house didn't change, because MIX 1 is pre-fader.",
+  },
 ];
 
 // ---------- Zoom F8n Pro ----------
@@ -3931,7 +4081,7 @@ const ORDER = {
   mix8: ["doors", "phones", "ol", "boomy", "pan", "keys-wedge", "wedge-loud", "speech", "ballad", "overhead", "guest"],
   stagepas400bt: ["doors", "micline", "monitor", "speech", "speakers", "reverb", "hall", "mono", "overhead", "sub", "feedback"],
   mg102: ["doors", "phantom", "peak", "less-drums", "one-knob", "thin-bass", "rumble", "reverb-loud", "2tr"],
-  vlz1202: ["doors", "trim", "nasal", "pad", "pfl", "wedge-quiet", "lowcut", "reverb", "prefader", "efx", "tape", "alt"],
+  vlz1202: ["doors", "trim", "nasal", "pad", "pfl", "wedge-quiet", "lowcut", "reverb", "prefader", "efx", "tape", "alt", "pads"],
   x1204usb: ["doors", "minus10", "overhead", "pfl", "comp", "fx", "slapback", "wedge", "pre", "ret-mon", "cdtape", "alt"],
   cr1604: ["doors", "phantom", "assign", "levelset", "sweep", "lowcut", "mute-pre", "drummer-quiet", "reverb", "efx-mon", "mono", "shift", "subgroup", "direct", "room", "snake", "snake-return"],
   ui16: ["doors", "gain", "48v", "more-keys", "hpf", "mud", "harsh", "eq-on", "comp", "comp-on", "trumpet-reverb", "delay", "out-of-house", "post", "guitar-mix"],
@@ -3942,8 +4092,8 @@ const ORDER = {
   f8n: ["track", "trim", "room", "hpf", "pfl", "balance", "link", "camera", "dslr", "iso-safety"],
   dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
   cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "dante-back", "dante-fix", "scene-recall", "scene-store"],
-  gdig: ["doors", "gain", "48v", "lowcut", "lr", "mud", "eq-on", "comp-on", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "new-mix"],
-  x32c: ["doors", "gain", "48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "mute-group", "new-mix", "stagebox"],
+  gdig: ["doors", "gain", "winds", "48v", "lowcut", "lr", "spread", "mud", "eq-on", "comp-on", "sof", "harmony", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "new-mix"],
+  x32c: ["doors", "gain", "48v", "sections-48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "orchestra", "mute-group", "new-mix", "stagebox"],
 };
 
 const LISTS = { gdig: GDIG, l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c], yam01v96: Y96, x32: [...X32F, ...BOXES.x32] };
@@ -3980,6 +4130,49 @@ const STAGE = {
 };
 const stageOf = (id) => STAGE[id] || (id.endsWith("-doors") ? SILENT : null);
 
+// Which band plays (js/scenarios.js gigFor, audio/source-manifest.js useSong):
+// these scenarios have NOSTRADAMUS on stage, the rest Persephone. Any scenario
+// that only needs parts both bands have (drums, bass, a guitar, the vocals)
+// works with either; these were chosen so every mixer has some of each, and
+// tests/board-scenarios.test.mjs checks each with its own band.
+const NOSTRADAMUS = {
+  b207mp3: ["amp", "quiet-singer"],
+  mix8: ["phones", "boomy"],
+  stagepas400bt: ["micline", "monitor", "reverb", "sub"],
+  mg102: ["phantom", "peak", "one-knob", "thin-bass", "reverb-loud"],
+  vlz1202: ["trim", "nasal", "wedge-quiet", "lowcut", "reverb", "prefader", "efx", "pads"],
+  x1204usb: ["pfl", "comp", "pre"],
+  cr1604: ["phantom", "assign", "lowcut", "mute-pre", "reverb", "efx-mon", "subgroup", "direct", "snake", "snake-return"],
+  ui16: ["gain", "48v", "mud", "harsh", "comp", "comp-on", "guitar-mix"],
+  l20: ["gain", "lowcut", "wedge-quiet"],
+  sd442: ["camera", "tone", "hot-vocal", "master", "mono", "iso"],
+  yam01v96: ["phantom", "fader-mode", "mud", "eq-on", "comp", "comp-on"],
+  x32: ["mud", "eq-on", "room", "routing-house", "stagebox-out", "mc", "subgroup", "scene-store"],
+  f8n: ["trim", "room", "pfl", "balance", "dslr"],
+  dm2000: ["48v", "mud", "comp-on", "fader-mode", "reverb", "subgroup", "output-patch", "matrix"],
+  cl3: ["gain", "48v", "eq-on", "comp-on", "routing-house", "routing-wedge", "scene-store"],
+  gdig: ["gain", "48v", "spread", "mud", "eq-on", "sof", "harmony", "drummer-quiet", "reverb", "out-of-house"],
+  x32c: ["gain", "48v", "mud", "eq-on", "sof", "drummer-quiet", "reverb", "out-of-house"],
+};
+// FTW, with its orchestra, on the bigger consoles (the ones with inputs for
+// its section mics): every scenario there that works with it and whose text
+// fits, plus three written for it.
+const FTW = {
+  cr1604: ["levelset", "drummer-quiet", "mono", "room"],
+  ui16: ["eq-on", "delay"],
+  l20: ["eq-on"],
+  yam01v96: ["master", "reverb"],
+  x32: ["comp-on", "routing-wedge", "matrix", "bus9"],
+  dm2000: ["eq-on", "encoder", "bus-to-st", "new-mix"],
+  cl3: ["mud", "sof", "matrix"],
+  gdig: ["winds", "comp-on", "bus-mute"],
+  x32c: ["sections-48v", "comp-on", "bus-mute", "orchestra"],
+};
+const songOf = (board, id) => {
+  const k = id.slice(board.length + 1);
+  return NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
+};
+
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.
 function arrange(board) {
   const byId = Object.fromEntries(LISTS[board].map((s) => [s.id, s]));
@@ -3987,7 +4180,7 @@ function arrange(board) {
   const missing = ids.filter((id) => !byId[id]);
   const extra = Object.keys(byId).filter((id) => !ids.includes(id));
   if (missing.length || extra.length) throw new Error(`${board}: missing ${missing}, unordered ${extra}`);
-  return ids.map((id, i) => ({ board, number: i + 1, ...byId[id], ...(stageOf(id) ? { stage: stageOf(id) } : {}) }));
+  return ids.map((id, i) => ({ board, number: i + 1, ...byId[id], ...(stageOf(id) ? { stage: stageOf(id) } : {}), ...(songOf(board, id) ? { song: songOf(board, id) } : {}) }));
 }
 
 export const BOARD_SCENARIOS = Object.fromEntries(Object.keys(ORDER).map((b) => [b, arrange(b)]));

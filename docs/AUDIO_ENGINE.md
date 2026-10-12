@@ -113,10 +113,11 @@ This was verified in Chromium by capturing each stem with an `AudioWorklet` and 
 
 ### Delivery and loading
 
-- Excerpt: seven stereo 44.1 kHz MP3s (29.905 s each, about 3.8 MB in total) in `audio/persephone/`. Every file is the same span of the same song, so one loop (0.5 s to 28.905 s in the file, 8 bars) serves all of them.
+- Three songs (`SONGS` in the manifest), one on stage at a time: `useSong(id)` swaps the manifest's live `STEM_SET`, `STEMS`, `SOURCES` and `SOURCES_BY_ID` bindings, and `js/app.js` calls it before building each scenario (its `song`, or Free play's choice). The transport drops everything it has decoded when `STEM_SET.id` changes, because stem ids ("drums") repeat between songs.
+- Excerpt: seven stereo 44.1 kHz MP3s (29.905 s each, about 3.8 MB in total) in `audio/persephone/`, or nine 48 kHz ones in `audio/nostradamus/` (8 bars, 21.926 s, about 2.9 MB) and `audio/ftw/` (6 bars, 22.071 s, about 3.3 MB). Every file of a song is the same span of it, so one loop (0.5 s into the file) serves all of them; each song's sections share its loop length.
 - Full song: 12 segments per stem in `audio/persephone/full/` (about 18 MB in total), used only in Free play. Details below.
 - The 24-bit WAV masters are never loaded by the app. See [../audio/README.md](../audio/README.md).
-- `setSources(ids, { mode })` on the engine calls `prepare(ids)`, `rewire()`, `load(mode)` and then `play()`. Only stems for sources in the active scenario are fetched. Each buffer is folded to mono in `toMono` (`"sum"` = (L+R)/2, or `"left"` / `"right"`, plus `trimDb`). Decoded excerpt buffers are cached by stem id for later scenario switches.
+- `setSources(ids, { mode })` on the engine calls `prepare(ids)`, `rewire()`, `load(mode)` and then `play()`. Only stems for sources in the active scenario are fetched. Each buffer is folded to mono in `toMono` (`"sum"` = (L+R)/2, or `"left"` / `"right"`, plus `trimDb`), except a `"stereo"` stem (NOSTRADAMUS's pads), which keeps both sides: its source output and gate are explicit 2-channel nodes, and section stitching runs per channel. Decoded excerpt buffers are cached by stem id for later scenario switches.
 - Nothing plays until the requested audio is decoded (all excerpt buffers, or the first full-song segment). Every `load`, `play` and `stop` takes a new token and async work that finds the token changed just returns, so a newer request cancels a stale one.
 - If a stem fails, the transport substitutes a plain sine test tone for that stem (or segment) and reports the error; `js/app.js` shows a dismissible banner. It is a development fallback; a failed excerpt stays a tone until reload.
 - Events (from `engine.on`): `loading {done,total,what?}`, `ready {errors}`, `transport {playing}`, `buffering {on}`. Engine API: `start`, `setSources`, `play`, `stop`, `seek(t)`, `position()` (`{ t, duration }`), and the `started`, `playing` and `mode` getters.
@@ -130,7 +131,7 @@ The loop is the 8 bars from the 16th-note pickup at 157.970 s (downbeat 158.204 
 
 ### Full song (Free play only)
 
-Free play's "Band audio" control switches between the 8-bar loop (28 s) and the full song (3:58, with a seek slider). Every other scenario always plays the loop. The full song is not decoded up front, so a phone never holds seven full-length stems:
+Free play's "Song" control picks the band, and "Band audio" switches between its 8-bar sections and the full song (3:58 for Persephone, 1:49 for NOSTRADAMUS, 4:16 for FTW, with a seek slider). The numbers below are Persephone's; NOSTRADAMUS has 6 segments and FTW 13, both with `trimDb` 0. Every other scenario always plays the loop. The full song is not decoded up front, so a phone never holds seven full-length stems:
 
 - Each stem is 12 segments of 20 s (`STEM_SET.full`), each with 0.5 s of extra audio on both sides (none at the song's start or end).
 - The transport keeps only the segment that is playing and the next one decoded. Every 250 ms (`TICK_MS`) it checks the clock; when the next segment starts within 8 s (`LOOKAHEAD`) and is decoded, it schedules it. The next segment is requested as soon as the current one is scheduled, so it normally arrives well before it is due.
@@ -174,5 +175,7 @@ For a pre/post choice, put the tap either before `enabled` (pre) or after `fader
 Two Aux buses (both pre-fader), no EQ/dynamics/effects, no feedback, no stereo channels, and no per-speaker level model. The Aux and PFL paths are mono. Full-song playback exists only in Free play.
 
 ## Preshow loop (stereo input 9/10)
+
+A stereo *band* source (NOSTRADAMUS's `pads`, FTW's `synths`) is not this: it is a stem with `treatment: "stereo"`, played by the transport in time with the band, and patched into 9/10 the same way.
 
 `js/loop-player.js` plays sources that have an `asset` (currently `preshow`) on their own timeline: one looping `AudioBufferSourceNode`, decoded stereo (no mono fold), started once by `engine.start()`. Its persistent `out` node (2 channels, explicit) is wired at zero gain to the destination (keep-alive) and is patched into the stereo strip's input like a transport output. The band's `StemTransport` never sees it (`engine.setSources` only passes sources with a `stem`), so patching, muting, Stop and mode changes cannot disturb either timeline. The stereo strip runs stereo nodes through preamp, clipper, enable and fader, and skips the panner so left stays left; aux sends and PFL fold to mono.

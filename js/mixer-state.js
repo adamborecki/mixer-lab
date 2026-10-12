@@ -93,11 +93,14 @@ export const cloneState = (s) => structuredClone(s);
 
 // ---------- computed signal levels ----------
 
-// Peak (dBFS) a source delivers to the mixer: a stem after the mono fold-down,
-// or a stereo source's own measured peak.
+// Peak (dBFS) a source delivers to the mixer: a stem after the mono fold-down
+// (a stereo stem's louder side), or a stereo source's own measured peak.
 export function sourcePeakDb(source, stems) {
   if (!source) return null;
-  if (source.stem) return stems[source.stem] ? stems[source.stem].monoPeakDb : null;
+  if (source.stem) {
+    const stem = stems[source.stem];
+    return stem ? (stem.treatment === "stereo" ? stem.peakDb : stem.monoPeakDb) : null;
+  }
   return typeof source.peakDb === "number" ? source.peakDb : null;
 }
 

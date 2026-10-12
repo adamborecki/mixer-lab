@@ -78,7 +78,7 @@ export function techniqueOf({ spacingCm, angleDeg }) {
 // Where each band member stands, in metres: x across the stage (from the
 // source's pan), y back from the stage edge. The pair stands `PAIR_DISTANCE_M`
 // out front, on the centre line, pointing at the stage.
-const DEPTH_M = { drums: 3.5, bass: 2.5, guitars: 2.5, keys: 2.5, trumpets: 2, "backing-vocals": 1.5, "lead-vocal": 1 };
+const DEPTH_M = { drums: 3.5, bass: 2.5, guitars: 2.5, "lead-guitar": 2.5, "bridge-guitar": 2.5, keys: 2.5, pads: 3, trumpets: 2, "backing-vocals": 1.5, "harmony-vocal": 1.5, "lead-vocal": 1, percussion: 3, strings: 3, winds: 3.5, brass: 3.5, synths: 3 };
 export const PAIR_DISTANCE_M = 6;
 export const SPEED_OF_SOUND = 343;
 
