@@ -5,12 +5,13 @@ import assert from "node:assert/strict";
 import { SCENARIOS, SCENARIOS_BY_ID, CONDITIONS, buildScenarioState, captureBaseline, evaluateScenario, validateScenarios, nominalGainDb, sourceDeviceId, fillTerms } from "../js/scenarios.js";
 import { MixerStore, levelToDb, dbToLevel, inputBand } from "../js/mixer-state.js";
 import { checkConnection } from "../js/connection-model.js";
-import { SOURCES_BY_ID, sourcesForScenario } from "../audio/source-manifest.js";
+import { DEFAULT_SONG, SOURCES_BY_ID, sourcesForScenario, useSong } from "../audio/source-manifest.js";
 
 // ---------- helpers ----------
 
 function start(id) {
   const def = SCENARIOS_BY_ID[id];
+  useSong(def.song || DEFAULT_SONG); // the scenario's own band, as in the app
   const state = buildScenarioState(def);
   // session.listened mirrors what js/app.js records when the student uses the Listen bar.
   return { def, store: new MixerStore(state), baseline: captureBaseline(def, state), session: { listened: new Set([state.listen]) } };
@@ -33,6 +34,9 @@ const connect = (ctx, from, to, cable) => {
 
 // ---------- data integrity ----------
 
+// A scenario's starting state, with its own band on stage.
+const build = (def) => (useSong(def.song || DEFAULT_SONG), buildScenarioState(def));
+
 describe("scenario data", () => {
   it("validateScenarios() reports no problems", () => {
     assert.deepEqual(validateScenarios(), []);
@@ -40,7 +44,7 @@ describe("scenario data", () => {
 
   for (const def of SCENARIOS) {
     it(`${def.id}: builds a state with the mixer, its sources and its speakers`, () => {
-      const s = buildScenarioState(def);
+      const s = build(def);
       const ids = s.rig.devices.map((d) => d.id);
       assert.equal(new Set(ids).size, ids.length, "device ids are unique");
       assert.ok(ids.includes("mixer"));
@@ -49,7 +53,7 @@ describe("scenario data", () => {
     });
 
     it(`${def.id}: every starting cable is a physically valid patch`, () => {
-      const s = buildScenarioState(def);
+      const s = build(def);
       const rig = { devices: s.rig.devices, cables: [] };
       for (const c of s.rig.cables) {
         const r = checkConnection(rig, c.from, c.to, c.cable);
@@ -87,7 +91,7 @@ describe("scenario data", () => {
 describe("starting states", () => {
   for (const def of SCENARIOS.filter((d) => d.id !== "free-play")) {
     it(`${def.id}: not complete at the start; keep-conditions already hold`, () => {
-      const s = buildScenarioState(def);
+      const s = build(def);
       const result = evaluateScenario(def, s, captureBaseline(def, s));
       assert.equal(result.complete, false);
       assert.ok(result.items.some((i) => i.kind === "goal" && !i.met), "some goal is unmet");
@@ -97,7 +101,7 @@ describe("starting states", () => {
 
   it("free-play has no objective and never completes", () => {
     const def = SCENARIOS_BY_ID["free-play"];
-    const result = evaluateScenario(def, buildScenarioState(def));
+    const result = evaluateScenario(def, build(def));
     assert.deepEqual(result.items, []);
     assert.equal(result.complete, false);
   });

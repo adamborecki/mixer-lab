@@ -7,12 +7,14 @@ import { ALL_BOARD_SCENARIOS, buildScenarioState, captureBaseline, evaluateScena
 import { MixerStore, computeMix } from "../js/mixer-state.js";
 import { COMPACT, LAWS, levelLaw } from "../js/compact.js";
 import * as CR1604 from "../js/cr1604.js";
-import { SOURCES_BY_ID, STEMS } from "../audio/source-manifest.js";
+import { DEFAULT_SONG, SOURCES_BY_ID, STEMS, useSong } from "../audio/source-manifest.js";
 import { numberedScenarios } from "../js/progress.js";
 import { SCENARIOS } from "../js/scenarios.js";
 
 // One attempt at a scenario: a store, its baseline, and the listening history.
+// The scenario's own band is on stage, as in the app.
 function attempt(def) {
+  useSong(process.env.FORCE_SONG || def.song || DEFAULT_SONG);
   const st = new MixerStore(buildScenarioState(def, SOURCES_BY_ID, def.board));
   const baseline = captureBaseline(def, st.state, SOURCES_BY_ID, STEMS);
   const session = { listened: new Set([st.state.listen]) };
@@ -44,6 +46,24 @@ const byId = Object.fromEntries(ALL_BOARD_SCENARIOS.map((s) => [s.id, s]));
 
 // The intended fix for each scenario.
 const SOLVE = {
+  "gdig-winds": (a) => a.set("winds", "gainDb", 42),
+  "x32c-sections-48v": (a) => {
+    a.set("strings", "phantom", true);
+    a.set("winds", "phantom", true);
+  },
+  "x32c-orchestra": (a) => {
+    for (const s of ["strings", "winds", "brass"]) a.set(s, "dca.d1", true);
+    a.st.setBus("dca1", "level", LAWS.level.toPos(-6));
+  },
+  "gdig-spread": (a) => {
+    a.set("guitars", "pan", -0.5);
+    a.set("lead-guitar", "pan", 0.5);
+  },
+  "gdig-harmony": (a) => {
+    a.st.setListen("mix1");
+    a.sendDb("harmony-vocal", "mix1", -6);
+  },
+  "vlz1202-pads": (a) => assert.ok(a.st.connect("src-pads/out", "mixer/ch5-lr", "mini-dual-ts").ok),
   "ui16-mud": (a) => {
     a.set("guitars", "eqOn", true);
     a.set("guitars", "peq.lowMid.gain", -4);
@@ -254,6 +274,35 @@ const SOLVE = {
 
 // Tempting wrong fixes: each must leave the scenario unsolved.
 const WRONG = {
+  "gdig-winds": [["the fader up instead", (a) => a.faderDb("winds", 0)]],
+  "x32c-sections-48v": [["only the strings", (a) => a.set("strings", "phantom", true)]],
+  "x32c-orchestra": [
+    ["the three faders down", (a) => {
+      for (const s of ["strings", "winds", "brass"]) a.nudge(s, -6);
+    }],
+    ["the vocal on the DCA too", (a) => {
+      for (const s of ["strings", "winds", "brass", "lead-vocal"]) a.set(s, "dca.d1", true);
+      a.st.setBus("dca1", "level", LAWS.level.toPos(-6));
+    }],
+  ],
+  "gdig-spread": [
+    ["both guitars to the same side", (a) => {
+      a.set("guitars", "pan", -0.5);
+      a.set("lead-guitar", "pan", -0.5);
+    }],
+    ["the lead guitar's fader up instead", (a) => a.nudge("lead-guitar", 4)],
+  ],
+  "gdig-harmony": [
+    ["the harmony's house fader up", (a) => {
+      a.st.setListen("mix1");
+      a.nudge("harmony-vocal", 6);
+    }],
+    ["the harmony as loud as the singer", (a) => {
+      a.st.setListen("mix1");
+      a.sendDb("harmony-vocal", "mix1", 6);
+    }],
+  ],
+  "vlz1202-pads": [["into a mic channel's line jack, left plug only", (a) => a.st.connect("src-pads/out", "mixer/ch1-line", "mini-dual-ts")]],
   "x32-stagebox": [["AES50-A on the wrong block (17–24)", (a) => a.st.setDevice("mixer", "inSource.2", 1)]],
   "x32-stagebox-link": [
     ["an XLR cable between the network ports", (a) => assert.equal(a.st.connect("sb/aes50a", "mixer/aes50a", "xlr").ok, false)],

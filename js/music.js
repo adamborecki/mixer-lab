@@ -15,6 +15,17 @@ const WORDS = [
   [/\btrumpet|\bhorns?\b|\bbrass\b/i, "trumpets"],
   [/\bbacking\b|\bharmon(y|ies)\b|\bBVs?\b/, "backing-vocals"],
   [/\bvocal|\bsinger|\bvox\b|\bvoice\b/i, "lead-vocal"],
+  // NOSTRADAMUS's and FTW's own parts (a source the song on stage doesn't have is ignored).
+  [/\blead guitar/i, "lead-guitar"],
+  [/\bbridge guitar|\bthird guitar/i, "bridge-guitar"],
+  [/\bharmon(y|ies)\b/i, "harmony-vocal"],
+  [/\bpads\b/, "pads"],
+  // FTW's sections.
+  [/\bpercussion\b/i, "percussion"],
+  [/\bstrings\b|\bstring section/i, "strings"],
+  [/\bwoodwinds?\b|\bwinds\b/i, "winds"],
+  [/\bbrass\b/i, "brass"],
+  [/\bsynths?\b/i, "synths"],
 ];
 
 // Every source id a scenario refers to, in its checks or its words.

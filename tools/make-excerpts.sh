@@ -1,71 +1,129 @@
 #!/usr/bin/env bash
-# Regenerates the browser delivery audio from the high-resolution Persephone
-# stems. The originals are read, never modified. Two products:
-#   audio/persephone/*.mp3       the 8-bar loop excerpt (scenarios, default)
-#   audio/persephone/full/*.mp3  the whole song in 20 s segments (Free play option)
+# Regenerates the browser delivery audio from a song's high-resolution stems.
+# The originals are read, never modified. Two products per song:
+#   audio/<song>/*.mp3       the 8-bar loop excerpt (scenarios, default)
+#   audio/<song>/full/*.mp3  the whole song in 20 s segments (Free play option)
 #
-#   tools/make-excerpts.sh            # both
-#   tools/make-excerpts.sh excerpt    # loop excerpt only
-#   tools/make-excerpts.sh full       # full-song segments only
+#   tools/make-excerpts.sh                          # Persephone, both
+#   tools/make-excerpts.sh excerpt                  # Persephone, loop excerpt only
+#   tools/make-excerpts.sh full                     # Persephone, full-song segments only
+#   SONG=nostradamus tools/make-excerpts.sh         # NOSTRADAMUS (same options)
+#   SONG=ftw tools/make-excerpts.sh                 # FTW (same options)
 #
 # Requires ffmpeg (with libmp3lame) on PATH. Prints a measurement table whose
 # numbers belong in audio/source-manifest.js (STEMS[…].normalizeDb /
-# monoPeakDb / monoRmsDb) and audio/README.md.
+# monoPeakDb / monoRmsDb, and peakDb for a stereo stem) and audio/README.md.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# The high-res masters live in a local, untracked "stems …/high res wav" folder.
-SRC_DIR="${SRC_DIR:-$(ls -d stems*/"high res wav" 2>/dev/null | head -n 1)}"
-[ -d "$SRC_DIR" ] || { echo "Set SRC_DIR to the folder holding the Persephone WAV stems." >&2; exit 1; }
-OUT_DIR="audio/persephone"
-
-# Timeline (seconds on the original, shared by every stem).
-# The loop is the 8-bar phrase where the trumpets play (the only stretch of the
-# song where all seven stems are active). Pre-roll / post-roll are extra audio
-# around the loop so the browser loop points never touch the file edges, even
-# if a decoder does not trim MP3 encoder delay.
-LOOP_START=157.970   # the 16th-note pickup where vocals and trumpets enter (downbeat 158.204)
-LOOP_LENGTH=28.405   # 8 bars at ~67.6 bpm, pickup to pickup, tuned on the drums
+SONG="${SONG:-persephone}"
+WHAT="${1:-all}"
 PRE_ROLL=0.5
 POST_ROLL=1.0
-
 TARGET_PEAK_DB=-1.0  # each excerpt is peak-normalized (loudest channel) to this
 MP3_QUALITY=4        # LAME VBR -V4 (~165 kb/s stereo)
-
 # Full song: same per-stem gain as the excerpt minus FULL_TRIM_DB (the whole
-# song peaks up to ~1.6 dB hotter than the excerpt); the app adds it back.
-FULL_DIR="$OUT_DIR/full"
+# song peaks hotter than the excerpt); the app adds it back.
 SEGMENT_SECONDS=20
 SEGMENT_OVERLAP=0.5  # extra audio before/after each segment for crossfades
 FULL_TRIM_DB=2
 FULL_QUALITY=5       # LAME VBR -V5 (~90 kb/s on these stems)
-WHAT="${1:-all}"
+
+# Per song: where the masters are (a local, untracked "stems …/high res wav"
+# folder), the loop (seconds on the original, shared by every stem) and the
+# stems ("original file name|web-safe delivery name").
+case "$SONG" in
+  persephone)
+    MASTERS="stems for gio Persephone/high res wav"
+    # The loop is the 8-bar phrase where the trumpets play (the only stretch of
+    # the song where all seven stems are active).
+    LOOP_START=157.970   # the 16th-note pickup where vocals and trumpets enter (downbeat 158.204)
+    LOOP_LENGTH=28.405   # 8 bars at ~67.6 bpm, pickup to pickup, tuned on the drums
+    NORM_SPAN=excerpt    # every stem plays in the excerpt, so normalize and measure there
+    STEMS=(
+      "Persephone DRUMS.wav|persephone-drums"
+      "Persephone BASS.wav|persephone-bass"
+      "Persephone GUITARS.wav|persephone-guitars"
+      "Persephone PIANO.wav|persephone-piano"
+      "Persephone TRUMPETS.wav|persephone-trumpets"
+      "Persephone BACKING VOCALS.wav|persephone-backing-vocals"
+      "Persephone LEAD VOX & DOUBLES.wav|persephone-lead-vocals-doubles"
+    )
+    ;;
+  nostradamus)
+    MASTERS="stems for will NOSTRADAMUS/high res wav"
+    # 94 bpm exactly (bar 2.553191 s), first downbeat at 0.324 s. The loop is
+    # bars 10-17, the lead guitar's eight bars over the band, starting 20 ms
+    # before the downbeat (23.303 s) so the first hit isn't clipped.
+    LOOP_START=23.283
+    LOOP_LENGTH=20.425532  # 8 bars at 94 bpm
+    # No 8 bars have everyone (the bridge guitar only plays in bars 26-33), so
+    # each stem is normalized and measured over the whole song. Its peak is
+    # then never above TARGET_PEAK_DB, and the full song needs no trim.
+    NORM_SPAN=song
+    FULL_TRIM_DB=0
+    STEMS=(
+      "NOSTRADAMUS Drums.wav|nostradamus-drums"
+      "NOSTRADAMUS Bass.wav|nostradamus-bass"
+      "NOSTRADAMUS Guitar (Rhythm).wav|nostradamus-guitar-rhythm"
+      "NOSTRADAMUS Guitar (Lead).wav|nostradamus-guitar-lead"
+      "NOSTRADAMUS Guitar (Bridge).wav|nostradamus-guitar-bridge"
+      "NOSTRADAMUS Vox (BGV).wav|nostradamus-vox-bgv"
+      "NOSTRADAMUS Vox (Main).wav|nostradamus-vox-main"
+      "NOSTRADAMUS Vox (Harmony).wav|nostradamus-vox-harmony"
+      "NOSTRADAMUS Pads & FX.wav|nostradamus-pads-fx"
+    )
+    ;;
+  ftw)
+    MASTERS="stems for caleb FTW/high res wav"
+    # 70 bpm 4/4 (bar 3.428571 s), bar 1 at 1.1216 s, found from the drums and
+    # checked against the percussion's entries. The loop is 6 bars (24 beats:
+    # two turns of the drums' 12-beat pattern), bars 40-45: everyone but the
+    # brass. It starts 20 ms before bar 40's downbeat.
+    LOOP_START=134.816
+    LOOP_LENGTH=20.571429  # 6 bars at 70 bpm
+    # The brass plays for two bars only, the winds very quietly: normalize and
+    # measure each stem over the whole song.
+    NORM_SPAN=song
+    FULL_TRIM_DB=0
+    SONG_END=256  # the files run to 275.4 s; the last ring dies away by about 255 s
+    STEMS=(
+      "FTW_MIXED_v4.5_DRUMS STEM.wav|ftw-drums"
+      "FTW_MIXED_v4.5_BASS STEM.wav|ftw-bass"
+      "FTW_MIXED_v4.5_GUITAR STEM.wav|ftw-guitar"
+      "FTW_MIXED_v4.5_PERCUSSION STEM.wav|ftw-percussion"
+      "FTW_MIXED_v4.5_STRINGS STEM.wav|ftw-strings"
+      "FTW_MIXED_v4.5_WINDS STEM.wav|ftw-winds"
+      "FTW_MIXED_v4.5_VOCALS STEM.wav|ftw-vocals"
+      "FTW_MIXED_v4.5_BRASS STEM.wav|ftw-brass"
+      "FTW_MIXED_v4.5_SYNTHS STEM.wav|ftw-synths"
+    )
+    ;;
+  *) echo "Unknown SONG '$SONG' (persephone, nostradamus or ftw)." >&2; exit 1 ;;
+esac
+
+SRC_DIR="${SRC_DIR:-$MASTERS}"
+[ -d "$SRC_DIR" ] || { echo "Set SRC_DIR to the folder holding the $SONG WAV stems." >&2; exit 1; }
+OUT_DIR="audio/$SONG"
+FULL_DIR="$OUT_DIR/full"
 
 EXCERPT_START=$(echo "$LOOP_START - $PRE_ROLL" | bc -l)
 EXCERPT_LENGTH=$(echo "$PRE_ROLL + $LOOP_LENGTH + $POST_ROLL" | bc -l)
 
-# original file name | web-safe delivery name
-STEMS=(
-  "Persephone DRUMS.wav|persephone-drums"
-  "Persephone BASS.wav|persephone-bass"
-  "Persephone GUITARS.wav|persephone-guitars"
-  "Persephone PIANO.wav|persephone-piano"
-  "Persephone TRUMPETS.wav|persephone-trumpets"
-  "Persephone BACKING VOCALS.wav|persephone-backing-vocals"
-  "Persephone LEAD VOX & DOUBLES.wav|persephone-lead-vocals-doubles"
-)
-
 mkdir -p "$OUT_DIR"
+
+# Normalize and measure on the excerpt, or on the whole song (NORM_SPAN).
+if [ "$NORM_SPAN" = song ]; then SPAN=(${SONG_END:+-t "$SONG_END"}); else SPAN=(-ss "$EXCERPT_START" -t "$EXCERPT_LENGTH"); fi
 
 # Prints "<overall peak dB> <mono-sum peak dB> <mono-sum RMS dB>" for a filter chain.
 measure() {
   local file="$1" pre="$2"
   local stereo mono
-  stereo=$(ffmpeg -hide_banner -nostats -ss "$EXCERPT_START" -t "$EXCERPT_LENGTH" -i "$file" \
+  stereo=$(ffmpeg -hide_banner -nostats ${SPAN[@]+"${SPAN[@]}"} -i "$file" \
     -af "${pre}astats=measure_perchannel=none:measure_overall=Peak_level" -f null - 2>&1 |
     awk -F': ' '/Peak level dB/ {v=$2} END {print v}')
-  mono=$(ffmpeg -hide_banner -nostats -ss "$EXCERPT_START" -t "$EXCERPT_LENGTH" -i "$file" \
+  mono=$(ffmpeg -hide_banner -nostats ${SPAN[@]+"${SPAN[@]}"} -i "$file" \
     -af "${pre}pan=mono|c0=0.5*c0+0.5*c1,astats=measure_perchannel=none:measure_overall=Peak_level+RMS_level" -f null - 2>&1 |
     awk -F': ' '/Peak level dB/ {p=$2} /RMS level dB/ {r=$2} END {print p, r}')
   echo "$stereo $mono"
@@ -96,6 +154,8 @@ for entry in "${STEMS[@]}"; do
     # SEGMENT_OVERLAP on each side (none before 0 or after the end).
     rate=$(ffprobe -v error -show_entries stream=sample_rate -of csv=p=0 "$in")
     total=$(ffprobe -v error -show_entries stream=duration_ts -of csv=p=0 "$in")
+    # A song can end before its files do (SONG_END, seconds).
+    if [ -n "${SONG_END:-}" ]; then end=$((SONG_END * rate)); [ "$end" -lt "$total" ] && total=$end; fi
     seg=$((SEGMENT_SECONDS * rate))
     pad=$(printf "%.0f" "$(echo "$SEGMENT_OVERLAP * $rate" | bc -l)")
     fullgain=$(echo "$norm - $FULL_TRIM_DB" | bc -l)
@@ -115,4 +175,4 @@ done
 echo
 echo "excerpt: start ${EXCERPT_START}s, length ${EXCERPT_LENGTH}s"
 echo "loop (in file): ${PRE_ROLL}s → $(echo "$PRE_ROLL + $LOOP_LENGTH" | bc -l)s"
-du -sh "$OUT_DIR"/*.mp3 "$FULL_DIR" 2>/dev/null | tail -n 8
+du -sh "$OUT_DIR"/*.mp3 "$FULL_DIR" 2>/dev/null | tail -n 10

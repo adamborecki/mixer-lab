@@ -15,6 +15,11 @@
 //   "full"     the whole song, streamed in segments: each segment is decoded
 //              just before it's needed and joined to the next with a short
 //              crossfade, so a phone never holds all seven full-length stems.
+//
+// The song is whichever the manifest has on stage (STEM_SET); its decoded
+// audio is dropped when the song changes. Stems are folded to mono for a mono
+// channel, except a stem with `treatment: "stereo"`, which keeps both sides
+// for a stereo channel strip (NOSTRADAMUS's pads).
 
 const XF = 0.02; // crossfade between full-song segments (s)
 const EDGE_FADE = 0.008; // fade at a fresh start, a seek, or the song's end (s)
@@ -45,6 +50,7 @@ export class StemTransport {
     this.windows = new Map(); // "sectionId|stemId" → mono AudioBuffer (current section only)
     this.segments = new Map(); // segment index → { ready, promise, buffers: Map<stemId, AudioBuffer> }
     this.segmentStems = "";
+    this.song = null; // STEM_SET.id the caches above belong to
     this.errors = new Map();
     this.scheduled = []; // { src, gain, endCtx, k, cycle }
     this.anchor = { ctx: 0, song: 0 }; // song time `song` plays at context time `ctx`
@@ -74,6 +80,14 @@ export class StemTransport {
       gate.gain.value = this.muted.has(id) ? 0 : 1;
       gate.connect(g);
       this.gates.set(id, gate);
+      // A stereo stem keeps its two sides all the way to the channel strip.
+      if (this.m.STEMS[this.stemOf(id)]?.treatment === "stereo") {
+        for (const n of [g, gate]) {
+          n.channelCount = 2;
+          n.channelCountMode = "explicit";
+          n.channelInterpretation = "speakers";
+        }
+      }
     }
     this.sourceIds = [...sourceIds];
   }
@@ -105,6 +119,15 @@ export class StemTransport {
     this.playing = false;
     this.mode = mode;
     this.section = section;
+    if (this.song !== this.m.STEM_SET.id) {
+      // Another band: stem ids ("drums") repeat between songs, so nothing decoded is reusable.
+      this.song = this.m.STEM_SET.id;
+      this.excerpt.clear();
+      this.windows.clear();
+      this.segments.clear();
+      this.segmentStems = "";
+      this.resumeAt = 0;
+    }
     const stems = this.stems();
     if (mode === "excerpt" && section !== "excerpt") {
       await this.loadSection(section, stems, token);
@@ -155,14 +178,17 @@ export class StemTransport {
             const buffer = await this.fetchStem(this.segmentUrl(s, k), s, F.trimDb, F.segmentSeconds + 2 * F.overlap);
             done++;
             if (token === this.token) this.emit({ type: "loading", done, total, what: `bars ${sec.bars} of the song` });
-            return { start: Math.max(0, k * F.segmentSeconds - F.overlap), boundary: k * F.segmentSeconds, data: buffer.getChannelData(0) };
+            return { start: Math.max(0, k * F.segmentSeconds - F.overlap), boundary: k * F.segmentSeconds, buffer };
           }),
         );
         const sr = this.ctx.sampleRate;
-        const data = stitch(pieces, from, Math.ceil(length * sr), sr, XF);
-        bakeLoop(data, Math.round(pre * sr), Math.round((end - pre) * sr), Math.round(LOOP_XF * sr));
-        const buf = this.ctx.createBuffer(1, data.length, sr);
-        buf.getChannelData(0).set(data);
+        const channels = Math.min(...pieces.map((p) => p.buffer.numberOfChannels));
+        const buf = this.ctx.createBuffer(channels, Math.ceil(length * sr), sr);
+        for (let c = 0; c < channels; c++) {
+          const data = stitch(pieces.map((p) => ({ ...p, data: p.buffer.getChannelData(c) })), from, buf.length, sr, XF);
+          bakeLoop(data, Math.round(pre * sr), Math.round((end - pre) * sr), Math.round(LOOP_XF * sr));
+          buf.getChannelData(c).set(data);
+        }
         if (this.section === id) this.windows.set(`${id}|${s}`, buf);
       }),
     );
@@ -460,9 +486,19 @@ export function bakeLoop(data, start, len, fade) {
 // Folds a decoded stereo buffer into the mono signal a live-sound input
 // channel would see. "sum" averages L and R (no level jump for centred
 // material, no clipping); "left"/"right" pick one side for stems whose sides
-// would cancel. `gainDb` restores level trimmed at encoding time.
+// would cancel; "stereo" keeps both sides (for a stereo channel strip).
+// `gainDb` restores level trimmed at encoding time.
 export function toMono(ctx, buffer, treatment = "sum", gainDb = 0) {
   const k = Math.pow(10, gainDb / 20);
+  if (treatment === "stereo") {
+    const out = ctx.createBuffer(2, buffer.length, buffer.sampleRate);
+    for (let c = 0; c < 2; c++) {
+      const src = buffer.getChannelData(Math.min(c, buffer.numberOfChannels - 1));
+      const dst = out.getChannelData(c);
+      for (let i = 0; i < dst.length; i++) dst[i] = k * src[i];
+    }
+    return out;
+  }
   const out = ctx.createBuffer(1, buffer.length, buffer.sampleRate);
   const dst = out.getChannelData(0);
   const L = buffer.getChannelData(0);

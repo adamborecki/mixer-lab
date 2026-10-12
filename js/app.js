@@ -26,7 +26,20 @@ import { RecorderView } from "./ui/recorder-view.js";
 import { DanteView } from "./ui/dante-view.js";
 import { StageView } from "./ui/stage-view.js";
 
-const M = { STEM_SET: manifest.STEM_SET, STEMS: manifest.STEMS, SOURCES_BY_ID: manifest.SOURCES_BY_ID, LOOP_ASSETS: manifest.LOOP_ASSETS, VOICES: manifest.VOICES };
+// What the views and the engine read: always the song that's on stage (manifest.useSong).
+const M = {
+  get STEM_SET() {
+    return manifest.STEM_SET;
+  },
+  get STEMS() {
+    return manifest.STEMS;
+  },
+  get SOURCES_BY_ID() {
+    return manifest.SOURCES_BY_ID;
+  },
+  LOOP_ASSETS: manifest.LOOP_ASSETS,
+  VOICES: manifest.VOICES,
+};
 const $ = (sel) => document.querySelector(sel);
 
 let skin = SKINS[DEFAULT_SKIN];
@@ -43,8 +56,10 @@ const progress = new Progress([...numberedScenarios(SCENARIOS), ...ALL_BOARD_SCE
 const engine = new AudioEngine(store, M);
 
 let current = { def: SCENARIOS_BY_ID["free-play"], baseline: {}, session: { listened: new Set() } };
-// Free play picks the music: any 8-bar section (STEM_SET.sections id) or "full".
-// The scenarios each get a section of their own (js/music.js).
+// Free play picks the music: the song (manifest.SONGS), and any 8-bar section
+// of it (STEM_SET.sections id) or "full". The scenarios each name their song
+// (`song`, Persephone if none) and get a section of their own (js/music.js).
+let freeSong = manifest.SONGS[readPref("mixer-lab-song")] ? readPref("mixer-lab-song") : manifest.DEFAULT_SONG;
 let musicMode = "excerpt";
 let ready = false;
 let loadingText = "Press Start Audio to begin.";
@@ -110,7 +125,26 @@ const missionView = new MissionView($("#mission"), {
     const free = current.def.id === "free-play";
     const stage = free ? { muted: [] } : stageFor(current.def, ids, manifest.SOURCES_BY_ID);
     const out = m.section ? sittingOut(m.section, ids, manifest.SOURCES_BY_ID).filter((s) => !stage.muted.includes(s.id)) : [];
-    return { mode: musicMode, started: engine.started, sections: manifest.STEM_SET.sections, section: m.section, out, silent: !free && !!current.def.stage?.silent, stageNote: free ? "" : stageNote(current.def, manifest.SOURCES_BY_ID, manifest.VOICES) };
+    return {
+      mode: musicMode,
+      started: engine.started,
+      song: manifest.SONGS[manifest.SONG],
+      songs: Object.values(manifest.SONGS),
+      duration: manifest.STEM_SET.full.duration,
+      sections: manifest.STEM_SET.sections,
+      section: m.section,
+      out,
+      silent: !free && !!current.def.stage?.silent,
+      stageNote: free ? "" : stageNote(current.def, manifest.SOURCES_BY_ID, manifest.VOICES),
+    };
+  },
+  // Free play: another band on stage (the rig is rebuilt with its sources).
+  onSong: (id) => {
+    if (id === freeSong || !manifest.SONGS[id]) return;
+    freeSong = id;
+    writePref("mixer-lab-song", id);
+    selectScenario("free-play");
+    toast(`${manifest.SONGS[id].title} (${manifest.SONGS[id].artist}) is on stage`, "");
   },
   onMusicMode: (m) => {
     if (m === musicMode) return;
@@ -226,7 +260,10 @@ function resetUndo() {
 // Builds a scenario on the current console (the skin must already be the right one).
 function selectScenario(id) {
   const available = scenariosFor(hardwareOf(skin));
-  const def = scenarioFor(available.find((s) => s.id === id) || SCENARIOS_BY_ID["free-play"], hardwareOf(skin));
+  const found = available.find((s) => s.id === id) || SCENARIOS_BY_ID["free-play"];
+  // The band first: the rig, the gig text and the music all follow the song.
+  if (manifest.useSong(found.id === "free-play" ? freeSong : found.song || manifest.DEFAULT_SONG) && musicMode !== "full" && !manifest.STEM_SET.sections.some((s) => s.id === musicMode)) musicMode = "excerpt";
+  const def = scenarioFor(found, hardwareOf(skin));
   const state = buildScenarioState(def, M.SOURCES_BY_ID, hardwareOf(skin));
   store.replace(state);
   resetUndo();

@@ -181,6 +181,7 @@ Input 9/10 is **one** channel strip (`CHANNEL_LAYOUT[8]`, `stereo: true`, label 
 
 ## Audio assets
 
+- Three bands, `SONGS` in the manifest: Persephone (Giovanna), NOSTRADAMUS (Will Tulip, nine stems, `audio/nostradamus/`) and FTW (after juno, nine instrument-group stems with an orchestra, `audio/ftw/`). `useSong()` swaps the manifest's live bindings; a scenario's `song` says which band plays (Persephone if none), and Free play has a Song picker. See [../audio/README.md](../audio/README.md#nostradamus-will-tulip) and [SCENARIOS.md](SCENARIOS.md).
 - `audio/persephone/*.mp3`: 8-bar loop excerpt per stem (scenarios, default).
 - `audio/persephone/full/*-NN.mp3`: whole song, 12 × 20 s segments per stem (Free play "Full song").
 - `audio/preshow/joth-bossa-nova.mp3`: preshow music (stereo, 59.6 s). In the manifest as `PRESHOW` and `LOOP_ASSETS.preshow`; feeds the `preshow` source on stereo input 9/10.
@@ -213,10 +214,15 @@ Ideas, roughly in order:
 - Recording on the Zoom F8n board itself (the outboard F8 already records WAV takes; the board doesn't), and SUB OUT routing.
 - More mixers on the same frameworks: a compact-mixer definition plus a skin (analog), or a surface view built on `mixer-x32-view.js` / `mixer-cl-view.js` helpers (digital).
 - UI work (planned in a separate session).
+- A click track and/or a playback engineer for NOSTRADAMUS's pads laptop (the owner's idea, "a whole thing"): the laptop would send the band a click in their in-ears and the pads to FOH, so its outputs need routing of their own.
 
 ## Credits
 
 Persephone: music and lyrics Giovanna; guitars Caiden Craig; bass Tyler Fraser; background vocals Jake Flaa and Victoria Nguyen; drums Eli Furie; trumpets Kaizo Hall and Takazo Hall; piano Julian Berger; recording engineers Braedon Martin and Julian Berger; mixing and mastering Eli Furie. Used with permission for this educational project.
+
+FTW: after juno. Drums Nathan Acupan; bass and guitar Elliot Shneider; vocals and production Caleb Cox; mixing and mastering Mitchell Oeth. Used with permission for this educational project.
+
+NOSTRADAMUS: Will Tulip (every part, production, mixing and mastering). Used with permission for this educational project.
 
 Preshow music: "Bossa Nova" by Joth, [OpenGameArt](https://opengameart.org/content/bossa-nova), CC0 (original file `8bit Bossa.mp3`).
 
