@@ -228,7 +228,7 @@ export class AudioEngine {
         type === "reverb"
           ? buildReverb(this.ctx)
           : type === "stereo-mic-pair"
-            ? buildRoomPair(this.ctx, this.manifest.SOURCES_BY_ID)
+            ? buildRoomPair(this.ctx, () => this.manifest.SOURCES_BY_ID)
             : buildRecorder(this.ctx, { onUpdate: () => this.emit({ type: "recorder", id }) });
       this.devices.set(id, { type, rt });
     }

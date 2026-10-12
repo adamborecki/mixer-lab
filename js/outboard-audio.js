@@ -84,10 +84,13 @@ export function buildReverb(ctx) {
 
 // Each mic hears every band stem at its distance, angle and arrival time, plus
 // the room. `link(outs)` connects the stems the transport has loaded.
+// `sourcesById` is the manifest's map, or a function returning the current
+// one (the band on stage can change: audio/source-manifest.js useSong).
 const ROOM_LEVEL = 0.32; // overall pickup; the source's outputDb sets mic level
 const ROOM_WET = 0.22;
 
 export function buildRoomPair(ctx, sourcesById) {
+  const byId = typeof sourcesById === "function" ? sourcesById : () => sourcesById;
   const outL = monoGain(ctx, ROOM_LEVEL);
   const outR = monoGain(ctx, ROOM_LEVEL);
   const roomIn = monoGain(ctx, ROOM_WET);
@@ -98,11 +101,21 @@ export function buildRoomPair(ctx, sourcesById) {
   split.connect(outL, 0);
   split.connect(outR, 1);
   const paths = new Map(); // sourceId → { out, L: {delay, gain}, R: {...} }
+  // A source that left the stage may already be disconnected by the transport.
+  const unlink = (p) => {
+    try {
+      p.out.disconnect(p.taps);
+    } catch (e) {
+      /* already gone */
+    }
+  };
   let pair = null;
   const nodes = [outL, outR, roomIn, room, split];
 
   const setPath = (id, p) => {
-    const [l, r] = micResponse(pair, sourcesById[id]);
+    const src = byId()[id];
+    if (!src) return; // the old band's part, until the transport lets it go
+    const [l, r] = micResponse(pair, src);
     for (const [side, resp] of [["L", l], ["R", r]]) {
       p[side].gain.gain.setTargetAtTime(resp.gain, ctx.currentTime, RAMP);
       p[side].delay.delayTime.setTargetAtTime(resp.delay, ctx.currentTime, RAMP);
@@ -115,11 +128,11 @@ export function buildRoomPair(ctx, sourcesById) {
     link(outs) {
       for (const [id, p] of paths) {
         if (outs.get(id) === p.out) continue;
-        p.out.disconnect(p.taps);
+        unlink(p);
         paths.delete(id);
       }
       for (const [id, out] of outs) {
-        const src = sourcesById[id];
+        const src = byId()[id];
         if (!src || !src.stem || paths.has(id)) continue;
         const taps = monoGain(ctx);
         out.connect(taps);
@@ -142,7 +155,7 @@ export function buildRoomPair(ctx, sourcesById) {
       for (const [id, p] of paths) setPath(id, p);
     },
     dispose() {
-      for (const p of paths.values()) p.out.disconnect(p.taps);
+      for (const p of paths.values()) unlink(p);
       for (const n of nodes) n.disconnect();
     },
   };
