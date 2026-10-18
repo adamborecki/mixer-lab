@@ -1,6 +1,6 @@
 ### Chapman on Broadway (COB)
 #### Sound System Setup & X32 Compact Quick Reference
-**Keenan – Sound Engineer | Sky – Music Director**
+**Sound engineer · Music director** (students' names removed; this repo is public)
 
 This guide covers the planned setup. **Routing and connections have not yet been tested.** Verify everything before the performance.
 
