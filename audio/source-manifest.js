@@ -709,6 +709,86 @@ const FTW_SOURCES = [
   },
 ];
 
+// ---------- COB in Irvine: NOSTRADAMUS as a musical ----------
+
+// The Chapman on Broadway (COB) gig in Irvine: performers on wireless headsets
+// singing to backing tracks from a laptop (the MUS 248 COB Gig Checklist).
+// NOSTRADAMUS stands in for the show: its instruments summed into one stereo
+// backing track (tools/make-backing-track.sh), its three vocal parts on the
+// headsets. The same timeline as NOSTRADAMUS, so the same loops and segments;
+// the vocal stems are NOSTRADAMUS's own files.
+const COB_SET = { ...NOSTRADAMUS_SET, id: "cob", title: "COB in Irvine", artist: "NOSTRADAMUS (Will Tulip) as a musical" };
+// The backing track plays in every bar; the vocals as in NOSTRADAMUS.
+const VOX = ["vox-main", "vox-harmony", "vox-bgv"];
+// The guitars and drums are inside the track now, so the loops are named for the singing.
+const COB_LABELS = { "bars-2": "Verse: lead and harmony over the track", excerpt: "Instrumental break, voices now and then", "bars-18": "Second verse", "bars-26": "Bridge: the lead alone over the track", "bars-35": "Outro: the track, the ensemble now and then" };
+COB_SET.sections = NOSTRADAMUS_SET.sections.map((s) => ({ ...s, label: COB_LABELS[s.id], plays: ["track", ...s.plays.filter((st) => VOX.includes(st))], partly: s.partly.filter((st) => VOX.includes(st)) }));
+
+// track: measured over the whole song by tools/make-backing-track.sh;
+// normalizeDb is the stems' own −0.9 plus the sum's −6.63.
+const COB_STEMS = {
+  track: { file: "nostradamus-backing-track.mp3", channels: 2, treatment: "stereo", peakDb: -1.09, monoPeakDb: -2.42, monoRmsDb: -18.05, normalizeDb: -7.53 },
+  "vox-main": NOSTRADAMUS_STEMS["vox-main"],
+  "vox-harmony": NOSTRADAMUS_STEMS["vox-harmony"],
+  "vox-bgv": NOSTRADAMUS_STEMS["vox-bgv"],
+};
+
+// Twelve headsets, lettered A–L like the bodypacks and the receiver channels
+// (three VocoPro Digital-Quad receivers, four channels each). A receiver
+// channel's XLR out is mic level and needs no phantom power. Each performer
+// sits a little differently on their headset, so each needs its own gain.
+// One recording stands in for the ensemble: C–L all carry the backing vocals,
+// so each sits low in the mix (ten in-phase copies add up to 20 dB).
+const HEADSET_LEVELS = { a: -44, b: -42, c: -40, d: -46, e: -41, f: -44, g: -38, h: -45, i: -43, j: -39, k: -47, l: -42 };
+const headset = (letter, i) => {
+  const L = letter.toUpperCase();
+  const part = letter === "a" ? ["lead", "Lead", "vox-main", 0] : letter === "b" ? ["harmony", "Harmony", "vox-harmony", -4] : ["ensemble", "Ensemble", "vox-bgv", -22];
+  return {
+    id: `hs-${letter}`,
+    order: i + 1,
+    name: `Headset ${L} · ${part[0]}`,
+    shortName: `HS ${L}`,
+    musician: "Will Tulip",
+    musicianShort: "WILL",
+    device: `Wireless headset ${L} (receiver channel ${L})`,
+    category: "Vocals",
+    deviceType: "wireless-headset",
+    signalLevel: "mic",
+    connector: "xlr",
+    phantom: "none",
+    outputDb: HEADSET_LEVELS[letter],
+    stem: part[2],
+    mixDb: part[3],
+    pan: 0,
+    scenarios: ANY_SCENARIO,
+    ...(part[0] === "ensemble" ? { note: "One recording stands in for the whole ensemble: headsets C–L all carry the backing vocals." } : {}),
+  };
+};
+const COB_SOURCES = [
+  ..."abcdefghijkl".split("").map(headset),
+  {
+    id: "track",
+    order: 13,
+    name: "Backing track",
+    shortName: "TRACK",
+    musician: "Will Tulip",
+    musicianShort: "WILL",
+    device: "Laptop — Backing tracks",
+    category: "Playback",
+    deviceType: "stereo-laptop",
+    signalLevel: "line",
+    connector: "trs35",
+    phantom: "none",
+    outputDb: -10,
+    stereo: true,
+    stem: "track",
+    mixDb: -6,
+    pan: 0,
+    scenarios: ANY_SCENARIO,
+    note: "The show's backing tracks, in stereo: the laptop's 3.5 mm headphone out → a dual 1/4\" breakout → AUX IN 1 (left) and 2 (right).",
+  },
+];
+
 // Virtual sources: the two mics of the stereo room pair. Their sound is built
 // from the band stems by js/room-mics.js (distance, angle, delay, room reverb).
 export const ROOM_SOURCES = [
@@ -722,7 +802,11 @@ export const SONGS = {
   persephone: { id: "persephone", title: "Persephone", artist: "Giovanna", set: PERSEPHONE_SET, stems: PERSEPHONE_STEMS, sources: PERSEPHONE_SOURCES },
   nostradamus: { id: "nostradamus", title: "NOSTRADAMUS", artist: "Will Tulip", set: NOSTRADAMUS_SET, stems: NOSTRADAMUS_STEMS, sources: NOSTRADAMUS_SOURCES },
   ftw: { id: "ftw", title: "FTW", artist: "after juno", set: FTW_SET, stems: FTW_STEMS, sources: FTW_SOURCES },
+  // A gig, not just a band: its rig is the X32 Compact's, so it plays on that console only.
+  cob: { id: "cob", title: "COB in Irvine", artist: "a musical (NOSTRADAMUS)", set: COB_SET, stems: COB_STEMS, sources: COB_SOURCES, consoles: ["x32c"] },
 };
+// Can this song play on this console? A gig's song (`consoles`) only on its own.
+export const songFits = (id, model) => !SONGS[id]?.consoles || SONGS[id].consoles.includes(model);
 export const DEFAULT_SONG = "persephone";
 
 // Live bindings: importers always see the current song's.
@@ -819,6 +903,11 @@ export const CREDITS = [
       ["Vocals and production", "Caleb Cox"],
       ["Mixing and mastering", "Mitchell Oeth"],
     ],
+    note: "Used with permission for this educational project.",
+  },
+  {
+    title: "COB in Irvine",
+    lines: [["Music", "NOSTRADAMUS by Will Tulip: the instruments as one backing track, the three vocal parts on the headsets"]],
     note: "Used with permission for this educational project.",
   },
   {

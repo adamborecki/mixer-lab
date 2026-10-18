@@ -65,6 +65,7 @@ export const CABLES = {
   trs: { id: "trs", name: '1/4" TRS cable', ends: ["trs14", "trs14"], kind: "signal", balanced: true, blurb: "Balanced line cable. Looks like a guitar cable, has an extra ring." },
   ts: { id: "ts", name: '1/4" TS instrument cable', ends: ["ts14", "ts14"], kind: "signal", balanced: false, blurb: "Unbalanced guitar/keyboard cable." },
   "xlr-trs": { id: "xlr-trs", name: 'XLR ↔ 1/4" TRS cable', ends: ["xlr", "trs14"], kind: "signal", balanced: true, blurb: "Balanced adapter cable." },
+  "xlr-ts": { id: "xlr-ts", name: 'XLR ↔ 1/4" TS cable', ends: ["xlr", "ts14"], kind: "signal", balanced: false, blurb: "A balanced XLR output into an unbalanced 1/4\" line input." },
   speaker: { id: "speaker", name: '1/4" speaker cable', ends: ["ts14", "ts14"], kind: "speaker", balanced: false, blurb: "Heavy, unshielded. Same plug as a guitar cable — different job." },
   rca: { id: "rca", name: "RCA cable", ends: ["rca", "rca"], kind: "signal", balanced: false, blurb: "Consumer gear: turntables, DJ players, record outs." },
   "rca-ts": { id: "rca-ts", name: 'RCA ↔ 1/4" TS cable', ends: ["rca", "ts14"], kind: "signal", balanced: false, blurb: "Consumer gear into a mixer line input." },
@@ -138,6 +139,14 @@ export const DEVICE_TYPES = {
     source: true,
     ports: [{ id: "out", dir: "out", jack: "xlr", level: "mic", name: "XLR out" }],
     blurb: "Turns an instrument-level signal into a balanced mic-level signal.",
+  },
+  // A headset mic on a bodypack transmitter: what reaches the console is its
+  // receiver channel's XLR out (mic level, no phantom power needed).
+  "wireless-headset": {
+    name: "Wireless headset (receiver channel)",
+    source: true,
+    ports: [{ id: "out", dir: "out", jack: "xlr", level: "mic", name: "Receiver XLR out" }],
+    blurb: "A headset mic on a bodypack. Its receiver channel's XLR out is mic level and needs no phantom power.",
   },
   "line-source": {
     name: "Line-level instrument",
@@ -268,6 +277,7 @@ export const DEVICE_TYPES = {
   },
   "power-amp": {
     name: "Power amp",
+    poweramp: true,
     ports: [
       { id: "in-a", dir: "in", jack: "combo", level: "line", role: "amp-in", pair: "a", name: "Input A" },
       { id: "in-b", dir: "in", jack: "combo", level: "line", role: "amp-in", pair: "b", name: "Input B" },
@@ -275,6 +285,32 @@ export const DEVICE_TYPES = {
       { id: "out-b", dir: "out", jack: "quarter", level: "speaker", role: "amp-out", pair: "b", name: "Speaker out B" },
     ],
     blurb: "Line level in → speaker level out. Two channels.",
+  },
+  // A Yamaha STAGEPAS 600BT with nothing on its mic channels: the mix arrives
+  // finished on stereo line input 5/6, and its built-in amp drives its two
+  // passive speakers. Here it is only the amp (its knobs aren't modelled).
+  "stagepas-amp": {
+    name: "Yamaha STAGEPAS 600BT (as the amp)",
+    poweramp: true,
+    ports: [
+      { id: "in-a", dir: "in", jack: "quarter", level: "line", role: "amp-in", pair: "a", name: "5/6 L (MONO)", short: "5/6 L" },
+      { id: "in-b", dir: "in", jack: "quarter", level: "line", role: "amp-in", pair: "b", name: "5/6 R", short: "5/6 R" },
+      { id: "out-a", dir: "out", jack: "quarter", level: "speaker", role: "amp-out", pair: "a", name: "SPEAKERS L", short: "SPEAKERS L" },
+      { id: "out-b", dir: "out", jack: "quarter", level: "speaker", role: "amp-out", pair: "b", name: "SPEAKERS R", short: "SPEAKERS R" },
+    ],
+    blurb: "A powered mixer used as the amp: the finished mix into line input 5/6, its own passive speakers on SPEAKERS L/R.",
+  },
+  // A Behringer B207MP3 as a wedge: powered, with THRU passing what comes in
+  // on to the next one, so one mix feeds a row of wedges (a daisy chain).
+  "b207-speaker": {
+    name: "Behringer B207MP3 (wedge)",
+    endpoint: true,
+    amp: "internal",
+    ports: [
+      { id: "in", dir: "in", jack: "combo", level: "line", name: "MAIN IN" },
+      { id: "thru", dir: "out", jack: "xlr", level: "line", role: "thru", through: "in", name: "THRU" },
+    ],
+    blurb: "A powered speaker. THRU passes its input on to the next one, so one mix can feed a row of them.",
   },
 };
 
@@ -364,6 +400,26 @@ export function throughLinks(rig) {
         const outOf = byFrom.get(portRef(d.id, p.id));
         const src = consoleOuts[p.index];
         if (outOf && src) links.push({ id: `${net.network}-${outOf.id}`, from: portRef(mixer.id, src.id), to: outOf.to, cable: outOf.cable, via: d.id });
+      }
+    }
+  }
+  // THRU (a speaker passing its input on): whatever feeds the speaker also feeds
+  // the next one in the chain, however long the chain is.
+  const thrus = rig.devices.flatMap((d) => (DEVICE_TYPES[d.type]?.ports || []).filter((p) => p.role === "thru").map((p) => ({ d, p })));
+  if (thrus.length) {
+    const feeding = new Map([...rig.cables, ...links].map((c) => [c.to, c]));
+    for (let pass = 0, added = true; added && pass < thrus.length; pass++) {
+      added = false;
+      for (const { d, p } of thrus) {
+        const into = feeding.get(portRef(d.id, p.through));
+        const outOf = byFrom.get(portRef(d.id, p.id));
+        if (!into || !outOf || getPort(rig, into.from)?.role === "thru") continue; // wait until the chain above resolves
+        const id = `thru-${outOf.id}`;
+        if (links.some((l) => l.id === id)) continue;
+        const link = { id, from: into.from, to: outOf.to, cable: outOf.cable, via: d.id };
+        links.push(link);
+        feeding.set(outOf.to, link);
+        added = true;
       }
     }
   }
@@ -521,9 +577,10 @@ export function analyzeRig(rig, channels = [], sources = {}) {
       channelInfo[port.channel] ||= { connected: false, signal: false, status: "empty", messages: [] };
       continue;
     }
-    // Input routing (X32): each block of 8 channels takes its local jacks or AES50-A (a stage box).
+    // Input routing (X32): each block of 8 channels takes its local jacks, AES50-A
+    // (a stage box) or the CARD (USB from a computer: nothing plays here, so silence).
     const block = Array.isArray(mixer.inSource) ? mixer.inSource[Math.floor(port.channel / 8)] : undefined;
-    if (block !== undefined && (port.jack === "aes50") !== (block === 1)) {
+    if (block !== undefined && (block === 2 || (port.jack === "aes50") !== (block === 1))) {
       channelInfo[port.channel] ||= { connected: false, signal: false, status: "empty", messages: [] };
       continue;
     }

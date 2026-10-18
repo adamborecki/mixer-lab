@@ -53,6 +53,16 @@ export const PLAYBACK_DEVICES = {
   // A second B207MP3 on stage as a wedge, fed into its MAIN IN from the first one's THRU.
   "b207-wedge": { type: "powered-speaker", label: "Second B207MP3 · MAIN IN, as the singer's wedge", short: "2nd B207 (wedge)", zone: "stage", pan: 0 },
   sub: { type: "powered-speaker", label: "Powered subwoofer", short: "subwoofer", zone: "foh", pan: 0 },
+  // The COB gig in Irvine: an SD8 on the stage floor carries the X32 Compact's
+  // outputs; a STAGEPAS 600BT is the mains' amp; three B207MP3 wedges share one
+  // mix down a THRU chain along the front row.
+  sb: { type: "sd8", label: "SD8 · stage floor" },
+  stagepas: { type: "stagepas-amp", label: "STAGEPAS 600BT (amp)" },
+  "sp6-l": { type: "passive-speaker", label: "STAGEPAS speaker L", short: "main left", zone: "foh", pan: -1 },
+  "sp6-r": { type: "passive-speaker", label: "STAGEPAS speaker R", short: "main right", zone: "foh", pan: 1 },
+  "cob-w1": { type: "b207-speaker", label: "B207 wedge 1 (left)", short: "wedge 1 (left)", zone: "stage", pan: -0.6 },
+  "cob-w2": { type: "b207-speaker", label: "B207 wedge 2 (center)", short: "wedge 2 (center)", zone: "stage", pan: 0 },
+  "cob-w3": { type: "b207-speaker", label: "B207 wedge 3 (right)", short: "wedge 3 (right)", zone: "stage", pan: 0.6 },
   lobby: { type: "powered-speaker", label: "Powered speaker · lobby", short: "lobby", zone: "lobby", pan: 0 },
   // A video camera's two XLR audio inputs (each with a MIC/LINE switch, starting at LINE).
   "cam-1": { type: "camera-input", label: "Camera · input 1 (XLR)", short: "camera ch 1", zone: "cam", pan: -1, inputLevel: 1 },
@@ -696,7 +706,7 @@ export function boardHelpers(state, model, sourcesById = SOURCES_BY_ID) {
       for (const c of state.rig.cables) {
         const k = outs.indexOf(c.from);
         const dev = state.rig.devices.find((d) => `${d.id}/` === c.to.slice(0, d.id.length + 1));
-        if (k < 0 || k >= sbOuts || !(dev?.zone === "stage" || dev?.type === "power-amp")) continue;
+        if (k < 0 || k >= sbOuts || !(dev?.zone === "stage" || DEVICE_TYPES[dev?.type]?.poweramp)) continue;
         c.from = `${id}/out${k + 1}`;
       }
     },
@@ -1234,8 +1244,43 @@ const FTW_GIGS = {
   },
 };
 
+// The COB gig in Irvine (MUS 248's COB Gig Checklist), its own rig: twelve
+// wireless headsets on X32 inputs 1–12 (receiver channel A → 1 … L → 12), the
+// backing-track laptop on AUX IN 1/2. The console sits in the booth; an SD8 on
+// the stage floor carries its outputs down one Cat5e: SD8 OUT 1 (MIX 1) → the
+// wedges, daisy-chained on THRU; OUT 7/8 (MAIN L/R) → the STAGEPAS 600BT's line
+// input 5/6, whose amp drives its two passive speakers. Inputs stay LOCAL.
+const COB_HEADSETS = "abcdefghijkl".split("").map((l) => `hs-${l}`);
+const COB_ENSEMBLE = COB_HEADSETS.slice(2);
+const each = (ids, v) => Object.fromEntries(ids.map((id) => [id, v]));
+const COB_GIGS = {
+  x32c: {
+    prompt: "COB in Irvine, a musical on a Behringer X32 Compact in the booth: twelve wireless headsets on inputs 1–12 (bodypack A on 1 … L on 12; A sings the lead, B the harmony, C–L the ensemble), the backing tracks from a laptop on AUX IN 1/2. An SD8 stage box on the stage floor carries the outputs down one Cat5e cable: SD8 OUT 1 is MIX 1, the performers' wedges, chained from one B207MP3 to the next on THRU; OUT 7/8 are MAIN L/R into the STAGEPAS 600BT's line input 5/6, whose amp drives its two speakers. The mics stay on LOCAL: the SD8 is only for outputs.",
+    patch: { ...Object.fromEntries(COB_HEADSETS.map((id, i) => [id, [i, "mic"]])), track: [16, "lr"] },
+    cableFor: {},
+    devices: ["sb", "stagepas", "sp6-l", "sp6-r", "cob-w1", "cob-w2", "cob-w3"],
+    cables: [
+      { from: "sb/aes50a", to: "mixer/aes50a", cable: "cat5" },
+      { from: "sb/out7", to: "stagepas/in-a", cable: "xlr-ts" },
+      { from: "sb/out8", to: "stagepas/in-b", cable: "xlr-ts" },
+      { from: "stagepas/out-a", to: "sp6-l/in", cable: "speaker" },
+      { from: "stagepas/out-b", to: "sp6-r/in", cable: "speaker" },
+      { from: "sb/out1", to: "cob-w1/in", cable: "xlr" },
+      { from: "cob-w1/thru", to: "cob-w2/in", cable: "xlr" },
+      { from: "cob-w2/thru", to: "cob-w3/in", cable: "xlr" },
+    ],
+    sends: {
+      mix1: { "hs-a": 0, "hs-b": -3, ...each(COB_ENSEMBLE, -20), track: -4 },
+      fx1: { "hs-a": -12, "hs-b": -14, ...each(COB_ENSEMBLE, -24) },
+    },
+    preFor: ["mix1"], // the wedge mix is pre-fader
+    hpf: each(COB_HEADSETS, 0.15),
+    dyn: { "hs-a": { threshold: -16, ratio: 3, makeup: 3 } },
+  },
+};
+
 // Each band's version of the gigs, over Persephone's.
-const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS };
+const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS, cob: COB_GIGS };
 
 // A mixer's Free play gig for the band on stage.
 export function gigFor(model) {

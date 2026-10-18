@@ -66,10 +66,12 @@ The second digital mixer, laid out like a full console rather than a tablet app 
 | SENDS ON FADERS | SEL a MIX: the input faders are sends to it. SEL a channel: the BUS faders are its sends |
 | DCA groups: hold a DCA's SEL, press channels' SEL | Press a DCA's SEL to start assigning, press channels' SEL, press it again to finish. A DCA adds its fader (dB) to its channels' faders; a muted DCA mutes them |
 | 6 mute groups, assigned with MUTE GRP | MUTE GRP on: pick a group, press channels' SEL. Off: the buttons mute their groups |
-| Default routing: XLR OUT 1–6 = MIX 1–6, 7–8 = MAIN L/R | The same, fixed (no routing pages) |
+| Default routing: XLR OUT 1–6 = MIX 1–6, 7–8 = MAIN L/R | The same, fixed (no output routing page) |
+| ROUTING / inputs: LOCAL, AES50 A or CARD per block of 8 | The ROUTING page: CH 1-8 and 9-16 each LOCAL, AES50-A (an SD8 or S32) or CARD (the USB card; nothing plays there, so silence) |
+| SCENES: store and recall | The SCENES page: 8 slots, as on the full X32 |
 | 16 local XLR inputs (mic or line), 6 aux in/out | Inputs 1–16 (XLR); AUX IN 1/2 as one stereo strip |
 
-**Assumptions to check on a real X32:** a channel's MUTE (and its mute groups, and a muted DCA) silences its bus sends too, pre-fader ones included; new mix-bus sends start POST; the effects are the lab's generic reverb and delay on two dedicated buses, not the X32's FX rack on buses 13–16. **Not built:** gate, inserts, matrices, MAIN C/MONO, layers 17-32 and BUS 9-16, scenes, routing pages, talkback, USB recording, the main display's pages (the display panel only reports what the faders are doing).
+**Assumptions to check on a real X32:** a channel's MUTE (and its mute groups, and a muted DCA) silences its bus sends too, pre-fader ones included; new mix-bus sends start POST; the effects are the lab's generic reverb and delay on two dedicated buses, not the X32's FX rack on buses 13–16. **Not built:** gate, inserts, matrices, MAIN C/MONO, layers 17-32 and BUS 9-16, output routing, AES50 output routing, talkback, USB recording, the main display's pages (the display panel only reports what the faders are doing).
 
 ## Behringer X32 (full size)
 

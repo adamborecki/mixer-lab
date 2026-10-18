@@ -101,6 +101,8 @@ SONG=nostradamus tools/make-excerpts.sh   # the other bands (same options)
 SONG=ftw tools/make-excerpts.sh
 ```
 
+The COB gig's backing track (NOSTRADAMUS without its vocals) is built from the delivered mp3s, not the masters: `tools/make-backing-track.sh` sums the instrument files side by side, peak-normalizes over the whole song, writes `audio/nostradamus/nostradamus-backing-track.mp3` and its segments, and prints the numbers for its `COB_STEMS` entry.
+
 It reads the masters and writes `audio/persephone/*.mp3` (excerpt) and `audio/persephone/full/*-NN.mp3` (segments). The excerpt pass prints a table (`normDb`, `monoPk`, `monoRms`); paste those into `normalizeDb`, `monoPeakDb` and `monoRmsDb` in `source-manifest.js`. The full pass prints one line per stem with its segment count and gain.
 
 - If you change `LOOP_START`, `LOOP_LENGTH` or the pre/post-roll in the script, update `STEM_SET.loop` and `STEM_SET.excerpt` to match.

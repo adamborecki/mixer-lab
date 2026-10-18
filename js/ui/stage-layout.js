@@ -57,6 +57,7 @@ export function shortLabel(p) {
 
 // An amp's or effect's jack: IN A / SPEAKER OUT A, INPUT L / OUTPUT R, recorder INPUT 1.
 function rackWord(p) {
+  if (p.short) return p.short; // printed on the gear (the STAGEPAS's 5/6 L, SPEAKERS R)
   if (p.pair) return p.dir === "in" ? `LINE IN ${p.pair.toUpperCase()}` : `SPEAKER OUT ${p.pair.toUpperCase()}`;
   return p.name.replace(/\s*\(.*?\)\s*/g, " ").trim().toUpperCase();
 }

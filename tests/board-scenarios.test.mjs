@@ -1004,6 +1004,58 @@ Object.assign(WRONG, {
   "x32-scene-store": [["stored over scene 2", (a) => a.st.storeScene(1, "Encore")]],
 });
 
+// COB in Irvine: the X32 Compact gig with the SD8, the STAGEPAS and the wedge chain.
+const COB_HS = "abcdefghijkl".split("").map((l) => `hs-${l}`);
+Object.assign(SOLVE, {
+  "x32c-cob-usb": (a) => {
+    a.st.setDevice("mixer", "inSource.0", 0);
+    a.st.setDevice("mixer", "inSource.1", 0);
+  },
+  "x32c-cob-gain": (a) => COB_HS.forEach((s) => a.set(s, "gainDb", -SOURCES_BY_ID[s].outputDb)),
+  "x32c-cob-tracks": (a) => {
+    a.set("track", "lr", true);
+    a.faderDb("track", -6);
+  },
+  "x32c-cob-link": (a) => assert.ok(a.st.connect("sb/aes50a", "mixer/aes50a", "cat5").ok),
+  "x32c-cob-one-side": (a) => assert.ok(a.st.connect("sb/out8", "stagepas/in-b", "xlr-ts").ok),
+  "x32c-cob-speaker-cable": (a) => {
+    a.unplugAt("sp6-r/in");
+    assert.ok(a.st.connect("stagepas/out-b", "sp6-r/in", "speaker").ok);
+  },
+  "x32c-cob-thru": (a) => assert.ok(a.st.connect("cob-w2/thru", "cob-w3/in", "xlr").ok),
+  "x32c-cob-prefader": (a) => [...COB_HS, "track"].forEach((s) => a.set(s, "pres.mix1", true)),
+  "x32c-cob-tracks-wedge": (a) => {
+    a.st.setListen("mix1");
+    a.sendDb("track", "mix1", -4);
+  },
+  "x32c-cob-scene": (a) => a.st.storeScene(1, "COB"),
+});
+
+Object.assign(WRONG, {
+  "x32c-cob-usb": [["AES50-A instead of LOCAL", (a) => {
+    a.st.setDevice("mixer", "inSource.0", 1);
+    a.st.setDevice("mixer", "inSource.1", 1);
+  }], ["only CH 1-8", (a) => a.st.setDevice("mixer", "inSource.0", 0)]],
+  "x32c-cob-gain": [["every GAIN at the top", (a) => COB_HS.forEach((s) => a.set(s, "gainDb", 60))], ["faders up instead", (a) => COB_HS.forEach((s) => a.nudge(s, 10))]],
+  "x32c-cob-tracks": [["MAIN LR on, fader still down", (a) => a.set("track", "lr", true)], ["fader up, MAIN LR still off", (a) => a.faderDb("track", -6)]],
+  "x32c-cob-link": [["inputs routed to AES50-A", (a) => {
+    a.st.setDevice("mixer", "inSource.0", 1);
+    a.st.setDevice("mixer", "inSource.1", 1);
+  }]],
+  "x32c-cob-one-side": [["SD8 OUT 2 into the right side", (a) => assert.ok(a.st.connect("sb/out2", "stagepas/in-b", "xlr-ts").ok)]],
+  "x32c-cob-speaker-cable": [["a TRS cable instead", (a) => {
+    a.unplugAt("sp6-r/in");
+    assert.ok(a.st.connect("stagepas/out-b", "sp6-r/in", "trs").ok);
+  }]],
+  "x32c-cob-thru": [["wedge 3 on SD8 OUT 2", (a) => assert.ok(a.st.connect("sb/out2", "cob-w3/in", "xlr").ok)]],
+  "x32c-cob-prefader": [["the headsets but not the track", (a) => COB_HS.forEach((s) => a.set(s, "pres.mix1", true))]],
+  "x32c-cob-tracks-wedge": [["the track up in the house", (a) => {
+    a.st.setListen("mix1");
+    a.faderDb("track", 0);
+  }]],
+  "x32c-cob-scene": [["stored over the choir's scene", (a) => a.st.storeScene(0, "COB")]],
+});
+
 // The generic digital mixer is the X32 Compact's model with no brand on it: the same fixes (and mistakes) apply.
 for (const k of ["doors", "gain", "48v", "lowcut", "lr", "mud", "eq-on", "comp-on", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "new-mix"]) {
   SOLVE[`gdig-${k}`] = SOLVE[`x32c-${k}`];

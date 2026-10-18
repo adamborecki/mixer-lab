@@ -491,11 +491,12 @@ export function matrixPanel(view, def, m) {
 const SOURCE_NAMES = (src, T) => (src === "off" ? "OFF" : src === "main-l" ? T.mainL : src === "main-r" ? T.mainR : src === "mc" ? "M/C" : src.startsWith("mtx") ? `MATRIX ${src.slice(3)}` : `MIX ${src.slice(3)}`);
 
 // ROUTING › inputs: each block of 8 channels listens to the rear panel's LOCAL
-// jacks or to AES50-A (a stage box on the AES50 A port). Rig device `inSource`.
+// jacks, to AES50-A (a stage box on the AES50 A port) or to the CARD (USB).
+// Rig device `inSource`.
 export function inputRoutingPage(view, def) {
   const store = view.store;
   const box = el("div", "x32-routing x32-inrouting");
-  box.appendChild(el("p", "dg-note", "Inputs: each block of 8 channels takes the LOCAL jacks on the rear panel, or AES50-A: a stage box (S32, SD8) on the AES50 A port."));
+  box.appendChild(el("p", "dg-note", "Inputs: each block of 8 channels takes the LOCAL jacks on the rear panel, AES50-A (a stage box, S32 or SD8, on the AES50 A port), or the CARD: the USB card, for playing back a recording from a computer."));
   const mono = def.channels.filter((c) => c.jacks.includes("mic")).length;
   for (let b = 0; b * 8 < mono; b++) {
     const range = `${b * 8 + 1}-${Math.min(mono, b * 8 + 8)}`;
@@ -503,7 +504,7 @@ export function inputRoutingPage(view, def) {
     lab.append(el("span", "", `CH ${range}`));
     const sel = el("select");
     sel.setAttribute("aria-label", `Channels ${range} input source`);
-    for (const [v, text] of [[0, `LOCAL ${range}`], [1, `AES50-A ${range}`]]) {
+    for (const [v, text] of [[0, `LOCAL ${range}`], [1, `AES50-A ${range}`], [2, `CARD ${range} (USB)`]]) {
       const opt = el("option", "", text);
       opt.value = String(v);
       sel.appendChild(opt);

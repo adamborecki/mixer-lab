@@ -227,7 +227,7 @@ export class PatchView {
     const net = listPorts(rig, d).find((p) => p.network);
     const up = net && cableAt(rig, net.ref);
     const mixer = mixerOf(rig);
-    const blocks = mixer.inSource ? mixer.inSource.map((v, b) => `CH ${b * 8 + 1}–${b * 8 + 8}: ${v ? "AES50-A" : "LOCAL"}`).join(" · ") : "";
+    const blocks = mixer.inSource ? mixer.inSource.map((v, b) => `CH ${b * 8 + 1}–${b * 8 + 8}: ${["LOCAL", "AES50-A", "CARD (USB)"][v] || "LOCAL"}`).join(" · ") : "";
     const ins = plugged.filter((p) => p.dir === "in" && (p.role === "sb-in" || p.end === "stage")).length;
     const status = !plugged.length ? "idle" : live.length >= ins ? "ok" : "warn";
     const note = type.passthrough
@@ -286,7 +286,7 @@ export class PatchView {
         const reached = mix.rig.buses[p.id] || [];
         const cable = cableAt(rig, p.ref);
         const target = cable ? getPort(rig, cable.to) : null;
-        const feeds = target && !DEVICE_TYPES[target.device.type].endpoint && target.device.type !== "power-amp";
+        const feeds = target && !DEVICE_TYPES[target.device.type].endpoint && !DEVICE_TYPES[target.device.type].poweramp;
         const note = reached.length
           ? `<p class="port-msg ok">✓ Sound from: ${reached.map((id) => esc(rig.devices.find((d) => d.id === id).label)).join(", ")}</p>`
           : feeds
@@ -329,7 +329,7 @@ export class PatchView {
       })
       .join("");
 
-    const amps = rig.devices.filter((d) => d.type === "power-amp");
+    const amps = rig.devices.filter((d) => DEVICE_TYPES[d.type].poweramp);
     const ampHtml = amps
       .map(
         (d) => this.card(d.id, `<li class="device-card">

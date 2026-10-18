@@ -2,7 +2,7 @@
 // nothing overlaps, and network-only ports aren't drawn as jacks.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_SONG, SONGS, SOURCES_BY_ID, useSong } from "../audio/source-manifest.js";
+import { DEFAULT_SONG, SONGS, SOURCES_BY_ID, songFits, useSong } from "../audio/source-manifest.js";
 import { DEVICE_TYPES } from "../js/connection-model.js";
 import { SKINS } from "../js/mixer-models.js";
 import { buildScenarioState, scenarioFor, scenariosFor } from "../js/scenarios.js";
@@ -15,7 +15,7 @@ function rigs() {
   for (const hw of hardware) {
     for (const s of scenariosFor(hw)) {
       // Each scenario with its own band; Free play with every band.
-      for (const song of s.id === "free-play" ? Object.keys(SONGS) : [s.song || DEFAULT_SONG]) {
+      for (const song of s.id === "free-play" ? Object.keys(SONGS).filter((id) => songFits(id, hw)) : [s.song || DEFAULT_SONG]) {
         useSong(song);
         const def = scenarioFor(s, hw);
         const state = buildScenarioState(def, SOURCES_BY_ID, hw);

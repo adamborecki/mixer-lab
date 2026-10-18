@@ -4076,6 +4076,196 @@ const BOXES = {
   ],
 };
 
+// ---------- COB in Irvine: a real MUS 248 gig on the X32 Compact ----------
+// The COB Gig Checklist's rig (js/scenarios.js COB_GIGS): twelve wireless
+// headsets on LOCAL inputs 1–12, the backing tracks on AUX IN 1/2, an SD8 on
+// the stage floor for the outputs only (OUT 1 = MIX 1 to the wedges on a THRU
+// chain, OUT 7/8 = MAIN L/R to the STAGEPAS 600BT that drives the mains). Each
+// fault is one the checklist's troubleshooting list warns about.
+
+const COB_HS = "abcdefghijkl".split("").map((l) => `hs-${l}`);
+const COB_ENDS = ["sp6-l", "sp6-r", "cob-w1", "cob-w2", "cob-w3"];
+const castInHouse = (ctx) => COB_HS.every((s) => house(ctx, s) >= AUDIBLE);
+const ok = (ctx, id) => !!endpoint(ctx, id)?.valid;
+const COB_ROOM = "Turn around to Stage & patch (T): the booth (the X32 and the receivers) on one side, the SD8, the STAGEPAS and the wedges on the stage floor.";
+
+const COB = [
+  {
+    id: "x32c-cob-usb",
+    short: "Mics on the USB card",
+    title: "Twelve mics, no sound",
+    who: "Sound engineer",
+    prompt: "“The X32 came straight from a recording session. All twelve receivers show RF and AF, the cast is wearing their packs — and channels 1–12 show nothing at all.”",
+    goal: "Channels 1–16 listening to the rear-panel jacks again, and all twelve headsets in the house.",
+    music: "bars-2",
+    setup: { tweak: (st) => (st.rig.devices.find((d) => d.id === "mixer").inSource = [2, 2]) },
+    conditions: [
+      goal("routing", "ROUTING: CH 1-8 and CH 9-16 come from LOCAL", (ctx) => mixerDev(ctx).inSource.every((v) => v === 0)),
+      goal("cast", "All twelve headsets are in the house", castInHouse),
+    ],
+    hints: ["The receivers light up, so the packs work. Is the console listening to the jacks the receivers plug into?", "The main display's ROUTING page decides where each block of 8 channels listens: LOCAL (the rear-panel jacks), AES50-A (a stage box) or CARD (USB from a computer).", "ROUTING: set CH 1-8 and CH 9-16 to LOCAL."],
+    complete: "CARD is the USB card: a computer playing a recording back in. The receivers plug into the console's own jacks, so the inputs listen to LOCAL. AES50-A wouldn't help either: at COB the SD8 only carries outputs. Check ROUTING first on any X32 that's been somewhere else.",
+  },
+  {
+    id: "x32c-cob-gain",
+    short: "Twelve headset gains",
+    title: "Twelve new headsets",
+    who: "Music director",
+    prompt: "“New cast, new packs: every channel's GAIN went back to the bottom. Can you get the whole company up before the run-through?”",
+    goal: "All twelve headsets at a healthy level on their meters (in the green), none clipping.",
+    music: "bars-2",
+    setup: { tweak: (st, h) => COB_HS.forEach((s) => h.set(s, "gainDb", -12)) },
+    conditions: [goal("gain", "All twelve headset channels read healthy, none in the red", (ctx) => COB_HS.every((s) => ["good", "hot"].includes(mc(ctx, s)?.band) && mc(ctx, s).inputPeakDb < -1))],
+    hints: ["Gain first, faders after: the meter says when a channel's GAIN is right. The ensemble (C–L) only sings now and then in this loop: watch their meters when they come in.", "SEL a channel (CH 1-8, then CH 9-16) and turn GAIN up while the performer sings. Every performer is different: G is the loudest, K the quietest.", "Aim for the green on each channel's meter; back off if it reaches CLIP."],
+    complete: "Twelve people, twelve voices, twelve different distances from the mic: each headset needs its own GAIN. Set it once, at soundcheck, with the performer singing at show volume.",
+  },
+  {
+    id: "x32c-cob-tracks",
+    short: "Tracks not in the house",
+    title: "The first number's track",
+    who: "Music director",
+    prompt: "“Places! The opening number starts on the track, and the house hears nothing from the laptop. The cast hears it fine in the wedges.”",
+    goal: "The backing track in the house in stereo, both main speakers, the wedges unchanged.",
+    music: "bars-2",
+    setup: {
+      tweak: (st, h) => {
+        h.set("track", "lr", false);
+        h.set("track", "level", 0);
+      },
+    },
+    baseline: { wedges: { metric: "monitorByChannel", bus: "mix1" } },
+    conditions: [
+      { id: "track", kind: "goal", type: "sourceHeardInMain", source: "track", stereo: true, label: "The track comes out of both main speakers, left and right" },
+      { id: "wedges", kind: "keep", type: "monitorMixUnchanged", bus: "mix1", baseline: "wedges", toleranceDb: 1, label: "The wedges stay the same" },
+    ],
+    hints: ["The cast hears it, so the laptop and its cable work. What stands between the AUX IN 1/2 strip and the house?", "AUX IN 1/2 is on the AUX / FX layer. Its fader is down, and a channel only reaches the house with MAIN LR on.", "Press the AUX / FX layer, SEL AUX 1/2, switch MAIN LR on and push its fader up."],
+    complete: "The wedges get the track from a pre-fader send, so they never noticed the fader. The house needs both: MAIN LR on and the fader up.",
+  },
+  {
+    id: "x32c-cob-link",
+    short: "No Cat5e to the SD8",
+    title: "The floor is dead",
+    who: "Stage manager",
+    prompt: "“Both main speakers and every wedge went silent at once. The X32's meters are dancing.”",
+    goal: "The SD8 linked to the X32 again: both mains and all three wedges working, the mics still on LOCAL.",
+    setup: { tweak: (st, h) => h.cut("sb/aes50a") },
+    conditions: [
+      goal("link", "A Cat5e cable joins the SD8's AES50 A and the X32's AES50 A", (ctx) => linked(ctx, "sb")),
+      goal("floor", "Both main speakers and all three wedges have a working chain", (ctx) => COB_ENDS.every((id) => ok(ctx, id))),
+      keep("cast", "The headsets stay on LOCAL, every one with signal at the console", (ctx) => mixerDev(ctx).inSource.every((v) => v === 0) && COB_HS.every((s) => ["good", "hot"].includes(mc(ctx, s)?.band))),
+    ],
+    hints: ["Everything on the stage floor died together, and the console still hears the mics. What do the mains and the wedges have in common?", COB_ROOM + " One cable carries every output to the floor.", "Patch a Cat5e (etherCON) cable from the SD8's AES50 A to the X32's AES50 A. Leave the input routing on LOCAL."],
+    complete: "At COB the SD8 is all outputs: MIX 1 for the wedges and MAIN L/R for the mains, down one Cat5e. No link, nothing on the floor; the mics, in the booth, carry on. That's why the checklist says to bring a spare.",
+  },
+  {
+    id: "x32c-cob-one-side",
+    short: "Only one main speaker",
+    title: "Only the left speaker",
+    who: "House manager",
+    prompt: "“The audience on the right can barely hear. Their speaker is completely silent.”",
+    goal: "The right main speaker playing MAIN R again, the left one unchanged.",
+    music: "bars-2",
+    setup: { tweak: (st, h) => h.cut("sb/out8") },
+    conditions: [
+      goal("right", "The right main speaker plays MAIN R", (ctx) => ok(ctx, "sp6-r") && endpoint(ctx, "sp6-r").output === "main-r"),
+      keep("left", "The left main speaker still plays MAIN L", (ctx) => ok(ctx, "sp6-l") && endpoint(ctx, "sp6-l").output === "main-l"),
+    ],
+    hints: [COB_ROOM, "Follow the right speaker back: speaker cable → STAGEPAS SPEAKERS R → its input 5/6 R. What feeds 5/6 R?", "SD8 OUT 8 carries MAIN R. Patch it into the STAGEPAS's 5/6 R with an XLR ↔ 1/4\" cable."],
+    complete: "OUT 7 and OUT 8 are MAIN L and R. The STAGEPAS needs both, one per side of its stereo line input: one cable missing is one silent speaker.",
+  },
+  {
+    id: "x32c-cob-speaker-cable",
+    short: "Instrument cable on a speaker",
+    title: "The wrong cable",
+    who: "Stage hand",
+    prompt: "“We lost one of the STAGEPAS speaker cables, so I used a guitar cable for the right speaker. It works, so we're fine, right?”",
+    goal: "The right main speaker on a speaker cable, both mains still working.",
+    music: "bars-2",
+    setup: { tweak: (st) => (st.rig.cables.find((c) => c.from === "stagepas/out-b").cable = "ts") },
+    conditions: [
+      goal("cable", "SPEAKERS R → the right speaker is a speaker cable", (ctx) => ctx.state.rig.cables.find((c) => c.to === "sp6-r/in")?.cable === "speaker"),
+      keep("both", "Both main speakers keep working", (ctx) => ok(ctx, "sp6-l") && ok(ctx, "sp6-r")),
+    ],
+    hints: ["Tap the right speaker in Stage & patch, or look at its card: is anything flagged?", "The STAGEPAS speakers are passive: SPEAKERS L/R carry amplified, speaker-level power. A guitar cable is thin, shielded wire, made for a tiny signal.", "Unplug the guitar cable and patch SPEAKERS R → the right speaker with a 1/4\" speaker cable."],
+    complete: "Same plug, different job: speaker level needs heavy speaker cable, and thin instrument wire can overheat carrying it. That's why the checklist says to use only the speaker cables that came with the STAGEPAS.",
+  },
+  {
+    id: "x32c-cob-thru",
+    short: "Last wedge in the chain",
+    title: "The last wedge is silent",
+    who: "Performer on the right",
+    prompt: "“The two wedges on the left are fine. Mine, on the right end of the row, is dead, and it's switched on.”",
+    goal: "All three wedges playing MIX 1, the house unchanged.",
+    music: "bars-2",
+    setup: { tweak: (st, h) => h.cut("cob-w2/thru") },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("w3", "Wedge 3 (right) plays MIX 1", (ctx) => ok(ctx, "cob-w3") && endpoint(ctx, "cob-w3").output === "mix1"),
+      keep("w12", "Wedges 1 and 2 keep playing MIX 1", (ctx) => ["cob-w1", "cob-w2"].every((id) => ok(ctx, id) && endpoint(ctx, id).output === "mix1")),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: [COB_ROOM, "All three wedges play one mix: SD8 OUT 1 feeds the first, and each passes it on to the next. Where does wedge 3's input come from?", "Patch wedge 2's THRU into wedge 3's MAIN IN with an XLR cable."],
+    complete: "A daisy chain: one output, many wedges, each passing the mix on from its THRU. Anything after a broken link goes quiet, so when only the end of the row is dead, check the last THRU before it.",
+  },
+  {
+    id: "x32c-cob-prefader",
+    short: "Wedges follow the house",
+    title: "The ensemble disappears",
+    who: "Lead performer",
+    prompt: "“Every time you pull the ensemble down in the house, they vanish from our wedges too. We need to hear them steady, whatever the audience gets.”",
+    goal: "Every headset and the track feed MIX 1 pre-fader, the house unchanged.",
+    music: "bars-2",
+    setup: { tweak: (st, h) => [...COB_HS, "track"].forEach((s) => h.set(s, "pres.mix1", false)) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("pre", "MIX 1 ignores the channel faders: every headset and the track send PRE", (ctx) => [...COB_HS, "track"].every((s) => ignoresFader(ctx, "mix1", s))),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["A post-fader send follows the channel fader; a pre-fader send ignores it. Which do the wedges need?", "SEL a channel: its sends to MIX 1–6 each have a PRE/POST switch in the channel strip.", "On every headset channel (1–12) and AUX 1/2, set the MIX 1 send to PRE."],
+    complete: "Monitor sends go pre-fader, so the house mix can change all night and the performers' balance stays put. Post-fader sends are for effects, which should follow the fader.",
+  },
+  {
+    id: "x32c-cob-tracks-wedge",
+    short: "Track in the wedges",
+    title: "We can't hear the track",
+    who: "Ensemble",
+    prompt: "“We can hear each other, but not the track. We're drifting off the tempo by the second chorus.”",
+    goal: "The backing track in the wedges, the singers in the wedges and the house all unchanged.",
+    music: "bars-2",
+    setup: { tweak: (st, h) => h.set("track", "sends.mix1", 0) },
+    baseline: { main: { metric: "mainDbByChannel" }, wedges: { metric: "monitorByChannel", bus: "mix1" } },
+    conditions: [
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "mix1", label: "You listened to the wedges (MIX 1)" },
+      goal("track", "The track is in the wedges", (ctx) => wedge(ctx, "mix1", "track") >= AUDIBLE),
+      { id: "voices", kind: "keep", type: "monitorMixUnchanged", bus: "mix1", baseline: "wedges", except: "track", toleranceDb: 1, label: "The singers in the wedges stay the same" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
+    ],
+    hints: ["The wedges are MIX 1 (SD8 OUT 1). Listen to them.", "SEL MIX 1 on the BUS 1-8 layer and press SENDS ON FADERS: the input faders become sends to MIX 1. The track is on the AUX / FX layer.", "With SENDS ON FADERS lit, bring AUX 1/2's fader up. Then switch SENDS ON FADERS off."],
+    complete: "In a musical the track is the band: the cast needs it in the wedges to stay in time. Send it to MIX 1 like any channel, and switch SENDS ON FADERS off when you're done.",
+  },
+  {
+    id: "x32c-cob-scene",
+    short: "Save the show (scenes)",
+    title: "Save the show",
+    who: "Music director",
+    prompt: "“That's the sound. Save it, so tomorrow's show starts from here. And don't touch the choir's scene: it isn't ours.”",
+    goal: "The show stored in a scene of its own, named COB; the choir's scene untouched.",
+    setup: {
+      tweak: (st) => {
+        const { rig, listen, scenes, ...settings } = structuredClone(st);
+        for (const c of settings.channels) c.level = Math.min(c.level, 0.5);
+        st.scenes[0] = { name: "Choir concert", settings };
+      },
+    },
+    conditions: [
+      goal("stored", "A scene named COB holds the show as it is now", (ctx) => ctx.state.scenes.some((x, n) => x && /cob/i.test(x.name) && sameAsScene(ctx, n))),
+      keep("choir", "Scene 1 is still the choir's", (ctx) => ctx.state.scenes[0]?.name === "Choir concert"),
+    ],
+    hints: ["The main display has a SCENES page.", "Scene 01 is the choir's. STORE into an empty slot instead.", "On SCENES, press STORE on scene 02 and name it COB."],
+    complete: "STORE copies every setting but the cables into the slot. An empty slot, a clear name, and someone else's show left alone: tomorrow's soundcheck starts from tonight.",
+  },
+];
+
 const ORDER = {
   b207mp3: ["doors", "amp", "quiet-singer", "phantom", "wedge", "wedge-quiet", "small-room", "speech"],
   mix8: ["doors", "phones", "ol", "boomy", "pan", "keys-wedge", "wedge-loud", "speech", "ballad", "overhead", "guest"],
@@ -4093,10 +4283,10 @@ const ORDER = {
   dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
   cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "dante-back", "dante-fix", "scene-recall", "scene-store"],
   gdig: ["doors", "gain", "winds", "48v", "lowcut", "lr", "spread", "mud", "eq-on", "comp-on", "sof", "harmony", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "new-mix"],
-  x32c: ["doors", "gain", "48v", "sections-48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "orchestra", "mute-group", "new-mix", "stagebox"],
+  x32c: ["doors", "gain", "48v", "sections-48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "orchestra", "mute-group", "new-mix", "stagebox", "cob-usb", "cob-gain", "cob-tracks", "cob-link", "cob-one-side", "cob-speaker-cable", "cob-thru", "cob-prefader", "cob-tracks-wedge", "cob-scene"],
 };
 
-const LISTS = { gdig: GDIG, l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c], yam01v96: Y96, x32: [...X32F, ...BOXES.x32] };
+const LISTS = { gdig: GDIG, l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c, ...COB], yam01v96: Y96, x32: [...X32F, ...BOXES.x32] };
 
 // Who is on stage (js/music.js stageFor). Every scenario's story was read for
 // this; anything not listed has the whole band playing (the 8-bar section it
@@ -4168,9 +4358,10 @@ const FTW = {
   gdig: ["winds", "comp-on", "bus-mute"],
   x32c: ["sections-48v", "comp-on", "bus-mute", "orchestra"],
 };
+// The COB gig is its own song (its cast, its backing track, its rig).
 const songOf = (board, id) => {
   const k = id.slice(board.length + 1);
-  return NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
+  return k.startsWith("cob-") ? "cob" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
 };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.

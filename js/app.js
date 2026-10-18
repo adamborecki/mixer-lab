@@ -129,7 +129,7 @@ const missionView = new MissionView($("#mission"), {
       mode: musicMode,
       started: engine.started,
       song: manifest.SONGS[manifest.SONG],
-      songs: Object.values(manifest.SONGS),
+      songs: Object.values(manifest.SONGS).filter((sg) => manifest.songFits(sg.id, hardwareOf(skin))),
       duration: manifest.STEM_SET.full.duration,
       sections: manifest.STEM_SET.sections,
       section: m.section,
@@ -140,7 +140,7 @@ const missionView = new MissionView($("#mission"), {
   },
   // Free play: another band on stage (the rig is rebuilt with its sources).
   onSong: (id) => {
-    if (id === freeSong || !manifest.SONGS[id]) return;
+    if (id === manifest.SONG || !manifest.SONGS[id]) return;
     freeSong = id;
     writePref("mixer-lab-song", id);
     selectScenario("free-play");
@@ -262,7 +262,8 @@ function selectScenario(id) {
   const available = scenariosFor(hardwareOf(skin));
   const found = available.find((s) => s.id === id) || SCENARIOS_BY_ID["free-play"];
   // The band first: the rig, the gig text and the music all follow the song.
-  if (manifest.useSong(found.id === "free-play" ? freeSong : found.song || manifest.DEFAULT_SONG) && musicMode !== "full" && !manifest.STEM_SET.sections.some((s) => s.id === musicMode)) musicMode = "excerpt";
+  const freeFits = manifest.songFits(freeSong, hardwareOf(skin)) ? freeSong : manifest.DEFAULT_SONG;
+  if (manifest.useSong(found.id === "free-play" ? freeFits : found.song || manifest.DEFAULT_SONG) && musicMode !== "full" && !manifest.STEM_SET.sections.some((s) => s.id === musicMode)) musicMode = "excerpt";
   const def = scenarioFor(found, hardwareOf(skin));
   const state = buildScenarioState(def, M.SOURCES_BY_ID, hardwareOf(skin));
   store.replace(state);

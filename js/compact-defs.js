@@ -513,8 +513,9 @@ export const COMPACT = {
     dca: 8,
     muteGroups: 6,
     mainMute: true,
+    scenes: 8, // the SCENES page: store and recall (the COB gig saves its show here)
     auxOut: "xlr",
-    aes50: true, // AES50 A: an SD8 or S32 on Cat5; ROUTING picks LOCAL or AES50-A per block of 8 inputs
+    aes50: true, // AES50 A: an SD8 or S32 on Cat5; ROUTING picks LOCAL, AES50-A or CARD (USB) per block of 8 inputs
     main: { label: "MAIN LR", law: "level" },
     phones: { label: "PHONES", sources: null },
     solo: { mode: "pfl", label: "SOLO" },

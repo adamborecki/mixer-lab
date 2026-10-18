@@ -125,6 +125,13 @@ export const THEMES = [
     concept: "Recorders and cameras take mic or line level and say so with a switch. Direct outs and isolated feeds send single sources; tone lines everything up.",
     ids: ["cr1604-direct", "cr1604-room", "sd442-camera", "sd442-tone", "sd442-mono", "sd442-iso", "f8n-track", "f8n-camera", "f8n-dslr", "f8n-iso-safety"],
   },
+  {
+    id: "cob",
+    title: "Gig: COB in Irvine",
+    question: "Can you run a musical from the booth?",
+    concept: "A real MUS 248 gig: twelve wireless headsets and a backing-track laptop into an X32 Compact in the booth, an SD8 stage box carrying its outputs to the floor, a STAGEPAS 600BT driving the mains and B207MP3 wedges chained on THRU. Every fault here is on the gig checklist.",
+    ids: ["x32c-cob-usb", "x32c-cob-gain", "x32c-cob-tracks", "x32c-cob-link", "x32c-cob-one-side", "x32c-cob-speaker-cable", "x32c-cob-thru", "x32c-cob-prefader", "x32c-cob-tracks-wedge", "x32c-cob-scene"],
+  },
 ];
 
 export const THEMES_BY_ID = Object.fromEntries(THEMES.map((t) => [t.id, t]));

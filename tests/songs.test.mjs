@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import * as manifest from "../audio/source-manifest.js";
-import { DEFAULT_SONG, SONGS, useSong } from "../audio/source-manifest.js";
+import { DEFAULT_SONG, SONGS, songFits, useSong } from "../audio/source-manifest.js";
 import { ALL_BOARD_SCENARIOS, SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, gigFor, scenarioFor } from "../js/scenarios.js";
 import { MODELS, computeMix, sourcePeakDb } from "../js/mixer-state.js";
 import { pickSection } from "../js/music.js";
@@ -66,7 +66,7 @@ describe("songs", () => {
 
 describe("both bands on every mixer", () => {
   for (const song of Object.keys(SONGS)) {
-    for (const model of MODELS) {
+    for (const model of MODELS.filter((m) => songFits(song, m))) {
       it(`${song} on ${model}: every patched source arrives with signal`, () => {
         useSong(song);
         const state = buildScenarioState(scenarioFor(SCENARIOS_BY_ID["free-play"], model), manifest.SOURCES_BY_ID, model);
