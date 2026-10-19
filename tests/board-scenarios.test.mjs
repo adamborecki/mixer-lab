@@ -10,6 +10,7 @@ import * as CR1604 from "../js/cr1604.js";
 import { DEFAULT_SONG, SOURCES_BY_ID, STEMS, useSong } from "../audio/source-manifest.js";
 import { numberedScenarios } from "../js/progress.js";
 import { SCENARIOS } from "../js/scenarios.js";
+import { oneToOne } from "../js/dante.js";
 
 // One attempt at a scenario: a store, its baseline, and the listening history.
 // The scenario's own band is on stage, as in the app.
@@ -1156,6 +1157,8 @@ Object.assign(SOLVE, {
   "cl3-dante-fix": (a) => {
     for (let m = 0; m < 7; m++) a.st.setDevice("mixer", `danteRx.${m}`, m + 1);
   },
+  "cl3-dante-dvs": (a) => a.st.setDevice("daw", "dvs", 1),
+  "cl3-dante-121": (a) => a.st.setDeviceMany("mixer", oneToOne(32)),
 });
 Object.assign(WRONG, {
   "cl3-dante": [
@@ -1177,6 +1180,13 @@ Object.assign(WRONG, {
   }]],
   "cl3-dante-fix": [["move the DAW outputs instead, half way", (a) => {
     for (let t = 0; t < 6; t++) a.st.setDevice("daw", `outs.${t}`, t + 2);
+  }]],
+  "cl3-dante-dvs": [["re-subscribe in Dante Controller instead", (a) => {
+    for (let m = 0; m < 7; m++) a.st.setDevice("mixer", `danteRx.${m}`, 0);
+    for (let m = 0; m < 7; m++) a.st.setDevice("mixer", `danteRx.${m}`, m + 1);
+  }]],
+  "cl3-dante-121": [["one channel off", (a) => {
+    for (let m = 0; m < 7; m++) a.st.setDevice("mixer", `danteRx.${m}`, m + 2);
   }]],
 });
 

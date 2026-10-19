@@ -276,6 +276,16 @@ export class MixerStore {
     this.emit({ type: "device", id: deviceId, key });
   }
 
+  // Several settings on one device as one action (one undo step): Dante Controller's
+  // one-to-one route. `pairs` is [[key, value], …]; the change names the first key.
+  setDeviceMany(deviceId, pairs) {
+    const dev = this.state.rig.devices.find((d) => d.id === deviceId);
+    if (!dev) return;
+    let changed = false;
+    for (const [key, value] of pairs) changed = setDeviceValue(dev, key, value) || changed;
+    if (changed) this.emit({ type: "device", id: deviceId, key: pairs[0][0] });
+  }
+
   setListen(dest) {
     if (!listenDestinations(this.state).includes(dest) || this.state.listen === dest) return;
     this.state.listen = dest;

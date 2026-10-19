@@ -116,7 +116,7 @@ export const THEMES = [
     title: "Snakes and stage boxes",
     question: "How does the stage reach the console?",
     concept: "A snake bundles mic lines to FOH; a digital stage box puts the preamps on stage and sends everything down one network cable. The console still has to be told where to listen.",
-    ids: ["cr1604-snake", "cr1604-snake-return", "x32c-stagebox", "x32-stagebox", "x32-stagebox-link", "x32-stagebox-out", "cl3-dante", "cl3-dante-back", "cl3-dante-fix"],
+    ids: ["cr1604-snake", "cr1604-snake-return", "x32c-stagebox", "x32-stagebox", "x32-stagebox-link", "x32-stagebox-out", "cl3-dante", "cl3-dante-dvs", "cl3-dante-121", "cl3-dante-back", "cl3-dante-fix"],
   },
   {
     id: "recording",

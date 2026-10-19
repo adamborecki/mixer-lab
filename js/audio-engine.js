@@ -146,7 +146,7 @@ export class AudioEngine {
     if (this.mixer.pop) this.firePops(state, change);
     // Output ROUTING and scene recalls change which speakers hear which bus.
     // Dante: a DAW track's output or a Dante Controller subscription moves audio like a cable.
-    const dante = change.type === "device" && (change.key?.startsWith("outs") || change.key?.startsWith("danteRx") || change.key?.startsWith("inPatch") || change.key?.startsWith("inSource"));
+    const dante = change.type === "device" && (change.key === "dvs" || change.key?.startsWith("outs") || change.key?.startsWith("danteRx") || change.key?.startsWith("inPatch") || change.key?.startsWith("inSource"));
     if (change.type === "rig" || change.type === "replace" || change.type === "scene" || dante || (change.type === "bus" && change.bus === "routing")) this.rewire();
     this.applyAll();
   }

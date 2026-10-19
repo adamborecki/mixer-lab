@@ -4756,6 +4756,20 @@ dialog::backdrop {
   color: var(--text-dim);
   line-height: 1.45;
 }
+.dvs-status {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+}
+.dante-note .btn {
+  min-height: 34px;
+  margin-right: 0.3rem;
+}
+.dc-device {
+  border-color: #2f8f8a;
+  color: #9fe3dd;
+}
 .daw-table {
   border-collapse: collapse;
   width: 100%;

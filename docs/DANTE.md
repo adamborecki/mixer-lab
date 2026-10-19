@@ -6,6 +6,7 @@ The first Dante exercise: play the band's multitrack from a laptop into the Yama
 
 | Hop | Real world | In the lab |
 |---|---|---|
+| 0. DVS | Dante Virtual Soundcard must be running (and licensed) for the laptop to be on the network at all | Laptop card → **Dante Virtual Soundcard**: Running / Stopped (`daw.dvs`, 1 = running; missing = running). Stopped: no links, and Dante Controller shows no transmitter |
 | 1. DAW | Each track's output is a Dante Virtual Soundcard (DVS) channel | The laptop card in Sources → **Open the DAW**: an output per track (`daw.outs[t]`, 0 = none) |
 | 2. Dante Controller | A receiver channel subscribes to one transmitter channel | **Open Dante Controller**: a grid, DVS TX across, CL3 RX down; a tick subscribes (`mixer.danteRx[m]`) |
 | 3. Console | The INPUT PATCH puts Dante RX n (or the Rio input) on channel n | The touch screen's INPUT PATCH page: RIO or DANTE per channel (`mixer.inPatch[m]`, 0 = Rio, 1 = Dante); RX n is channel n's `dante` jack (`ch{n}-dante`) |
@@ -14,7 +15,11 @@ No cables are involved. `danteLinks(rig)` (`js/dante.js`) turns the two settings
 
 Playback arrives at the level it was recorded at, after the preamp (`DANTE.levelDb`), so a Dante-patched channel's GAIN knob (the Rio preamp) doesn't change it: `channelGainDb` returns the input's `digitalDb` for a digital input. Phantom power doesn't apply either. The analysis honours the INPUT PATCH (the other jack is ignored even if cabled), and the engine only wires the jack in use.
 
-Scenarios on the CL3: "Virtual soundcheck over Dante" (DAW outputs, Dante Controller, INPUT PATCH to DANTE), "The band is here" (INPUT PATCH back to RIO), "The keys are on the trumpet channel" (Dante Controller subscriptions off by one).
+**One to one.** In the real Dante Controller, Ctrl-click on the square where two devices meet subscribes RX n to TX n for every channel. The lab's **⊞ Laptop × CL3** button does the same on Ctrl- or Cmd-click; a plain click or tap explains the shortcut and offers a **Route one to one** button. It goes through `MixerStore.setDeviceMany` (`oneToOne(rx)` in `js/dante.js`), so it's one action and one undo step.
+
+Scenarios on the CL3: "Virtual soundcheck over Dante" (DAW outputs, Dante Controller, INPUT PATCH to DANTE), "The laptop isn't in Dante Controller" (`cl3-dante-dvs`: DVS stopped, everything else set), "Doors in ten minutes" (`cl3-dante-121`: only the Dante Controller hop missing; the hints teach the one-to-one shortcut), "The band is here" (INPUT PATCH back to RIO), "The keys are on the trumpet channel" (Dante Controller subscriptions off by one).
+
+The two newer ones come from the first real run in OH 207 (MUS 248's *CL3: Dante Stems from Logic* checklist): DVS was the first thing that could stop it, and Ctrl-click was the fast way to route.
 
 ## Pieces
 
@@ -25,5 +30,6 @@ Scenarios on the CL3: "Virtual soundcheck over Dante" (DAW outputs, Dante Contro
 
 ## Next steps
 
+- Device names: Dante Controller as a list of named transmitters, where one is mislabeled and has to be identified by its IP address (it happened in OH 207: the studio computer showed up under another room's name).
 - More Dante devices: a second console or a Dante-enabled recorder (the F8n with a Dante adapter, or a Dante-to-analog box), and clock / latency / sample-rate mismatches as faults to find.
 - A DAW transport and record-arm: record the console's direct outs back into the DAW over Dante (the other half of a virtual soundcheck).

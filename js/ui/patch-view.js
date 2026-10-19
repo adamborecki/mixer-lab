@@ -25,6 +25,7 @@ import { F8, PAIR, REVERB, TECHNIQUES, cardStats, techniqueOf } from "../devices
 import { CONNECTOR_GUIDE, deviceIconName, icon, jackIconName, levelIconName, plugIconName } from "./icons.js";
 import { jackArt, plugArt } from "./connector-art.js";
 import { nameMode, sourceName } from "../names.js";
+import { dvsRunning } from "../dante.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
@@ -180,12 +181,13 @@ export class PatchView {
       <div class="source-top">
         <span class="source-order">DVS</span>
         <span class="dev-ico">${icon("laptop", { size: 40 })}</span>
-        <div class="source-names"><strong>${esc(d.label)}</strong><span>Multitrack stems over Dante (no cables)</span></div>
+        <div class="source-names"><strong>${esc(d.label)}</strong><span>${dvsRunning(d) ? "Multitrack stems over Dante (no cables)" : "Dante Virtual Soundcard is stopped"}</span></div>
         <span class="status-pill status-${status}">${n}/${lands.length} on the console</span>
       </div>
       <ul class="daw-lands">${lands.join("")}</ul>
       <div class="dante-buttons">
         <button type="button" class="btn btn-start" data-open-dante="daw">Open the DAW</button>
+        <button type="button" class="btn btn-start" data-open-dante="dvs">Dante Virtual Soundcard</button>
         <button type="button" class="btn btn-start" data-open-dante="controller">Open Dante Controller</button>
       </div>
     </li>`);

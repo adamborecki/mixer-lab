@@ -2,6 +2,8 @@
 // and a Dante-equipped console (the CL3). Pure JS, no audio.
 //
 // Three hops, each set by the student, as in a real virtual soundcheck:
+//   0. Dante Virtual Soundcard itself must be running (daw.dvs, 1 = on):
+//      stopped, the laptop isn't on the network at all
 //   1. the DAW: each track's output (DVS channel 1–16, or none)   daw.outs[t]
 //   2. Dante Controller: each console receive channel subscribes
 //      to one DVS transmit channel (or none)                         mixer.danteRx[m]
@@ -20,7 +22,11 @@ export const DANTE = {
 // The DAW session: one track per band stem, in the band's input-list order.
 export const DAW_TRACKS = ["drums", "bass", "guitars", "keys", "trumpets", "backing-vocals", "lead-vocal"];
 
-export const createDaw = (over = {}) => ({ outs: DAW_TRACKS.map(() => 0), ...over });
+export const createDaw = (over = {}) => ({ dvs: 1, outs: DAW_TRACKS.map(() => 0), ...over });
+
+// Is the laptop transmitting? Stopped DVS = no transmitter in Dante Controller.
+// (Rigs saved before `dvs` existed have no field: running.)
+export const dvsRunning = (daw) => !!daw && daw.dvs !== 0;
 
 const isDaw = (d) => d.type === "daw-dvs";
 
@@ -30,7 +36,7 @@ const isDaw = (d) => d.type === "daw-dvs";
 export function danteLinks(rig) {
   const daw = rig.devices.find(isDaw);
   const mixer = rig.devices.find((d) => d.id === "mixer");
-  if (!daw || !mixer || !Array.isArray(mixer.danteRx)) return [];
+  if (!dvsRunning(daw) || !mixer || !Array.isArray(mixer.danteRx)) return [];
   const trackOn = {}; // DVS channel → DAW track index
   daw.outs.forEach((k, t) => k > 0 && (trackOn[k] = t));
   const links = [];
@@ -40,6 +46,10 @@ export function danteLinks(rig) {
   });
   return links;
 }
+
+// Dante Controller's one-to-one route (Ctrl-click where the two devices meet):
+// RX n subscribes to TX n for every channel both devices have.
+export const oneToOne = (rx) => Array.from({ length: Math.min(rx, DANTE.dvsChannels) }, (_, m) => [`danteRx.${m}`, m + 1]);
 
 // What the DVS transmits on channel k (the DAW track names), for Dante Controller's labels.
 export function dvsChannelNames(rig, names = {}) {

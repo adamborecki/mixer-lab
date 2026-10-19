@@ -3388,6 +3388,70 @@ const CL3 = [
     hints: ["The DAW and the console look right. What sits in between?", "Open Dante Controller: the ticks are one row off the diagonal.", "Re-subscribe RX 01–07 to DVS 01–07 (and check DVS 07 reaches RX 07)."],
     complete: "When every channel is shifted by one, look at the routing, not the channels. A clean diagonal in Dante Controller is the fastest check there is.",
   },
+  {
+    id: "cl3-dante-dvs",
+    short: "No transmitter (DVS)",
+    title: "The laptop isn't in Dante Controller",
+    who: "System engineer",
+    prompt: "“The DAW is playing and the CL3 is on, but Dante Controller only shows the CL3. There's no laptop to route from. Get the multitrack onto channels 1–7.”",
+    goal: "Dante Virtual Soundcard running again, and all seven DAW tracks playing on channels 1–7 in the house.",
+    music: "excerpt", // the whole band, trumpets too
+    setup: {
+      tweak: (st, h) => {
+        for (let n = 1; n <= 7; n++) h.cut(`mixer/ch${n}-mic`);
+        h.addDevice("daw");
+        const daw = st.rig.devices.find((d) => d.type === "daw-dvs");
+        const mixer = st.rig.devices.find((d) => d.id === "mixer");
+        daw.dvs = 0; // stopped: the laptop isn't on the network
+        for (let n = 0; n < 7; n++) {
+          daw.outs[n] = n + 1;
+          mixer.danteRx[n] = n + 1; // the CL3 still holds last night's subscriptions
+          mixer.inPatch[n] = 1;
+        }
+      },
+    },
+    conditions: [
+      goal("dvs", "Dante Virtual Soundcard is running", (ctx) => ctx.state.rig.devices.find((d) => d.type === "daw-dvs")?.dvs !== 0),
+      goal("heard", "All seven tracks play on channels 1–7 in the house", (ctx) => DAW_TRACKS.every((s, t) => mc(ctx, s)?.index === t && house(ctx, s) >= AUDIBLE)),
+    ],
+    hints: [
+      "The DAW outputs, the CL3's subscriptions and its INPUT PATCH all look right. What has to be running before the laptop is on the network at all?",
+      "Laptop card in Sources → Dante Virtual Soundcard. It's stopped.",
+      "Start it. The CL3 kept its subscriptions, so they reconnect on their own once the laptop is back.",
+    ],
+    complete: "Check Dante Virtual Soundcard before anything else: stopped (or unlicensed), the laptop isn't on the network, and no routing can fix that. Subscriptions live on the receiver, so they came back by themselves.",
+  },
+  {
+    id: "cl3-dante-121",
+    short: "One to one (Dante Controller)",
+    title: "Doors in ten minutes",
+    who: "Band leader",
+    prompt: "“The DAW outputs are set and the CL3 is patched to Dante, but nothing's routed in Dante Controller. Doors are in ten minutes. Don't click every square.”",
+    goal: "CL3 RX 1–7 subscribed to DVS 1–7, and all seven tracks playing on channels 1–7 in the house.",
+    music: "excerpt", // the whole band, trumpets too
+    setup: {
+      tweak: (st, h) => {
+        for (let n = 1; n <= 7; n++) h.cut(`mixer/ch${n}-mic`);
+        h.addDevice("daw");
+        const daw = st.rig.devices.find((d) => d.type === "daw-dvs");
+        const mixer = st.rig.devices.find((d) => d.id === "mixer");
+        for (let n = 0; n < 7; n++) {
+          daw.outs[n] = n + 1;
+          mixer.inPatch[n] = 1;
+        }
+      },
+    },
+    conditions: [
+      goal("rx", "CL3 RX 1–7 are subscribed to DVS 1–7", (ctx) => ctx.state.rig.devices.find((d) => d.id === "mixer").danteRx.slice(0, 7).every((k, m) => k === m + 1)),
+      goal("heard", "All seven tracks play on channels 1–7 in the house", (ctx) => DAW_TRACKS.every((s, t) => mc(ctx, s)?.index === t && house(ctx, s) >= AUDIBLE)),
+    ],
+    hints: [
+      "Only one hop is missing: Dante Controller.",
+      "Where the laptop meets the CL3 there's one square for the whole device, before you expand either one.",
+      "Ctrl-click ⊞ Laptop × CL3 in Dante Controller (on a phone, tap it, then Route one to one). Every RX n takes TX n.",
+    ],
+    complete: "Ctrl-click on the device square routes one to one in a single move: a clean diagonal, every channel number matching its track number. It's the same shortcut in the real Dante Controller.",
+  },
   like("cl3", "x32-scene-recall", {
     hints: ["Rebuilding it by hand takes ages and you'll miss something.", "The touch screen's SCENE page lists the saved scenes.", "RECALL scene 02."],
   }),
@@ -4091,7 +4155,7 @@ const ORDER = {
   x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9"],
   f8n: ["track", "trim", "room", "hpf", "pfl", "balance", "link", "camera", "dslr", "iso-safety"],
   dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
-  cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "dante-back", "dante-fix", "scene-recall", "scene-store"],
+  cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "dante-dvs", "dante-121", "dante-back", "dante-fix", "scene-recall", "scene-store"],
   gdig: ["doors", "gain", "winds", "48v", "lowcut", "lr", "spread", "mud", "eq-on", "comp-on", "sof", "harmony", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "new-mix"],
   x32c: ["doors", "gain", "48v", "sections-48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "orchestra", "mute-group", "new-mix", "stagebox"],
 };
