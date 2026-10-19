@@ -14,7 +14,7 @@ import { previewSlug } from "./deploy-context.js";
 import { contextLine } from "./bugs.js";
 import { shortTitle } from "./scenarios.js";
 import { SKINS } from "./mixer-models.js";
-import { THEMES, consoleOf, skinOf, themeScenarios } from "./themes.js";
+import { OPEN_GIGS, THEMES, consoleOf, skinOf, themeScenarios } from "./themes.js";
 import { duration, hash53 } from "./submission.js";
 
 export const HEADER = "MIXER LAB — MUS 248 CANVAS EXPORT v2";
@@ -34,7 +34,7 @@ const EARLIER = "console not recorded";
 
 // What the dialog shows and the text prints.
 export function exportSummary({ isSolved, statsFor }) {
-  const topics = THEMES.map((t) => ({
+  const topics = [...THEMES, ...OPEN_GIGS].map((t) => ({
     t,
     rows: themeScenarios(t)
       .map((s) => ({ s, solved: isSolved(s.id), ...statsFor(s.id) }))

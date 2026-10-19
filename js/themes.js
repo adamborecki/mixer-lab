@@ -4,6 +4,7 @@
 // A theme is one concept (phantom power, aux sends, EQ…) practised first on the
 // generic analog mixer and then on real consoles, simplest first, so the idea
 // carries over from desk to desk. The scenario picks its console.
+// The third way in is a Chapman gig (GIGS below): one real gig's rig and faults.
 //
 // Pure data and functions (no DOM), tested in tests/themes.test.mjs: every
 // scenario sits in exactly one theme.
@@ -125,16 +126,50 @@ export const THEMES = [
     concept: "Recorders and cameras take mic or line level and say so with a switch. Direct outs and isolated feeds send single sources; tone lines everything up.",
     ids: ["cr1604-direct", "cr1604-room", "sd442-camera", "sd442-tone", "sd442-mono", "sd442-iso", "f8n-track", "f8n-camera", "f8n-dslr", "f8n-iso-safety"],
   },
-  {
-    id: "cob",
-    title: "Gig: COB in Irvine",
-    question: "Can you run a musical from the booth?",
-    concept: "A real MUS 248 gig: twelve wireless headsets and a backing-track laptop into an X32 Compact in the booth, an SD8 stage box carrying its outputs to the floor, a STAGEPAS 600BT driving the mains and B207MP3 wedges chained on THRU. Every fault here is on the gig checklist.",
-    ids: ["x32c-cob-usb", "x32c-cob-gain", "x32c-cob-tracks", "x32c-cob-link", "x32c-cob-one-side", "x32c-cob-speaker-cable", "x32c-cob-thru", "x32c-cob-prefader", "x32c-cob-tracks-wedge", "x32c-cob-scene"],
-  },
 ];
 
-export const THEMES_BY_ID = Object.fromEntries(THEMES.map((t) => [t.id, t]));
+// ---------- Chapman gigs ----------
+
+// Real MUS 248 gigs, each in its own Chapman venue: the room's own rig and
+// band, and faults from that gig's checklist in the course site. Not a topic
+// and not a mixer list: a gig's scenarios live here only. `soon`: a gig that's
+// planned but not built yet (shown, not openable).
+const SITE = "https://adamborecki.github.io/mus248";
+export const GIGS = [
+  {
+    id: "vocal-jazz",
+    title: "Vocal Jazz in Salmon",
+    venue: "Salmon Recital Hall",
+    question: "Can you set up Vocal Jazz before rehearsal?",
+    concept: "Thirteen singers on wireless handhelds into Salmon's full-size X32 at FOH, inputs on LOCAL, an S32 stage box on AES50, and three passive wedges on one speakON chain from the NX3000. Every fault here is on the Vocal Jazz Gig Checklist or the reset.",
+    checklist: `${SITE}/vocal-jazz-gig-checklist/`,
+    ids: ["x32-vj-local", "x32-vj-gain", "x32-vj-lowcut", "x32-vj-muted", "x32-vj-send", "x32-vj-amp", "x32-vj-chain", "x32-vj-link"],
+  },
+  {
+    id: "cob",
+    title: "COB in Irvine",
+    venue: "Chapman on Broadway, Irvine",
+    question: "Can you run a musical from the booth?",
+    concept: "Twelve wireless headsets and a backing-track laptop into an X32 Compact in the booth, an SD8 stage box carrying its outputs to the floor, a STAGEPAS 600BT driving the mains and B207MP3 wedges chained on THRU. Every fault here is on the COB Gig Checklist.",
+    checklist: `${SITE}/cob-gig-checklist/`,
+    ids: ["x32c-cob-usb", "x32c-cob-gain", "x32c-cob-tracks", "x32c-cob-link", "x32c-cob-one-side", "x32c-cob-speaker-cable", "x32c-cob-thru", "x32c-cob-prefader", "x32c-cob-tracks-wedge", "x32c-cob-scene"],
+  },
+  {
+    id: "electroacoustic",
+    title: "Electroacoustic showcase",
+    venue: "",
+    question: "Coming later",
+    concept: "The electroacoustic showcase will be built here later.",
+    soon: true,
+    ids: [],
+  },
+];
+export const isGig = (t) => !!t && GIGS.includes(t);
+// The gigs that can be opened.
+export const OPEN_GIGS = GIGS.filter((g) => !g.soon);
+
+// Topics and gigs are both ordered lists of scenarios, looked up the same way.
+export const THEMES_BY_ID = Object.fromEntries([...THEMES, ...OPEN_GIGS].map((t) => [t.id, t]));
 
 // Every scenario by id: the Canvas ones on the generic mixer, and every real console's.
 const ALL = [...SCENARIOS.filter((s) => s.number > 0), ...ALL_BOARD_SCENARIOS];
@@ -159,7 +194,10 @@ export function themeScenarios(theme) {
   return listed.sort((a, b) => consoleRank(consoleOf(a.s)) - consoleRank(consoleOf(b.s)) || a.i - b.i).map((x) => x.s);
 }
 
-const THEME_OF = new Map(THEMES.flatMap((t) => t.ids.map((id) => [id, t.id])));
+const THEME_OF = new Map([...THEMES, ...OPEN_GIGS].flatMap((t) => t.ids.map((id) => [id, t.id])));
+const IN_GIG = new Set(OPEN_GIGS.flatMap((g) => g.ids));
+// Is this scenario one of a Chapman gig's?
+export const gigOf = (scenarioId) => (IN_GIG.has(scenarioId) ? THEMES_BY_ID[THEME_OF.get(scenarioId)] : null);
 export const themeOf = (scenarioId) => THEMES_BY_ID[THEME_OF.get(scenarioId)] || null;
 
 // The Canvas assignment: the numbered scenarios on the generic analog mixer.
@@ -182,10 +220,10 @@ export const MIXERS = [
 ];
 export const mixerEntry = (consoleId) => MIXERS.find((m) => m.model === consoleId) || null;
 
-// A console's scenarios in its own teaching order.
+// A console's scenarios in its own teaching order (a gig's are in Chapman gigs instead).
 export function mixerScenarios(consoleId) {
   if (consoleId === "generic") return CANVAS_SCENARIOS;
-  return scenariosFor(consoleId).filter((s) => s.number > 0);
+  return scenariosFor(consoleId).filter((s) => s.number > 0 && !IN_GIG.has(s.id));
 }
 
 // The scenario to open on a console: the first one not solved yet (or the first).

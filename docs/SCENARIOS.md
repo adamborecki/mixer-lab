@@ -203,3 +203,13 @@ npm test            # or: node --test tests/*.test.mjs
 ```
 
 Node 18 or newer. `tests/scenarios.test.mjs` checks data integrity, that each scenario starts unsolved with `keep` conditions holding (and scenarios 2 and 3 start on Main), and that each is solved (or not) by the state changes described above, including the listening objectives, the wrong-wedge cases and the tempting wrong fixes (no audio or UI). It passes a `session` the way `js/app.js` does. `tests/routing.test.mjs` covers connectors, chains, the level law, `computeMix` (including Aux 1 and Aux 2 independence) and the store. `tests/skins.test.mjs` covers the MUTE/ON mapping, the global phantom state, strip layout data (`aux1` and `aux2` parts), the AUX 1/AUX 2 and MON 1/MON 2 terms, and hint placeholders. No browser is needed.
+
+## Chapman gigs
+
+Real MUS 248 gigs (`GIGS` in `js/themes.js`), each scenario a fault from that gig's checklist on the course site. They are board scenarios like any other (their mixer's `ORDER`, its own song), but listed only under their gig. Details in [HANDOFF.md](HANDOFF.md#chapman-gigs).
+
+| Gig | Console | Scenarios |
+|---|---|---|
+| Vocal Jazz in Salmon (`vocal-jazz`) | Behringer X32 | `x32-vj-local` (inputs left on AES50), `-gain` (gains not identical), `-lowcut` (low cut off, compressors on), `-muted` (muted on the X32), `-send` (in the house, not the wedges), `-amp` (amp input on CH B), `-chain` (last speakON link), `-link` (no AES50: wedges dead, mics fine) |
+| COB in Irvine (`cob`) | Behringer X32 Compact | `x32c-cob-*`, ten |
+| Electroacoustic showcase | | planned |

@@ -39,7 +39,13 @@ Patching is tap-based: tap a port, pick a cable, pick the other end. Bad choices
 
 In the scenarios and Free play, Aux 1 feeds the lead singer's powered wedge and Aux 2 goes through the power amp to the drummer's passive wedge. The wedge scenarios ask the student to listen to the right wedge before fixing it. Free play can also play the whole song (3:58, with a seek slider) instead of the 8-bar loop.
 
-**Gig: COB in Irvine** is a topic built from a real MUS 248 gig: a musical with twelve wireless headsets and backing tracks on the X32 Compact, an SD8 carrying its outputs to a STAGEPAS 600BT and a chain of B207MP3 wedges. Free play on the X32 Compact can put the same gig on stage (Song: COB in Irvine).
+**Chapman gigs** (on the start screen and a tab in the Scenarios drawer) are real MUS 248 gigs, each with its own room's rig and faults from that gig's checklist on the course site:
+
+- **Vocal Jazz in Salmon**: thirteen wireless handhelds into Salmon's full-size X32 on LOCAL inputs, an S32 stage box on AES50, and three passive wedges on one speakON chain from an NX3000. Free play on the X32 can put it on stage (Song: Vocal Jazz in Salmon).
+- **COB in Irvine**: a musical with twelve wireless headsets and backing tracks on the X32 Compact, an SD8 carrying its outputs to a STAGEPAS 600BT and a chain of B207MP3 wedges. Free play on the X32 Compact can put it on stage (Song: COB in Irvine).
+- **Electroacoustic showcase**: planned, shown as "coming later".
+
+A gig's scenarios live only there: they aren't in a topic or on their mixer's By mixer list.
 
 **By mixer** (in the top bar) lists 18 consoles, from the generic Mixer A to the Yamaha CL3, each with its own practice scenarios and Free play gig. Assignment 1 as it was due is frozen at `/legacy/`. See [docs/HANDOFF.md](docs/HANDOFF.md).
 

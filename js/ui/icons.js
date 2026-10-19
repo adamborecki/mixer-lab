@@ -172,7 +172,9 @@ const TYPE_ICONS = {
   cr1604: "mixer",
   "power-amp": "power-amp",
   "stagepas-amp": "power-amp",
+  nx3000: "power-amp",
   "wireless-headset": "mic",
+  "wireless-handheld": "mic",
   "camera-input": "camera",
   "dslr-input": "camera",
   snake: "stage-box",
@@ -192,12 +194,12 @@ export function deviceIconName(device, type) {
 // An XLR plug into an output jack is female; into an input jack it is male.
 export function plugIconName(plugId, intoDir = "in") {
   if (plugId === "xlr") return intoDir === "out" ? "xlr-f" : "xlr-m";
-  return { trs14: "trs14", ts14: "ts14", rca: "rca", trs35: "trs35", dualts14: "ts-pair", ethercon: "ethercon" }[plugId] || null;
+  return { trs14: "trs14", ts14: "ts14", rca: "rca", trs35: "trs35", dualts14: "ts-pair", ethercon: "ethercon", speakon: "speakon" }[plugId] || null;
 }
 
 // A port's jack (the socket on the gear). XLR on an output is male, on an input female.
 export function jackIconName(jackId, dir = "in") {
-  return { xlr: dir === "out" ? "xlr-m" : "xlr-f", combo: "jack-combo", quarter: "jack-quarter", rca: "jack-rca", mini: "jack-mini", linepair: "jack-pair", rcapair: "jack-rca", ethercon: "jack-ethercon" }[jackId] || null;
+  return { xlr: dir === "out" ? "xlr-m" : "xlr-f", combo: "jack-combo", quarter: "jack-quarter", rca: "jack-rca", mini: "jack-mini", linepair: "jack-pair", rcapair: "jack-rca", ethercon: "jack-ethercon", speakon: "speakon" }[jackId] || null;
 }
 
 export const levelIconName = (level) => (level === "speaker" ? "level-speaker" : "level-line");

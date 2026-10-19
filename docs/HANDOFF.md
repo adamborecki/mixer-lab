@@ -104,9 +104,24 @@ Stage boxes are real devices in the model (`DEVICE_TYPES.snake`, `s32`, `sd8` in
 - `checkConnection` rules: sources may go into a stage box; mixer outputs can't go into snake inputs that run back to FOH (use a return), sources can't go into return sends, speaker level never goes into a stage box, network ports only take network ports of the same kind.
 - Scenario helper `h.stagebox(type, { routed, linked, stageOuts })` (in `boardHelpers`) moves a Free play gig onto a stage box. Scenarios: X32 *The band is on the stage box*, *No link light*, *The drummer's amp on the wrong output*; X32 Compact *The band is on an SD8*; CR1604 *The singer is in the snake*, *The wedge on RETURN A*.
 
-## Gig: COB in Irvine
+## Chapman gigs
 
-A real MUS 248 gig as a topic of its own ("Gig: COB in Irvine", theme `cob` in `js/themes.js`): ten X32 Compact scenarios (`x32c-cob-*`, the `COB` list in `js/board-scenarios.js`), each a fault from the MUS 248 COB Gig Checklist's troubleshooting list. The rig follows that checklist and the instructor's photos:
+The third way in, next to By topic and By mixer: `GIGS` in `js/themes.js`, real MUS 248 gigs at Chapman venues, each with `title`, `venue`, `question`, `concept`, `checklist` (its gig checklist on the course site) and `ids`. A gig is looked up like a topic (`THEMES_BY_ID`, `themeOf`, `nextInTheme`, `#/<scenario id>`), so the mission strip steps through it, and the Canvas export lists it after the topics. Its scenarios are on no topic and no mixer list (`mixerScenarios` leaves out `gigOf(id)`); `openScenario` opens them by gig even from By mixer. The start screen has a Chapman gigs section; the drawer a Chapman gigs tab. `soon: true` is a planned gig (the electroacoustic showcase): shown, with no scenarios, not openable. `tests/themes.test.mjs` checks every scenario sits in exactly one topic or gig.
+
+A gig's song (`consoles` in `SONGS`) replaces the default band right after Start Audio. `js/transport.js` reads each stem's treatment before its fetch and drops a decoded stem whose song changed meanwhile: before that, opening a gig from the start screen showed "Some audio didn't load" for the default band's stems.
+
+### Vocal Jazz in Salmon
+
+Eight full-X32 scenarios (`x32-vj-*`, the `VJS` list in `js/board-scenarios.js`), from MUS 248's Vocal Jazz Gig Checklist and Vocal Jazz Reset (October 2026) and the facts the Salmon Simulator project has confirmed with the crew.
+
+- **Its own song**, `vj`: NOSTRADAMUS's three vocal parts with no band, on thirteen wireless handhelds named by windscreen and ring color as the crew names them (black 1–8, gray 9–16; red, orange, yellow, green, blue, purple, black, gray). Mic 1 the lead, 2 the harmony, 3–13 the ensemble. `consoles: ["x32"]`.
+- **Its own gig**, `VJ_GIGS.x32`: mic n on LOCAL input n, ROUTING `inSource` `[0, 0, 0, 1]` (CH 1-24 LOCAL, 25-32 AES50-A), every handheld at GAIN 30 dB (the gig field `gainDb`), LOW CUT on (about 100 Hz), no compressor. MIX 1 = XLR OUT 1 → S32 OUT 1 → the NX3000's CH A → three passive wedges on one speakON chain. Scene 1 holds it.
+- **New devices and parts:** plug, jack and cable `speakon` (a speaker cable); `nx3000` (XLR in, speakON out); `passive-wedge` (two speakON jacks wired together: `link` is a `thru` port, so `throughLinks` chains it like the B207's THRU); `wireless-handheld`.
+- **Not real yet:** the mains are a generic power amp and two passive speakers on MAIN L/R (Salmon's mains path through its mains rack isn't modelled); the 30 dB gain and the low-cut frequency are still open in the course checklist; the X32 has no gate here. The Dante multitrack into Logic (card outputs as direct outs, Dante Virtual Soundcard, Ctrl-click one to one in Dante Controller) isn't built: the full X32 has no Dante card yet.
+
+### COB in Irvine
+
+Moved from the topics into Chapman gigs (it was "Gig: COB in Irvine", theme `cob`): ten X32 Compact scenarios (`x32c-cob-*`, the `COB` list in `js/board-scenarios.js`), each a fault from the MUS 248 COB Gig Checklist's troubleshooting list. The rig follows that checklist and the instructor's photos:
 
 - **Its own song**, `cob` in `audio/source-manifest.js`: NOSTRADAMUS's instruments summed into one stereo backing track (`tools/make-backing-track.sh`, from the delivered mp3s) on AUX IN 1/2, and twelve wireless headsets A–L on inputs 1–12 (A the lead vocal, B the harmony, C–L all the backing vocals, each low in the mix). Same timeline and segments as NOSTRADAMUS; the vocal files are NOSTRADAMUS's own. `consoles: ["x32c"]` with `songFits(id, model)`: Free play offers it on the X32 Compact only, and falls back to Persephone elsewhere.
 - **Its own gig**, `COB_GIGS.x32c` in `js/scenarios.js`: the console in the booth, inputs on LOCAL, an SD8 on the stage floor for outputs only (OUT 1 = MIX 1 to the wedges, OUT 7/8 = MAIN L/R to the STAGEPAS).

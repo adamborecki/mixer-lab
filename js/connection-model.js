@@ -35,6 +35,8 @@ export const PLUGS = {
   dualts14: { id: "dualts14", name: '2× 1/4" TS (L + R)', family: "quarter-pair" },
   // A locking RJ45 in a round XLR-sized shell: digital stage boxes (AES50, Dante).
   ethercon: { id: "ethercon", name: "etherCON (RJ45)", family: "ethercon" },
+  // The twist-lock speaker plug (Neutrik speakON NL4): speaker level only.
+  speakon: { id: "speakon", name: "speakON", family: "speakon" },
 };
 
 export const JACKS = {
@@ -48,6 +50,7 @@ export const JACKS = {
   // A left and right RCA jack side by side (a tape/CD input), patched as one.
   rcapair: { id: "rcapair", name: "RCA L/R pair", accepts: ["rca"] },
   ethercon: { id: "ethercon", name: "etherCON", accepts: ["ethercon"] },
+  speakon: { id: "speakon", name: "speakON", accepts: ["speakon"] },
 };
 
 export function plugFitsJack(plugId, jackId) {
@@ -72,6 +75,7 @@ export const CABLES = {
   "mini-rca": { id: "mini-rca", name: "3.5 mm ↔ RCA (Y) cable", ends: ["trs35", "rca"], kind: "signal", balanced: false, blurb: "Phone/laptop headphone out to RCA." },
   "mini-dual-ts": { id: "mini-dual-ts", name: '3.5 mm ↔ dual 1/4" (breakout) cable', ends: ["trs35", "dualts14"], kind: "signal", balanced: false, stereo: true, blurb: "Stereo Y: laptop headphone out to a left + right pair of 1/4\" line inputs." },
   mini: { id: "mini", name: "3.5 mm aux cable", ends: ["trs35", "trs35"], kind: "signal", balanced: false, blurb: "Phone/laptop aux cable." },
+  speakon: { id: "speakon", name: "speakON speaker cable", ends: ["speakon", "speakon"], kind: "speaker", balanced: false, blurb: "Heavy speaker cable with twist-lock plugs: push in, twist until it clicks. Speaker level only." },
   cat5: { id: "cat5", name: "Cat5e cable (etherCON)", ends: ["ethercon", "ethercon"], kind: "network", balanced: false, blurb: "Shielded network cable. One of these carries every channel between a digital stage box and the console, both ways." },
 };
 
@@ -147,6 +151,14 @@ export const DEVICE_TYPES = {
     source: true,
     ports: [{ id: "out", dir: "out", jack: "xlr", level: "mic", name: "Receiver XLR out" }],
     blurb: "A headset mic on a bodypack. Its receiver channel's XLR out is mic level and needs no phantom power.",
+  },
+  // A handheld mic with its transmitter in the handle: the console gets its
+  // receiver channel's XLR out, mic level, no phantom power needed.
+  "wireless-handheld": {
+    name: "Wireless handheld (receiver channel)",
+    source: true,
+    ports: [{ id: "out", dir: "out", jack: "xlr", level: "mic", name: "Receiver XLR out" }],
+    blurb: "A handheld mic with the transmitter in its handle. Its receiver channel's XLR out is mic level and needs no phantom power.",
   },
   "line-source": {
     name: "Line-level instrument",
@@ -312,6 +324,31 @@ export const DEVICE_TYPES = {
     ],
     blurb: "A powered speaker. THRU passes its input on to the next one, so one mix can feed a row of them.",
   },
+};
+
+// Salmon Recital Hall's monitor rig (Vocal Jazz): a Behringer NX3000 with XLR
+// inputs and speakON outputs, and passive wedges with two speakON jacks wired
+// together, so a second cable passes the amp's output on to the next wedge.
+DEVICE_TYPES.nx3000 = {
+  name: "Behringer NX3000 (power amp)",
+  poweramp: true,
+  ports: [
+    { id: "in-a", dir: "in", jack: "xlr", level: "line", role: "amp-in", pair: "a", name: "CH A input (XLR)", short: "CH A IN" },
+    { id: "in-b", dir: "in", jack: "xlr", level: "line", role: "amp-in", pair: "b", name: "CH B input (XLR)", short: "CH B IN" },
+    { id: "out-a", dir: "out", jack: "speakon", level: "speaker", role: "amp-out", pair: "a", name: "CH A speakON output", short: "CH A OUT" },
+    { id: "out-b", dir: "out", jack: "speakon", level: "speaker", role: "amp-out", pair: "b", name: "CH B speakON output", short: "CH B OUT" },
+  ],
+  blurb: "Line level in on XLR, speaker level out on speakON. Channel A in drives channel A out.",
+};
+DEVICE_TYPES["passive-wedge"] = {
+  name: "Passive wedge (two speakON jacks)",
+  endpoint: true,
+  amp: "none",
+  ports: [
+    { id: "in", dir: "in", jack: "speakon", level: "speaker", name: "In (speakON 1)" },
+    { id: "link", dir: "out", jack: "speakon", level: "speaker", role: "thru", through: "in", name: "Link (speakON 2)" },
+  ],
+  blurb: "No amp inside. Its two speakON jacks are wired together: either one takes the amp, the other passes it on to the next wedge.",
 };
 
 // ---------- stage boxes ----------

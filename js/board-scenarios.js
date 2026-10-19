@@ -4266,6 +4266,183 @@ const COB = [
   },
 ];
 
+// ---------- Vocal Jazz in Salmon: a real MUS 248 gig on the full X32 ----------
+// The Vocal Jazz Gig Checklist's rig (js/scenarios.js VJ_GIGS): thirteen
+// wireless handhelds on LOCAL inputs 1–13, CH 25-32 on AES50-A (the S32), MIX 1
+// out through S32 OUT 1 to the NX3000's CH A and three passive wedges linked
+// on speakON. Each fault is one the checklist, the reset or the crew's own
+// troubleshooting order warns about.
+
+const VJ = Array.from({ length: 13 }, (_, i) => `vj-${i + 1}`);
+const VJ_WEDGES = ["vj-w1", "vj-w2", "vj-w3"];
+const VJ_ROOM = "Turn around to Stage & patch (T): the X32 and the receivers at FOH, the S32 in the stage-side rack, the NX3000 in the monitor amp rack, the wedges on stage.";
+const singersInHouse = (ctx) => VJ.every((s) => house(ctx, s) >= AUDIBLE);
+const singersInWedges = (ctx) => VJ.every((s) => wedge(ctx, "mix1", s) >= AUDIBLE);
+// A wedge plays MIX 1: a working chain from XLR OUT 1 (MIX 1, through S32 OUT 1).
+const wedgeOk = (ctx, id) => ok(ctx, id) && endpoint(ctx, id).output === "out1";
+const vjLocal = (ctx) => [0, 1, 2].every((b) => mixerDev(ctx).inSource[b] === 0);
+const gainOf = (ctx, s) => sc(ctx, s)?.gainDb ?? NaN;
+
+const VJS = [
+  {
+    id: "x32-vj-local",
+    short: "Mics on AES50",
+    title: "Thirteen mics, no meters",
+    who: "Mic engineer",
+    prompt: "“Batteries are in, every mic is on, the receivers all show signal. But I talked into black/red at the X32 and its meter didn't move. None of them do.”",
+    goal: "CH 1-8, 9-16 and 17-24 listening to LOCAL, 25-32 still on the stage box, and every singer in the house and the wedges.",
+    music: "bars-2",
+    setup: { tweak: (st) => (st.rig.devices.find((d) => d.id === "mixer").inSource = [1, 1, 1, 1]) },
+    conditions: [
+      goal("routing", "ROUTING: CH 1-8, 9-16 and 17-24 come from LOCAL", vjLocal),
+      goal("singers", "All thirteen mics are in the house and the wedges", (ctx) => singersInHouse(ctx) && singersInWedges(ctx)),
+      keep("sb", "CH 25-32 stay on AES50-A (the stage box)", (ctx) => mixerDev(ctx).inSource[3] === 1),
+    ],
+    hints: ["The receivers show signal, so the mics work. Where do the receivers plug in, and is the console listening there?", "The receivers plug into the X32's own rear panel: LOCAL. The ROUTING page says where each block of 8 channels listens.", "Main display → ROUTING: set CH 1-8, 9-16 and 17-24 to LOCAL. Leave 25-32 on AES50-A."],
+    complete: "That's the first line of the Vocal Jazz Reset. The wireless receivers are plugged into the X32 itself, so the mics have to come in on LOCAL. The S32 only feeds 25-32. If a block is left on AES50 from the last event, the mics never arrive.",
+  },
+  {
+    id: "x32-vj-gain",
+    short: "Same gain on every mic",
+    title: "Somebody helped",
+    who: "Vocal Jazz director",
+    prompt: "“After the last concert, somebody turned up the quiet singers and turned down the loud one. I want the group to balance itself. Put every mic back where it belongs.”",
+    goal: "Every handheld on the same GAIN, about 30 dB.",
+    music: "bars-2",
+    setup: {
+      tweak: (st, h) => {
+        h.set("vj-4", "gainDb", 42);
+        h.set("vj-6", "gainDb", 38);
+        h.set("vj-10", "gainDb", 22);
+      },
+    },
+    conditions: [
+      goal("same", "All thirteen handhelds have the same GAIN (within 0.5 dB)", (ctx) => {
+        const g = VJ.map((s) => gainOf(ctx, s));
+        return Math.max(...g) - Math.min(...g) <= 0.5;
+      }),
+      goal("thirty", "That GAIN is about 30 dB (28 to 32)", (ctx) => VJ.every((s) => gainOf(ctx, s) >= 28 && gainOf(ctx, s) <= 32)),
+    ],
+    hints: ["Three meters look different from the rest. Is that the singers, or the GAIN knobs?", "SEL each channel and read its GAIN in the channel strip. Most of them sit at the same number.", "Set channels 4, 6 and 10 to the same GAIN as the others: 30 dB."],
+    complete: "Vocal Jazz is an ensemble. With every mic on the same gain, the balance you hear is the singers' own, and the board isn't quietly favoring anyone. A singer who sounds quiet is something to tell the director, not a knob to turn.",
+  },
+  {
+    id: "x32-vj-lowcut",
+    short: "Low cut, no compressors",
+    title: "The reset was never done",
+    who: "Monitor engineer",
+    prompt: "“Someone ran a band through this desk. A couple of mics rumble when the singers shift their grip, and the lead and harmony mics are pumping.”",
+    goal: "LOW CUT on for every handheld, and no compressor on any of them.",
+    music: "bars-2",
+    setup: {
+      tweak: (st, h) => {
+        for (const s of ["vj-3", "vj-7", "vj-11"]) h.set(s, "hpf", 0);
+        for (const s of ["vj-1", "vj-2"]) {
+          h.set(s, "dyn", { threshold: -24, ratio: 6, makeup: 6 });
+          h.set(s, "compOn", true);
+        }
+      },
+    },
+    conditions: [
+      goal("lowcut", "LOW CUT is on for all thirteen handhelds", (ctx) => VJ.every((s) => (sc(ctx, s)?.hpf ?? 0) > 0.02)),
+      goal("nocomp", "No handheld has its compressor switched on", (ctx) => VJ.every((s) => !sc(ctx, s)?.compOn)),
+      keep("gain", "Every GAIN stays at 30 dB", (ctx) => VJ.every((s) => Math.abs(gainOf(ctx, s) - 30) <= 0.5)),
+    ],
+    hints: ["Two problems: rumble on some mics, and pumping on others. Check each channel's LOW CUT and its dynamics.", "LOW CUT is in the channel strip's INPUT section. The compressor has its own ON in the DYNAMICS section; channels 1 and 2 have it lit.", "Turn LOW CUT on for channels 3, 7 and 11 (around 100 Hz is a common start for voices), and switch the compressor off on channels 1 and 2."],
+    complete: "The Vocal Jazz Reset: low cut on every mic (handling noise and stage rumble are all below the voice), and no dynamics. A compressor on an ensemble mic fights the singers' own dynamics. The real X32 has a gate on every channel too: it goes off as well.",
+  },
+  {
+    id: "x32-vj-muted",
+    short: "Muted on the X32",
+    title: "Mic 8 is dead everywhere",
+    who: "Singer on mic 8",
+    prompt: "“I can't hear myself in the wedges, and my friend in the house says I'm not in the speakers either. My mic's on, I checked the screen.”",
+    goal: "Mic 8 in the house and the wedges, its GAIN and fader unchanged.",
+    music: "bars-2",
+    setup: { tweak: (st, h) => h.set("vj-8", "enabled", false) },
+    baseline: { ch: { metric: "channelSettings", source: "vj-8" } },
+    conditions: [
+      goal("house", "Mic 8 is in the house", (ctx) => house(ctx, "vj-8") >= AUDIBLE),
+      goal("wedges", "Mic 8 is in the wedges", (ctx) => wedge(ctx, "mix1", "vj-8") >= AUDIBLE),
+      { id: "ch", kind: "keep", type: "channelUnchanged", source: "vj-8", baseline: "ch", toleranceDb: 1, label: "Mic 8's GAIN and fader stay where they are" },
+    ],
+    hints: ["First question on the list: is there signal at the mixer? Watch channel 8's meter.", "The meter moves, so the mic and the receiver are fine. Is the channel muted?", "Press channel 8's MUTE to unlight it."],
+    complete: "The crew's order: signal at the mixer? Muted on the mixer? Only then the mic itself. On the X32 a muted channel is gone from the house and from its bus sends too, so the wedges lose it as well.",
+  },
+  {
+    id: "x32-vj-send",
+    short: "In the house, not the wedges",
+    title: "Mic 5 can't hear themselves",
+    who: "Singer on mic 5",
+    prompt: "“Everybody else is in the wedges. I'm not, and I'm singing louder and louder to hear myself.”",
+    goal: "Mic 5 back in the wedges, every other singer in the wedges and the house unchanged.",
+    music: "bars-2",
+    setup: { tweak: (st, h) => h.set("vj-5", "sends.mix1", 0), listen: "pfl" },
+    baseline: { wedges: { metric: "monitorByChannel", bus: "mix1" }, main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "main", kind: "goal", type: "listenedTo", dest: "main", label: "You listened to the house (MAIN)" },
+      { id: "mix1", kind: "goal", type: "listenedTo", dest: "mix1", label: "You listened to the wedges (MIX 1)" },
+      goal("five", "Mic 5 is in the wedges", (ctx) => wedge(ctx, "mix1", "vj-5") >= AUDIBLE),
+      { id: "others", kind: "keep", type: "monitorMixUnchanged", bus: "mix1", baseline: "wedges", except: "vj-5", toleranceDb: 1, label: "Everyone else in the wedges stays the same" },
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house stays the same" },
+    ],
+    hints: ["Listen to the house first. If mic 5 is there, the mic, the receiver and the channel all work.", "The other twelve are in the wedges, so the amp and the wedges work too. What's left is mic 5's own way into MIX 1.", "SEL channel 5 and bring its MIX 1 send up to match the other ensemble mics, or use SENDS ON FADERS with MIX 1 selected."],
+    complete: "The mains are a test: if a mic is in the house, the mic and its channel are fine. One singer missing from the wedges while everyone else is there points at that channel's send. Everyone missing points at the monitor path.",
+  },
+  {
+    id: "x32-vj-amp",
+    short: "Wedges dead: the amp's input",
+    title: "Silent wedges",
+    who: "Monitor engineer",
+    prompt: "“I played the wedge-check track through MIX 1 and all three wedges are silent. The amp's on. The house is fine.”",
+    goal: "All three wedges playing MIX 1, the house unchanged.",
+    music: "bars-2",
+    setup: { tweak: (st) => (st.rig.cables.find((c) => c.to === "nx3000/in-a").to = "nx3000/in-b") },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("wedges", "All three wedges play MIX 1", (ctx) => VJ_WEDGES.every((id) => wedgeOk(ctx, id)) && singersInWedges(ctx)),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house stays the same" },
+    ],
+    hints: [VJ_ROOM, "Follow the wedges back: speakON → the NX3000's CH A output. What goes into CH A's input?", "The XLR from S32 OUT 1 is in CH B's input. Move it to CH A's input."],
+    complete: "On an amp, channel A's input drives channel A's output. The crew uses channel A every time because it's the simplest: XLR in on A, speakON out on A.",
+  },
+  {
+    id: "x32-vj-chain",
+    short: "Last wedge in the chain",
+    title: "The right-hand wedge is dead",
+    who: "Singers on the right",
+    prompt: "“The two wedges on the left are fine. The one on our side is silent.”",
+    goal: "All three wedges playing MIX 1, the house unchanged.",
+    music: "bars-2",
+    setup: { tweak: (st, h) => h.cut("vj-w2/link") },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("w3", "Wedge 3 (right) plays MIX 1", (ctx) => wedgeOk(ctx, "vj-w3")),
+      keep("w12", "Wedges 1 and 2 keep playing MIX 1", (ctx) => ["vj-w1", "vj-w2"].every((id) => wedgeOk(ctx, id))),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house stays the same" },
+    ],
+    hints: [VJ_ROOM, "One speakON run feeds the first wedge, and each wedge passes it on from its second jack. Where does wedge 3's cable come from?", "Patch a speakON cable from wedge 2's second jack (link) into wedge 3."],
+    complete: "A daisy chain: one amp channel, three wedges, each passing it on. When only the end of the row is dead, reseat the last link before it. The crew reseats every cable on the monitor path when the wedges act up: speakONs twist to lock, and one that's in but not twisted can still drop out.",
+  },
+  {
+    id: "x32-vj-link",
+    short: "No AES50 link",
+    title: "The mics work, the wedges don't",
+    who: "Mic engineer",
+    prompt: "“Every meter at the X32 is moving and the house sounds great, but all three wedges went silent at once.”",
+    goal: "The S32 linked to the X32 again and all three wedges playing, the mics still on LOCAL.",
+    music: "bars-2",
+    setup: { tweak: (st, h) => h.cut("s32/aes50a") },
+    conditions: [
+      goal("link", "A Cat5e cable joins the S32's AES50 A and the X32's AES50 A", (ctx) => linked(ctx, "s32")),
+      goal("wedges", "All three wedges play MIX 1", (ctx) => VJ_WEDGES.every((id) => wedgeOk(ctx, id))),
+      keep("local", "CH 1-24 stay on LOCAL, every mic with signal", (ctx) => vjLocal(ctx) && VJ.every((s) => ["good", "hot"].includes(mc(ctx, s)?.band))),
+    ],
+    hints: ["The mics and the house both work. What do the wedges have that the mics don't?", VJ_ROOM + " MIX 1 reaches the amp through the S32. How does the S32 reach the console?", "Patch a Cat5e (etherCON) cable from the S32's AES50 A to the X32's AES50 A."],
+    complete: "In Salmon the mics come in on LOCAL, so they don't need the stage box. MIX 1 does: it leaves through the S32. With no AES50 link the mics carry on and the wedges go quiet. That's also why the reset keeps CH 1-24 on LOCAL.",
+  },
+];
+
 const ORDER = {
   b207mp3: ["doors", "amp", "quiet-singer", "phantom", "wedge", "wedge-quiet", "small-room", "speech"],
   mix8: ["doors", "phones", "ol", "boomy", "pan", "keys-wedge", "wedge-loud", "speech", "ballad", "overhead", "guest"],
@@ -4278,7 +4455,7 @@ const ORDER = {
   l20: ["doors", "gain", "pad", "lowcut", "mud", "eq-on", "keys-wedge", "less-guitar", "out-of-house", "wedge-quiet", "switch", "reverb", "efx-mon"],
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
   yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "mud", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
-  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9"],
+  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9", "vj-local", "vj-gain", "vj-lowcut", "vj-muted", "vj-send", "vj-amp", "vj-chain", "vj-link"],
   f8n: ["track", "trim", "room", "hpf", "pfl", "balance", "link", "camera", "dslr", "iso-safety"],
   dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
   cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "dante-back", "dante-fix", "scene-recall", "scene-store"],
@@ -4286,7 +4463,7 @@ const ORDER = {
   x32c: ["doors", "gain", "48v", "sections-48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "orchestra", "mute-group", "new-mix", "stagebox", "cob-usb", "cob-gain", "cob-tracks", "cob-link", "cob-one-side", "cob-speaker-cable", "cob-thru", "cob-prefader", "cob-tracks-wedge", "cob-scene"],
 };
 
-const LISTS = { gdig: GDIG, l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c, ...COB], yam01v96: Y96, x32: [...X32F, ...BOXES.x32] };
+const LISTS = { gdig: GDIG, l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c, ...COB], yam01v96: Y96, x32: [...X32F, ...BOXES.x32, ...VJS] };
 
 // Who is on stage (js/music.js stageFor). Every scenario's story was read for
 // this; anything not listed has the whole band playing (the 8-bar section it
@@ -4358,10 +4535,10 @@ const FTW = {
   gdig: ["winds", "comp-on", "bus-mute"],
   x32c: ["sections-48v", "comp-on", "bus-mute", "orchestra"],
 };
-// The COB gig is its own song (its cast, its backing track, its rig).
+// A gig is its own song (its cast, its tracks, its rig): COB, Vocal Jazz.
 const songOf = (board, id) => {
   const k = id.slice(board.length + 1);
-  return k.startsWith("cob-") ? "cob" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
+  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? "vj" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
 };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.

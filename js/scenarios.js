@@ -63,6 +63,18 @@ export const PLAYBACK_DEVICES = {
   "cob-w1": { type: "b207-speaker", label: "B207 wedge 1 (left)", short: "wedge 1 (left)", zone: "stage", pan: -0.6 },
   "cob-w2": { type: "b207-speaker", label: "B207 wedge 2 (center)", short: "wedge 2 (center)", zone: "stage", pan: 0 },
   "cob-w3": { type: "b207-speaker", label: "B207 wedge 3 (right)", short: "wedge 3 (right)", zone: "stage", pan: 0.6 },
+  // Vocal Jazz in Salmon Recital Hall: an S32 in the stage-side rack on AES50,
+  // the NX3000 in the monitor amp rack driving three passive wedges down one
+  // speakON chain, and the hall's mains (simplified: a power amp and two passive
+  // speakers on MAIN L/R; the real path through the mains rack isn't modelled).
+  s32: { type: "s32", label: "S32 · stage-side rack" },
+  nx3000: { type: "nx3000", label: "NX3000 · monitor amp rack" },
+  "vj-w1": { type: "passive-wedge", label: "Wedge 1 (left)", short: "wedge 1 (left)", zone: "stage", pan: -0.6 },
+  "vj-w2": { type: "passive-wedge", label: "Wedge 2 (center)", short: "wedge 2 (center)", zone: "stage", pan: 0 },
+  "vj-w3": { type: "passive-wedge", label: "Wedge 3 (right)", short: "wedge 3 (right)", zone: "stage", pan: 0.6 },
+  "mains-amp": { type: "power-amp", label: "Mains amp · mains rack" },
+  "hall-l": { type: "passive-speaker", label: "Hall main L", short: "hall left", zone: "foh", pan: -1 },
+  "hall-r": { type: "passive-speaker", label: "Hall main R", short: "hall right", zone: "foh", pan: 1 },
   lobby: { type: "powered-speaker", label: "Powered speaker · lobby", short: "lobby", zone: "lobby", pan: 0 },
   // A video camera's two XLR audio inputs (each with a MIC/LINE switch, starting at LINE).
   "cam-1": { type: "camera-input", label: "Camera · input 1 (XLR)", short: "camera ch 1", zone: "cam", pan: -1, inputLevel: 1 },
@@ -1279,8 +1291,43 @@ const COB_GIGS = {
   },
 };
 
+// Vocal Jazz in Salmon Recital Hall (MUS 248's Vocal Jazz Gig Checklist and
+// Vocal Jazz Reset), on the hall's full-size X32: thirteen wireless handhelds
+// on LOCAL inputs 1–13 (mic n → receiver channel n → input n). The reset leaves
+// ROUTING with CH 1-8, 9-16 and 17-24 on LOCAL and only 25-32 on AES50-A (the
+// S32), every handheld at the same GAIN (about 30 dB), LOW CUT on, and no
+// dynamics. MIX 1 is the wedges: XLR OUT 1 → S32 OUT 1 → the NX3000's CH A,
+// whose speakON output feeds wedge 1, linked on to 2 and 3.
+const VJ_MICS = Array.from({ length: 13 }, (_, i) => `vj-${i + 1}`);
+const VJ_GIGS = {
+  x32: {
+    prompt: "Vocal Jazz in Salmon Recital Hall, on the hall's full-size X32: thirteen singers on wireless handhelds, mic n on receiver channel n on input n (1 sings the lead, 2 the harmony, 3–13 the ensemble). ROUTING: CH 1-8, 9-16 and 17-24 listen to LOCAL (the receivers plug into the console's rear panel); only 25-32 come from AES50-A, the S32 in the stage-side rack. Every handheld has the same GAIN, LOW CUT on, no compressor. MIX 1 is the wedges: XLR OUT 1 reaches S32 OUT 1, into the NX3000's CH A, whose speakON output feeds three passive wedges linked one to the next. MAIN L/R go to the hall's mains.",
+    patch: Object.fromEntries(VJ_MICS.map((id, i) => [id, [i, "mic"]])),
+    cableFor: {},
+    gainDb: 30,
+    inSource: [0, 0, 0, 1],
+    devices: ["s32", "nx3000", "vj-w1", "vj-w2", "vj-w3", "mains-amp", "hall-l", "hall-r"],
+    cables: [
+      { from: "s32/aes50a", to: "mixer/aes50a", cable: "cat5" },
+      { from: "s32/out1", to: "nx3000/in-a", cable: "xlr" },
+      { from: "nx3000/out-a", to: "vj-w1/in", cable: "speakon" },
+      { from: "vj-w1/link", to: "vj-w2/in", cable: "speakon" },
+      { from: "vj-w2/link", to: "vj-w3/in", cable: "speakon" },
+      { from: "mixer/out15", to: "mains-amp/in-a", cable: "xlr" },
+      { from: "mixer/out16", to: "mains-amp/in-b", cable: "xlr" },
+      { from: "mains-amp/out-a", to: "hall-l/in", cable: "speaker" },
+      { from: "mains-amp/out-b", to: "hall-r/in", cable: "speaker" },
+    ],
+    sends: { mix1: { "vj-1": -4, "vj-2": -6, ...each(VJ_MICS.slice(2), -22) } },
+    preFor: ["mix1"],
+    hpf: each(VJ_MICS, 0.25), // about 100 Hz; the Salmon value is still to be confirmed
+    dyn: {},
+    scenes: [{ name: "Vocal Jazz" }],
+  },
+};
+
 // Each band's version of the gigs, over Persephone's.
-const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS, cob: COB_GIGS };
+const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS, cob: COB_GIGS, vj: VJ_GIGS };
 
 // A mixer's Free play gig for the band on stage.
 export function gigFor(model) {
@@ -1349,7 +1396,7 @@ function buildCompactState(model, sourcesById) {
     }
     if (def.phantom.perChannel && s.phantom === "required") ch.phantom = true;
     if (c.gain.switch) ch.micLine = s.signalLevel === "line" ? "line" : "mic";
-    else if (c.gain.min !== undefined) ch.gainDb = clamp(-s.outputDb - (channelGainDb(def, { ...ch, gainDb: 0 }, input)), c.gain.min, c.gain.max);
+    else if (c.gain.min !== undefined) ch.gainDb = clamp(gig.gainDb ?? -s.outputDb - channelGainDb(def, { ...ch, gainDb: 0 }, input), c.gain.min, c.gain.max);
     // A LEVEL that is also the gain (B207MP3) has to make up the source's level as well.
     ch.level = levelLaw(def).toPos(def.levelIsGain ? s.mixDb - s.outputDb - channelGainDb(def, ch, input) : s.mixDb);
     if (!ch.stereo && !def.mono) ch.pan = gig.pans?.[s.id] ?? s.pan;
@@ -1376,6 +1423,7 @@ function buildCompactState(model, sourcesById) {
     state.channels[def.link.pair[0]].pan = 0; // the balance, centred
   }
   if (gig.listen) state.listen = gig.listen;
+  if (gig.inSource) state.rig.devices.find((d) => d.id === "mixer").inSource = [...gig.inSource];
   // Preloaded scenes (full X32): each a copy of this gig, perhaps with changes.
   for (const [n, sc] of (gig.scenes || []).entries()) {
     const copy = structuredClone(state);

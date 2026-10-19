@@ -25,6 +25,7 @@ function plugKind(cableId, jack) {
   const c = CABLES[cableId];
   if (!c) return "xlr";
   if (c.kind === "network") return "ethercon";
+  if (jack === "speakon") return "speakon";
   if (jack === "xlr" || jack === "combo") return c.ends.includes("xlr") && (jack === "xlr" || c.id === "xlr" || c.ends[0] === "xlr") ? "xlr" : "quarter";
   return { quarter: "quarter", linepair: "quarter", rca: "rca", rcapair: "rca", mini: "mini", ethercon: "ethercon" }[jack] || "quarter";
 }
@@ -47,7 +48,7 @@ export function cablePath(a, b) {
 // The plug body sticking out of a jack along its side.
 function plugShape(j, kind, hue) {
   const [dx, dy] = DIR[j.side] || DIR.right;
-  const w = kind === "xlr" ? 12 : kind === "ethercon" ? 12 : kind === "mini" ? 6 : 9;
+  const w = kind === "xlr" || kind === "ethercon" || kind === "speakon" ? 12 : kind === "mini" ? 6 : 9;
   const len = PLUG_LEN + 2;
   const x = dx === 0 ? j.x - w / 2 : dx > 0 ? j.x + 4 : j.x - 4 - len;
   const y = dy === 0 ? j.y - w / 2 : dy > 0 ? j.y + 4 : j.y - 4 - len;

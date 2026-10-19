@@ -6558,3 +6558,7 @@ dialog::backdrop {
   margin: 0.2rem 0 0;
   font-size: 0.65rem;
 }
+
+/* Chapman gigs: a planned gig shows but can't be opened yet. */
+.gig-card.gig-soon { opacity: 0.6; cursor: default; }
+.drawer-theme.gig-soon { opacity: 0.7; }

@@ -108,6 +108,24 @@ function etherconPlug() {
   );
 }
 
+// speakON: a round twist-lock shell on heavy speaker cable.
+function speakonPlug() {
+  const [M, P, F] = [uid("m"), uid("p"), uid("f")];
+  const y = 40;
+  const r = 20;
+  return svg(
+    170,
+    80,
+    metal(M) + plastic(P, "#2a2d34") + face(F),
+    tail(y, { h: 22, plasticId: P, thick: 11 }) +
+      `<path d="M50 ${y - r}H118V${y + r}H50Q44 ${y + r} 44 ${y + r - 6}V${y - r + 6}Q44 ${y - r} 50 ${y - r}Z" fill="url(#${P})" stroke="#0b0d11"/>
+      ${[0, 1, 2, 3].map((k) => `<path d="M${62 + k * 12} ${y - r}V${y + r}" stroke="#15171c" stroke-width="2"/>`).join("")}
+      <ellipse cx="118" cy="${y}" rx="7" ry="${r}" fill="url(#${M})" stroke="#0b0d11"/>
+      <rect x="118" y="${y - 12}" width="16" height="24" rx="3" fill="#3a3f4a" stroke="#0b0d11"/>
+      <rect x="128" y="${y - 5}" width="10" height="10" rx="2" fill="url(#${M})" stroke="#2b2f39"/>`,
+  );
+}
+
 // A stereo breakout: two TS plugs on a Y.
 function dualPlug() {
   const one = phonePlug({ rings: 1 });
@@ -137,6 +155,8 @@ export function plugArt(plugId, { into = "in", speaker = false, text = true } = 
       return dualPlug();
     case "ethercon":
       return etherconPlug();
+    case "speakon":
+      return speakonPlug();
     default:
       return phonePlug({ rings: 1 });
   }
@@ -208,6 +228,8 @@ export function jackArt(jackId, dir = "in") {
       return panel(quarterSocket(38, 54, N, { r: 17, hole: 6 }) + quarterSocket(82, 54, N, { r: 17, hole: 6 }) + `<text x="38" y="86" font-size="9" fill="#e6e9f0" text-anchor="middle" font-family="sans-serif">L</text><text x="82" y="86" font-size="9" fill="#e6e9f0" text-anchor="middle" font-family="sans-serif">R</text>` + label('1/4" L / R'), defs);
     case "ethercon":
       return panel(`<circle cx="60" cy="56" r="38" fill="url(#${M})" stroke="#0b0d11"/><circle cx="60" cy="56" r="32" fill="url(#${F})"/><rect x="45" y="44" width="30" height="24" rx="2" fill="#0a0b0f" stroke="#555b68"/><rect x="54" y="68" width="12" height="5" fill="#0a0b0f" stroke="#555b68"/>${[0, 1, 2, 3, 4, 5, 6, 7].map((k) => `<rect x="${48 + k * 3.2}" y="46" width="1.6" height="6" fill="#c8a24a"/>`).join("")}` + label("etherCON"), defs);
+    case "speakon":
+      return panel(`<circle cx="60" cy="56" r="40" fill="url(#${M})" stroke="#0b0d11"/><circle cx="60" cy="56" r="33" fill="#15171c" stroke="#000"/><circle cx="60" cy="56" r="14" fill="url(#${F})" stroke="#000"/><path d="M60 23v8M60 81v8" stroke="url(#${M})" stroke-width="7"/><path d="M33 40a33 33 0 0 1 10-12" stroke="#c8a24a" stroke-width="3" fill="none"/>` + label("speakON"), defs);
     default:
       return panel(quarterSocket(60, 56, N) + label(jackId.toUpperCase()), defs);
   }

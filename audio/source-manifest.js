@@ -789,6 +789,50 @@ const COB_SOURCES = [
   },
 ];
 
+// ---------- Vocal Jazz in Salmon: NOSTRADAMUS's voices a cappella ----------
+
+// Vocal Jazz in Salmon Recital Hall (MUS 248's Vocal Jazz Gig Checklist):
+// thirteen singers on wireless handhelds into the hall's full-size X32.
+// NOSTRADAMUS's three vocal parts stand in for the ensemble, with no band:
+// handheld 1 sings the lead, 2 the harmony, 3–13 the ensemble. Same timeline
+// as NOSTRADAMUS, so the same loops; the stems are its own files.
+const VJ_SET = { ...NOSTRADAMUS_SET, id: "vj", title: "Vocal Jazz in Salmon", artist: "NOSTRADAMUS (Will Tulip), the voices alone" };
+const VJ_LABELS = { "bars-2": "Verse: lead and harmony, the ensemble now and then", excerpt: "A break: voices now and then", "bars-18": "Second verse", "bars-26": "Bridge: the lead alone", "bars-35": "Outro: the ensemble now and then" };
+VJ_SET.sections = NOSTRADAMUS_SET.sections.map((s) => ({ ...s, label: VJ_LABELS[s.id], plays: s.plays.filter((st) => VOX.includes(st)), partly: s.partly.filter((st) => VOX.includes(st)) }));
+const VJ_STEMS = Object.fromEntries(VOX.map((id) => [id, NOSTRADAMUS_STEMS[id]]));
+
+// The crew names a handheld by its windscreen, then its ring: black 1–8, gray
+// 9–16, rings red, orange, yellow, green, blue, purple, black, gray (the Salmon
+// Simulator's owner-confirmed facts). Mic n is receiver channel n is X32 input n.
+// Each singer holds the mic a little differently, so the levels differ a little.
+const RINGS = ["red", "orange", "yellow", "green", "blue", "purple", "black", "gray"];
+const HANDHELD_LEVELS = [-30, -31, -29, -32, -30, -33, -29, -31, -30, -32, -29, -31, -30];
+const handheld = (n) => {
+  const color = `${n <= 8 ? "black" : "gray"}/${RINGS[(n - 1) % 8]}`;
+  const part = n === 1 ? ["lead", "vox-main", 0] : n === 2 ? ["harmony", "vox-harmony", -4] : ["ensemble", "vox-bgv", -21];
+  return {
+    id: `vj-${n}`,
+    order: n,
+    name: `Mic ${n} (${color}) · ${part[0]}`,
+    shortName: `MIC ${n}`,
+    musician: "Will Tulip",
+    musicianShort: "WILL",
+    device: `Wireless handheld ${n}, ${color} (receiver channel ${n})`,
+    category: "Vocals",
+    deviceType: "wireless-handheld",
+    signalLevel: "mic",
+    connector: "xlr",
+    phantom: "none",
+    outputDb: HANDHELD_LEVELS[n - 1],
+    stem: part[1],
+    mixDb: part[2],
+    pan: 0,
+    scenarios: ANY_SCENARIO,
+    ...(part[0] === "ensemble" ? { note: "One recording stands in for the whole ensemble: mics 3–13 all carry the backing vocals." } : {}),
+  };
+};
+const VJ_SOURCES = Array.from({ length: 13 }, (_, i) => handheld(i + 1));
+
 // Virtual sources: the two mics of the stereo room pair. Their sound is built
 // from the band stems by js/room-mics.js (distance, angle, delay, room reverb).
 export const ROOM_SOURCES = [
@@ -804,6 +848,7 @@ export const SONGS = {
   ftw: { id: "ftw", title: "FTW", artist: "after juno", set: FTW_SET, stems: FTW_STEMS, sources: FTW_SOURCES },
   // A gig, not just a band: its rig is the X32 Compact's, so it plays on that console only.
   cob: { id: "cob", title: "COB in Irvine", artist: "a musical (NOSTRADAMUS)", set: COB_SET, stems: COB_STEMS, sources: COB_SOURCES, consoles: ["x32c"] },
+  vj: { id: "vj", title: "Vocal Jazz in Salmon", artist: "NOSTRADAMUS's voices, a cappella", set: VJ_SET, stems: VJ_STEMS, sources: VJ_SOURCES, consoles: ["x32"] },
 };
 // Can this song play on this console? A gig's song (`consoles`) only on its own.
 export const songFits = (id, model) => !SONGS[id]?.consoles || SONGS[id].consoles.includes(model);
@@ -908,6 +953,11 @@ export const CREDITS = [
   {
     title: "COB in Irvine",
     lines: [["Music", "NOSTRADAMUS by Will Tulip: the instruments as one backing track, the three vocal parts on the headsets"]],
+    note: "Used with permission for this educational project.",
+  },
+  {
+    title: "Vocal Jazz in Salmon",
+    lines: [["Music", "NOSTRADAMUS by Will Tulip: the three vocal parts alone, on the handhelds"]],
     note: "Used with permission for this educational project.",
   },
   {

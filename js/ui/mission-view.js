@@ -2,6 +2,7 @@
 //   by topic   (js/themes.js THEMES, shown as "Topics"): one idea, practised on
 //              the generic mixer and then on real consoles; the scenario picks the console.
 //   by mixer   (MIXERS): the desk in front of you, and its scenarios in order.
+//   Chapman gigs (GIGS): one real MUS 248 gig's rig, band and faults (opened like a topic).
 //   free play  any console, no goals.
 // Views:
 //   StartScreen   the first screen: Continue, the Canvas assignment, Free play,
@@ -9,12 +10,12 @@
 //   MissionView   the strip over the rig: where you are · step · console, the title,
 //                 the story, the goal, the live checklist, hints, Solved → Next.
 //                 When it scrolls away, a slim copy stays pinned under the top bar.
-//   ThemeDrawer   Topics or Mixers, each with its scenarios and progress, and the Canvas ten.
+//   ThemeDrawer   Topics, Mixers or Chapman gigs, each with its scenarios and progress.
 // Success is decided by js/scenarios.js from state; this only shows it.
 
 import { fillTerms, shortTitle } from "../scenarios.js";
 import { SKINS } from "../mixer-models.js";
-import { CANVAS_SCENARIOS, MIXERS, THEMES, consoleOf, mixerScenarios, skinOf, themeOf, themeScenarios } from "../themes.js";
+import { CANVAS_SCENARIOS, GIGS, MIXERS, THEMES, consoleOf, gigOf, mixerScenarios, skinOf, themeOf, themeScenarios } from "../themes.js";
 import { legacyHref } from "../deploy-context.js";
 import { nameMode } from "../names.js";
 
@@ -59,6 +60,25 @@ function mixerCard(m, p, attrs) {
   </button>`;
 }
 
+// A Chapman gig's card: its question, the gig and venue, progress. A planned
+// gig (`soon`) shows, but can't be opened yet.
+function gigCard(g, p, attrs) {
+  if (g.soon) {
+    return `<div class="theme-card gig-card gig-soon" aria-disabled="true">
+      <strong>${esc(g.title)}</strong>
+      <span class="theme-q">${esc(g.concept)}</span>
+      <small>Coming later</small>
+    </div>`;
+  }
+  const { done, total } = themeProgress(g, p);
+  return `<button type="button" class="theme-card gig-card" ${attrs}>
+    <strong>${esc(g.question)}</strong>
+    <span class="theme-q">${esc(g.title)} · ${esc(consoleName(themeScenarios(g)[0]))}</span>
+    <span class="theme-meter" aria-label="${done} of ${total} solved"><i style="width:${(100 * done) / total}%"></i></span>
+    <small>${done ? `${done} of ${total} solved` : `${total} scenarios`}</small>
+  </button>`;
+}
+
 // ---------- the first screen ----------
 
 export class StartScreen {
@@ -94,6 +114,8 @@ export class StartScreen {
         <button type="button" class="start-big start-free" data-choose="free"><strong>Free play</strong><span>No goals: any console, the whole band, break things</span></button>
       </div>
       <p class="start-legacy">Late with Assignment 1 (the ten scenarios)? <a href="${legacyHref()}">Finish it in the original version</a>: your saved progress is there too.</p>
+      <h2 class="start-h">Chapman gigs <small>a real MUS 248 gig: its room, its rig, its checklist</small></h2>
+      <div class="theme-grid gig-grid">${GIGS.map((g) => gigCard(g, p, `data-choose="theme:${g.id}"`)).join("")}</div>
       <h2 class="start-h">By topic <small>one question, answered on mixer after mixer</small></h2>
       <div class="theme-grid">${THEMES.map(card).join("")}</div>
       <h2 class="start-h">By mixer <small>standing at one of these? Start with it</small></h2>
@@ -137,9 +159,11 @@ export class ThemeDrawer {
     });
   }
 
-  // `tab`: "topic" or "mixer" (by default the one last shown).
+  // `tab`: "topic", "mixer" or "gig" (by default the one last shown). A gig's
+  // scenario opens on the gigs, whichever tab was asked for.
   open(currentId, tab = this.tab) {
     const p = this.progress;
+    if (tab === "topic" && gigOf(currentId)) tab = "gig";
     this.currentId = currentId;
     this.tab = tab;
     const by = tab === "mixer" ? "mixer" : "topic";
@@ -167,16 +191,27 @@ export class ThemeDrawer {
         <p class="dt-concept"><button type="button" class="linkish" data-free="${esc(m.skin)}">Free play on the ${esc(mixerName(m))}</button></p>
       </details>`;
     };
+    const gig = (g) => {
+      if (g.soon) return `<div class="drawer-theme gig-soon"><p class="dt-concept"><strong>${esc(g.title)}</strong>: coming later.</p></div>`;
+      const { done, total } = themeProgress(g, p);
+      return `<details class="drawer-theme" ${g.id === current ? "open" : ""}>
+        <summary><span class="dt-name"><strong>${esc(g.title)}</strong><small>${esc(g.venue)} · ${esc(consoleName(themeScenarios(g)[0]))}</small></span><span class="dt-prog">${done}/${total}</span></summary>
+        <p class="dt-concept">${esc(g.concept)}${g.checklist ? ` <a href="${esc(g.checklist)}" target="_blank" rel="noopener">The gig checklist ↗</a>` : ""}</p>
+        <ol class="drawer-list">${themeScenarios(g).map((s, k) => row(s, k + 1)).join("")}</ol>
+      </details>`;
+    };
     const tabBtn = (id, label) => `<button type="button" role="tab" class="mode-btn ${tab === id ? "active" : ""}" aria-selected="${tab === id}" data-drawer-tab="${id}">${label}</button>`;
     this.el.innerHTML = `<div class="drawer-inner">
       <header class="drawer-head"><h2 id="drawer-title">Scenarios</h2>
         <button type="button" class="chip" data-home>Start screen</button>
         <button type="button" class="patch-x" data-close-drawer aria-label="Close">✕</button>
-        <div class="mode-switch drawer-tabs" role="tablist" aria-label="Group the scenarios">${tabBtn("topic", "By topic")}${tabBtn("mixer", "By mixer")}</div></header>
+        <div class="mode-switch drawer-tabs" role="tablist" aria-label="Group the scenarios">${tabBtn("topic", "By topic")}${tabBtn("mixer", "By mixer")}${tabBtn("gig", "Chapman gigs")}</div></header>
       ${
         tab === "mixer"
           ? MIXERS.map(mixer).join("")
-          : THEMES.map(theme).join("")
+          : tab === "gig"
+            ? GIGS.map(gig).join("")
+            : THEMES.map(theme).join("")
       }
     </div>`;
     if (!this.el.open) this.el.showModal();

@@ -1056,6 +1056,45 @@ Object.assign(WRONG, {
   "x32c-cob-scene": [["stored over the choir's scene", (a) => a.st.storeScene(0, "COB")]],
 });
 
+// Vocal Jazz in Salmon: the full X32 with the S32, the NX3000 and the speakON wedge chain.
+const VJ = Array.from({ length: 13 }, (_, i) => `vj-${i + 1}`);
+const routeVj = (a, blocks) => blocks.forEach((v, b) => a.st.setDevice("mixer", `inSource.${b}`, v));
+Object.assign(SOLVE, {
+  "x32-vj-local": (a) => routeVj(a, [0, 0, 0, 1]),
+  "x32-vj-gain": (a) => ["vj-4", "vj-6", "vj-10"].forEach((s) => a.set(s, "gainDb", 30)),
+  "x32-vj-lowcut": (a) => {
+    ["vj-3", "vj-7", "vj-11"].forEach((s) => a.set(s, "hpf", 0.25));
+    ["vj-1", "vj-2"].forEach((s) => a.set(s, "compOn", false));
+  },
+  "x32-vj-muted": (a) => a.set("vj-8", "enabled", true),
+  "x32-vj-send": (a) => {
+    a.st.setListen("main");
+    a.st.setListen("mix1");
+    a.sendDb("vj-5", "mix1", -22);
+  },
+  "x32-vj-amp": (a) => {
+    a.unplugAt("nx3000/in-b");
+    assert.ok(a.st.connect("s32/out1", "nx3000/in-a", "xlr").ok);
+  },
+  "x32-vj-chain": (a) => assert.ok(a.st.connect("vj-w2/link", "vj-w3/in", "speakon").ok),
+  "x32-vj-link": (a) => assert.ok(a.st.connect("s32/aes50a", "mixer/aes50a", "cat5").ok),
+});
+
+Object.assign(WRONG, {
+  "x32-vj-local": [["every block on LOCAL, the stage box too", (a) => routeVj(a, [0, 0, 0, 0])], ["only CH 1-8", (a) => a.st.setDevice("mixer", "inSource.0", 0)]],
+  "x32-vj-gain": [["the quiet ones' faders up instead", (a) => ["vj-10"].forEach((s) => a.nudge(s, 8))], ["every GAIN at 40", (a) => VJ.forEach((s) => a.set(s, "gainDb", 40))]],
+  "x32-vj-lowcut": [["low cut only", (a) => ["vj-3", "vj-7", "vj-11"].forEach((s) => a.set(s, "hpf", 0.25))], ["compressors only", (a) => ["vj-1", "vj-2"].forEach((s) => a.set(s, "compOn", false))]],
+  "x32-vj-muted": [["the fader up instead", (a) => a.nudge("vj-8", 6)]],
+  "x32-vj-send": [["the MIX 1 master up instead", (a) => {
+    a.st.setListen("main");
+    a.st.setListen("mix1");
+    a.st.setBus("mix1", "level", LAWS.level.toPos(6));
+  }], ["fixed without listening", (a) => a.sendDb("vj-5", "mix1", -22)]],
+  "x32-vj-amp": [["S32 OUT 2 into CH A", (a) => assert.ok(a.st.connect("s32/out2", "nx3000/in-a", "xlr").ok)]],
+  "x32-vj-chain": [["wedge 3 on the amp's CH B", (a) => assert.ok(a.st.connect("nx3000/out-b", "vj-w3/in", "speakon").ok)]],
+  "x32-vj-link": [["the mics routed to AES50-A", (a) => routeVj(a, [1, 1, 1, 1])]],
+});
+
 // The generic digital mixer is the X32 Compact's model with no brand on it: the same fixes (and mistakes) apply.
 for (const k of ["doors", "gain", "48v", "lowcut", "lr", "mud", "eq-on", "comp-on", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "new-mix"]) {
   SOLVE[`gdig-${k}`] = SOLVE[`x32c-${k}`];

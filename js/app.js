@@ -18,7 +18,7 @@ import { ListenBar } from "./ui/listen-bar.js";
 import { MixerView } from "./ui/mixer-view.js";
 import { PatchView } from "./ui/patch-view.js";
 import { MissionView, StartScreen, ThemeDrawer } from "./ui/mission-view.js";
-import { SCENARIO_BY_ID, THEMES_BY_ID, consoleOf, mixerEntry, nextInTheme, nextOnMixer, skinOf } from "./themes.js";
+import { SCENARIO_BY_ID, THEMES_BY_ID, consoleOf, gigOf, mixerEntry, nextInTheme, nextOnMixer, skinOf } from "./themes.js";
 import { BugLog } from "./bugs.js";
 import { BugView } from "./ui/bug-view.js";
 import { SubmissionView } from "./ui/submission-view.js";
@@ -284,7 +284,8 @@ function selectScenario(id) {
 function openScenario(id, { by = "topic" } = {}) {
   const s = SCENARIO_BY_ID[id];
   if (!s) return openFree();
-  mode = by === "mixer" ? "mixer" : "topic";
+  // A Chapman gig's scenarios aren't on any mixer's list: they step through their gig.
+  mode = by === "mixer" && !gigOf(id) ? "mixer" : "topic";
   writePref("mixer-lab-mode", mode);
   useConsole(skinOf(consoleOf(s)), () => selectScenario(id));
 }
