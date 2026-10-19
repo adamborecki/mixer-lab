@@ -138,7 +138,9 @@ export class StemTransport {
       await Promise.all(
         missing.map(async (s) => {
           const { STEM_SET, STEMS } = this.m;
-          this.excerpt.set(s, await this.fetchStem(STEM_SET.basePath + STEMS[s].file, s, 0, STEM_SET.loop.end + 1));
+          const buffer = await this.fetchStem(STEM_SET.basePath + STEMS[s].file, s, 0, STEM_SET.loop.end + 1);
+          // Stem ids repeat between songs: don't file the last song's drums under this one's.
+          if (this.song === STEM_SET.id) this.excerpt.set(s, buffer);
           done++;
           if (token === this.token) this.emit({ type: "loading", done, total: stems.length });
         }),
@@ -189,7 +191,7 @@ export class StemTransport {
           bakeLoop(data, Math.round(pre * sr), Math.round((end - pre) * sr), Math.round(LOOP_XF * sr));
           buf.getChannelData(c).set(data);
         }
-        if (this.section === id) this.windows.set(`${id}|${s}`, buf);
+        if (this.section === id && this.song === STEM_SET.id) this.windows.set(`${id}|${s}`, buf);
       }),
     );
   }
@@ -199,11 +201,14 @@ export class StemTransport {
   }
 
   async fetchStem(url, stemId, trimDb, fallbackSeconds) {
+    // Read now: by the time it's decoded another song may be on stage (a gig's
+    // song replaces the default one right after Start Audio).
+    const treatment = this.m.STEMS[stemId]?.treatment;
     try {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const decoded = await this.ctx.decodeAudioData(await res.arrayBuffer());
-      return toMono(this.ctx, decoded, this.m.STEMS[stemId].treatment, trimDb);
+      return toMono(this.ctx, decoded, treatment, trimDb);
     } catch (err) {
       this.errors.set(url, `${url.split("/").pop()}: ${err.message || err}`);
       return testTone(this.ctx, fallbackSeconds, stemId);
