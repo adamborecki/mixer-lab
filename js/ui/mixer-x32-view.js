@@ -493,6 +493,7 @@ const SOURCE_NAMES = (src, T) => (src === "off" ? "OFF" : src === "main-l" ? T.m
 // ROUTING › inputs: each block of 8 channels listens to the rear panel's LOCAL
 // jacks, to AES50-A (a stage box on the AES50 A port) or to the CARD (USB).
 // Rig device `inSource`.
+// Option names as the X32's ROUTING → INPUT page prints them (Local 1-8, AES50 A1-8).
 export function inputRoutingPage(view, def) {
   const store = view.store;
   const box = el("div", "x32-routing x32-inrouting");
@@ -504,7 +505,7 @@ export function inputRoutingPage(view, def) {
     lab.append(el("span", "", `CH ${range}`));
     const sel = el("select");
     sel.setAttribute("aria-label", `Channels ${range} input source`);
-    for (const [v, text] of [[0, `LOCAL ${range}`], [1, `AES50-A ${range}`], [2, `CARD ${range} (USB)`]]) {
+    for (const [v, text] of [[0, `Local ${range}`], [1, `AES50 A${range}`], [2, `Card ${range} (USB)`]]) {
       const opt = el("option", "", text);
       opt.value = String(v);
       sel.appendChild(opt);

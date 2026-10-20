@@ -1295,7 +1295,7 @@ const COB_GIGS = {
 // Vocal Jazz Reset), on the hall's full-size X32: thirteen wireless handhelds
 // on LOCAL inputs 1–13 (mic n → receiver channel n → input n). The reset leaves
 // ROUTING with CH 1-8, 9-16 and 17-24 on LOCAL and only 25-32 on AES50-A (the
-// S32), every handheld at the same GAIN (about 30 dB), LOW CUT on, and no
+// S32), every handheld at the same GAIN (30 dB), LOW CUT on, and no
 // dynamics. MIX 1 is the wedges: XLR OUT 1 → S32 OUT 1 → the NX3000's CH A,
 // whose speakON output feeds wedge 1, linked on to 2 and 3.
 const VJ_MICS = Array.from({ length: 13 }, (_, i) => `vj-${i + 1}`);
@@ -1320,7 +1320,7 @@ const VJ_GIGS = {
     ],
     sends: { mix1: { "vj-1": -4, "vj-2": -6, ...each(VJ_MICS.slice(2), -22) } },
     preFor: ["mix1"],
-    hpf: each(VJ_MICS, 0.25), // about 100 Hz; the Salmon value is still to be confirmed
+    hpf: each(VJ_MICS, 0.2), // 80 Hz: low enough for a bass voice (recommended 2026-10-20; the instructor considered 100)
     dyn: {},
     scenes: [{ name: "Vocal Jazz" }],
   },

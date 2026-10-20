@@ -1063,7 +1063,7 @@ Object.assign(SOLVE, {
   "x32-vj-local": (a) => routeVj(a, [0, 0, 0, 1]),
   "x32-vj-gain": (a) => ["vj-4", "vj-6", "vj-10"].forEach((s) => a.set(s, "gainDb", 30)),
   "x32-vj-lowcut": (a) => {
-    ["vj-3", "vj-7", "vj-11"].forEach((s) => a.set(s, "hpf", 0.25));
+    ["vj-3", "vj-7", "vj-11"].forEach((s) => a.set(s, "hpf", 0.2));
     ["vj-1", "vj-2"].forEach((s) => a.set(s, "compOn", false));
   },
   "x32-vj-muted": (a) => a.set("vj-8", "enabled", true),

@@ -3969,7 +3969,7 @@ const BOXES = {
         goal("band", "All seven band channels are in the house", bandInHouse),
         keep("room", "The room pair (local inputs 17 and 18) stays on", (ctx) => house(ctx, "room-l") >= AUDIBLE),
       ],
-      hints: [STAGE_BOX_HINT + " The cables are all fine.", "The console still listens to its own rear-panel jacks (LOCAL). Which page chooses where inputs come from?", "Main display → ROUTING: set CH 1-8 to AES50-A 1-8. Leave 17–24 on LOCAL: the room pair is plugged in at FOH."],
+      hints: [STAGE_BOX_HINT + " The cables are all fine.", "The console still listens to its own rear-panel jacks (LOCAL). Which page chooses where inputs come from?", "Main display → ROUTING: set CH 1-8 to AES50 A1-8. Leave 17–24 on Local: the room pair is plugged in at FOH."],
       complete: "A digital stage box puts the preamps on stage and replaces 32 mic lines with one network cable. The console still has to be told to listen to it: input routing, per block of 8.",
     },
     {
@@ -4024,7 +4024,7 @@ const BOXES = {
         goal("band", "All seven band channels are in the house", bandInHouse),
         goal("wedge", "The singer hears the vocal in the wedge", (ctx) => wedge(ctx, "mix1", "lead-vocal") >= AUDIBLE),
       ],
-      hints: [STAGE_BOX_HINT, "The SD8's OUT 1 already works (it carries the console's first XLR OUT, MIX 1). It's the inputs the console isn't listening to.", "Main display → ROUTING: set CH 1-8 to AES50-A 1-8."],
+      hints: [STAGE_BOX_HINT, "The SD8's OUT 1 already works (it carries the console's first XLR OUT, MIX 1). It's the inputs the console isn't listening to.", "Main display → ROUTING: set CH 1-8 to AES50 A1-8."],
       complete: "Eight inputs and eight outputs on one Cat5 cable. Input routing decides which channels listen to the stage box; the SD8's outputs follow the console's own XLR outs.",
     },
   ],
@@ -4298,7 +4298,7 @@ const VJS = [
       goal("singers", "All thirteen mics are in the house and the wedges", (ctx) => singersInHouse(ctx) && singersInWedges(ctx)),
       keep("sb", "CH 25-32 stay on AES50-A (the stage box)", (ctx) => mixerDev(ctx).inSource[3] === 1),
     ],
-    hints: ["The receivers show signal, so the mics work. Where do the receivers plug in, and is the console listening there?", "The receivers plug into the X32's own rear panel: LOCAL. The ROUTING page says where each block of 8 channels listens.", "Main display → ROUTING: set CH 1-8, 9-16 and 17-24 to LOCAL. Leave 25-32 on AES50-A."],
+    hints: ["The receivers show signal, so the mics work. Where do the receivers plug in, and is the console listening there?", "The receivers plug into the X32's own rear panel: LOCAL. The ROUTING page says where each block of 8 channels listens.", "Main display → ROUTING → INPUT: set 1-8 to Local 1-8, 9-16 to Local 9-16 and 17-24 to Local 17-24. Leave 25-32 on AES50 A25-32."],
     complete: "That's the first line of the Vocal Jazz Reset. The wireless receivers are plugged into the X32 itself, so the mics have to come in on LOCAL. The S32 only feeds 25-32. If a block is left on AES50 from the last event, the mics never arrive.",
   },
   {
@@ -4307,7 +4307,7 @@ const VJS = [
     title: "Somebody helped",
     who: "Vocal Jazz director",
     prompt: "“After the last concert, somebody turned up the quiet singers and turned down the loud one. I want the group to balance itself. Put every mic back where it belongs.”",
-    goal: "Every handheld on the same GAIN, about 30 dB.",
+    goal: "Every handheld on the same GAIN: 30 dB.",
     music: "bars-2",
     setup: {
       tweak: (st, h) => {
@@ -4321,7 +4321,7 @@ const VJS = [
         const g = VJ.map((s) => gainOf(ctx, s));
         return Math.max(...g) - Math.min(...g) <= 0.5;
       }),
-      goal("thirty", "That GAIN is about 30 dB (28 to 32)", (ctx) => VJ.every((s) => gainOf(ctx, s) >= 28 && gainOf(ctx, s) <= 32)),
+      goal("thirty", "That GAIN is 30 dB", (ctx) => VJ.every((s) => Math.abs(gainOf(ctx, s) - 30) <= 0.5)),
     ],
     hints: ["Three meters look different from the rest. Is that the singers, or the GAIN knobs?", "SEL each channel and read its GAIN in the channel strip. Most of them sit at the same number.", "Set channels 4, 6 and 10 to the same GAIN as the others: 30 dB."],
     complete: "Vocal Jazz is an ensemble. With every mic on the same gain, the balance you hear is the singers' own, and the board isn't quietly favoring anyone. A singer who sounds quiet is something to tell the director, not a knob to turn.",
@@ -4348,7 +4348,7 @@ const VJS = [
       goal("nocomp", "No handheld has its compressor switched on", (ctx) => VJ.every((s) => !sc(ctx, s)?.compOn)),
       keep("gain", "Every GAIN stays at 30 dB", (ctx) => VJ.every((s) => Math.abs(gainOf(ctx, s) - 30) <= 0.5)),
     ],
-    hints: ["Two problems: rumble on some mics, and pumping on others. Check each channel's LOW CUT and its dynamics.", "LOW CUT is in the channel strip's INPUT section. The compressor has its own ON in the DYNAMICS section; channels 1 and 2 have it lit.", "Turn LOW CUT on for channels 3, 7 and 11 (around 100 Hz is a common start for voices), and switch the compressor off on channels 1 and 2."],
+    hints: ["Two problems: rumble on some mics, and pumping on others. Check each channel's LOW CUT and its dynamics.", "LOW CUT is in the channel strip's INPUT section. The compressor has its own ON in the DYNAMICS section; channels 1 and 2 have it lit.", "Turn LOW CUT on for channels 3, 7 and 11 at 80 Hz, like the rest (higher would thin out a low bass voice), and switch the compressor off on channels 1 and 2."],
     complete: "The Vocal Jazz Reset: low cut on every mic (handling noise and stage rumble are all below the voice), and no dynamics. A compressor on an ensemble mic fights the singers' own dynamics. The real X32 has a gate on every channel too: it goes off as well.",
   },
   {
