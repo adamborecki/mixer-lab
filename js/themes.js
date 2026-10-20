@@ -156,12 +156,12 @@ export const GIGS = [
   },
   {
     id: "electroacoustic",
-    title: "Electroacoustic showcase",
-    venue: "",
-    question: "Coming later",
-    concept: "The electroacoustic showcase will be built here later.",
-    soon: true,
-    ids: [],
+    title: "Electroacoustic showcase in Salmon",
+    venue: "Salmon Recital Hall",
+    question: "Can you keep nine pieces running when a stage box dies?",
+    concept: "Laptops, a click, a mic inside a piano and a MalletKAT into Salmon's full-size X32: an S32 on its AES50 A and an SD8 on the far side of the stage, daisy-chained off the S32's AES50 B, so its inputs arrive as AES50 A33-40. Every fault here is from the showcase of October 18, 2026 or its gig checklist, ending with the one that actually happened: the SD8's outputs died mid-piece.",
+    checklist: `${SITE}/electroacoustic-gig-checklist/`,
+    ids: ["x32-ea-chain", "x32-ea-route", "x32-ea-bank", "x32-ea-48v", "x32-ea-collision", "x32-ea-click", "x32-ea-dead"],
   },
 ];
 export const isGig = (t) => !!t && GIGS.includes(t);

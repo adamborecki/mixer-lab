@@ -80,9 +80,13 @@ describe("Chapman gigs", () => {
   });
 
   it("show a planned gig without making it openable", () => {
-    const soon = GIGS.filter((g) => g.soon);
-    assert.ok(soon.some((g) => g.id === "electroacoustic"));
-    for (const g of soon) assert.deepEqual(g.ids, []);
+    for (const g of GIGS.filter((g) => g.soon)) assert.deepEqual(g.ids, []);
+  });
+
+  it("open the electroacoustic showcase, with its checklist", () => {
+    const ea = GIGS.find((g) => g.id === "electroacoustic");
+    assert.ok(!ea.soon && ea.ids.length === 7);
+    assert.match(ea.checklist, /electroacoustic-gig-checklist\/$/);
   });
 });
 

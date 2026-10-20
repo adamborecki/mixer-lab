@@ -6342,6 +6342,7 @@ dialog::backdrop {
   gap: 0.35rem;
   overflow-x: auto;
   scrollbar-width: thin;
+  position: relative; /* a chip's visually-hidden text is clipped here, not left to widen the page */
 }
 .mstep-chip {
   display: flex;

@@ -11,6 +11,7 @@
 import { COMPACT, LAWS, fxPreset, reverbSetting } from "./compact.js";
 import * as CR1604 from "./cr1604.js";
 import { DAW_TRACKS } from "./dante.js";
+import { aesBlockOf } from "./connection-model.js";
 
 const AUDIBLE = -45; // as AUDIBLE_DB in js/scenarios.js
 const ORCHESTRA = ["strings", "winds", "brass"]; // FTW's section mics
@@ -4443,6 +4444,155 @@ const VJS = [
   },
 ];
 
+// ---------- the electroacoustic showcase in Salmon: a real MUS 248 gig ----------
+// The showcase rig (js/scenarios.js EA_GIGS): the S32 on the X32's AES50 A
+// (bass clarinet, piano and guitar on IN 25-27, CH 25-32 ← AES50 A25-32), an
+// SD8 on the far side of the stage chained off the S32's AES50 B (flower pots
+// and MalletKAT on IN 1-2, CH 17-24 ← AES50 A33-40), the Mac mini's click on
+// LOCAL 1 and its electronics on AUX IN 1/2, MIX 3 to the bass clarinetist's
+// wedge through SD8 OUT 3. From the crew's debrief of 2026-10-18 and MUS 248's
+// Electroacoustic Showcase Gig Checklist: the last scenario is what actually
+// broke during the show.
+
+const EA_ROOM = "Turn around to Stage & patch (T): the X32 and the Mac mini at FOH, the S32 in the stage-side rack, the SD8 on the far side of the stage, the bass clarinetist's wedge next to it.";
+const EA_S32 = ["ea-bcl", "ea-piano", "ea-guitar"];
+const EA_SD8 = ["ea-pots", "ea-kat"];
+const inHouse = (ctx, ids) => ids.every((s) => house(ctx, s) >= AUDIBLE);
+const clickInWedge = (ctx) => ok(ctx, "ea-perf") && wedge(ctx, "mix3", "ea-click") >= AUDIBLE;
+const sd8Chained = (ctx) => ctx.state.rig.cables.some((c) => c.from === "ea-sd8/aes50a" && c.to === "s32/aes50b");
+const onChannel = (ctx, src, index) => mc(ctx, src)?.index === index;
+
+const EAS = [
+  {
+    id: "x32-ea-chain",
+    short: "SD8 not chained",
+    title: "The far side of the stage is dead",
+    who: "Stage manager",
+    prompt: "“The S32 side is fine: clarinet, piano, guitar. But nothing from the far side: no flower pots, no MalletKAT, and the bass clarinetist's wedge is dead too. The SD8 is powered and everything's plugged into it.”",
+    goal: "The SD8 chained off the S32 again: the flower pots and the MalletKAT in the house, the click in the wedge.",
+    music: "bars-32",
+    setup: { tweak: (st, h) => h.cut("ea-sd8/aes50a") },
+    conditions: [
+      goal("chain", "A Cat5e cable runs from the SD8's AES50 A to the S32's AES50 B", sd8Chained),
+      goal("far", "The flower pots and the MalletKAT are in the house", (ctx) => inHouse(ctx, EA_SD8)),
+      goal("wedge", "The bass clarinetist hears the click in the wedge", clickInWedge),
+      keep("s32", "The bass clarinet, piano and guitar stay in the house", (ctx) => inHouse(ctx, EA_S32)),
+    ],
+    hints: ["Inputs and outputs on the far side died together, and the S32 side works. What do the SD8's inputs and outputs share?", EA_ROOM + " The SD8 has no network cable. The X32's AES50 A is taken by the S32.", "Patch a Cat5e (etherCON) cable from the SD8's AES50 A to the S32's AES50 B: the daisy chain."],
+    complete: "A daisy chain: the SD8 rides on the S32's link, one Cat5e from the S32's AES50 B. Everything on the SD8, inputs and outputs, passes through the S32, so a dead chain cable kills the whole far side and nothing else.",
+  },
+  {
+    id: "x32-ea-route",
+    short: "CH 17-24 not on A33-40",
+    title: "The SD8 is lit, the channels are silent",
+    who: "Percussionist",
+    prompt: "“My wedge has my click, so the SD8 is working. But my flower pots and the MalletKAT aren't in the house, and channels 17 and 18 don't move.”",
+    goal: "CH 17-24 listening to the SD8 (AES50 A33-40), the flower pots and the MalletKAT in the house.",
+    music: "bars-32",
+    setup: { tweak: (st) => (st.rig.devices.find((d) => d.id === "mixer").inSource[2] = 0) },
+    conditions: [
+      goal("routing", "ROUTING: CH 17-24 come from AES50 A33-40", (ctx) => aesBlockOf(mixerDev(ctx).inSource, 2) === 4),
+      goal("far", "The flower pots and the MalletKAT are in the house", (ctx) => inHouse(ctx, EA_SD8)),
+      keep("s32", "CH 25-32 stay on AES50 A25-32 (the S32)", (ctx) => aesBlockOf(mixerDev(ctx).inSource, 3) === 3 && inHouse(ctx, EA_S32)),
+    ],
+    hints: ["The wedge works, so the link is fine. The SD8's inputs reach the console: is the console listening for them?", "The S32 takes AES50 A1-32. The SD8 is chained behind it, so its inputs come after: AES50 A33-40. Which channels listen there?", "Main display → ROUTING → INPUT: set CH 17-24 to AES50 A33-40. Leave 25-32 on AES50 A25-32."],
+    complete: "Behind a 32-input S32, an SD8's inputs arrive as AES50 A33-40, past the end of the console's 32 channels. A block of 8 channels has to be routed to them, which is why CH 17-24 aren't LOCAL tonight.",
+  },
+  {
+    id: "x32-ea-bank",
+    short: "SD8 OUTPUT switch",
+    title: "No click",
+    who: "Bass clarinetist",
+    prompt: "“My wedge is on, it's plugged into the SD8, and I hear nothing. No click, no track.”",
+    goal: "The bass clarinetist's wedge playing MIX 3 again, the house unchanged.",
+    music: "bars-32",
+    setup: { tweak: (st, h) => h.dev("ea-sd8", "outBank", 1), listen: "mix3" },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("wedge", "The bass clarinetist hears the click and the track in the wedge", (ctx) => clickInWedge(ctx) && wedge(ctx, "mix3", "ea-track") >= AUDIBLE),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house stays the same" },
+    ],
+    hints: ["MIX 3's meter moves, so the mix is fine. Follow it out: XLR OUT 3 → AES50 → the SD8 → its OUT 3.", EA_ROOM + " The SD8 has an OUTPUT switch: which 8 AES50 outputs its jacks carry.", "Set the SD8's OUTPUT switch to 1-8: its OUT 3 then carries the X32's Output 3, MIX 3."],
+    complete: "An SD8's outputs carry whichever bank of AES50 outputs its switch picks. On 9-16, its OUT 3 carries Output 11, which nothing feeds. Check the switch whenever a box's outputs are silent and the link is up.",
+  },
+  {
+    id: "x32-ea-48v",
+    short: "Piano mic: +48V",
+    title: "The piano mic is dead",
+    who: "Composer, I PUNCH PIANOS",
+    prompt: "“My speakers are on the strings and the piano is ringing, I can hear it from here. But there's nothing in the house, and the meter on the piano channel is flat.”",
+    goal: "The piano mic in the house, its GAIN and fader unchanged.",
+    music: "bars-32",
+    setup: { tweak: (st, h) => h.set("ea-piano", "phantom", false) },
+    baseline: { ch: { metric: "channelSettings", source: "ea-piano" } },
+    conditions: [
+      goal("piano", "The piano mic is in the house", (ctx) => house(ctx, "ea-piano") >= AUDIBLE),
+      { id: "ch", kind: "keep", type: "channelUnchanged", source: "ea-piano", baseline: "ch", toleranceDb: 1, label: "The piano channel's GAIN and fader stay where they are" },
+    ],
+    hints: ["The piano is making sound, the meter is flat. What does this mic need that the others don't?", "It's a condenser inside the piano, on S32 IN 26. Its preamp is in the S32, but the console switches it.", "SEL channel 26 and press 48V."],
+    complete: "A stage box's preamps are remote: the console's GAIN and 48V drive them over AES50. A condenser on a stage box still needs 48V, switched from the X32.",
+  },
+  {
+    id: "x32-ea-collision",
+    short: "Two pieces, one input",
+    title: "The guitar is on the piano's channel",
+    who: "Guitarist, Running Spring",
+    prompt: "“The changeover sheet said S32 IN 26, so I plugged into 26. My guitar is coming out of a channel called PIANO, and the piano mic is lying on the floor.”",
+    goal: "The guitar on its own channel (27, S32 IN 27) and the piano mic back on 26: both in the house.",
+    music: "excerpt",
+    setup: {
+      tweak: (st, h) => {
+        h.cut("src-ea-piano/out");
+        st.rig.cables.find((c) => c.from === "src-ea-guitar/out").to = "s32/in26";
+      },
+    },
+    conditions: [
+      goal("guitar", "The guitar is on channel 27 (S32 IN 27), in the house", (ctx) => onChannel(ctx, "ea-guitar", 26) && house(ctx, "ea-guitar") >= AUDIBLE),
+      goal("piano", "The piano mic is on channel 26 (S32 IN 26), in the house", (ctx) => onChannel(ctx, "ea-piano", 25) && house(ctx, "ea-piano") >= AUDIBLE),
+      keep("bcl", "The bass clarinet stays in the house", (ctx) => house(ctx, "ea-bcl") >= AUDIBLE),
+    ],
+    hints: ["Two pieces were planned onto the same input. The input list gives every source its own channel for the whole show: which is the guitar's?", EA_ROOM + " The guitar's DI is in S32 IN 26, the piano mic's input. IN 27 is empty.", "Move the guitar's cable to S32 IN 27, and plug the piano mic back into S32 IN 26 (an XLR cable)."],
+    complete: "This nearly happened at the showcase: one piece's rig planned onto the inputs the piece before it was using. One input list for the whole show, every source on its own channel, means a changeover never has to repatch.",
+  },
+  {
+    id: "x32-ea-click",
+    short: "Click in the house",
+    title: "The audience can hear the click",
+    who: "Composer",
+    prompt: "“Sitting in row F I can hear a metronome ticking through the mains. That click is for the clarinetist, not the audience!”",
+    goal: "The click out of the house, still in the bass clarinetist's wedge, the rest of the house unchanged.",
+    music: "bars-32",
+    setup: { tweak: (st, h) => h.set("ea-click", "lr", true) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("house", "No click in the house", (ctx) => house(ctx, "ea-click") < -60),
+      keep("wedge", "The bass clarinetist still hears the click", clickInWedge),
+      { id: "rest", kind: "keep", type: "mainUnchanged", baseline: "main", except: "ea-click", toleranceDb: 1, label: "Everything else in the house stays the same" },
+    ],
+    hints: ["The click has to stay in MIX 3. What sends a channel to the house, separately from its mixes?", "Muting it on the X32 would silence it in the wedge too. Each channel has its own MAIN LR switch.", "SEL channel 1 (CLICK) and switch its MAIN LR off (or pull its fader down: MIX 3 is pre-fader)."],
+    complete: "A click goes to the performer only: in its monitor mix, off MAIN LR. Check it with the mains up before doors, because once the piece starts it's too late.",
+  },
+  {
+    id: "x32-ea-dead",
+    short: "SD8 outputs die mid-show",
+    title: "Mid-piece, the click is gone",
+    who: "Bass clarinetist",
+    prompt: "“Two minutes into Electrostatic Whale my wedge went silent: no click, no track. Everything from the SD8 is still in the house.”",
+    goal: "The bass clarinetist's wedge playing MIX 3 again, without touching the SD8's inputs or the house.",
+    music: "bars-32",
+    setup: { tweak: (st, h) => h.dev("ea-sd8", "outsDead", true) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "mix3", label: "You listened to MIX 3" },
+      goal("wedge", "The bass clarinetist hears the click and the track again", (ctx) => clickInWedge(ctx) && wedge(ctx, "mix3", "ea-track") >= AUDIBLE),
+      keep("far", "The flower pots and the MalletKAT stay in the house (the SD8's inputs still work)", (ctx) => inHouse(ctx, EA_SD8)),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house stays the same" },
+    ],
+    hints: ["MIX 3's meter moves and the SD8's inputs work, so the link is up. Its outputs have died. You can't fix the box in the middle of a piece.", "XLR OUT 3 on the X32's own rear panel carries the same thing as SD8 OUT 3. " + EA_ROOM, "Move the wedge's cable from SD8 OUT 3 to the X32's XLR OUT 3 (it carries MIX 3). Any free local output works too, once ROUTING sends MIX 3 to it."],
+    complete: "That's what happened at the showcase: the SD8's outputs died during the piece and its inputs kept working. The fix took a minute: the cable out of the stage box, into a local output on the console with the same mix. Know which local outputs are free, and keep a long XLR at FOH.",
+  },
+];
+
 const ORDER = {
   b207mp3: ["doors", "amp", "quiet-singer", "phantom", "wedge", "wedge-quiet", "small-room", "speech"],
   mix8: ["doors", "phones", "ol", "boomy", "pan", "keys-wedge", "wedge-loud", "speech", "ballad", "overhead", "guest"],
@@ -4455,7 +4605,7 @@ const ORDER = {
   l20: ["doors", "gain", "pad", "lowcut", "mud", "eq-on", "keys-wedge", "less-guitar", "out-of-house", "wedge-quiet", "switch", "reverb", "efx-mon"],
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
   yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "mud", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
-  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9", "vj-local", "vj-gain", "vj-lowcut", "vj-muted", "vj-send", "vj-amp", "vj-chain", "vj-link"],
+  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9", "vj-local", "vj-gain", "vj-lowcut", "vj-muted", "vj-send", "vj-amp", "vj-chain", "vj-link", "ea-chain", "ea-route", "ea-bank", "ea-48v", "ea-collision", "ea-click", "ea-dead"],
   f8n: ["track", "trim", "room", "hpf", "pfl", "balance", "link", "camera", "dslr", "iso-safety"],
   dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
   cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "dante-back", "dante-fix", "scene-recall", "scene-store"],
@@ -4463,7 +4613,7 @@ const ORDER = {
   x32c: ["doors", "gain", "48v", "sections-48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "orchestra", "mute-group", "new-mix", "stagebox", "cob-usb", "cob-gain", "cob-tracks", "cob-link", "cob-one-side", "cob-speaker-cable", "cob-thru", "cob-prefader", "cob-tracks-wedge", "cob-scene"],
 };
 
-const LISTS = { gdig: GDIG, l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c, ...COB], yam01v96: Y96, x32: [...X32F, ...BOXES.x32, ...VJS] };
+const LISTS = { gdig: GDIG, l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c, ...COB], yam01v96: Y96, x32: [...X32F, ...BOXES.x32, ...VJS, ...EAS] };
 
 // Who is on stage (js/music.js stageFor). Every scenario's story was read for
 // this; anything not listed has the whole band playing (the 8-bar section it
@@ -4538,7 +4688,7 @@ const FTW = {
 // A gig is its own song (its cast, its tracks, its rig): COB, Vocal Jazz.
 const songOf = (board, id) => {
   const k = id.slice(board.length + 1);
-  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? "vj" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
+  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? "vj" : k.startsWith("ea-") ? "ea" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
 };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.

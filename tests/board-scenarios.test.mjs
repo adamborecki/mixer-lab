@@ -1095,6 +1095,45 @@ Object.assign(WRONG, {
   "x32-vj-link": [["the mics routed to AES50-A", (a) => routeVj(a, [1, 1, 1, 1])]],
 });
 
+// The electroacoustic showcase in Salmon (js/scenarios.js EA_GIGS).
+Object.assign(SOLVE, {
+  "x32-ea-chain": (a) => assert.ok(a.st.connect("ea-sd8/aes50a", "s32/aes50b", "cat5").ok),
+  "x32-ea-route": (a) => a.st.setDevice("mixer", "inSource.2", 3 + 4),
+  "x32-ea-bank": (a) => a.st.setDevice("ea-sd8", "outBank", 0),
+  "x32-ea-48v": (a) => a.set("ea-piano", "phantom", true),
+  "x32-ea-collision": (a) => {
+    a.unplugAt("s32/in26");
+    assert.ok(a.st.connect("src-ea-guitar/out", "s32/in27", "xlr").ok);
+    assert.ok(a.st.connect("src-ea-piano/out", "s32/in26", "xlr").ok);
+  },
+  "x32-ea-click": (a) => a.set("ea-click", "lr", false),
+  "x32-ea-dead": (a) => {
+    a.st.setListen("mix3");
+    a.unplugAt("ea-perf/in");
+    assert.ok(a.st.connect("mixer/out3", "ea-perf/in", "xlr").ok);
+  },
+});
+
+Object.assign(WRONG, {
+  "x32-ea-chain": [["the SD8 on the X32's AES50 A instead of the S32", (a) => {
+    a.unplugAt("mixer/aes50a");
+    assert.ok(a.st.connect("ea-sd8/aes50a", "mixer/aes50a", "cat5").ok);
+  }]],
+  "x32-ea-route": [["CH 17-24 on AES50 A17-24", (a) => a.st.setDevice("mixer", "inSource.2", 1)], ["CH 25-32 moved to the SD8", (a) => a.st.setDevice("mixer", "inSource.3", 3 + 4)]],
+  "x32-ea-bank": [["MIX 3's master up", (a) => a.st.setBus("mix3", "level", LAWS.level.toPos(6))]],
+  "x32-ea-48v": [["the piano's GAIN up instead", (a) => a.set("ea-piano", "gainDb", 60)]],
+  "x32-ea-collision": [["the piano mic into the guitar's input", (a) => assert.ok(a.st.connect("src-ea-piano/out", "s32/in27", "xlr").ok)]],
+  "x32-ea-click": [["the click muted on the X32", (a) => a.set("ea-click", "enabled", false)]],
+  "x32-ea-dead": [["the wedge on SD8 OUT 4", (a) => {
+    a.st.setListen("mix3");
+    a.unplugAt("ea-perf/in");
+    assert.ok(a.st.connect("ea-sd8/out4", "ea-perf/in", "xlr").ok);
+  }], ["fixed without listening", (a) => {
+    a.unplugAt("ea-perf/in");
+    assert.ok(a.st.connect("mixer/out3", "ea-perf/in", "xlr").ok);
+  }]],
+});
+
 // The generic digital mixer is the X32 Compact's model with no brand on it: the same fixes (and mistakes) apply.
 for (const k of ["doors", "gain", "48v", "lowcut", "lr", "mud", "eq-on", "comp-on", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "new-mix"]) {
   SOLVE[`gdig-${k}`] = SOLVE[`x32c-${k}`];

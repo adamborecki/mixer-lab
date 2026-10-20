@@ -185,6 +185,10 @@ Regenerate with `SONG=ftw tools/make-excerpts.sh`.
 
 Musicians (from Caleb): Nathan Acupan recorded the drums and Elliot Shneider the bass and guitar, in a studio; Caleb Cox did everything else in the production (the vocals, and the mostly sampled percussion, strings, woodwinds, brass and synths). Mixed and mastered by Mitchell Oeth.
 
+## The electroacoustic showcase (stand-ins and a click)
+
+The `ea` song (`SONGS.ea` in `source-manifest.js`) has no recordings of its own: it puts FTW's stems on stage as stand-ins for the showcase's sources, and adds one generated file, a click track on FTW's own timeline, so it stays sample-locked with them: `ftw/ftw-click.mp3` (the excerpt) and `ftw/full/ftw-click-00.mp3` … `-12.mp3` (the segments, cut like the stems). `tools/make-click-track.sh` makes them with ffmpeg: 70 bpm, 1600 Hz on each downbeat and 1000 Hz on the other beats, 40 ms each, from a downbeat measured in FTW's drums at song time 134.846 s (0.03 s after the excerpt's loop start). No permissions needed: it's a synthesized metronome.
+
 ## Credits
 
 FTW: after juno. Drums Nathan Acupan; bass and guitar Elliot Shneider; vocals and production Caleb Cox; mixing and mastering Mitchell Oeth. Used with permission for this educational project.

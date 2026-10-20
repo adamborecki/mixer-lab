@@ -833,6 +833,53 @@ const handheld = (n) => {
 };
 const VJ_SOURCES = Array.from({ length: 13 }, (_, i) => handheld(i + 1));
 
+// ---------- the electroacoustic showcase in Salmon: FTW's parts as stand-ins ----------
+
+// The Chapman Faculty Electroacoustic Showcase (2026-10-18), on Salmon's X32
+// with the S32 and an SD8 daisy-chained off its AES50 B (the Salmon Simulator's
+// showcase signal flow, and MUS 248's Electroacoustic Showcase Gig Checklist).
+// The pieces themselves aren't recorded here: FTW's stems stand in, each for a
+// source that does a similar job (its woodwinds for the bass clarinet, its
+// strings for the piano strings ringing, its vocals for the MalletKAT's
+// vocal-chop pads, its synths for the Mac mini's electronics), plus a click on
+// FTW's own beat grid (tools/make-click-track.sh), for the performer only.
+const EA_STEM_IDS = ["winds", "strings", "guitar", "percussion", "vocals", "synths", "click"];
+const EA_SET = { ...FTW_SET, id: "ea", title: "Electroacoustic showcase", artist: "FTW (after juno) as stand-ins, and a click" };
+EA_SET.sections = FTW_SET.sections.map((sec) => ({ ...sec, plays: [...sec.plays.filter((st) => EA_STEM_IDS.includes(st)), "click"], partly: sec.partly.filter((st) => EA_STEM_IDS.includes(st)) }));
+const EA_STEMS = {
+  ...Object.fromEntries(EA_STEM_IDS.filter((id) => id !== "click").map((id) => [id, FTW_STEMS[id]])),
+  // A metronome, not a recording: 1600 Hz on each downbeat, 1000 Hz on the other beats.
+  click: { file: "ftw-click.mp3", channels: 2, treatment: "sum", monoPeakDb: -1.21, monoRmsDb: -26.78, normalizeDb: 0 },
+};
+const FTW_BY_STEM = Object.fromEntries(FTW_SOURCES.map((src) => [src.stem, src]));
+const eaSource = (id, order, stem, name, shortName, device, deviceType, extra) => ({
+  id,
+  order,
+  name,
+  shortName,
+  musician: stem === "click" ? "A click" : FTW_BY_STEM[stem].musician,
+  musicianShort: stem === "click" ? "CLICK" : FTW_BY_STEM[stem].musicianShort,
+  device,
+  category: "Showcase",
+  deviceType,
+  signalLevel: { "condenser-mic": "mic", "dynamic-mic": "mic", "di-box": "mic" }[deviceType] || "line",
+  connector: { "line-source": "trs14", "stereo-laptop": "trs35" }[deviceType] || "xlr",
+  phantom: deviceType === "condenser-mic" ? "required" : "none",
+  stem,
+  pan: 0,
+  scenarios: ANY_SCENARIO,
+  ...extra,
+});
+const EA_SOURCES = [
+  eaSource("ea-click", 1, "click", "Click (Mac mini, SSL 2+ OUT 3)", "CLICK", "Mac mini · SSL 2+ OUT 3: the click", "line-source", { outputDb: -4, mixDb: 0, note: "The performer's click, from the Mac mini at FOH. In Salmon it went into an AUX IN; the lab's X32 has AUX IN 1/2 only, so it comes in on LOCAL 1. It belongs in the performer's mix, never the house." }),
+  eaSource("ea-pots", 17, "percussion", "Flower-pot mic (SD8 IN 1)", "POTS", "Flower-pot mic (dynamic), on the SD8", "dynamic-mic", { outputDb: -40, mixDb: -4, note: "Betweenness: one mic over the flower pots. Stand-in audio: FTW's percussion." }),
+  eaSource("ea-kat", 18, "vocals", "MalletKAT rig (SD8 IN 2)", "KAT", "MalletKAT · laptop · Scarlett 18i8 line out, on the SD8", "line-source", { outputDb: -6, mixDb: -2, note: "Betweenness: the MalletKAT's pads trigger vocal-chop samples on a laptop; the Scarlett 18i8's line out goes into the SD8. Stand-in audio: FTW's vocals." }),
+  eaSource("ea-bcl", 25, "winds", "Bass clarinet mic (S32 IN 25)", "B CLAR", "Bass clarinet mic (condenser), on the S32", "condenser-mic", { outputDb: -36, mixDb: 0, note: "Electrostatic Whale and Blood Memory: one condenser on a stand. Stand-in audio: FTW's woodwinds." }),
+  eaSource("ea-piano", 26, "strings", "Piano mic (S32 IN 26)", "PIANO", "Condenser inside the grand piano, on the S32", "condenser-mic", { outputDb: -38, mixDb: -2, note: "I PUNCH PIANOS: two speakers lie on the strings, and this mic hears the strings ringing. Stand-in audio: FTW's strings." }),
+  eaSource("ea-guitar", 27, "guitar", "Guitar rig (S32 IN 27)", "GTR", "Guitar → pedals → laptop and interface → DI, on the S32", "di-box", { outputDb: -30, mixDb: -2, note: "Running Spring: the guitarist's own rig, into a DI on the stage box. Stand-in audio: FTW's guitar." }),
+  eaSource("ea-track", 33, "synths", "Electronics (Mac mini, SSL 2+ OUT 1/2)", "TRACK", "Mac mini · SSL 2+ OUT 1/2: the electronics", "stereo-laptop", { outputDb: -10, stereo: true, mixDb: -4, note: "The fixed electronics for the bass clarinet pieces, from the Mac mini at FOH into AUX IN 1/2. Stand-in audio: FTW's synths." }),
+];
+
 // Virtual sources: the two mics of the stereo room pair. Their sound is built
 // from the band stems by js/room-mics.js (distance, angle, delay, room reverb).
 export const ROOM_SOURCES = [
@@ -849,6 +896,7 @@ export const SONGS = {
   // A gig, not just a band: its rig is the X32 Compact's, so it plays on that console only.
   cob: { id: "cob", title: "COB in Irvine", artist: "a musical (NOSTRADAMUS)", set: COB_SET, stems: COB_STEMS, sources: COB_SOURCES, consoles: ["x32c"] },
   vj: { id: "vj", title: "Vocal Jazz in Salmon", artist: "NOSTRADAMUS's voices, a cappella", set: VJ_SET, stems: VJ_STEMS, sources: VJ_SOURCES, consoles: ["x32"] },
+  ea: { id: "ea", title: "Electroacoustic showcase", artist: "FTW's parts as stand-ins, and a click", set: EA_SET, stems: EA_STEMS, sources: EA_SOURCES, consoles: ["x32"] },
 };
 // Can this song play on this console? A gig's song (`consoles`) only on its own.
 export const songFits = (id, model) => !SONGS[id]?.consoles || SONGS[id].consoles.includes(model);
