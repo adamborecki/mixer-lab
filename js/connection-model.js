@@ -376,8 +376,11 @@ DEVICE_TYPES.snake = {
 // stage (the console's GAIN and 48V control them) and outputs, all on one
 // Cat5 cable to the console's AES50 A port. Input n arrives as AES50-A n;
 // output n carries the console's output n (its AES50-A output blocks are left
-// on OUT 1–8 / 9–16, the factory routing).
-function aes50Box(name, ins, outs, blurb) {
+// on OUT 1–8 / 9–16, the factory routing). A second box can hang off the
+// first one's AES50 B (a daisy chain): its inputs come after the first box's
+// (an SD8 behind an S32 arrives as AES50-A 33–40), and its outputs carry the
+// AES50 block its output-bank switch picks (`bank`; rig device `outBank`).
+function aes50Box(name, ins, outs, blurb, { bank = false } = {}) {
   return {
     name,
     stagebox: true,
@@ -386,12 +389,37 @@ function aes50Box(name, ins, outs, blurb) {
       ...Array.from({ length: ins }, (_, i) => ({ id: `in${i + 1}`, dir: "in", jack: "xlr", level: "mic-or-line", phantom: true, role: "sb-in", index: i, name: `${name.split(" ").pop()} IN ${i + 1}` })),
       ...Array.from({ length: outs }, (_, i) => ({ id: `out${i + 1}`, dir: "out", jack: "xlr", level: "line", role: "sb-out", index: i, name: `${name.split(" ").pop()} OUT ${i + 1}` })),
       { id: "aes50a", dir: "out", jack: "ethercon", level: "line", role: "net", network: "aes50", name: "AES50 A" },
+      { id: "aes50b", dir: "in", jack: "ethercon", level: "line", role: "net", network: "aes50", chain: true, name: "AES50 B (to the next box)" },
     ],
+    ins,
+    ...(bank ? { bank: true } : {}),
     blurb,
   };
 }
 DEVICE_TYPES.s32 = aes50Box("Behringer S32", 32, 16, "32 remote mic preamps and 16 outputs on stage, on one Cat5 cable to the console's AES50 A.");
-DEVICE_TYPES.sd8 = aes50Box("Behringer SD8", 8, 8, "8 remote mic preamps and 8 outputs: a small stage box for a drum riser or a side stage.");
+DEVICE_TYPES.sd8 = aes50Box("Behringer SD8", 8, 8, "8 remote mic preamps and 8 outputs: a small stage box for a drum riser or a side stage. Its OUTPUT switch picks which 8 AES50 channels its outputs carry.", { bank: true });
+
+// The SD8's output-bank switch: which AES50 channels its 8 outputs carry.
+export const SD8_BANKS = ["1-8", "9-16", "17-24"];
+
+// What a console's input block listens to (rig device `inSource`, per block of
+// 8 channels): 0 LOCAL, 1 AES50-A with the block's own numbers (CH 25-32 ←
+// AES50 A25-32), 2 CARD, 3 + k AES50-A block k (A1-8 … A41-48), for a block
+// routed to another block's numbers (CH 17-24 ← AES50 A33-40: an SD8 behind
+// an S32). Returns the AES50-A block, or null when the block isn't on AES50.
+export const AES50_BLOCKS = 6;
+// A block's source as the X32's ROUTING → INPUT page prints it: "Local 1-8",
+// "AES50 A33-40", "Card 1-8".
+export function inSourceName(inSource, block) {
+  const v = inSource?.[block] ?? 0;
+  const k = aesBlockOf(inSource, block);
+  const range = (n) => `${n * 8 + 1}-${n * 8 + 8}`;
+  return k !== null ? `AES50 A${range(k)}` : v === 2 ? `Card ${range(block)}` : `Local ${range(block)}`;
+}
+export function aesBlockOf(inSource, block) {
+  const v = inSource?.[block];
+  return v === 1 ? block : v >= 3 ? v - 3 : null;
+}
 
 // The compact mixers' rear panels come from their definitions.
 // `panels`: jacks that physically live in another box (the CL3's Rio stage box); ports name theirs with `panel`.
@@ -420,22 +448,33 @@ export function throughLinks(rig) {
       }
       continue;
     }
-    // A digital box only passes audio while its network cable reaches the console.
+    // A digital box only passes audio while its network cable reaches the
+    // console, directly or through the box before it in a daisy chain.
     const net = type.ports.find((q) => q.network);
-    const link = mixer && rig.cables.find((c) => c.from === portRef(d.id, net.id) && getPort(rig, c.to)?.network === net.network && c.to.startsWith(`${mixer.id}/`));
-    if (!link) continue;
+    const offset = mixer ? aesOffset(rig, d, mixer) : null;
+    if (offset === null) continue;
     const mixerPorts = DEVICE_TYPES[mixer.type].ports;
-    // The console's own XLR outputs, in order: stage box OUT n carries the nth.
+    // The console's own XLR outputs, in order: AES50 output channel n carries the
+    // nth, and 17–32 repeat 1–16 (Salmon's X32: ROUTING → AES A, 2026-10-20).
     const consoleOuts = mixerPorts.filter((q) => q.role === "bus-out" && q.jack === "xlr" && !q.panel && q.channel === undefined);
+    // Input routing: a channel's AES50 jack hears AES50-A channel `remote`, moved
+    // by its block's routing (CH 17-24 can listen to AES50 A33-40).
+    const remoteOf = (q) => {
+      if (!Array.isArray(mixer.inSource)) return q.remote;
+      const b = Math.floor(q.channel / 8);
+      const k = aesBlockOf(mixer.inSource, b);
+      return k === null ? q.remote : k * 8 + (q.channel % 8);
+    };
     for (const p of type.ports) {
       if (p.role === "sb-in") {
         const into = byTo.get(portRef(d.id, p.id));
-        const ch = mixerPorts.find((q) => q.jack === net.network && q.remote === p.index);
-        if (into && ch) links.push({ id: `${net.network}-${into.id}`, from: into.from, to: portRef(mixer.id, ch.id), cable: into.cable, via: d.id });
+        if (!into) continue;
+        for (const ch of mixerPorts.filter((q) => q.jack === net.network && remoteOf(q) === offset + p.index)) links.push({ id: `${net.network}-${into.id}-${ch.channel}`, from: into.from, to: portRef(mixer.id, ch.id), cable: into.cable, via: d.id });
       }
-      if (p.role === "sb-out") {
+      // A box whose outputs have failed (`outsDead`) still passes its inputs.
+      if (p.role === "sb-out" && !d.outsDead) {
         const outOf = byFrom.get(portRef(d.id, p.id));
-        const src = consoleOuts[p.index];
+        const src = consoleOuts[((type.bank ? d.outBank || 0 : 0) * 8 + p.index) % 16];
         if (outOf && src) links.push({ id: `${net.network}-${outOf.id}`, from: portRef(mixer.id, src.id), to: outOf.to, cable: outOf.cable, via: d.id });
       }
     }
@@ -461,6 +500,24 @@ export function throughLinks(rig) {
     }
   }
   return links;
+}
+
+// Where a digital stage box's inputs start on the console's AES50 A port: 0 for
+// the box on the console itself, after the previous box's inputs for one on
+// that box's AES50 B. null: no link to the console.
+export function aesOffset(rig, d, mixer, seen = new Set()) {
+  if (seen.has(d.id)) return null;
+  seen.add(d.id);
+  const type = DEVICE_TYPES[d.type];
+  const net = type.ports.find((q) => q.network);
+  const cable = rig.cables.find((c) => c.from === portRef(d.id, net.id));
+  if (!cable) return null;
+  const to = getPort(rig, cable.to);
+  if (!to || to.network !== net.network) return null;
+  if (to.device.id === mixer.id) return 0;
+  if (!to.chain || !DEVICE_TYPES[to.device.type]?.stagebox) return null;
+  const up = aesOffset(rig, to.device, mixer, seen);
+  return up === null ? null : up + DEVICE_TYPES[to.device.type].ins;
 }
 
 // Every route the analysis and the engine follow: cables, Dante subscriptions,
@@ -617,7 +674,7 @@ export function analyzeRig(rig, channels = [], sources = {}) {
     // Input routing (X32): each block of 8 channels takes its local jacks, AES50-A
     // (a stage box) or the CARD (USB from a computer: nothing plays here, so silence).
     const block = Array.isArray(mixer.inSource) ? mixer.inSource[Math.floor(port.channel / 8)] : undefined;
-    if (block !== undefined && (block === 2 || (port.jack === "aes50") !== (block === 1))) {
+    if (block !== undefined && (block === 2 || (port.jack === "aes50") !== (aesBlockOf(mixer.inSource, Math.floor(port.channel / 8)) !== null))) {
       channelInfo[port.channel] ||= { connected: false, signal: false, status: "empty", messages: [] };
       continue;
     }

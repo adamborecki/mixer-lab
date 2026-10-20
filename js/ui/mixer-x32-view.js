@@ -14,6 +14,7 @@
 // channels' SEL buttons. The page state is the view's own (view.x32).
 
 import { LAWS, levelLaw, matrixSources } from "../compact.js";
+import { AES50_BLOCKS } from "../connection-model.js";
 import { formatDb, formatPan } from "../levels.js";
 import { button, buildSelPanel, el, fader, knob, meterBar, row } from "./mixer-digital-view.js";
 import { compGraph, eqGraph } from "./viz.js";
@@ -497,7 +498,7 @@ const SOURCE_NAMES = (src, T) => (src === "off" ? "OFF" : src === "main-l" ? T.m
 export function inputRoutingPage(view, def) {
   const store = view.store;
   const box = el("div", "x32-routing x32-inrouting");
-  box.appendChild(el("p", "dg-note", "Inputs: each block of 8 channels takes the LOCAL jacks on the rear panel, AES50-A (a stage box, S32 or SD8, on the AES50 A port), or the CARD: the USB card, for playing back a recording from a computer."));
+  box.appendChild(el("p", "dg-note", "Inputs: each block of 8 channels takes the LOCAL jacks on the rear panel, a block of 8 AES50-A channels (a stage box, S32 or SD8, on the AES50 A port: its input n is AES50 A n, and a second box chained off the first box's AES50 B comes after it, so an SD8 behind an S32 is AES50 A33-40), or the CARD: the USB card, for playing back a recording from a computer."));
   const mono = def.channels.filter((c) => c.jacks.includes("mic")).length;
   for (let b = 0; b * 8 < mono; b++) {
     const range = `${b * 8 + 1}-${Math.min(mono, b * 8 + 8)}`;
@@ -505,7 +506,9 @@ export function inputRoutingPage(view, def) {
     lab.append(el("span", "", `CH ${range}`));
     const sel = el("select");
     sel.setAttribute("aria-label", `Channels ${range} input source`);
-    for (const [v, text] of [[0, `Local ${range}`], [1, `AES50 A${range}`], [2, `Card ${range} (USB)`]]) {
+    // Any AES50-A block can feed any channel block: CH 17-24 ← AES50 A33-40 is an SD8 daisy-chained behind an S32.
+    const aes = Array.from({ length: AES50_BLOCKS }, (_, k) => [k === b ? 1 : 3 + k, `AES50 A${k * 8 + 1}-${k * 8 + 8}`]);
+    for (const [v, text] of [[0, `Local ${range}`], ...aes, [2, `Card ${range} (USB)`]]) {
       const opt = el("option", "", text);
       opt.value = String(v);
       sel.appendChild(opt);

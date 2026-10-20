@@ -73,6 +73,9 @@ export const PLAYBACK_DEVICES = {
   "vj-w2": { type: "passive-wedge", label: "Wedge 2 (center)", short: "wedge 2 (center)", zone: "stage", pan: 0 },
   "vj-w3": { type: "passive-wedge", label: "Wedge 3 (right)", short: "wedge 3 (right)", zone: "stage", pan: 0.6 },
   "mains-amp": { type: "power-amp", label: "Mains amp · mains rack" },
+  // The electroacoustic showcase: an SD8 on the far side of the stage, chained off the S32's AES50 B, and the bass clarinetist's wedge.
+  "ea-sd8": { type: "sd8", label: "SD8 · far side of the stage" },
+  "ea-perf": { type: "powered-speaker", label: "Powered wedge · bass clarinetist", short: "performer's wedge", zone: "stage", pan: 0.4 },
   "hall-l": { type: "passive-speaker", label: "Hall main L", short: "hall left", zone: "foh", pan: -1 },
   "hall-r": { type: "passive-speaker", label: "Hall main R", short: "hall right", zone: "foh", pan: 1 },
   lobby: { type: "powered-speaker", label: "Powered speaker · lobby", short: "lobby", zone: "lobby", pan: 0 },
@@ -1326,8 +1329,47 @@ const VJ_GIGS = {
   },
 };
 
+// The Chapman Faculty Electroacoustic Showcase in Salmon Recital Hall
+// (2026-10-18; the Salmon Simulator's showcase signal flow and MUS 248's
+// Electroacoustic Showcase Gig Checklist), on the hall's full-size X32. The
+// S32 in the stage-side rack is on the X32's AES50 A; an SD8 on the far side
+// of the stage hangs off the S32's AES50 B, so its inputs arrive as AES50
+// A33-40. ROUTING: CH 25-32 ← AES50 A25-32 (the S32, Salmon's default),
+// CH 17-24 ← AES50 A33-40 (the SD8). The Mac mini at FOH plays the
+// electronics into AUX IN 1/2 and a click into LOCAL 1 (in the hall it was an
+// AUX IN; the lab's X32 has AUX IN 1/2 only). MIX 3 is the bass clarinetist's
+// wedge: click, track and a little of the clarinet, XLR OUT 3 → AES50 → SD8
+// OUT 3 (OUTPUT switch on 1-8). The click is off MAIN LR. MAIN L/R go to the
+// hall's mains. TUNNEL's own 8-channel system isn't here: it never touched the X32.
+const EA_GIGS = {
+  x32: {
+    prompt: "The electroacoustic showcase in Salmon Recital Hall, on the hall's full-size X32. On stage, the S32 (on the X32's AES50 A) takes the bass clarinet mic on IN 25, the condenser inside the grand piano on IN 26 and the guitarist's rig on IN 27: ROUTING has CH 25-32 on AES50 A25-32. On the far side of the stage, an SD8 hangs off the S32's AES50 B (a daisy chain), so its inputs arrive as AES50 A33-40: the flower-pot mic on SD8 IN 1 and the MalletKAT rig on IN 2, heard on CH 17-18 because ROUTING puts CH 17-24 on AES50 A33-40. At FOH the Mac mini plays the electronics into AUX IN 1/2 and a click into LOCAL 1. MIX 3 is the bass clarinetist's wedge (click, track and a little clarinet): XLR OUT 3 reaches SD8 OUT 3 with the SD8's OUTPUT switch on 1-8. The click is off MAIN LR: the audience never hears it. MAIN L/R go to the hall's mains. The audio stands in for the pieces: FTW's woodwinds, strings, guitar, percussion, vocals and synths, and a click.",
+    patch: { "ea-click": [0, "mic"], "ea-track": [32, "lr"] },
+    // Sources on a stage box: [box, its input number, the console channel that hears it].
+    boxPatch: { "ea-pots": ["ea-sd8", 1, 16], "ea-kat": ["ea-sd8", 2, 17], "ea-bcl": ["s32", 25, 24], "ea-piano": ["s32", 26, 25], "ea-guitar": ["s32", 27, 26] },
+    cableFor: { "ea-click": "xlr-trs", "ea-kat": "xlr-trs" },
+    inSource: [0, 0, 3 + 4, 1],
+    devices: ["s32", "ea-sd8", "ea-perf", "mains-amp", "hall-l", "hall-r"],
+    cables: [
+      { from: "s32/aes50a", to: "mixer/aes50a", cable: "cat5" },
+      { from: "ea-sd8/aes50a", to: "s32/aes50b", cable: "cat5" },
+      { from: "ea-sd8/out3", to: "ea-perf/in", cable: "xlr" },
+      { from: "mixer/out15", to: "mains-amp/in-a", cable: "xlr" },
+      { from: "mixer/out16", to: "mains-amp/in-b", cable: "xlr" },
+      { from: "mains-amp/out-a", to: "hall-l/in", cable: "speaker" },
+      { from: "mains-amp/out-b", to: "hall-r/in", cable: "speaker" },
+    ],
+    sends: { mix3: { "ea-click": 0, "ea-track": -4, "ea-bcl": -8 } },
+    preFor: ["mix3"],
+    lrOff: ["ea-click"],
+    hpf: { "ea-pots": 0.15, "ea-bcl": 0.1, "ea-piano": 0.1, "ea-guitar": 0.1 },
+    dyn: {},
+    scenes: [{ name: "Showcase" }],
+  },
+};
+
 // Each band's version of the gigs, over Persephone's.
-const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS, cob: COB_GIGS, vj: VJ_GIGS };
+const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS, cob: COB_GIGS, vj: VJ_GIGS, ea: EA_GIGS };
 
 // A mixer's Free play gig for the band on stage.
 export function gigFor(model) {
@@ -1361,6 +1403,12 @@ function buildCompactState(model, sourcesById) {
   const addCable = (c) => state.rig.cables.push({ id: `c${++n}`, ...c });
   const tape = def.channels.length;
   for (const s of sources) {
+    // A source on a stage box input (the console hears it over AES50).
+    const box = gig.boxPatch?.[s.id];
+    if (box) {
+      addCable({ from: `${sourceDeviceId(s.id)}/out`, to: `${box[0]}/in${box[1]}`, cable: gig.cableFor?.[s.id] || defaultCableFor(s) });
+      continue;
+    }
     const where = gig.patch[s.id];
     if (!where) continue; // no channel left for this one
     const [index, jack] = where[0] === "tape" ? [tape, "tape-in"] : where;
@@ -1376,10 +1424,12 @@ function buildCompactState(model, sourcesById) {
     addCable({ from: "reverb/out-r", to: `mixer/${gig.reverb.ret}-r`, cable: "trs" });
   }
 
+  // Input routing first: a stage box's sources only reach their channels through it.
+  if (gig.inSource) state.rig.devices.find((d) => d.id === "mixer").inSource = [...gig.inSource];
   // Gain-stage and mix what is patched.
   const mix = compactModel(model).computeMix(state, sourcesById, STEMS, (src) => sourcePeakDb(src, STEMS));
   for (const s of sources) {
-    const where = gig.patch[s.id];
+    const where = gig.patch[s.id] || (gig.boxPatch?.[s.id] && [gig.boxPatch[s.id][2], "aes"]);
     if (!where || where[0] === "tape") continue;
     const ch = state.channels[where[0]];
     const c = def.channels[where[0]];
@@ -1400,6 +1450,7 @@ function buildCompactState(model, sourcesById) {
     // A LEVEL that is also the gain (B207MP3) has to make up the source's level as well.
     ch.level = levelLaw(def).toPos(def.levelIsGain ? s.mixDb - s.outputDb - channelGainDb(def, ch, input) : s.mixDb);
     if (!ch.stereo && !def.mono) ch.pan = gig.pans?.[s.id] ?? s.pan;
+    if ((gig.lrOff || []).includes(s.id)) ch.lr = false; // MAIN LR switch off: in its mixes, not the house
     if (c.lowCut && !["drums", "bass"].includes(s.id)) ch.lowCut = true;
     for (const [sid, levels] of Object.entries(gig.sends)) {
       if (!(sid in ch.sends) || !(s.id in levels)) continue;

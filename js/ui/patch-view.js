@@ -17,6 +17,9 @@ import {
   listPorts,
   mixerOf,
   plugFitsJack,
+  SD8_BANKS,
+  aesOffset,
+  inSourceName,
   throughLinks,
 } from "../connection-model.js";
 import { modelOf } from "../mixer-state.js";
@@ -224,15 +227,24 @@ export class PatchView {
     const links = throughLinks(rig).filter((l) => l.via === d.id);
     const live = mix.channels.filter((c) => c.input.connected && links.some((l) => l.from === c.input.fromPort));
     const plugged = listPorts(rig, d).filter((p) => cableAt(rig, p.ref) && !p.network);
-    const net = listPorts(rig, d).find((p) => p.network);
-    const up = net && cableAt(rig, net.ref);
+    const nets = listPorts(rig, d).filter((p) => p.network);
     const mixer = mixerOf(rig);
-    const blocks = mixer.inSource ? mixer.inSource.map((v, b) => `CH ${b * 8 + 1}–${b * 8 + 8}: ${["LOCAL", "AES50-A", "CARD (USB)"][v] || "LOCAL"}`).join(" · ") : "";
+    const offset = type.passthrough || !mixer ? null : aesOffset(rig, d, mixer);
+    const blocks = mixer.inSource ? mixer.inSource.map((v, b) => `CH ${b * 8 + 1}–${b * 8 + 8}: ${inSourceName(mixer.inSource, b)}`).join(" · ") : "";
+    const span = offset === null ? "" : `AES50 A${offset + 1}–${offset + type.ins}`;
+    const link = offset === 0 ? `✓ AES50 link to the console: its inputs are ${span}.`
+      : offset !== null ? `✓ AES50 link through the box before it (its AES50 B): this box's inputs come after that box's, as ${span}.`
+      : "No AES50 link: a Cat5 cable from AES50 A into the console's AES50 A, or into the AES50 B of a box that is linked.";
+    const shift = (d.outBank || 0) * 8;
+    const outs = type.bank ? `OUTPUT switch on ${SD8_BANKS[d.outBank || 0]}: OUT n carries AES50 output ${shift ? `n + ${shift}` : "n"}. In Salmon, AES50 outputs 1–16 carry the console's XLR OUT 1–16, and 17–24 repeat OUT 1–8.` : "OUT n carries the console's XLR OUT n.";
     const ins = plugged.filter((p) => p.dir === "in" && (p.role === "sb-in" || p.end === "stage")).length;
     const status = !plugged.length ? "idle" : live.length >= ins ? "ok" : "warn";
     const note = type.passthrough
       ? "Passive: IN n on stage comes out as tail n at FOH, phantom power included. RETURN sends at FOH come out on stage."
-      : `${up ? "✓ AES50 link to the console." : "No AES50 link: plug a Cat5 cable from AES50 A into the console's AES50 A."} The console's GAIN and 48V drive these preamps. ROUTING: ${blocks}. OUT n carries the console's XLR OUT n.`;
+      : `${link} The console's GAIN and 48V drive these preamps. ROUTING: ${blocks}. ${outs}`;
+    const bank = type.bank
+      ? `<div class="dev-settings"><label>OUTPUT switch <select data-device="${esc(d.id)}" data-device-key="outBank" aria-label="${esc(d.label || type.name)} OUTPUT switch">${SD8_BANKS.map((t, i) => `<option value="${i}"${(d.outBank || 0) === i ? " selected" : ""}>${t}</option>`).join("")}</select></label></div>`
+      : "";
     return this.card(d.id, `<li class="source-card status-${status}" data-device-card="${esc(d.id)}">
       <div class="source-top">
         <span class="source-order">BOX</span>
@@ -241,7 +253,8 @@ export class PatchView {
         <span class="status-pill status-${status}">${live.length} on the console</span>
       </div>
       <p class="source-note">${esc(note)}</p>
-      ${net ? this.portButton(net.ref, net.dir) : ""}
+      ${bank}
+      ${nets.map((p) => this.portButton(p.ref, p.dir)).join("")}
       ${plugged.map((p) => this.portButton(p.ref, p.dir)).join("")}
     </li>`);
   }

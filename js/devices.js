@@ -108,8 +108,9 @@ const KEYS = {
   sd442: { outLevel: range(0, 2, 1) }, // the 442's XLR OUTPUT LEVEL: 0 = MIC, 1 = −10, 2 = LINE
   f8n: { mainLevel: range(0, 1, 1), subLevel: range(0, 1, 1) },
   l20: Object.fromEntries(["A", "B", "C", "D", "E", "F"].map((x) => [`phones${x}`, range(0, 1, 1)])), // MONITOR OUT PHONES/SPEAKER switches (0 = SPEAKER)
-  x32: { inSource: range(0, 2, 1) }, // ROUTING inputs, per block of 8: 0 = LOCAL, 1 = AES50-A, 2 = CARD (the USB card)
-  x32c: { inSource: range(0, 2, 1) },
+  x32: { inSource: range(0, 8, 1) }, // ROUTING inputs, per block of 8: 0 = LOCAL, 1 = AES50-A (same numbers), 2 = CARD (the USB card), 3 + k = AES50-A block k (connection-model aesBlockOf)
+  x32c: { inSource: range(0, 8, 1) },
+  sd8: { outBank: range(0, 2, 1) }, // the SD8's OUTPUT switch: 0 = 1-8, 1 = 9-16, 2 = 17-24
   cl3: { danteRx: range(0, 16, 1), inPatch: range(0, 1, 1) }, // Dante Controller subscriptions (0 = none); INPUT PATCH 0 = Rio, 1 = Dante
   "daw-dvs": { outs: range(0, 16, 1) }, // each DAW track's output: DVS channel 1–16 (0 = none) // Output Level: MAIN OUT 0 = LINE, 1 = NORMAL; SUB OUT 0 = NORMAL, 1 = MIC
   "zoom-f8": {
