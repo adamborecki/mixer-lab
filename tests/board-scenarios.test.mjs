@@ -618,7 +618,7 @@ Object.assign(SOLVE, {
     a.set("guitars", "gainDb", 36);
   },
   "x1204usb-comp": (a) => a.set("lead-vocal", "comp", 0.4),
-  "x1204usb-slapback": (a) => a.st.setBus("fx", "program", 9),
+  "x1204usb-slapback": (a) => a.st.setBus("fx", "program", 15),
   "x1204usb-ret-mon": (a) => {
     a.st.setBus("ret1", "mon", 0.5);
     a.st.setListen("aux1");
@@ -729,7 +729,7 @@ Object.assign(WRONG, {
   }]],
   "x1204usb-pfl": [["gain without listening", (a) => a.set("guitars", "gainDb", 36)]],
   "x1204usb-comp": [["COMP all the way", (a) => a.set("lead-vocal", "comp", 1)]],
-  "x1204usb-slapback": [["a hall", (a) => a.st.setBus("fx", "program", 1)]],
+  "x1204usb-slapback": [["a hall", (a) => a.st.setBus("fx", "program", 1)], ["the long delay", (a) => a.st.setBus("fx", "program", 18)]],
   "x1204usb-ret-mon": [["RET 1 louder in the house", (a) => {
     a.st.setBus("ret1", "level", 0.8);
     a.st.setListen("aux1");
@@ -1351,13 +1351,28 @@ Object.assign(WRONG, {
 });
 
 // Karaoke in BH 109: the Xenyx gig on the room's own rack (Ashly Ch.1 → Crown → wall speakers).
-const KY_FX = (a) => COMPACT.x1204usb.fx.presets.findIndex((p) => p.name === "DELAY + REVERB");
+const KY_FX = () => COMPACT.x1204usb.fx.presets.findIndex((p) => p.group === "COMBINATION FX");
 Object.assign(SOLVE, {
   "x1204usb-ky-house": (a) => {
     assert.ok(a.st.connect("mixer/main-l", "bh109-rack/in-a", "xlr-trs").ok);
     assert.ok(a.st.connect("mixer/main-r", "bh109-rack/in-b", "xlr-trs").ok);
   },
-  "x1204usb-ky-mic": (a) => a.st.setDevice("bh109-rack", "ashlyMic", 0),
+  "x1204usb-ky-one-side": (a) => assert.ok(a.st.connect("mixer/main-r", "bh109-rack/in-b", "xlr-trs").ok),
+  "x1204usb-ky-cr": (a) => {
+    a.unplugAt("bh109-rack/in-a");
+    a.unplugAt("bh109-rack/in-b");
+    assert.ok(a.st.connect("mixer/main-l", "bh109-rack/in-a", "xlr-trs").ok);
+    assert.ok(a.st.connect("mixer/main-r", "bh109-rack/in-b", "xlr-trs").ok);
+  },
+  "x1204usb-ky-mic-line": (a) => {
+    a.unplugAt("mixer/ch2-line");
+    assert.ok(a.st.connect("src-ky-mic2/out", "mixer/ch2-mic", "xlr").ok);
+  },
+  "x1204usb-ky-2track": (a) => {
+    a.unplugAt("mixer/tape-in");
+    assert.ok(a.st.connect("src-ky-track/out", "mixer/ch5-lr", "mini-dual-ts").ok);
+  },
+  "x1204usb-ky-comp": (a) => a.set("ky-mic2", "comp", 0.8),
   "x1204usb-ky-minus10": (a) => {
     a.set("ky-track", "minus10", true);
     a.set("ky-v3", "minus10", true);
@@ -1365,7 +1380,7 @@ Object.assign(SOLVE, {
   "x1204usb-ky-lowcut": (a) => ["ky-mic1", "ky-mic2"].forEach((s) => a.set(s, "lowCut", true)),
   "x1204usb-ky-alt": (a) => a.set("ky-mic2", "enabled", true),
   "x1204usb-ky-reverb": (a) => a.st.setBus("ret2", "toAlt", false),
-  "x1204usb-ky-program": (a) => a.st.setBus("fx", "program", KY_FX(a)),
+  "x1204usb-ky-program": (a) => a.st.setBus("fx", "program", KY_FX()),
   "x1204usb-ky-v3": (a) => assert.ok(a.st.connect("src-ky-v3/out", "mixer/ch6-l", "ts").ok),
 });
 
@@ -1377,7 +1392,19 @@ Object.assign(WRONG, {
     assert.ok(a.st.connect("mixer/main-r", "bh109-rack/in-a", "xlr-trs").ok);
     assert.ok(a.st.connect("mixer/main-l", "bh109-rack/in-b", "xlr-trs").ok);
   }]],
-  "x1204usb-ky-mic": [["MAIN MIX down instead", (a) => a.st.setBus("main", "level", LAWS.level.toPos(-30))]],
+  "x1204usb-ky-one-side": [["MAIN L into both sides", (a) => {
+    a.unplugAt("bh109-rack/in-a");
+    assert.ok(a.st.connect("mixer/main-l", "bh109-rack/in-b", "xlr-trs").ok);
+  }]],
+  "x1204usb-ky-cr": [["ALT 3-4 OUTPUTS instead", (a) => {
+    a.unplugAt("bh109-rack/in-a");
+    a.unplugAt("bh109-rack/in-b");
+    assert.ok(a.st.connect("mixer/alt-l", "bh109-rack/in-a", "trs").ok);
+    assert.ok(a.st.connect("mixer/alt-r", "bh109-rack/in-b", "trs").ok);
+  }]],
+  "x1204usb-ky-mic-line": [["GAIN all the way up instead", (a) => a.set("ky-mic2", "gainDb", 60)]],
+  "x1204usb-ky-2track": [["5/6's fader up, with nothing in it", (a) => a.st.setChannel(4, "level", 0.9)]],
+  "x1204usb-ky-comp": [["channel 2's COMP all the way", (a) => a.set("ky-mic2", "comp", 1)], ["channel 2's fader down instead", (a) => a.nudge("ky-mic2", -6)]],
   "x1204usb-ky-minus10": [["faders up instead", (a) => {
     a.nudge("ky-track", 10);
     a.nudge("ky-v3", 10);

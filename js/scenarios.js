@@ -795,7 +795,7 @@ export const COMPACT_GIGS = {
     sends: { reverb: { "lead-vocal": -8, "backing-vocals": -10 } },
   },
   x1204usb: {
-    prompt: "The band on a Behringer Xenyx X1204USB: both vocals, guitar and bass on the four mic channels, keys on 5/6, the laptop on 7/8 (switched to −10 dBV, level down). AUX 1, with PRE pressed on each channel, feeds the singer's wedge; the FX send feeds the built-in effects, which come back on RETURN 2. The lead vocal has a little COMP.",
+    prompt: "The band on a Behringer Xenyx QX1204USB: both vocals, guitar and bass on the four mic channels, keys on 5/6, the laptop on 7/8 (switched to −10 dBV, level down). AUX 1, with PRE pressed on each channel, feeds the singer's wedge; the FX send feeds the built-in effects, which come back on RETURN 2. The lead vocal has a little COMP.",
     patch: { "lead-vocal": [0, "mic"], "backing-vocals": [1, "mic"], guitars: [2, "mic"], bass: [3, "mic"], keys: [4, "l"], preshow: [5, "lr"] },
     devices: ["spk-l", "spk-r", "wedge"],
     cables: [
@@ -1082,7 +1082,7 @@ const NOSTRADAMUS_GIGS = {
     patch: { "lead-vocal": [0, "mic"], "backing-vocals": [1, "mic"], guitars: [2, "in"], bass: [3, "in"], pads: [5, "mini"] },
   },
   x1204usb: {
-    prompt: "NOSTRADAMUS on a Behringer Xenyx X1204USB: lead and backing vocal, rhythm guitar and bass on the four mic channels, the pads laptop on 5/6 (switched to −10 dBV). AUX 1, with PRE pressed on each channel, feeds the singer's wedge; the FX send feeds the built-in effects, which come back on RETURN 2. The lead vocal has a little COMP.",
+    prompt: "NOSTRADAMUS on a Behringer Xenyx QX1204USB: lead and backing vocal, rhythm guitar and bass on the four mic channels, the pads laptop on 5/6 (switched to −10 dBV). AUX 1, with PRE pressed on each channel, feeds the singer's wedge; the FX send feeds the built-in effects, which come back on RETURN 2. The lead vocal has a little COMP.",
     patch: { "lead-vocal": [0, "mic"], "backing-vocals": [1, "mic"], guitars: [2, "mic"], bass: [3, "mic"], pads: [4, "lr"] },
     sends: { aux1: { "lead-vocal": 0, "backing-vocals": -6, guitars: -10, bass: -10, pads: -10 }, fx: { "lead-vocal": -6, "backing-vocals": -8 } },
     minus10: ["pads"],
@@ -1188,7 +1188,7 @@ const FTW_GIGS = {
     sends: { reverb: { "lead-vocal": -8, brass: -12 } },
   },
   x1204usb: {
-    prompt: "FTW on a Behringer Xenyx X1204USB: the vocal, the string section mic, guitar and bass on the four mic channels, the synths laptop on 5/6 (switched to −10 dBV). AUX 1, with PRE pressed on each channel, feeds the singer's wedge; the FX send feeds the built-in effects, which come back on RETURN 2. The vocal has a little COMP.",
+    prompt: "FTW on a Behringer Xenyx QX1204USB: the vocal, the string section mic, guitar and bass on the four mic channels, the synths laptop on 5/6 (switched to −10 dBV). AUX 1, with PRE pressed on each channel, feeds the singer's wedge; the FX send feeds the built-in effects, which come back on RETURN 2. The vocal has a little COMP.",
     patch: { "lead-vocal": [0, "mic"], strings: [1, "mic"], guitars: [2, "mic"], bass: [3, "mic"], synths: [4, "lr"] },
     sends: { aux1: { "lead-vocal": 0, strings: -12, guitars: -10, bass: -10, synths: -10 }, fx: { "lead-vocal": -6, strings: -12 } },
     minus10: ["synths"],
@@ -1376,14 +1376,14 @@ const EA_GIGS = {
 // on a Behringer Xenyx: two SM58s on CH 1 and 2 (LOW CUT on, COMP about
 // 3 o'clock), the karaoke laptop on LINE IN 5/6, an SM58 through a Zoom V3 on
 // 7/8 L (MONO), both stereo channels at −10. The four mics' FX sends feed the
-// built-in DELAY + REVERB (the room's DLY + REV), back on RETURN 2 at unity
+// built-in effects (the room's DLY + REV, a COMBINATION FX preset), back on RETURN 2 at unity
 // into the MAIN MIX. MAIN OUTPUTS L/R → XLR-to-TRS → the rack's AUX AUDIO INPUT
 // L/R → the Ashly's Ch.1 (on LINE) → the Crown → the two passive wall speakers.
-// AUX 1 isn't used. The lab's Xenyx is the X1204USB; BH 109's is the QX1204USB,
-// whose built-in effects have different presets.
+// AUX 1 isn't used. Which COMBINATION FX preset is the room's DLY + REV isn't
+// confirmed: the gig starts on the first one.
 const KARAOKE_GIGS = {
   x1204usb: {
-    prompt: "Karaoke in BH 109, the choir room, on a Behringer Xenyx: two singers on SM58s on CH 1 and 2 (LOW CUT on, COMP about 3 o'clock), the karaoke laptop on LINE IN 5/6, and a third singer's SM58 through a Zoom V3 vocal processor, its OUTPUT L into 7/8 L (MONO). Both stereo channels are switched to −10. The singers' FX knobs feed the built-in DELAY + REVERB, which comes back on RETURN 2 into the MAIN MIX. The PA is the room's own: MAIN OUTPUTS L/R on XLR-to-TRS cables into the rack's AUX AUDIO INPUT, through the Ashly line mixer's Ch.1 (on LINE) to the Crown amp and the two passive wall speakers. AUX 1 isn't used.",
+    prompt: "Karaoke in BH 109, the choir room, on a Behringer Xenyx: two singers on SM58s on CH 1 and 2 (LOW CUT on, COMP about 3 o'clock), the karaoke laptop on LINE IN 5/6, and a third singer's SM58 through a Zoom V3 vocal processor, its OUTPUT L into 7/8 L (MONO). Both stereo channels are switched to −10. The singers' FX knobs feed the built-in effects (DLY + REV, a COMBINATION FX preset), which come back on RETURN 2 into the MAIN MIX. The PA is the room's own: MAIN OUTPUTS L/R on XLR-to-TRS cables into the rack's AUX AUDIO INPUT, through the Ashly line mixer's Ch.1 (on LINE) to the Crown amp and the two passive wall speakers. AUX 1 isn't used.",
     patch: { "ky-mic1": [0, "mic"], "ky-mic2": [1, "mic"], "ky-track": [4, "lr"], "ky-v3": [5, "l"] },
     cableFor: { "ky-v3": "ts" },
     devices: ["bh109-rack", "bh109-l", "bh109-r"],
@@ -1397,9 +1397,9 @@ const KARAOKE_GIGS = {
     pre: false,
     comp: { "ky-mic1": 0.8, "ky-mic2": 0.8 },
     minus10: ["ky-track", "ky-v3"],
-    // The effects on DELAY + REVERB, RETURN 2 at unity.
+    // The effects on a COMBINATION FX preset (the room's DLY + REV), RETURN 2 at unity.
     tweak: (state) => {
-      state.fx.program = COMPACT.x1204usb.fx.presets.findIndex((p) => p.name === "DELAY + REVERB");
+      state.fx.program = COMPACT.x1204usb.fx.presets.findIndex((p) => p.group === "COMBINATION FX");
       state.ret2.level = COMPACT_LAWS.ret20.toPos(0);
     },
   },

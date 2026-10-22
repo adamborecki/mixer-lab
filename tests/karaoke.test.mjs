@@ -37,9 +37,10 @@ describe("Karaoke in BH 109", () => {
     useSong(DEFAULT_SONG);
   });
 
-  it("starts the effects on DELAY + REVERB, back in the MAIN MIX", () => {
+  it("starts the effects on a COMBINATION FX preset (the room's DLY + REV), back in the MAIN MIX", () => {
     const { st } = gig();
-    assert.equal(fxPreset(COMPACT.x1204usb, st.state.fx.program).name, "DELAY + REVERB");
+    assert.equal(fxPreset(COMPACT.x1204usb, st.state.fx.program).group, "COMBINATION FX");
+    assert.equal(fxPreset(COMPACT.x1204usb, st.state.fx.program).number, 27);
     assert.equal(st.state.ret2.toAlt, false);
     useSong(DEFAULT_SONG);
   });

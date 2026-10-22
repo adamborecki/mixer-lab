@@ -168,9 +168,9 @@ export const GIGS = [
     title: "Karaoke in BH 109",
     venue: "BH 109, the choir room",
     question: "Can you run karaoke through the room's own PA?",
-    concept: "Singers on SM58s, a karaoke laptop and a Zoom V3 vocal processor into a Behringer Xenyx, its built-in delay and reverb on RETURN 2, and the choir room's own rack as the PA: AUX AUDIO INPUT, the Ashly line mixer's Ch.1, and a Crown amp driving the passive wall speakers. Every fault here is on the BH 109 Karaoke Gig Checklist.",
+    concept: "Singers on SM58s, a karaoke laptop and a Zoom V3 vocal processor into a Behringer Xenyx QX1204USB, its built-in delay and reverb on RETURN 2, and the choir room's own rack as the PA: AUX AUDIO INPUT, the Ashly line mixer's Ch.1, and a Crown amp driving the passive wall speakers. Every fault here is on the BH 109 Karaoke Gig Checklist.",
     checklist: `${SITE}/bh109-karaoke-gig-checklist/`,
-    ids: ["x1204usb-ky-house", "x1204usb-ky-mic", "x1204usb-ky-minus10", "x1204usb-ky-lowcut", "x1204usb-ky-alt", "x1204usb-ky-reverb", "x1204usb-ky-program", "x1204usb-ky-v3"],
+    ids: ["x1204usb-ky-house", "x1204usb-ky-one-side", "x1204usb-ky-cr", "x1204usb-ky-v3", "x1204usb-ky-mic-line", "x1204usb-ky-2track", "x1204usb-ky-minus10", "x1204usb-ky-comp", "x1204usb-ky-alt", "x1204usb-ky-reverb", "x1204usb-ky-program", "x1204usb-ky-lowcut"],
   },
 ];
 export const isGig = (t) => !!t && GIGS.includes(t);
