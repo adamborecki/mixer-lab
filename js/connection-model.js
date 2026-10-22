@@ -351,6 +351,36 @@ DEVICE_TYPES["passive-wedge"] = {
   blurb: "No amp inside. Its two speakON jacks are wired together: either one takes the amp, the other passes it on to the next wedge.",
 };
 
+// BH 109, the choir room (MUS 248's BH 109 Karaoke Gig Checklist): the room's
+// rack as one box. Its AUX AUDIO INPUT jacks (1/4", on an Extron plate) feed the
+// Ashly LX-308B line mixer's Ch.1; the Ashly's stereo output drives a Crown
+// XLi 2500, wired to the two passive wall speakers. Ch.1 has a Line / Mic
+// button (`micSwitch`: the rig device's `ashlyMic`, 0 = LINE, 1 = MIC, +30 dB):
+// MIC on a line-level feed distorts (in the room, it fed back). The Ashly's
+// other knobs aren't modelled: the room's level is left where the rack sets it.
+DEVICE_TYPES["bh109-rack"] = {
+  name: "BH 109 rack · Ashly LX-308B Ch.1 → Crown XLi 2500",
+  poweramp: true,
+  micSwitch: { key: "ashlyMic", gainDb: 30 },
+  ports: [
+    { id: "in-a", dir: "in", jack: "quarter", level: "line", role: "amp-in", pair: "a", name: 'AUX AUDIO INPUT LEFT (1/4")', short: "AUX AUDIO L" },
+    { id: "in-b", dir: "in", jack: "quarter", level: "line", role: "amp-in", pair: "b", name: 'AUX AUDIO INPUT RIGHT (1/4")', short: "AUX AUDIO R" },
+    { id: "out-a", dir: "out", jack: "quarter", level: "speaker", role: "amp-out", pair: "a", name: "Crown CH 1 (left wall speaker)", short: "CROWN CH 1" },
+    { id: "out-b", dir: "out", jack: "quarter", level: "speaker", role: "amp-out", pair: "b", name: "Crown CH 2 (right wall speaker)", short: "CROWN CH 2" },
+  ],
+  blurb: "The room's own rack: line level into AUX AUDIO INPUT, through the Ashly line mixer's Ch.1, and the Crown amp drives the wall speakers. Ch.1 stays on LINE.",
+};
+// A passive speaker on the wall, driven by the room's amp. `clips`: the audio
+// engine puts a clipper in front of it, so a too-hot rack (MIC) is heard.
+DEVICE_TYPES["wall-speaker"] = {
+  name: "Passive wall speaker",
+  endpoint: true,
+  amp: "none",
+  clips: true,
+  ports: [{ id: "in", dir: "in", jack: "quarter", level: "speaker", name: 'Speaker in (1/4")' }],
+  blurb: "No amp inside: the room's Crown amp drives it, wired through the wall.",
+};
+
 // ---------- stage boxes ----------
 
 // An analog snake: a stage box of XLR inputs, a multicore to FOH, and a fan of
@@ -908,6 +938,16 @@ function analyzeEndpoint(rig, device, byTo) {
       result.output = src.id;
       result.valid = true;
       result.status = "ok";
+      // A line mixer in front of the amp (BH 109's Ashly) with its MIC button in.
+      const sw = DEVICE_TYPES[up.device.type].micSwitch;
+      if (sw) {
+        result.gainDb = up.device[sw.key] === 1 ? sw.gainDb : 0;
+        if (result.gainDb) {
+          result.status = "hot";
+          result.hotWhy = "the rack's line mixer is set to MIC";
+          result.messages.push(`Line level into the rack's line mixer set to MIC: ${sw.gainDb} dB too hot, so it distorts (in a room, it feeds back). Set it to LINE.`);
+        }
+      }
       return result;
     }
     result.status = "invalid";

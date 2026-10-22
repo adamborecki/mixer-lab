@@ -357,6 +357,7 @@ export class PatchView {
             .map((p) => this.portButton(p.ref, p.dir))
             .join("")}</div>
         </div>
+        ${micSwitchHtml(d)}
       </li>`),
       )
       .join("");
@@ -399,6 +400,14 @@ export class PatchView {
       <h3 class="group-title">${icon("role-destination", { size: 22 })}${speakers.every((d) => DEVICE_TYPES[d.type].camera) ? "Camera — does the level match?" : "Speakers — where is the amplifier?"}</h3>
       <ul class="device-list">${spkHtml}</ul>`;
   }
+}
+
+// A line mixer's Line / Mic button in front of an amp (BH 109's rack: the Ashly's Ch.1).
+function micSwitchHtml(d) {
+  const sw = DEVICE_TYPES[d.type].micSwitch;
+  if (!sw) return "";
+  const on = d[sw.key] === 1;
+  return `<div class="dev-settings"><label>Ashly Ch.1 <select data-device="${esc(d.id)}" data-device-key="${sw.key}" aria-label="${esc(d.label)}: Ashly Ch.1 Line / Mic button"><option value="0"${on ? "" : " selected"}>LINE</option><option value="1"${on ? " selected" : ""}>MIC (+${sw.gainDb} dB)</option></select></label></div>`;
 }
 
 // ---------- the patch dialog ----------

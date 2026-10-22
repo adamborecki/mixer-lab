@@ -45,6 +45,8 @@ In the scenarios and Free play, Aux 1 feeds the lead singer's powered wedge and 
 - **COB in Irvine**: a musical with twelve wireless headsets and backing tracks on the X32 Compact, an SD8 carrying its outputs to a STAGEPAS 600BT and a chain of B207MP3 wedges. Free play on the X32 Compact can put it on stage (Song: COB in Irvine).
 - **Electroacoustic showcase in Salmon**: the faculty showcase of October 18, 2026 on Salmon's X32: an S32 on AES50 A and an SD8 daisy-chained off its AES50 B (inputs on AES50 A33-40), a click for the performer only, and the fault that actually happened: the SD8's outputs died mid-piece. FTW's stems stand in for the pieces, plus a click on FTW's beat grid (Song: Electroacoustic showcase).
 
+- **Karaoke in BH 109**: singers on SM58s, a karaoke laptop and a Zoom V3 vocal processor into the Xenyx, its built-in delay and reverb on RETURN 2, and the choir room's own PA: AUX AUDIO INPUT, the Ashly line mixer's Ch.1 (LINE, never MIC) and a Crown amp driving the passive wall speakers. Free play on the Xenyx can put it on (Song: Karaoke in BH 109).
+
 A gig's scenarios live only there: they aren't in a topic or on their mixer's By mixer list.
 
 **By mixer** (in the top bar) lists 18 consoles, from the generic Mixer A to the Yamaha CL3, each with its own practice scenarios and Free play gig. Assignment 1 as it was due is frozen at `/legacy/`. See [docs/HANDOFF.md](docs/HANDOFF.md).

@@ -203,8 +203,10 @@ export class AudioEngine {
     const rig = analyzeRig(state.rig, state.channels, SOURCES_BY_ID);
     this.mixer.apply(state, rig, SOURCES_BY_ID);
     for (const ep of rig.endpoints) {
-      const node = ep.camera && this.endpointNodes.get(ep.deviceId);
-      if (node) this.set(node.input.gain, dbToGain(ep.gainDb));
+      const node = (ep.camera || ep.gainDb !== undefined) && this.endpointNodes.get(ep.deviceId);
+      if (node) this.set(node.input.gain, dbToGain(ep.gainDb ?? 0));
+      // A clipping wall speaker (BH 109): the distortion is heard, not a jump in level.
+      if (node?.trim && !ep.camera) this.set(node.trim.gain, ep.gainDb ? 0.3 : 1);
     }
     for (const dev of state.rig.devices) {
       const d = this.devices.get(dev.id);
@@ -317,15 +319,18 @@ export class AudioEngine {
         const pan = this.ctx.createStereoPanner();
         // A camera input: its gain is the camera's MIC/LINE preamp, and it clips
         // like one (set in applyAll), so a level mismatch is heard.
+        // A wall speaker behind a line mixer (BH 109) clips the same way when it's set to MIC.
         const dev = state.rig.devices.find((d) => d.id === ep.deviceId);
-        if (DEVICE_TYPES[dev?.type]?.camera) {
+        const type = DEVICE_TYPES[dev?.type];
+        let trim = null;
+        if (type?.camera || type?.clips) {
           const clip = this.ctx.createWaveShaper();
           clip.curve = new Float32Array([-1, 1]);
-          const trim = this.ctx.createGain();
-          trim.gain.value = 0.5;
+          trim = this.ctx.createGain();
+          trim.gain.value = type.camera ? 0.5 : 1;
           input.connect(clip).connect(trim).connect(pan);
         } else input.connect(pan);
-        node = { input, pan };
+        node = { input, pan, trim };
         this.endpointNodes.set(ep.deviceId, node);
       }
       node.pan.pan.value = ep.pan * 0.8;

@@ -789,6 +789,67 @@ const COB_SOURCES = [
   },
 ];
 
+// ---------- Karaoke in BH 109: NOSTRADAMUS as a karaoke track ----------
+
+// A karaoke night in BH 109, the choir room (MUS 248's BH 109 Karaoke Gig
+// Checklist): singers on SM58s and a laptop playing the karaoke track into a
+// Behringer Xenyx, with one more SM58 through a Zoom V3 vocal processor. COB's
+// backing track (NOSTRADAMUS's instruments summed) is the karaoke track, and
+// NOSTRADAMUS's three vocal parts are the singers. Same timeline as
+// NOSTRADAMUS, so the same loops and segments.
+const KARAOKE_SET = { ...NOSTRADAMUS_SET, id: "karaoke", title: "Karaoke in BH 109", artist: "NOSTRADAMUS (Will Tulip) as a karaoke track" };
+const KARAOKE_LABELS = { "bars-2": "Verse: two singers over the track", excerpt: "Instrumental break, the V3 singer now and then", "bars-18": "Second verse", "bars-26": "Bridge: the lead singer alone", "bars-35": "Outro: the track, the V3 singer now and then" };
+KARAOKE_SET.sections = COB_SET.sections.map((s) => ({ ...s, label: KARAOKE_LABELS[s.id] }));
+const KARAOKE_STEMS = COB_STEMS;
+const karaokeSinger = (id, order, name, shortName, device, deviceType, stem, extra) => ({
+  id,
+  order,
+  name,
+  shortName,
+  musician: "Will Tulip",
+  musicianShort: "WILL",
+  device,
+  category: "Vocals",
+  deviceType,
+  signalLevel: deviceType === "dynamic-mic" ? "mic" : "line",
+  connector: deviceType === "dynamic-mic" ? "xlr" : "ts14",
+  phantom: "none",
+  stem,
+  pan: 0,
+  scenarios: ANY_SCENARIO,
+  ...extra,
+});
+const KARAOKE_SOURCES = [
+  karaokeSinger("ky-mic1", 1, "SM58 1 · lead singer", "MIC 1", "Shure SM58 (dynamic)", "dynamic-mic", "vox-main", { outputDb: -43, mixDb: 0 }),
+  karaokeSinger("ky-mic2", 2, "SM58 2 · harmony", "MIC 2", "Shure SM58 (dynamic)", "dynamic-mic", "vox-harmony", { outputDb: -46, mixDb: -3 }),
+  karaokeSinger("ky-v3", 4, "Zoom V3 · third singer", "V3", "SM58 → Zoom V3 vocal processor, OUTPUT L", "line-source", "vox-bgv", {
+    outputDb: -10,
+    mixDb: -8,
+    note: "An SM58 into the V3's MIC IN; its OUTPUT L (consumer level, about −10) on a 1/4\" TS cable into 7/8 L (MONO). The V3's own effects aren't modelled: what comes out is the singer's voice.",
+  }),
+  {
+    id: "ky-track",
+    order: 3,
+    name: "Karaoke track (laptop)",
+    shortName: "TRACK",
+    musician: "Will Tulip",
+    musicianShort: "WILL",
+    device: "Laptop — karaoke videos",
+    category: "Playback",
+    deviceType: "stereo-laptop",
+    signalLevel: "line",
+    connector: "trs35",
+    phantom: "none",
+    outputDb: -10,
+    stereo: true,
+    stem: "track",
+    mixDb: -4,
+    pan: 0,
+    scenarios: ANY_SCENARIO,
+    note: "The karaoke video's audio, in stereo: the laptop's headphone out → a 3.5 mm to dual 1/4\" cable → LINE IN 5/6, L and R.",
+  },
+];
+
 // ---------- Vocal Jazz in Salmon: NOSTRADAMUS's voices a cappella ----------
 
 // Vocal Jazz in Salmon Recital Hall (MUS 248's Vocal Jazz Gig Checklist):
@@ -896,6 +957,7 @@ export const SONGS = {
   // A gig, not just a band: its rig is the X32 Compact's, so it plays on that console only.
   cob: { id: "cob", title: "COB in Irvine", artist: "a musical (NOSTRADAMUS)", set: COB_SET, stems: COB_STEMS, sources: COB_SOURCES, consoles: ["x32c"] },
   vj: { id: "vj", title: "Vocal Jazz in Salmon", artist: "NOSTRADAMUS's voices, a cappella", set: VJ_SET, stems: VJ_STEMS, sources: VJ_SOURCES, consoles: ["x32"] },
+  karaoke: { id: "karaoke", title: "Karaoke in BH 109", artist: "a karaoke track (NOSTRADAMUS)", set: KARAOKE_SET, stems: KARAOKE_STEMS, sources: KARAOKE_SOURCES, consoles: ["x1204usb"] },
   ea: { id: "ea", title: "Electroacoustic showcase", artist: "FTW's parts as stand-ins, and a click", set: EA_SET, stems: EA_STEMS, sources: EA_SOURCES, consoles: ["x32"] },
 };
 // Can this song play on this console? A gig's song (`consoles`) only on its own.

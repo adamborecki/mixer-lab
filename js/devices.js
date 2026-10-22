@@ -105,6 +105,7 @@ const KEYS = {
   reverb: { decay: range(REVERB.decayMin, REVERB.decayMax, 0.1) },
   "stereo-mic-pair": { spacingCm: range(0, PAIR.spacingMax, 1), angleDeg: range(0, PAIR.angleMax, 1) },
   "camera-input": { inputLevel: range(0, 1, 1) }, // 0 = MIC, 1 = LINE
+  "bh109-rack": { ashlyMic: range(0, 1, 1) }, // the Ashly's Ch.1 Line / Mic button: 0 = LINE, 1 = MIC (+30 dB)
   sd442: { outLevel: range(0, 2, 1) }, // the 442's XLR OUTPUT LEVEL: 0 = MIC, 1 = −10, 2 = LINE
   f8n: { mainLevel: range(0, 1, 1), subLevel: range(0, 1, 1) },
   l20: Object.fromEntries(["A", "B", "C", "D", "E", "F"].map((x) => [`phones${x}`, range(0, 1, 1)])), // MONITOR OUT PHONES/SPEAKER switches (0 = SPEAKER)

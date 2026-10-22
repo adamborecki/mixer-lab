@@ -139,6 +139,16 @@ Moved from the topics into Chapman gigs (it was "Gig: COB in Irvine", theme `cob
 - **New devices** (`js/connection-model.js`): `wireless-headset` (a receiver channel's XLR out, mic level); `stagepas-amp`, a STAGEPAS 600BT used only as the amp (5/6 L/R line in, SPEAKERS L/R out, roles `amp-in`/`amp-out`, no knobs); `b207-speaker`, a powered wedge whose `thru` port passes its input on (`throughLinks` follows a THRU chain of any length, so the engine needed nothing new); cable `xlr-ts`. Amps are recognised by the type flag `poweramp`, not by the type name.
 - **X32 Compact additions:** ROUTING's CARD choice per input block, and the SCENES page (8 slots).
 
+### Karaoke in BH 109
+
+Eight Xenyx scenarios (`x1204usb-ky-*`, the `KY` list in `js/board-scenarios.js`), from MUS 248's BH 109 Karaoke Gig Checklist: the instructor's walkthrough of a karaoke setup in the choir room (2026-10-22) and its photos.
+
+- **Its own song**, `karaoke`: COB's backing track (NOSTRADAMUS's instruments summed) as the karaoke track on a laptop, NOSTRADAMUS's lead and harmony on two SM58s (`ky-mic1`, `ky-mic2`), and its backing vocal as the third singer through a Zoom V3 (`ky-v3`, a `line-source` at −10: the V3's own effects aren't modelled). Same timeline and segments as NOSTRADAMUS. `consoles: ["x1204usb"]`.
+- **Its own gig**, `KARAOKE_GIGS.x1204usb`: SM58s on CH 1-2 (LOW CUT on, COMP 0.8, about 3 o'clock), the laptop on LINE IN 5/6, the V3 on 7/8 L (MONO), both at −10; the mics' FX sends into DELAY + REVERB, RETURN 2 at unity into the MAIN MIX (a new gig field, `tweak(state)`, runs last in `buildCompactState`). AUX 1 unused. MAIN OUTPUTS → `xlr-trs` → the rack's AUX AUDIO INPUT L/R.
+- **New devices** (`js/connection-model.js`): `bh109-rack`, the room's rack as one `poweramp` box (AUX AUDIO INPUT L/R → the Ashly LX-308B's Ch.1 → the Crown XLi 2500 → CROWN CH 1/2) with `micSwitch` (the device's `ashlyMic`: 1 = MIC, +30 dB); `wall-speaker`, a passive speaker with `clips`. With MIC in, `analyzeEndpoint` marks the speakers `hot` (`gainDb` 30, `hotWhy`), the engine clips them (trimmed so it's distortion, not a jump in level), and the listening bar says why. The switch is a select on the rack's card (Stage & patch: tap the rack).
+- **Not real yet:** the room has a QX1204USB, whose Klark Teknik effects have other presets (its DLY + REV is one of 27–29); the lab's Xenyx is the X1204USB, so the scenario uses DELAY + REVERB. The Ashly's level, pan and stereo output aren't modelled, nor its single-channel (possibly mono) path. The V3's icon is the line-source keyboard.
+- **Tests:** `tests/karaoke.test.mjs`, plus solutions and wrong fixes for each scenario.
+
 ## Audio transport and the sync invariant
 
 **All Persephone stems share one timeline. Nothing may restart, pause or independently advance a single stem.** Patching, unpatching, muting, switching skins or switching the listen destination must never touch playback; they only change gains and connections downstream of the stem outputs.

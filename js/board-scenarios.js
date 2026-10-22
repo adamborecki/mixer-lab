@@ -4593,13 +4593,180 @@ const EAS = [
   },
 ];
 
+// ---------- Karaoke in BH 109: a real MUS 248 gig on the Xenyx ----------
+// The BH 109 Karaoke Gig Checklist's rig (js/scenarios.js KARAOKE_GIGS): two
+// SM58s on CH 1-2, the karaoke laptop on LINE IN 5/6, an SM58 through a Zoom V3
+// on 7/8 L (MONO), the built-in DELAY + REVERB on RETURN 2, and the room's own
+// PA: MAIN OUTPUTS → XLR-to-TRS → the rack's AUX AUDIO INPUT → the Ashly line
+// mixer's Ch.1 → the Crown amp → two passive wall speakers. Each fault is one
+// the checklist warns about. The lab's Xenyx is the X1204USB; the room's is
+// the QX1204USB (other presets, the same routing).
+
+const KY_WALL = ["bh109-l", "bh109-r"];
+const kyWallOk = (ctx) => KY_WALL.every((id) => endpoint(ctx, id)?.valid);
+const KY_ROOM = "Turn around to Stage & patch (T): the Xenyx and its singers on one side; the room's rack (AUX AUDIO INPUT, the Ashly line mixer and the Crown amp) and its two wall speakers on the other.";
+
+const KY = [
+  {
+    id: "x1204usb-ky-house",
+    short: "Nothing on the wall speakers",
+    title: "The room is silent",
+    who: "Karaoke host",
+    prompt: "“The Xenyx's meters are dancing and I can hear the track in the headphones, but the choir room's speakers are silent.”",
+    goal: "MAIN OUTPUTS L and R into the rack's AUX AUDIO INPUT LEFT and RIGHT: both wall speakers playing the MAIN MIX.",
+    music: "bars-2",
+    setup: {
+      tweak: (st, h) => {
+        h.cut("mixer/main-l");
+        h.cut("mixer/main-r");
+      },
+    },
+    conditions: [
+      goal("left", "The left wall speaker plays MAIN L", (ctx) => endpoint(ctx, "bh109-l")?.valid && endpoint(ctx, "bh109-l").output === "main-l"),
+      goal("right", "The right wall speaker plays MAIN R", (ctx) => endpoint(ctx, "bh109-r")?.valid && endpoint(ctx, "bh109-r").output === "main-r"),
+    ],
+    hints: [KY_ROOM, "The Xenyx doesn't drive the speakers itself. The room's rack does, through its AUX AUDIO INPUT jacks (1/4\").", "Patch MAIN OUTPUTS L → AUX AUDIO INPUT LEFT and R → RIGHT, each with an XLR ↔ 1/4\" TRS cable."],
+    complete: "The Xenyx makes line level and the room does the rest: AUX AUDIO INPUT feeds the Ashly line mixer's Ch.1, and the Crown amp at the bottom of the rack drives the passive wall speakers. The MAIN OUTPUTS are XLR and the rack's jacks are 1/4\", so the cable is XLR to TRS.",
+  },
+  {
+    id: "x1204usb-ky-mic",
+    short: "Ashly Ch.1 on MIC",
+    title: "Harsh and feeding back",
+    who: "Karaoke host",
+    prompt: "“The second the track started, the wall speakers went harsh and started howling. Somebody pressed a button on the rack.”",
+    goal: "The rack's line mixer (Ashly Ch.1) back on LINE, both wall speakers clean, the Xenyx's MAIN MIX still up.",
+    music: "bars-2",
+    setup: { tweak: (st, h) => h.dev("bh109-rack", "ashlyMic", 1) },
+    conditions: [
+      goal("line", "Ashly Ch.1 is on LINE", (ctx) => (ctx.state.rig.devices.find((d) => d.id === "bh109-rack").ashlyMic ?? 0) === 0),
+      goal("clean", "Both wall speakers play clean, not distorting", (ctx) => KY_WALL.every((id) => endpoint(ctx, id)?.status === "ok")),
+      keep("main", "The Xenyx's MAIN MIX stays up", (ctx) => LAWS.level.toDb(ctx.state.main.level) >= -6),
+    ],
+    hints: ["The Xenyx's meters are normal, so the problem is after it. " + KY_ROOM, "The rack's Ashly line mixer has a Line / Mic button on Ch.1. MIC adds 30 dB, for a microphone: the Xenyx already sends line level.", "In Stage & patch, set the BH 109 rack's Ashly Ch.1 to LINE."],
+    complete: "A line-level signal into a mic setting is about 30 dB too hot: it distorts and, with the room's mics in front of the speakers, feeds back. Pulling the MAIN MIX down only hides it. Ch.1 stays on LINE, always, and nothing else on the rack gets touched.",
+  },
+  {
+    id: "x1204usb-ky-minus10",
+    short: "Track and V3 at +4",
+    title: "The quiet track",
+    who: "Singer",
+    prompt: "“I can barely hear the karaoke track, and the robot-voice mic is just as weak. Their faders are already way up.”",
+    goal: "LINE IN 5/6 and 7/8 both switched to −10, the track and the V3 still in the room.",
+    music: "excerpt",
+    setup: {
+      tweak: (st, h) => {
+        h.set("ky-track", "minus10", false);
+        h.set("ky-v3", "minus10", false);
+      },
+    },
+    conditions: [
+      goal("track", "LINE IN 5/6 (the laptop) is at −10", (ctx) => !!sc(ctx, "ky-track")?.minus10),
+      goal("v3", "LINE IN 7/8 (the Zoom V3) is at −10", (ctx) => !!sc(ctx, "ky-v3")?.minus10),
+      keep("heard", "The track and the V3 stay in the room", (ctx) => house(ctx, "ky-track") >= AUDIBLE && house(ctx, "ky-v3") >= AUDIBLE),
+    ],
+    hints: ["A laptop and the V3 are consumer gear: about 12 dB quieter than pro (+4) gear.", "Each stereo channel has a LEVEL switch at the top of the board: +4 or −10.", "Switch LINE IN 5/6 and LINE IN 7/8 to −10."],
+    complete: "The −10 setting adds about 12 dB for consumer-level gear, so the faders can sit where they belong instead of at the top. Then watch the laptop's own volume: it's a level control too.",
+  },
+  {
+    id: "x1204usb-ky-lowcut",
+    short: "LOW CUT off",
+    title: "Thumps and rumble",
+    who: "Karaoke host",
+    prompt: "“Every time a singer moves the mic, the room goes thump, and there's a low rumble under everyone.”",
+    goal: "LOW CUT on for both SM58 channels, the singers still in the room.",
+    music: "bars-2",
+    setup: {
+      tweak: (st, h) => {
+        h.set("ky-mic1", "lowCut", false);
+        h.set("ky-mic2", "lowCut", false);
+      },
+    },
+    conditions: [
+      goal("cut", "LOW CUT is on, on channels 1 and 2", (ctx) => ["ky-mic1", "ky-mic2"].every((s) => !!sc(ctx, s)?.lowCut)),
+      { id: "eq", kind: "keep", type: "custom", label: "The EQ stays flat", test: (ctx) => ["ky-mic1", "ky-mic2"].every((s) => Object.values(sc(ctx, s)?.eq || {}).every((v) => Math.abs(v) < 1)) },
+      keep("heard", "Both singers stay in the room", (ctx) => house(ctx, "ky-mic1") >= AUDIBLE && house(ctx, "ky-mic2") >= AUDIBLE),
+    ],
+    hints: ["Voices don't need the lowest notes. Handling noise and rumble live down there.", "Each mic channel has a LOW CUT button under its GAIN knob (75 Hz).", "Press LOW CUT on channels 1 and 2. Leave the EQ flat."],
+    complete: "LOW CUT takes out everything under 75 Hz: thumps, stand rumble, the air conditioning. A voice has nothing there to lose, which is why the checklist turns it on for every mic channel.",
+  },
+  {
+    id: "x1204usb-ky-alt",
+    short: "Singer 2 on ALT 3-4",
+    title: "The missing harmony",
+    who: "Harmony singer",
+    prompt: "“I'm singing my heart out and nobody can hear me. The light on my channel flickers when I sing, so the mic works.”",
+    goal: "Channel 2 back in the MAIN MIX, its fader where it was.",
+    music: "bars-2",
+    setup: { tweak: (st, h) => h.set("ky-mic2", "enabled", false) },
+    baseline: { faders: { metric: "channelSettings", source: "ky-mic2" } },
+    conditions: [
+      goal("main", "The harmony singer is in the room", (ctx) => house(ctx, "ky-mic2") >= AUDIBLE),
+      { id: "fader", kind: "keep", type: "channelUnchanged", source: "ky-mic2", baseline: "faders", toleranceDb: 1, label: "Channel 2's GAIN and fader stay where they were" },
+    ],
+    hints: ["The signal reaches the channel. Something on the strip keeps it out of the MAIN MIX.", "MUTE / ALT 3-4 pressed moves the channel to the ALT 3-4 bus, and nothing in BH 109 listens to ALT 3-4.", "Release MUTE / ALT 3-4 on channel 2."],
+    complete: "On the Xenyx, MUTE / ALT 3-4 doesn't silence a channel: it sends it to ALT 3-4 instead of the MAIN MIX. In BH 109 nothing is plugged into ALT 3-4, so it might as well be off. The checklist leaves every MUTE / ALT 3-4 up.",
+  },
+  {
+    id: "x1204usb-ky-reverb",
+    short: "Reverb on ALT 3-4",
+    title: "Where did the reverb go?",
+    who: "Lead singer",
+    prompt: "“Last week I had that nice echo on my voice. Tonight I sound totally dry.”",
+    goal: "The effects back in the MAIN MIX at unity, the dry mix unchanged.",
+    music: "bars-2",
+    setup: { tweak: (st) => (st.ret2.toAlt = true) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("main", "STEREO AUX RETURN 2 goes to the MAIN MIX, not ALT 3-4", (ctx) => !ctx.state.ret2.toAlt),
+      keep("level", "RETURN 2 stays near unity", (ctx) => Math.abs(LAWS.ret20.toDb(ctx.state.ret2.level)) <= 4),
+      keep("send", "Both singers still go to the effects", (ctx) => ["ky-mic1", "ky-mic2"].every((s) => into(ctx, "aux2", s) >= -40)),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The dry mix stays the same" },
+    ],
+    hints: ["The singers' FX knobs are up, so the effects get their voices. Follow the effect back into the board.", "The effects come back on STEREO AUX RETURN 2. The button under it chooses MAIN MIX (up) or ALT 3-4 (down).", "Set the button under RETURN 2 to MAIN MIX. Leave RET 2 at unity."],
+    complete: "The send was fine all along: the return was on ALT 3-4, which nothing in BH 109 listens to. Reverb has two halves, the FX send on each channel and the return in the master section, and both have to reach the MAIN MIX.",
+  },
+  {
+    id: "x1204usb-ky-program",
+    short: "Wrong effects preset",
+    title: "The jet-plane voice",
+    who: "Lead singer",
+    prompt: "“Somebody played with the effects knob. Now I sound like I'm singing inside a jet engine. Can I have the normal echo back?”",
+    goal: "The built-in effects back on DELAY + REVERB, the sends and the return unchanged.",
+    music: "bars-2",
+    setup: { tweak: (st) => (st.fx.program = COMPACT.x1204usb.fx.presets.findIndex((p) => p.name === "FLANGER 2")) },
+    conditions: [
+      goal("prog", "The effects program is DELAY + REVERB", (ctx) => fxPreset(COMPACT.x1204usb, ctx.state.fx.program).name === "DELAY + REVERB"),
+      keep("send", "The singers stay in the effects, and RETURN 2 stays in the MAIN MIX", (ctx) => ["ky-mic1", "ky-mic2"].every((s) => into(ctx, "aux2", s) >= -40) && !ctx.state.ret2.toAlt && LAWS.ret20.toDb(ctx.state.ret2.level) >= -10),
+    ],
+    hints: ["The routing is fine: the effect is there, it's just the wrong one.", "PROGRAM chooses the preset. BH 109 uses a delay and a reverb together.", "Turn PROGRAM to DELAY + REVERB (number 16)."],
+    complete: "PROGRAM changes what the effect is without touching who goes into it. BH 109's own board is the QX1204USB: there the preset is called DLY + REV, one of the COMBINATION FX (27–29), saved with the balance toward the reverb and a 1-second decay.",
+  },
+  {
+    id: "x1204usb-ky-v3",
+    short: "Zoom V3 unplugged",
+    title: "The robot voice",
+    who: "Third singer",
+    prompt: "“The V3 is on, I picked ROBOT, and I'm singing into its mic. Nothing comes out of the room.”",
+    goal: "The Zoom V3's OUTPUT L into LINE IN 7/8 L (MONO), at −10, heard in the room.",
+    music: "excerpt",
+    setup: { tweak: (st, h) => h.unplug("ky-v3") },
+    conditions: [
+      goal("patch", "The V3 is on channel 7/8", (ctx) => mc(ctx, "ky-v3")?.index === 5),
+      goal("heard", "The V3 singer is in the room", (ctx) => house(ctx, "ky-v3") >= AUDIBLE),
+      keep("level", "LINE IN 7/8 stays at −10", (ctx) => ctx.state.channels[5].minus10 === true),
+    ],
+    hints: ["The V3 lights up, so it has power. Is anything carrying its output to the Xenyx?", "The V3's OUTPUT L is a 1/4\" jack. Its voice is mono, and LINE IN 7/8 has an L (MONO) jack that feeds both sides on its own.", "Patch the Zoom V3 into LINE IN 7/8 L (MONO) with a 1/4\" TS cable."],
+    complete: "One cable, left only: a plug in L (MONO) alone feeds both sides of a stereo channel. That's fine for a mono voice, and wrong for the karaoke track, which is stereo and needs both L and R on 5/6.",
+  },
+];
+
 const ORDER = {
   b207mp3: ["doors", "amp", "quiet-singer", "phantom", "wedge", "wedge-quiet", "small-room", "speech"],
   mix8: ["doors", "phones", "ol", "boomy", "pan", "keys-wedge", "wedge-loud", "speech", "ballad", "overhead", "guest"],
   stagepas400bt: ["doors", "micline", "monitor", "speech", "speakers", "reverb", "hall", "mono", "overhead", "sub", "feedback"],
   mg102: ["doors", "phantom", "peak", "less-drums", "one-knob", "thin-bass", "rumble", "reverb-loud", "2tr"],
   vlz1202: ["doors", "trim", "nasal", "pad", "pfl", "wedge-quiet", "lowcut", "reverb", "prefader", "efx", "tape", "alt", "pads"],
-  x1204usb: ["doors", "minus10", "overhead", "pfl", "comp", "fx", "slapback", "wedge", "pre", "ret-mon", "cdtape", "alt"],
+  x1204usb: ["doors", "minus10", "overhead", "pfl", "comp", "fx", "slapback", "wedge", "pre", "ret-mon", "cdtape", "alt", "ky-house", "ky-mic", "ky-minus10", "ky-lowcut", "ky-alt", "ky-reverb", "ky-program", "ky-v3"],
   cr1604: ["doors", "phantom", "assign", "levelset", "sweep", "lowcut", "mute-pre", "drummer-quiet", "reverb", "efx-mon", "mono", "shift", "subgroup", "direct", "room", "snake", "snake-return"],
   ui16: ["doors", "gain", "48v", "more-keys", "hpf", "mud", "harsh", "eq-on", "comp", "comp-on", "trumpet-reverb", "delay", "out-of-house", "post", "guitar-mix"],
   l20: ["doors", "gain", "pad", "lowcut", "mud", "eq-on", "keys-wedge", "less-guitar", "out-of-house", "wedge-quiet", "switch", "reverb", "efx-mon"],
@@ -4613,7 +4780,7 @@ const ORDER = {
   x32c: ["doors", "gain", "48v", "sections-48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "orchestra", "mute-group", "new-mix", "stagebox", "cob-usb", "cob-gain", "cob-tracks", "cob-link", "cob-one-side", "cob-speaker-cable", "cob-thru", "cob-prefader", "cob-tracks-wedge", "cob-scene"],
 };
 
-const LISTS = { gdig: GDIG, l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: XEN, sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c, ...COB], yam01v96: Y96, x32: [...X32F, ...BOXES.x32, ...VJS, ...EAS] };
+const LISTS = { gdig: GDIG, l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: [...XEN, ...KY], sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c, ...COB], yam01v96: Y96, x32: [...X32F, ...BOXES.x32, ...VJS, ...EAS] };
 
 // Who is on stage (js/music.js stageFor). Every scenario's story was read for
 // this; anything not listed has the whole band playing (the 8-bar section it
@@ -4685,10 +4852,10 @@ const FTW = {
   gdig: ["winds", "comp-on", "bus-mute"],
   x32c: ["sections-48v", "comp-on", "bus-mute", "orchestra"],
 };
-// A gig is its own song (its cast, its tracks, its rig): COB, Vocal Jazz.
+// A gig is its own song (its cast, its tracks, its rig): COB, Vocal Jazz, the showcase, karaoke.
 const songOf = (board, id) => {
   const k = id.slice(board.length + 1);
-  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? "vj" : k.startsWith("ea-") ? "ea" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
+  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? "vj" : k.startsWith("ea-") ? "ea" : k.startsWith("ky-") ? "karaoke" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
 };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.

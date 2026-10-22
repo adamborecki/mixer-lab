@@ -1350,6 +1350,45 @@ Object.assign(WRONG, {
   "b207mp3-speech": [["MAIN LEVEL down", (a) => a.st.setBus("main", "level", LAWS.master.toPos(-6))]],
 });
 
+// Karaoke in BH 109: the Xenyx gig on the room's own rack (Ashly Ch.1 → Crown → wall speakers).
+const KY_FX = (a) => COMPACT.x1204usb.fx.presets.findIndex((p) => p.name === "DELAY + REVERB");
+Object.assign(SOLVE, {
+  "x1204usb-ky-house": (a) => {
+    assert.ok(a.st.connect("mixer/main-l", "bh109-rack/in-a", "xlr-trs").ok);
+    assert.ok(a.st.connect("mixer/main-r", "bh109-rack/in-b", "xlr-trs").ok);
+  },
+  "x1204usb-ky-mic": (a) => a.st.setDevice("bh109-rack", "ashlyMic", 0),
+  "x1204usb-ky-minus10": (a) => {
+    a.set("ky-track", "minus10", true);
+    a.set("ky-v3", "minus10", true);
+  },
+  "x1204usb-ky-lowcut": (a) => ["ky-mic1", "ky-mic2"].forEach((s) => a.set(s, "lowCut", true)),
+  "x1204usb-ky-alt": (a) => a.set("ky-mic2", "enabled", true),
+  "x1204usb-ky-reverb": (a) => a.st.setBus("ret2", "toAlt", false),
+  "x1204usb-ky-program": (a) => a.st.setBus("fx", "program", KY_FX(a)),
+  "x1204usb-ky-v3": (a) => assert.ok(a.st.connect("src-ky-v3/out", "mixer/ch6-l", "ts").ok),
+});
+
+Object.assign(WRONG, {
+  "x1204usb-ky-house": [["ALT 3-4 OUTPUTS into the rack", (a) => {
+    assert.ok(a.st.connect("mixer/alt-l", "bh109-rack/in-a", "trs").ok);
+    assert.ok(a.st.connect("mixer/alt-r", "bh109-rack/in-b", "trs").ok);
+  }], ["L and R swapped", (a) => {
+    assert.ok(a.st.connect("mixer/main-r", "bh109-rack/in-a", "xlr-trs").ok);
+    assert.ok(a.st.connect("mixer/main-l", "bh109-rack/in-b", "xlr-trs").ok);
+  }]],
+  "x1204usb-ky-mic": [["MAIN MIX down instead", (a) => a.st.setBus("main", "level", LAWS.level.toPos(-30))]],
+  "x1204usb-ky-minus10": [["faders up instead", (a) => {
+    a.nudge("ky-track", 10);
+    a.nudge("ky-v3", 10);
+  }], ["only the laptop", (a) => a.set("ky-track", "minus10", true)]],
+  "x1204usb-ky-lowcut": [["LOW EQ down instead", (a) => ["ky-mic1", "ky-mic2"].forEach((s) => a.set(s, "eq.low", -15))]],
+  "x1204usb-ky-alt": [["fader up instead", (a) => a.nudge("ky-mic2", 10)]],
+  "x1204usb-ky-reverb": [["RET 2 all the way up, still on ALT 3-4", (a) => a.st.setBus("ret2", "level", 1)], ["more FX send instead", (a) => ["ky-mic1", "ky-mic2"].forEach((s) => a.sendDb(s, "fx", 10))]],
+  "x1204usb-ky-program": [["a plain hall", (a) => a.st.setBus("fx", "program", 0)]],
+  "x1204usb-ky-v3": [["V3 into channel 3's LINE jack", (a) => assert.ok(a.st.connect("src-ky-v3/out", "mixer/ch3-line", "ts").ok)]],
+});
+
 describe("board scenarios: data", () => {
   it("validate, and every board has at least nine, numbered from 1", () => {
     assert.deepEqual(validateScenarios(), []);

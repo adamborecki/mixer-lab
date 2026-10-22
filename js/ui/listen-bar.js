@@ -235,6 +235,8 @@ export class ListenBar {
       msg = `Hearing ${busName} through the ${names(ends[dest])}.`;
       // A camera input whose MIC/LINE switch doesn't match what it's fed.
       for (const e of ends[dest].filter((e) => e.camera && e.status !== "ok")) msg += ` ${short(e)}: ${e.status === "hot" ? "distorting, its MIC input is fed line level" : "too quiet, its LINE input is fed mic level"}.`;
+      // A speaker behind a line mixer set to MIC (BH 109).
+      for (const e of ends[dest].filter((e) => !e.camera && e.hotWhy)) msg += ` ${short(e)}: distorting, ${e.hotWhy}.`;
     }
     else msg = `Silence: ${busName} doesn't reach a working speaker. Check Stage & patch.`;
     if (msg !== this.lastMsg) {
