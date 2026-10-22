@@ -273,14 +273,14 @@ function buildMaster(view, def) {
       ),
     );
 
-  // The Xenyx's built-in effects: PROGRAM and a LEVEL LED.
+  // The Xenyx's built-in effects: PROGRAM (the preset's number, group and name) and a LEVEL LED.
   if (def.fx) {
     const sig = led("led-sig", "LEVEL");
     const clip = led("led-ol", "CLIP");
     view.fxLeds = { sig: sig.querySelector("i"), clip: clip.querySelector("i"), clipUntil: 0 };
     const name = document.createElement("p");
     name.className = "c16-note cm-fx-name";
-    view.bindings.push({ kind: "text", el: name, get: (s) => { const p = fxPreset(def, s.fx.program); return `${String(p.number).padStart(2, "0")} ${p.name}`; } });
+    view.bindings.push({ kind: "text", el: name, get: (s) => { const p = fxPreset(def, s.fx.program); return `${String(p.number).padStart(2, "0")} ${p.group && !p.name.startsWith(p.group) ? `${p.group} · ` : ""}${p.name}`; } });
     blocks.push(
       block(
         "EFFECTS",
@@ -322,7 +322,7 @@ function buildMaster(view, def) {
           ? button(view, { label: "TO CR/PHONES", get: (s) => s.channels[t].toCr, onPress: () => store.setChannel(t, "toCr", !store.state.channels[t].toCr), aria: (s) => `TAPE IN goes ${s.channels[t].toCr ? "to the CR/PHONES only" : "to the MAIN mix"}` })
           : null,
         def.tape.routing === "switch"
-          ? button(view, { label: `${def.tape.label} TO MAIN`, get: (s) => s.channels[t].toMain, onPress: () => store.setChannel(t, "toMain", !store.state.channels[t].toMain), aria: (s) => `${def.tape.label} TO MAIN: ${s.channels[t].toMain ? "on, in the main mix" : "off (hear it with the C-R SOURCE TAPE)"}` })
+          ? button(view, { label: def.tape.toMainLabel || `${def.tape.label} TO MAIN`, get: (s) => s.channels[t].toMain, onPress: () => store.setChannel(t, "toMain", !store.state.channels[t].toMain), aria: (s) => `${def.tape.toMainLabel || `${def.tape.label} TO MAIN`}: ${s.channels[t].toMain ? "on, in the main mix" : "off (hear it with the C-R SOURCE TAPE)"}` })
           : null,
         def.tape.routing === "crOnly" ? Object.assign(document.createElement("p"), { className: "c16-note", textContent: "Heard through C-R/PHONES (SOURCE: TAPE)" }) : null,
       ),
@@ -358,7 +358,7 @@ function buildMaster(view, def) {
     blocks.push(
       block(
         def.phones.label,
-        def.phones.sources ? row("c16-matrix", ...def.phones.sources.map((src) => busButton("cr", src, { main: "MAIN", alt: "ALT 3-4", tape: "TAPE" }[src], `C-R/PHONES SOURCE ${src}`))) : null,
+        def.phones.sources ? row("c16-matrix", ...def.phones.sources.map((src) => busButton("cr", src, { main: "MAIN", alt: "ALT 3-4", tape: def.phones.tapeLabel || "TAPE" }[src], `C-R/PHONES SOURCE ${src}`))) : null,
         busKnob("cr", "level", "LEVEL", LAWS.master),
       ),
     );

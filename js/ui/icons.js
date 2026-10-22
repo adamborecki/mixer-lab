@@ -173,6 +173,7 @@ const TYPE_ICONS = {
   "power-amp": "power-amp",
   "stagepas-amp": "power-amp",
   nx3000: "power-amp",
+  "bh109-rack": "power-amp",
   "wireless-headset": "mic",
   "wireless-handheld": "mic",
   "camera-input": "camera",
