@@ -46,8 +46,9 @@ const keep = (id, label, test) => ({ id, kind: "keep", type: "custom", label, te
 
 // Digital desks: the EQ (or compressor) was set up at soundcheck but never
 // switched on. Its knobs all look right; only the ON button and the graph
-// give it away. `hints` are the desk's own steps (after a common first one).
-const eqOff = (board, { hints, complete }) => ({
+// give it away. `hints` are the desk's own steps (after a common first one);
+// `orient` (big desks) adds where the desk keeps them to that first hint.
+const eqOff = (board, { orient, hints, complete }) => ({
   id: `${board}-eq-on`,
   short: "EQ does nothing",
   title: "The EQ that does nothing",
@@ -71,13 +72,13 @@ const eqOff = (board, { hints, complete }) => ({
     }),
     { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The levels stay the same" },
   ],
-  hints: ["The settings might be fine. Is the EQ actually doing anything? Look at its curve.", ...hints],
+  hints: [["The settings might be fine. Is the EQ actually doing anything? Look at its curve.", orient].filter(Boolean).join(" "), ...hints],
   complete,
 });
 
 // EQ from scratch: the channel's EQ starts off and flat, so the cut only
 // counts (and is only heard) once EQ ON is pressed too.
-const eqMud = (board, { hints, complete }) => ({
+const eqMud = (board, { orient, hints, complete }) => ({
   id: `${board}-mud`,
   short: "Muddy guitar",
   title: "The muddy guitar",
@@ -94,11 +95,11 @@ const eqMud = (board, { hints, complete }) => ({
     goal("on", "The guitar's EQ is switched on", (ctx) => sc(ctx, "guitars")?.eqOn === true),
     { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The levels stay the same" },
   ],
-  hints: ["Mud lives in the low mids, roughly 200–400 Hz. Cut, don't boost.", ...hints],
+  hints: [["Mud lives in the low mids, roughly 200–400 Hz. Cut, don't boost.", orient].filter(Boolean).join(" "), ...hints],
   complete,
 });
 
-const compOff = (board, { hints, complete }) => ({
+const compOff = (board, { orient, hints, complete }) => ({
   id: `${board}-comp-on`,
   short: "Comp does nothing",
   title: "The compressor that does nothing",
@@ -120,7 +121,7 @@ const compOff = (board, { hints, complete }) => ({
     }),
     { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The levels stay the same" },
   ],
-  hints: ["Threshold, ratio and make-up are all set. So why is nothing being turned down? Watch the GR meter.", ...hints],
+  hints: [["Threshold, ratio and make-up are all set. So why is nothing being turned down? Watch the GR meter.", orient].filter(Boolean).join(" "), ...hints],
   complete,
 });
 
@@ -405,7 +406,7 @@ const MG = [
       "Phantom power. On the MG10/2 it's one switch for all the XLR inputs.",
       "Press PHANTOM +48V in the master section. (Expect a thump.)",
     ],
-    complete: "A condenser mic is silent without phantom power. The MG10/2's one +48V switch feeds every XLR input; dynamic mics and DIs don't mind it.",
+    complete: "A condenser mic is silent without phantom power. The MG10/2's one +48V switch feeds every XLR input; dynamic mics and DIs don't mind it. It only travels to mics: speakers never need phantom, they get their power from the wall.",
   },
   {
     id: "mg102-less-drums",
@@ -477,7 +478,7 @@ const MG = [
       "Each mic channel has an 80 Hz high-pass filter button.",
       "Turn the 80 Hz button on for channels 1 and 2, and off for 3/4 and 5/6. Listen to the drums with it on and off.",
     ],
-    complete: "A high-pass (low cut) on every vocal mic is standard: it removes rumble and handling noise the voice doesn't need. On kick and bass it would take away the music.",
+    complete: "A high-pass (low cut) on every vocal mic is standard: it removes rumble and handling noise the voice doesn't need, which no fader or master can do without turning the voice down too. On kick and bass it would take away the music.",
   },
 ];
 
@@ -532,7 +533,7 @@ const B207 = [
       "No: the amp only drives the B207's own speaker. THRU is line level. The closet speaker is passive: no amp inside.",
       "Put the power amp in between (THRU → amp input A, amp output A → the wedge with a speaker cable), or use the second B207 instead.",
     ],
-    complete: "“The amp is inside” only means inside that box. Everything the B207 sends out of THRU is line level, so a passive speaker on it still needs a power amp.",
+    complete: "“The amp is inside” only means inside that box. THRU is line level, and only a power amp raises line level to speaker level, so a passive speaker on THRU still needs one.",
   },
   {
     id: "b207mp3-quiet-singer",
@@ -577,7 +578,13 @@ const B207 = [
       "There's one PHANTOM button for channels 1, 2 and 3 (+48 V on the XLR).",
       "Press PHANTOM. The dynamic vocal mics don't mind it.",
     ],
-    complete: "One PHANTOM button powers all three combo inputs. Dynamic mics ignore it; condensers need it, and only through an XLR.",
+    complete: "One PHANTOM button powers all three combo inputs. Dynamic mics ignore it; condensers need it, and only through an XLR. It runs up the mic cable to the mic, not out to any speaker.",
+    quiz: {
+      q: "Phantom power is on. Which of these is it powering?",
+      options: ["The condenser mic on the XLR input", "The B207's own speaker", "A powered wedge on THRU"],
+      answer: 0,
+      why: "+48 V goes from the mixer up the XLR cable to a condenser mic. Speakers, powered or not, take their power from the wall or an amp.",
+    },
   },
   {
     id: "b207mp3-wedge",
@@ -659,7 +666,13 @@ const B207 = [
       "One EQ for the whole box: HIGH, MID and LOW (below 100 Hz), ±15 dB. There's no EQ per channel.",
       "Turn LOW down, about −6 dB. Bring it back up for the band.",
     ],
-    complete: "The B207's EQ shapes the whole box, every input at once. It's after THRU, so the wedge doesn't change.",
+    complete: "Boom is too much low end, so cut LOW: turning MAIN LEVEL down only makes the voice quieter, and just as boomy. The B207's EQ shapes the whole box, every input at once; it's after THRU, so the wedge doesn't change.",
+    quiz: {
+      q: "The voice is boomy. What does turning MAIN LEVEL down do?",
+      options: ["Removes the boom", "Makes everything quieter, boom included", "Cuts only the low frequencies"],
+      answer: 1,
+      why: "A level control turns every frequency down together. Only EQ (or a low cut) takes out the lows and leaves the rest.",
+    },
   },
 ];
 
@@ -743,7 +756,7 @@ const SP = [
       "Inside the mixer. Its SPEAKERS L/R jacks carry speaker level; MONITOR OUT is only line level.",
       "Unplug MONITOR OUT R, then run speaker cables from SPEAKERS L and R to the two speakers.",
     ],
-    complete: "On a powered mixer the amp is in the mixer, so the speakers plug into its SPEAKERS jacks with speaker cable. MONITOR OUT is line level, for a powered wedge.",
+    complete: "On a powered mixer the amp is in the mixer: it raises the mix from line level to speaker level, and SPEAKERS L/R carry that out on speaker cable. MONITOR OUT stays line level, for a powered wedge.",
   },
   {
     id: "stagepas400bt-reverb",
@@ -1540,7 +1553,7 @@ const gainFix = ({ id, short, title, who, prompt, source, gainDb, tweak, label, 
 });
 
 // An EQ problem on one channel. The level model leaves EQ out, so the house "levels" can't move.
-const eqFix = ({ id, short, title, who, prompt, goalText, source, start, label, check, hints, complete }) => ({
+const eqFix = ({ id, short, title, who, prompt, goalText, source, start, label, check, hints, complete, quiz }) => ({
   id,
   short,
   title,
@@ -1555,6 +1568,7 @@ const eqFix = ({ id, short, title, who, prompt, goalText, source, start, label, 
   ],
   hints,
   complete,
+  quiz,
 });
 
 // "Turn the whole wedge down/up" with its master, keeping the balance.
@@ -1656,7 +1670,13 @@ MIX8.push(
     label: "The vocal's LOW EQ isn't boosting any more",
     check: (c) => c.eq.low <= 0,
     hints: ["Boom is low frequencies. Which part of the channel shapes the tone?", "The 3-band EQ: HI (12 kHz), MID (2.5 kHz), LOW (80 Hz).", "Turn channel 1's LOW back to the centre or below."],
-    complete: "Boom lives in the LOW band. Cutting what's too much usually sounds better than boosting what's missing.",
+    complete: "Boom lives in the LOW band. A fader or the master would only make the whole voice quieter and still boomy; EQ takes out just the frequencies that are too much. Cutting what's too much usually sounds better than boosting what's missing.",
+    quiz: {
+      q: "Which fixes a boomy vocal without making it quieter overall?",
+      options: ["Pull the MAIN fader down", "Cut the channel's LOW EQ", "Turn the GAIN down"],
+      answer: 1,
+      why: "MAIN and GAIN turn every frequency down together. The LOW band cuts only the boom.",
+    },
   }),
   {
     id: "mix8-pan",
@@ -1715,7 +1735,7 @@ SP.push(
       { id: "vox", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The mic on channel 1 stays in the house" },
     ],
     hints: ["Speech needs clarity, not bass. There's a knob for the whole PA's tone.", "MASTER EQ, in the MASTER section: SPEECH at one end, MUSIC in the middle, more bass at the other.", "Turn MASTER EQ towards SPEECH."],
-    complete: "MASTER EQ shapes everything at once: SPEECH trims the lows that make talking boomy. Turn it back to MUSIC for the band.",
+    complete: "MASTER EQ shapes everything at once: SPEECH trims the lows that make talking boomy, where turning the MASTER down would only make it quieter. Turn it back to MUSIC for the band.",
   },
   {
     id: "stagepas400bt-hall",
@@ -1939,7 +1959,7 @@ VLZ.push(
       { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The levels stay the same" },
     ],
     hints: ["Rumble is very low. Voices don't need it; kick and bass do.", "Channels 1–4 have a LOW CUT button: 75 Hz, steep (18 dB/octave).", "LOW CUT on 3 and 4, off on 1 and 2."],
-    complete: "LOW CUT on every vocal mic is a habit worth keeping. The 1202's is steep, so it removes rumble without thinning the voice.",
+    complete: "LOW CUT on every vocal mic is a habit worth keeping: it takes out only the rumble, where a fader would turn the whole voice down. The 1202's is steep, so it removes rumble without thinning the voice.",
   },
   {
     id: "vlz1202-efx",
@@ -2552,7 +2572,7 @@ const X32 = [
       { id: "vox", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The vocal stays in the house" },
     ],
     hints: ["A condenser needs phantom power. On the X32 it's per channel.", "SEL channel 01: 48V is in the channel strip's INPUT section.", "SEL channel 01 and press 48V."],
-    complete: "48V lives in the selected channel's CONFIG/PREAMP section. The manual suggests muting a channel before switching it, to avoid a pop.",
+    complete: "48V lives in the selected channel's CONFIG/PREAMP section, because it powers the mic on that input; the speakers get their power from the wall. The manual suggests muting a channel before switching it, to avoid a pop.",
   },
   {
     id: "x32c-lowcut",
@@ -2572,7 +2592,7 @@ const X32 = [
       keep("bass", "The bass keeps its low end", (ctx) => (sc(ctx, "bass")?.hpf ?? 0) <= 0.02),
     ],
     hints: ["SEL each vocal channel in turn.", "LOW CUT is in the channel strip's INPUT section, a frequency from 20 to 400 Hz.", "SEL 06, set LOW CUT around 100 Hz; then SEL 07 and do the same."],
-    complete: "LOW CUT is part of every channel's preamp section on the X32: set it per channel, after GAIN.",
+    complete: "LOW CUT is part of every channel's preamp section on the X32: set it per channel, after GAIN. It removes only what's below its frequency, so the rumble goes and the voice stays as loud.",
   },
   {
     id: "x32c-lr",
@@ -3256,11 +3276,11 @@ const CL3 = [
     complete: "On a CL the stereo inputs live on their own bank, next to the effects returns. Check the lit bank key before every move.",
   }),
   like("cl3", "x32c-gain", {
-    hints: ["Gain first. The vocal's preamp is in the Rio stage box, but you set it from the console.", "Press SEL on channel 7: the SELECTED CHANNEL knobs left of the screen now edit it.", "Turn the SELECTED CHANNEL GAIN up until the meter sits around the middle."],
+    hints: ["Gain first. A CL has one set of channel knobs, the SELECTED CHANNEL section left of the touch screen: a channel's SEL key decides which channel they edit. (The preamp itself is in the Rio stage box.)", "Press SEL on channel 7: the SELECTED CHANNEL knobs left of the screen now edit it.", "Turn the SELECTED CHANNEL GAIN up until the meter sits around the middle."],
     complete: "The mic preamps are on stage in the Rio, controlled over Dante. SEL decides which channel the SELECTED CHANNEL knobs turn.",
   }),
   like("cl3", "x32c-48v", {
-    hints: ["A condenser needs phantom power, and on a CL it comes from the Rio input it's plugged into.", "SEL channel 1 and open SELECTED CHANNEL on the touch screen: the INPUT field has +48V.", "Press +48V for channel 1."],
+    hints: ["A condenser needs phantom power, from the Rio input it's plugged into. On a CL most settings live on the touch screen: SEL a channel and its SELECTED CHANNEL page shows everything about it.", "SEL channel 1 and open SELECTED CHANNEL on the touch screen: the INPUT field has +48V.", "Press +48V for channel 1."],
     complete: "+48V is switched per input from the console, even though the preamp is on stage. Switch the channel off first to keep the pop out of the speakers.",
   }),
   like("cl3", "yam01v96-on", {
@@ -3268,10 +3288,12 @@ const CL3 = [
     complete: "Yamaha keys light when the channel plays. Read the label, not the light.",
   }),
   eqOff("cl3", {
+    orient: "On a CL the touch screen shows what the knobs can't: OVERVIEW draws every channel's curves, and SELECTED CHANNEL (after a channel's SEL key) has its ON buttons.",
     hints: ["Open OVERVIEW: channel 7's EQ curve is flat and grey, marked EQ OFF. The SELECTED CHANNEL knobs moved the bands anyway.", "SEL channel 7, open SELECTED CHANNEL on the screen and press EQ ON."],
     complete: "On a CL the EQ knobs keep working while the EQ is off, which makes this easy to miss. The OVERVIEW curves show it at a glance.",
   }),
   compOff("cl3", {
+    orient: "On a CL the touch screen shows what the knobs can't: OVERVIEW draws every channel's curves, and SELECTED CHANNEL (after a channel's SEL key) has its ON buttons.",
     hints: ["The SELECTED CHANNEL section warns DYNAMICS is OFF, and the GR bar on OVERVIEW never moves.", "SEL channel 7, open SELECTED CHANNEL on the screen and press COMP ON."],
     complete: "A compressor dialled in but switched off does nothing at all. After setting one, check that GR moves.",
   }),
@@ -3408,24 +3430,27 @@ const DM = [
     complete: "96 channels, 24 faders: always check which LAYER is lit before you reach for a fader.",
   }),
   like("dm2000", "yam01v96-pad", {
-    hints: ["A stage piano is line level. Channel 4's GAIN is already at its lowest, and it's still too hot.", "Every analog input on the top panel has a 20 dB PAD next to its GAIN knob.", "Press PAD on input 4, then bring its GAIN up so the meter sits in the middle."],
+    hints: ["A stage piano is line level: channel 4's GAIN is already at its lowest, and it's still too hot. Look up, not down: on the DM2000 each input's preamp (GAIN, PAD, +48V) is in the analog INPUT row along the top, not with the faders.", "Every analog input on the top panel has a 20 dB PAD next to its GAIN knob.", "Press PAD on input 4, then bring its GAIN up so the meter sits in the middle."],
   }),
   like("dm2000", "x32c-48v", {
-    hints: ["A condenser needs phantom power.", "The DM2000 has a +48V switch for each analog input, on the top panel under its GAIN and PAD.", "Press +48V on input 1."],
+    hints: ["A condenser needs phantom power. On the DM2000 the preamp isn't in SELECTED CHANNEL: each input's GAIN, PAD and +48V are in the analog INPUT row along the top.", "Find input 1's column in that row: +48V is under its GAIN and PAD.", "Press +48V on input 1."],
     complete: "+48V lives with the preamp on the top panel, one switch per input. Switch the channel's ON key off first to keep the pop out of the speakers.",
   }),
   like("dm2000", "yam01v96-on", {
     hints: ["Every channel strip has an ON key. Which way round does it work?", "ON is lit while the channel is on: dark means off.", "Press channel 2's ON key so it lights."],
   }),
   eqMud("dm2000", {
-    hints: ["SEL channel 3. In the SELECTED CHANNEL EQUALIZER, turn L-MID's G down a few dB with F near 300 Hz.", "Nothing changed? The EQ starts switched off: press EQ ON in the EQUALIZER block (or on the display's EQUALIZER page)."],
+    orient: "On the DM2000 the faders have no EQ knobs: press a channel's SEL key and the SELECTED CHANNEL section's EQUALIZER edits it.",
+    hints: ["SEL channel 3. In the SELECTED CHANNEL EQUALIZER, turn LO MID's G down a few dB with F near 300 Hz.", "Nothing changed? The EQ starts switched off: press EQ ON in the EQUALIZER block (or on the display's EQUALIZER page)."],
     complete: "On the DM2000 the EQ knobs are always there for the selected channel, switched in or not. EQ ON and the display's curve tell you which.",
   }),
   eqOff("dm2000", {
+    orient: "On the DM2000, SEL picks the channel and the DISPLAY ACCESS buttons open its pages on the screen.",
     hints: ["SEL channel 7 and press DISPLAY ACCESS EQUALIZER: the curve is flat and grey, marked EQ OFF.", "Press EQ ON. Leave the bands alone."],
     complete: "A set-up EQ that's switched off looks perfect on the knobs and does nothing. The display's curve shows what's really happening.",
   }),
   compOff("dm2000", {
+    orient: "On the DM2000, SEL picks the channel and the DISPLAY ACCESS buttons open its pages on the screen.",
     hints: ["SEL channel 7 and press DISPLAY ACCESS DYNAMICS: COMP OFF, and the GR bar never moves.", "Press COMP ON in the SELECTED CHANNEL DYNAMICS block."],
     complete: "A compressor dialled in but switched off does nothing at all. After setting one, check that GR moves.",
   }),
@@ -3612,26 +3637,29 @@ const GDIG = [
     complete: "One set of channel-strip knobs serves every channel: SEL decides which. Check the strip's title before you turn anything.",
   }),
   like("gdig", "x32c-48v", {
-    hints: ["A condenser needs phantom power. On this mixer it's switched per channel.", "SEL channel 1: 48V is in the channel strip's INPUT section.", "SEL channel 1 and press 48V."],
+    hints: ["A condenser needs phantom power. On a digital mixer it's switched per channel from the channel strip on the left: a channel's SEL key decides which channel the strip edits.", "SEL channel 1: 48V is in the channel strip's INPUT section.", "SEL channel 1 and press 48V."],
     complete: "48V is switched per channel from the selected-channel strip. Mute the channel first to keep the pop out of the speakers.",
   }),
   like("gdig", "x32c-lowcut", {
-    hints: ["SEL each vocal channel in turn.", "LOW CUT is in the channel strip's INPUT section: a frequency from 20 to 400 Hz.", "SEL channel 6, set LOW CUT around 100 Hz; then SEL channel 7 and do the same."],
-    complete: "LOW CUT is part of every channel's input section: set it per channel, after GAIN.",
+    hints: ["Rumble is low frequency, and a voice doesn't need it. On a digital mixer the filter isn't on the fader strip: press a vocal channel's SEL key and the channel strip on the left edits that channel.", "LOW CUT is in the channel strip's INPUT section: a frequency from 20 to 400 Hz.", "SEL channel 6, set LOW CUT around 100 Hz; then SEL channel 7 and do the same."],
+    complete: "LOW CUT is part of every channel's input section: set it per channel, after GAIN. It removes only what's below its frequency, so the rumble goes and the voice stays as loud.",
   }),
   like("gdig", "x32c-lr", {
     hints: ["The guitar reaches the wedge, so the mic, GAIN and channel all work. What's between the channel and the house?", "Each channel has a TO MAIN switch: on, it goes to the main mix. It's in the channel strip (PAN & SENDS).", "SEL channel 3 and switch TO MAIN on."],
     complete: "Every channel needs TO MAIN on to reach the house. Turning it off is also a clean way to keep a channel in the wedges only.",
   }),
   eqMud("gdig", {
+    orient: "On a digital mixer the faders have no EQ knobs: press a channel's SEL key and the channel strip on the left edits its EQ.",
     hints: ["SEL channel 3 and, in the channel strip's EQ, turn LO MID's GAIN down a few dB with FREQ near 300 Hz.", "Nothing changed? The EQ starts switched off: press EQ ON. The curve in the strip shows it."],
     complete: "Every processing block on a digital mixer has its own on button. Set it, switch it in, check the curve.",
   }),
   eqOff("gdig", {
+    orient: "On a digital mixer, SEL a channel and the channel strip on the left shows its EQ and COMPRESSOR, each with its curve.",
     hints: ["SEL channel 7. The EQ curve is flat, grey and marked EQ OFF: the bands are set but switched out.", "In the channel strip's EQ section, press EQ ON. Leave the bands alone."],
     complete: "A dialled-in EQ does nothing while it's switched off. On a digital mixer, check the EQ ON key and the curve before the knobs.",
   }),
   compOff("gdig", {
+    orient: "On a digital mixer, SEL a channel and the channel strip on the left shows its EQ and COMPRESSOR, each with its curve.",
     hints: ["SEL channel 7: the compressor graph says COMP OFF, and the GR bar never moves.", "In the channel strip's COMPRESSOR section, press COMP ON."],
     complete: "A compressor dialled in but switched off does nothing at all. After setting one, check that GR moves.",
   }),
@@ -3886,7 +3914,8 @@ const F8S = [
 
 CL3.push(
   eqMud("cl3", {
-    hints: ["SEL channel 3 (GTR). In the SELECTED CHANNEL section, turn LOW-MID's GAIN down a few dB with its FREQUENCY near 300 Hz.", "Nothing changed? The EQ starts switched off: open SELECTED CHANNEL on the screen and press EQ ON."],
+    orient: "On a CL the faders have no EQ knobs: press a channel's SEL key and the SELECTED CHANNEL knobs left of the touch screen edit its EQ.",
+    hints: ["SEL channel 3 (GTR). In the SELECTED CHANNEL section, turn LO MID's GAIN down a few dB with its FREQ near 300 Hz.", "Nothing changed? The EQ starts switched off: open SELECTED CHANNEL on the screen and press EQ ON."],
     complete: "Every EQ on this desk starts switched off. Knobs first or ON first, it doesn't matter, but check the curve before you trust your ears.",
   }),
 );
@@ -3920,14 +3949,17 @@ X32.push(
 );
 X32F.push(
   eqMud("x32", {
+    orient: "On the X32 the faders have no EQ knobs: press a channel's SEL key and the channel strip on the left edits its EQ.",
     hints: ["SEL channel 03 and, in the channel strip's EQ, turn LO MID's GAIN down a few dB with FREQ near 300 Hz.", "Nothing changed? The EQ starts switched off: press EQ ON. The HOME screen's curve shows it."],
     complete: "On the X32 every processing block has its own on button. Set it, switch it in, check the curve.",
   }),
   eqOff("x32", {
+    orient: "On the X32, SEL a channel and the channel strip on the left shows its EQ and COMPRESSOR sections; the main display draws the curves.",
     hints: ["SEL channel 07. The main display's HOME screen draws its EQ: flat, grey and marked EQ OFF.", "In the channel strip's EQ section, press EQ ON. Leave the bands alone."],
     complete: "Every processing block on the X32 has its own on button. The display's curves show what's really switched in.",
   }),
   compOff("x32", {
+    orient: "On the X32, SEL a channel and the channel strip on the left shows its EQ and COMPRESSOR sections; the main display draws the curves.",
     hints: ["SEL channel 07: the DYN graph on the main display says COMP OFF, and the GR bar never moves.", "In the channel strip's COMPRESSOR section, press COMP ON."],
     complete: "A compressor dialled in but switched off does nothing at all. After setting one, check that the GR meter moves.",
   }),

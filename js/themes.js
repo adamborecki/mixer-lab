@@ -18,7 +18,7 @@ export const THEMES = [
     id: "system",
     title: "Speakers and amps",
     question: "Where is the amplifier?",
-    concept: "Powered speakers have the amp inside and take line level; passive speakers need a power amp in between. A speaker that fits the cable can still be silent.",
+    concept: "The mixer puts out line level. A power amp raises that to speaker level: powered speakers have one inside, passive speakers need one in between. A speaker that fits the cable can still be silent.",
     ids: ["find-amp", "drummer-wedge", "b207mp3-amp", "stagepas400bt-speakers", "stagepas400bt-sub"],
   },
   {
@@ -32,7 +32,7 @@ export const THEMES = [
     id: "phantom",
     title: "Phantom power",
     question: "Why is the condenser silent?",
-    concept: "Condenser mics need +48 V from the mixer, and it only travels over an XLR into the mic input. Every console puts the switch somewhere different.",
+    concept: "Condenser mics need +48 V from the mixer, and it only travels over an XLR into the mic input. Speakers never need it: they get their power from the wall or an amp. Every console puts the switch somewhere different.",
     ids: ["b207mp3-phantom", "mix8-overhead", "stagepas400bt-overhead", "mg102-phantom", "x1204usb-overhead", "cr1604-phantom", "ui16-48v", "gdig-48v", "x32c-48v", "x32c-sections-48v", "yam01v96-phantom", "dm2000-48v", "x32-room", "cl3-48v", "sd442-phantom", "f8n-room"],
   },
   {

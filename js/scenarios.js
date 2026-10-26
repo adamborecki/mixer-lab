@@ -149,7 +149,13 @@ export const SCENARIOS = [
       "Use input 9/10, the stereo line input, with the 3.5 mm → dual 1/4″ breakout cable (one plug into the laptop, two into the L/R pair). Check its input meter reads Good; a laptop is already line level, so it needs little or no GAIN.",
       "Bring up the 9/10 {level}. The house speakers are powered and already patched to {main} L/R, so no amplifier is needed.",
     ],
-    complete: "Stereo in, stereo out: one 9/10 strip carries left and right, so the music reaches both house speakers. A laptop is a line-level source: no mic preamp, no +48 V.",
+    complete: "Stereo in, stereo out: one 9/10 strip carries left and right, so the music reaches both house speakers. A laptop is a line-level source: no mic preamp, no +48 V. Phantom power only feeds condenser mics; the house speakers get their power from the wall.",
+    quiz: {
+      q: "Which of these needs phantom power (+48 V)?",
+      options: ["The powered house speakers", "A condenser mic", "The laptop"],
+      answer: 1,
+      why: "Phantom travels from the mixer up an XLR cable to a condenser mic. Powered speakers plug into the wall, and a laptop has its own battery.",
+    },
   },
   {
     id: "build-rig",
@@ -177,7 +183,7 @@ export const SCENARIOS = [
       "Raise each channel's GAIN until its input meter reads Good.",
       "Then bring up each channel's {level}. The house speakers are already patched.",
     ],
-    complete: "Source → preamp (GAIN) → channel ({level}) → {main} → speakers. GAIN sets how hot the signal is going into the mixer; the {level} sets how much of it goes to the house.",
+    complete: "Source → preamp (GAIN) → channel ({level}) → {main} → speakers. GAIN sets how hot the signal is going into the mixer; the {level} sets how much of it goes to the house. +48 V is only for the condenser mic: it goes up the mic cable, never out to the speakers.",
   },
   {
     id: "find-amp",
@@ -209,7 +215,13 @@ export const SCENARIOS = [
       "A mixer output is line level: too weak to move a speaker. A power amp turns line level into speaker level. Path: mixer output → amp input → amp output → speaker.",
       "Unplug Main L and R from the speakers. Main L → amp In A, amp Out A → left speaker; Main R → In B, Out B → right speaker. Use speaker cable from the amp to the speaker.",
     ],
-    complete: "Line level can't drive a passive speaker. The amp sits between them: mixer line output → amp input → amp speaker output → passive speaker. A powered speaker just has that amp built in.",
+    complete: "The mixer already puts out line level; the amp's job is to raise that to speaker level, strong enough to move a passive speaker's cone. So it sits between them: mixer line output → amp input → amp speaker output → passive speaker. A powered speaker just has that amp built in.",
+    quiz: {
+      q: "What does the power amp do to the mixer's signal?",
+      options: ["Raises mic level to line level", "Raises line level to speaker level", "Adds phantom power for the speaker"],
+      answer: 1,
+      why: "The mixer's preamps already brought every mic up to line level. The power amp takes that line-level mix and makes it strong enough to drive a speaker.",
+    },
   },
   {
     id: "more-vocal",
@@ -286,7 +298,7 @@ export const SCENARIOS = [
       "Same as the house speakers earlier: {aux2} out → power amp input → power amp output → passive wedge.",
       "{aux2} out → amp In A. Amp Out A → the wedge, on speaker cable. Then switch Listen to {aux2} to hear it.",
     ],
-    complete: "The same amplifier rule as the house: a passive wedge needs a power amp between the mixer's line-level {aux2} output and the speaker. Only then does the drummer hear the mix.",
+    complete: "The same amplifier rule as the house: the {aux2} output is already line level, and the power amp raises it to speaker level for the passive wedge. Only then does the drummer hear the mix.",
   },
   {
     id: "more-piano",

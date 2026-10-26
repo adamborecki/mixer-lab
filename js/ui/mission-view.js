@@ -253,6 +253,10 @@ export class MissionView {
       else if (act === "music") this.onMusicMode(b.dataset.mode);
       else if (act === "song") this.onSong(b.dataset.song);
       else if (act === "more") this.toggleMore();
+      else if (act === "quiz") {
+        this.quizPick = Number(b.dataset.k);
+        if (this.result) this.updateStrip(this.result);
+      }
       else if (act === "drawer") this.onOpenDrawer(this.mode === "mixer" ? "mixer" : "topic");
     };
     root.addEventListener("click", onClick);
@@ -424,6 +428,7 @@ export class MissionView {
   resetHints() {
     this.hints = 0;
     this.solved = null;
+    this.quizPick = null;
     if (this.def) this.renderHints();
   }
 
@@ -462,8 +467,20 @@ export class MissionView {
     const next = seq.list.slice(i + 1).find((s) => !this.progress.has(s.id)) || seq.list[i + 1];
     banner.hidden = false;
     const still = result.complete ? "" : `<p class="complete-note">You've changed things since: the checklist shows what's true right now.</p>`;
-    banner.innerHTML = `<div><p class="complete-title">Solved ✓</p><p>${esc(fillTerms(this.def.complete, t))}</p>${still}</div>
+    banner.innerHTML = `<div><p class="complete-title">Solved ✓</p><p>${esc(fillTerms(this.def.complete, t))}</p>${still}${this.quiz(t)}</div>
       ${next ? `<button type="button" class="btn btn-start" data-act="next" data-id="${esc(next.id)}">Next: ${esc(shortTitle(next))}${consoleOf(next) !== consoleOf(this.def) ? ` <small>on the ${esc(consoleName(next))}</small>` : ""} →</button>` : `<button type="button" class="btn btn-start" data-act="drawer">${esc(seq.label)} done: ${seq.mixer ? "try another mixer" : "pick another topic"} →</button>`}`;
+  }
+
+  // An optional one-question check after the solve (def.quiz): pick an answer, see why.
+  quiz(t) {
+    const c = this.def.quiz;
+    if (!c) return "";
+    const pick = this.quizPick;
+    const opts = c.options
+      .map((o, k) => `<button type="button" class="chip${pick === k ? (k === c.answer ? " is-right" : " is-wrong") : ""}" data-act="quiz" data-k="${k}" aria-pressed="${pick === k}">${esc(fillTerms(o, t))}</button>`)
+      .join("");
+    const why = pick == null ? "" : `<p class="cc-why" role="status"><strong>${pick === c.answer ? "Right." : "Not quite."}</strong> ${esc(fillTerms(c.why, t))}</p>`;
+    return `<div class="concept-check"><p class="cc-q">Quick check (optional): ${esc(fillTerms(c.q, t))}</p><div class="cc-opts">${opts}</div>${why}</div>`;
   }
 
   // ---------- the pinned copy ----------

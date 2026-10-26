@@ -374,6 +374,7 @@ function useConsole(id, build) {
   mixerView.setSkin(skin);
   renderFlow($("#flow"), skin);
   listenBar.render();
+  showConsoleTip(id);
   missionView.render(current.def, evaluateNow(), { skinId: skin.id, mode });
   document.body.dataset.skin = id;
   for (const b of document.querySelectorAll(".topbar .mode-btn")) {
@@ -383,6 +384,39 @@ function useConsole(id, build) {
   }
   pending.any = pending.patch = true;
   lastEval = "";
+}
+
+// The first time a student opens a big digital console: where its knobs went.
+// Shown once per console; "Got it" is remembered.
+const CONSOLE_TIPS = {
+  cl3: "Most of the CL3's knobs aren't on the faders. Press a channel's SEL key: the SELECTED CHANNEL knobs left of the touch screen, and the screen's SELECTED CHANNEL page, then edit that one channel (gain, EQ, compressor, +48V). The bank keys choose which channels the faders show.",
+  dm2000: "Most of the DM2000's knobs aren't on the faders. Press a channel's SEL key: the SELECTED CHANNEL section then edits that one channel (EQ, compressor, sends, routing), and DISPLAY ACCESS opens its pages on the screen. GAIN, PAD and +48V are in the INPUT row along the top. LAYER chooses which channels the faders show.",
+  x32: "Most of the X32's knobs aren't on the faders. Press a channel's SEL key: the channel strip on the left then edits that one channel (gain, low cut, EQ, compressor, +48V), and the main display draws its curves. The layer keys choose which channels the faders show.",
+  x32c: "Most of the X32 Compact's knobs aren't on the faders. Press a channel's SEL key: the channel strip on the left then edits that one channel (gain, low cut, EQ, compressor, +48V). The layer keys choose which channels the faders show.",
+  gdig: "Most of a digital mixer's knobs aren't on the faders. Press a channel's SEL key: the channel strip on the left then edits that one channel (gain, low cut, EQ, compressor, 48V). The layer buttons choose which channels the faders show.",
+};
+function showConsoleTip(id) {
+  const box = $("#console-tip");
+  const tip = CONSOLE_TIPS[id];
+  const key = `mixer-lab-tip-${id}`;
+  if (!tip || readPref(key)) {
+    box.hidden = true;
+    return;
+  }
+  box.innerHTML = "";
+  const text = document.createElement("p");
+  text.innerHTML = `<strong>New to the ${SKINS[id].name}?</strong> `;
+  text.append(tip);
+  const ok = document.createElement("button");
+  ok.type = "button";
+  ok.className = "chip";
+  ok.textContent = "Got it";
+  ok.addEventListener("click", () => {
+    writePref(key, "1");
+    box.hidden = true;
+  });
+  box.append(text, ok);
+  box.hidden = false;
 }
 
 document.querySelector(".mode-switch").addEventListener("click", (e) => {
