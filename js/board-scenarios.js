@@ -1584,7 +1584,7 @@ const swapToPhantom = ({ id, short, title, who, prompt, out, cable = "xlr", wron
   title,
   who,
   prompt,
-  goal: "The drum overhead (a condenser) heard in the house, the lead vocal still there.",
+  goal: "The drum overhead (a condenser) heard in the house with its GAIN in Good, the lead vocal still there.",
   setup: {
     tweak: (st, h) => {
       if (out) h.unplug(out);
@@ -1593,7 +1593,11 @@ const swapToPhantom = ({ id, short, title, who, prompt, out, cable = "xlr", wron
     },
   },
   conditions: [
-    { id: "drums", kind: "goal", type: "sourceHeardInMain", source: "drums", label: "The overhead is heard in the house" },
+    // Heard and gain-staged are two ticks: a channel freed by the backing singer
+    // keeps their GAIN, where the overhead clips. It is loud in the house, so a
+    // single "heard" tick that also needed Good looked broken (student report B3).
+    goal("drums", "The overhead is heard in the house", (ctx) => house(ctx, "drums") >= AUDIBLE),
+    { id: "gain", kind: "goal", type: "sourceGain", source: "drums", label: "The overhead's GAIN sits in Good, not clipping" },
     { id: "vox", kind: "keep", type: "sourceHeardInMain", source: keepSource, label: "The lead vocal stays in the house" },
   ],
   hints,
@@ -1694,7 +1698,7 @@ MIX8.push(
     who: "Band leader",
     prompt: "“Acoustic set: no backing vocals. Put the drum overhead mic on, to catch the cajón.”",
     out: null,
-    hints: ["The overhead is a condenser mic: XLR, mic level, and it needs phantom power. Which channels have a mic preamp?", "Only 1 and 2. The backing singer is off, so channel 2 is free. 48V on the Mix8 is one switch for 1 and 2.", "Unplug the backing vocal, plug the overhead into channel 2's MIC, press 48V and check its GAIN."],
+    hints: ["The overhead is a condenser mic: XLR, mic level, and it needs phantom power. Which channels have a mic preamp?", "Only 1 and 2. The backing singer is off, so channel 2 is free. 48V on the Mix8 is one switch for 1 and 2.", "Unplug the backing vocal, plug the overhead into channel 2's MIC and press 48V. Channel 2's GAIN is still set for the singer: turn it down until the OL light stays off."],
     complete: "A condenser needs a mic preamp and phantom power; on the Mix8 only channels 1 and 2 have either.",
   }),
 );
@@ -2021,7 +2025,7 @@ XEN.push(
     who: "Band leader",
     prompt: "“The backing singer sits out the ballad. Use channel 2 for the drum overhead.”",
     out: "backing-vocals",
-    hints: ["The overhead is a condenser: XLR into a mic channel, plus phantom.", "Channel 2 is free once the backing vocal is unplugged. PHANTOM is one switch on the rear panel for channels 1–4.", "Plug the overhead into channel 2's MIC, switch PHANTOM on and check its GAIN."],
+    hints: ["The overhead is a condenser: XLR into a mic channel, plus phantom.", "Channel 2 is free once the backing vocal is unplugged. PHANTOM is one switch on the rear panel for channels 1–4.", "Plug the overhead into channel 2's MIC and switch PHANTOM on. Channel 2's GAIN is still set for the singer: turn it down until the CLIP light stays off."],
     complete: "One phantom switch powers channels 1–4. Dynamic mics and DIs don't mind, so it can stay on.",
   }),
   {
