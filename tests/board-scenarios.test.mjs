@@ -566,11 +566,14 @@ Object.assign(SOLVE, {
     a.st.setListen("aux1");
     a.st.setBus("aux1", "level", 0.5);
   },
+  // As a student does it (B3): swap and press 48V first. The overhead is loud
+  // in the house at the singer's GAIN but clips, so only the GAIN tick is left.
   "mix8-overhead": (a) => {
     a.unplugAt("src-backing-vocals/out");
     assert.ok(a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr").ok);
     a.st.setAllPhantom(true);
-    a.set("drums", "gainDb", 34);
+    assert.deepEqual(a.unmet(), ["gain"]);
+    a.set("drums", "gainDb", 30);
   },
   "stagepas400bt-speech": (a) => a.st.setBus("masterEq", "pos", 0.2),
   "stagepas400bt-hall": (a) => a.st.setBus("reverb", "type", 0.24),
@@ -609,6 +612,7 @@ Object.assign(SOLVE, {
   "x1204usb-overhead": (a) => {
     assert.ok(a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr").ok);
     a.st.setAllPhantom(true);
+    assert.deepEqual(a.unmet(), ["gain"]);
     a.set("drums", "gainDb", 34);
   },
   "x1204usb-pfl": (a) => {
@@ -705,6 +709,10 @@ Object.assign(WRONG, {
     a.unplugAt("src-backing-vocals/out");
     a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr");
     a.set("drums", "gainDb", 34);
+  }], ["the singer's GAIN left on (OL)", (a) => {
+    a.unplugAt("src-backing-vocals/out");
+    a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr");
+    a.st.setAllPhantom(true);
   }]],
   "stagepas400bt-speech": [["MASTER LEVEL down", (a) => a.st.setBus("main", "level", 0.3)]],
   "stagepas400bt-hall": [["the ECHO end", (a) => a.st.setBus("reverb", "type", 0.9)]],
@@ -726,6 +734,9 @@ Object.assign(WRONG, {
   "x1204usb-overhead": [["no phantom", (a) => {
     a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr");
     a.set("drums", "gainDb", 34);
+  }], ["the singer's GAIN left on (CLIP)", (a) => {
+    a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr");
+    a.st.setAllPhantom(true);
   }]],
   "x1204usb-pfl": [["gain without listening", (a) => a.set("guitars", "gainDb", 36)]],
   "x1204usb-comp": [["COMP all the way", (a) => a.set("lead-vocal", "comp", 1)]],
