@@ -22,7 +22,7 @@ For a fresh coding agent picking this up. Read this, then the spec (`MIXER_LAB_B
 - Static GitHub Pages site: vanilla HTML/CSS/ES modules. No framework, bundler, backend or dependencies. `package.json` exists only so Node treats `js/` as ES modules for tests.
 - Pure logic (state, connections, scenarios, manifest) must stay free of DOM and Web Audio so `node --test` covers it.
 - Behaviour lives in semantic state and the engine; skins only present it. Never put a skin-specific rule in the engine or in a scenario check.
-- Public site: no student names, grades or private material. Band/music credits are the exception, given with permission (see Credits).
+- Public site: no student names, grades or private material. Band/music credits are the exception, given with permission (see Credits); that includes the Vocal Jazz Ensemble's singers, cleared by the course owner on 2026-10-26.
 
 ## Map
 
@@ -114,7 +114,7 @@ A gig's song (`consoles` in `SONGS`) replaces the default band right after Start
 
 Eight full-X32 scenarios (`x32-vj-*`, the `VJS` list in `js/board-scenarios.js`), from MUS 248's Vocal Jazz Gig Checklist and Vocal Jazz Reset (October 2026) and the facts the Salmon Simulator project has confirmed with the crew.
 
-- **Its own song**, `vj`: NOSTRADAMUS's three vocal parts with no band, on thirteen wireless handhelds named by windscreen and ring color as the crew names them (black 1–8, gray 9–16; red, orange, yellow, green, blue, purple, black, gray). Mic 1 the lead, 2 the harmony, 3–13 the ensemble. `consoles: ["x32"]`.
+- **Its own song**, `vj`: the Vocal Jazz Ensemble's own recording of “Almost Like Being in Love” (the `almost-like` files and loops), eleven singers on eleven wireless handhelds named by windscreen and ring color as the crew names them (black 1–8, gray 9–16; red, orange, yellow, green, blue, purple, black, gray). Mic n is the nth singer in the concert program. `consoles: ["x32"]`. Until 2026-10-26 it was NOSTRADAMUS's three vocal parts on thirteen handhelds.
 - **Its own gig**, `VJ_GIGS.x32`: mic n on LOCAL input n, ROUTING `inSource` `[0, 0, 0, 1]` (CH 1-24 LOCAL, 25-32 AES50-A), every handheld at GAIN 30 dB (the gig field `gainDb`), LOW CUT at 80 Hz, no compressor. MIX 1 = XLR OUT 1 → S32 OUT 1 → the NX3000's CH A → three passive wedges on one speakON chain. Scene 1 holds it.
 - **New devices and parts:** plug, jack and cable `speakon` (a speaker cable); `nx3000` (XLR in, speakON out); `passive-wedge` (two speakON jacks wired together: `link` is a `thru` port, so `throughLinks` chains it like the B207's THRU); `wireless-handheld`.
 - **From the instructor's photos of the console (2026-10-20):** ROUTING → INPUT is Local 1-8, 9-16, 17-24 and AES50 A25-32 (the model's block 4 on AES50-A); ROUTING → AES A sends Output 1-16 to the S32's outputs (the model's factory routing); ROUTING → CARD is Local 1-32 on an X-DANTE (32 in / 32 out), the only card in Salmon's X32; gain 30 dB confirmed. The model's ROUTING page now prints its options as the console does (Local 1-8, AES50 A1-8). The low cut at 80 Hz is a recommendation (the group may have low basses), not yet the instructor's decision.
@@ -231,7 +231,7 @@ Input 9/10 is **one** channel strip (`CHANNEL_LAYOUT[8]`, `stereo: true`, label 
 
 ## Audio assets
 
-- Three bands, `SONGS` in the manifest: Persephone (Giovanna), NOSTRADAMUS (Will Tulip, nine stems, `audio/nostradamus/`) and FTW (after juno, nine instrument-group stems with an orchestra, `audio/ftw/`). `useSong()` swaps the manifest's live bindings; a scenario's `song` says which band plays (Persephone if none), and Free play has a Song picker. See [../audio/README.md](../audio/README.md#nostradamus-will-tulip) and [SCENARIOS.md](SCENARIOS.md).
+- Four groups, `SONGS` in the manifest: Persephone (Giovanna), NOSTRADAMUS (Will Tulip, nine stems, `audio/nostradamus/`), FTW (after juno, nine instrument-group stems with an orchestra, `audio/ftw/`) and the Vocal Jazz Ensemble live (two pieces, eleven handheld mics each, `audio/almost-like/` and `audio/love-me/`). `useSong()` swaps the manifest's live bindings; a scenario's `song` says which band plays (Persephone if none), and Free play has a Song picker. See [../audio/README.md](../audio/README.md#nostradamus-will-tulip) and [SCENARIOS.md](SCENARIOS.md).
 - `audio/persephone/*.mp3`: 8-bar loop excerpt per stem (scenarios, default).
 - `audio/persephone/full/*-NN.mp3`: whole song, 12 × 20 s segments per stem (Free play "Full song").
 - `audio/preshow/joth-bossa-nova.mp3`: preshow music (stereo, 59.6 s). In the manifest as `PRESHOW` and `LOOP_ASSETS.preshow`; feeds the `preshow` source on stereo input 9/10.

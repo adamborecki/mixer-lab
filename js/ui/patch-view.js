@@ -141,7 +141,9 @@ export class PatchView {
       // Input-list number: where this source belongs (the CR1604 takes the laptop on TAPE IN).
       const model = modelOf(state);
       // Input-list number: where the source is patched (a compact mixer has fewer channels than the band).
-      const listNo = model === "generic" ? state.channels[src.order - 1].label : model === "cr1604" && src.stereo ? "TAPE" : chInfo ? state.channels[chInfo.index].label : "—";
+      // On Mixer A/B a source's own strip, if it has one of the right kind (mics 9–11 of the Vocal Jazz Ensemble don't).
+      const own = state.channels[src.order - 1];
+      const listNo = model === "generic" ? (own && !!own.stereo === !!src.stereo ? own.label : chInfo ? state.channels[chInfo.index].label : "—") : model === "cr1604" && src.stereo ? "TAPE" : chInfo ? state.channels[chInfo.index].label : "—";
       const note =
         model === "cr1604" && src.stereo
           ? "A laptop's 3.5 mm headphone jack is a stereo line output. On the 1604 it goes into the TAPE INPUT RCA pair with a 3.5 mm ↔ RCA (Y) cable, then TAPE TO MAIN MIX puts it in the house."

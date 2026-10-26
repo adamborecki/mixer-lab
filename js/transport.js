@@ -166,20 +166,20 @@ export class StemTransport {
     const missing = stems.filter((s) => !this.windows.has(`${id}|${s}`));
     if (!missing.length) return;
     const F = STEM_SET.full;
-    const { start: pre, end } = STEM_SET.loop;
+    const { start: pre, end } = loopPoints(STEM_SET, id);
     const from = sec.start - pre;
     const length = end + 1;
     const ks = segmentsUnder(from, length, F);
     let done = 0;
     const total = missing.length * ks.length;
-    this.emit({ type: "loading", done, total, what: `bars ${sec.bars} of the song` });
+    this.emit({ type: "loading", done, total, what: `${/\d/.test(sec.bars) ? "bars " : "the "}${sec.bars} of the song` });
     await Promise.all(
       missing.map(async (s) => {
         const pieces = await Promise.all(
           ks.map(async (k) => {
             const buffer = await this.fetchStem(this.segmentUrl(s, k), s, F.trimDb, F.segmentSeconds + 2 * F.overlap);
             done++;
-            if (token === this.token) this.emit({ type: "loading", done, total, what: `bars ${sec.bars} of the song` });
+            if (token === this.token) this.emit({ type: "loading", done, total, what: `${/\d/.test(sec.bars) ? "bars " : "the "}${sec.bars} of the song` });
             return { start: Math.max(0, k * F.segmentSeconds - F.overlap), boundary: k * F.segmentSeconds, buffer };
           }),
         );
@@ -286,7 +286,7 @@ export class StemTransport {
   }
 
   playExcerpt() {
-    const { start: ls, end: le } = this.m.STEM_SET.loop;
+    const { start: ls, end: le } = loopPoints(this.m.STEM_SET, this.section);
     const when = this.ctx.currentTime + 0.1;
     for (const id of this.sourceIds) {
       const buffer = this.loopBuffer(this.stemOf(id));
@@ -434,7 +434,7 @@ export class StemTransport {
   // Where the band is: seconds into the loop (excerpt) or the song (full).
   position() {
     if (this.mode === "excerpt") {
-      const { start, end } = this.m.STEM_SET.loop;
+      const { start, end } = loopPoints(this.m.STEM_SET, this.section);
       const t = this.playing ? Math.max(0, this.ctx.currentTime - this.anchor.ctx) % (end - start) : 0;
       return { t, duration: end - start };
     }
@@ -443,6 +443,14 @@ export class StemTransport {
     const song = this.anchor.song + (this.ctx.currentTime - this.anchor.ctx);
     return { t: Math.max(0, song) % D, duration: D };
   }
+}
+
+// A section's loop points within its buffer: the song's (STEM_SET.loop), or
+// as long as the section's own `length` (a live recording whose tempo drifts
+// loops breath to breath, so its sections differ in length).
+export function loopPoints(set, sectionId) {
+  const sec = sectionId === "excerpt" ? null : set.sections.find((s) => s.id === sectionId);
+  return sec?.length ? { start: set.loop.start, end: set.loop.start + sec.length } : set.loop;
 }
 
 // Full-song segment indices covering song time [from, from + length).

@@ -33,6 +33,8 @@ const barsLoop = (section) => {
   const [a, b] = section.bars.split(/[–-]/).map(Number);
   return b > a ? `${b - a + 1 === 8 ? "An" : "A"} ${b - a + 1}-bar loop` : "A loop";
 };
+// "bars 5–12", or a section with no bar numbers by name ("the intro": rubato, before the beat).
+const barsText = (section) => (/\d/.test(section.bars) ? `bars ${section.bars}` : `the ${section.bars}`);
 const clock = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
 // The consoles Free play offers, in learning order (the generic one first).
@@ -554,7 +556,7 @@ export class MissionView {
     const songName = `“${esc(song.title)}” by ${esc(song.artist)}`;
     if (!this.def || this.def.id !== "free-play") {
       box.classList.add("music-now");
-      box.innerHTML = silent ? `<p class="music-note">♪ The band isn't playing in this one.</p>` : section ? `<p class="music-note">♪ ${songName}: the band loops bars ${esc(section.bars)} of the song (${clock(section.start)}), ${esc(section.label.toLowerCase())}.${resting}</p>` : "";
+      box.innerHTML = silent ? `<p class="music-note">♪ The band isn't playing in this one.</p>` : section ? `<p class="music-note">♪ ${songName}: the band loops ${esc(barsText(section))} of the song (${clock(section.start)}), ${esc(section.label.toLowerCase())}.${resting}</p>` : "";
       this.seekEl = this.timeEl = null;
       return;
     }
@@ -567,7 +569,7 @@ export class MissionView {
         ${songs.map(songOpt).join("")}
       </div>
       <div class="music-modes" role="radiogroup" aria-label="Band audio"><span class="music-title">Band audio</span>
-        ${sections.map((s) => opt(s.id, s.label, `bars ${s.bars}`)).join("")}${opt("full", "Full song", len)}
+        ${sections.map((s) => opt(s.id, s.label, barsText(s))).join("")}${opt("full", "Full song", len)}
       </div>
       <div class="music-pos" ${mode === "full" ? "" : "hidden"}>
         <input type="range" class="seek" min="0" max="${Math.round(duration * 2) / 2}" step="0.5" value="0" aria-label="Song position" />

@@ -41,7 +41,7 @@ In the scenarios and Free play, Aux 1 feeds the lead singer's powered wedge and 
 
 **Chapman gigs** (on the start screen and a tab in the Scenarios drawer) are real MUS 248 gigs, each with its own room's rig and faults from that gig's checklist on the course site:
 
-- **Vocal Jazz in Salmon**: thirteen wireless handhelds into Salmon's full-size X32 on LOCAL inputs, an S32 stage box on AES50, and three passive wedges on one speakON chain from an NX3000. Free play on the X32 can put it on stage (Song: Vocal Jazz in Salmon).
+- **Vocal Jazz in Salmon**: the Vocal Jazz Ensemble's own recording, eleven wireless handhelds into Salmon's full-size X32 on LOCAL inputs, an S32 stage box on AES50, and three passive wedges on one speakON chain from an NX3000. Free play on the X32 can put it on stage (Song: Vocal Jazz in Salmon).
 - **COB in Irvine**: a musical with twelve wireless headsets and backing tracks on the X32 Compact, an SD8 carrying its outputs to a STAGEPAS 600BT and a chain of B207MP3 wedges. Free play on the X32 Compact can put it on stage (Song: COB in Irvine).
 - **Electroacoustic showcase in Salmon**: the faculty showcase of October 18, 2026 on Salmon's X32: an S32 on AES50 A and an SD8 daisy-chained off its AES50 B (inputs on AES50 A33-40), a click for the performer only, and the fault that actually happened: the SD8's outputs died mid-piece. FTW's stems stand in for the pieces, plus a click on FTW's beat grid (Song: Electroacoustic showcase).
 

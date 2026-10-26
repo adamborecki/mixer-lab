@@ -10,7 +10,8 @@ ROOT_REF="${ROOT_REF:-origin/main}"
 REF_NS="${REF_NS:-refs/remotes/origin}"
 # Keep in sync with the branch list in .github/workflows/preview-trigger.yml.
 PREFIXES="${PREVIEW_PREFIXES:-claude/ skin/ feature/ preview/}"
-# Every preview carries its own copy of audio/ (~25 MB); Pages allows 1 GB.
+# Every preview carries its own copy of audio/ (~105 MB since the Vocal Jazz
+# Ensemble, 2026-10-26); Pages allows 1 GB, so 15 new-audio previews would not fit.
 MAX="${MAX_PREVIEWS:-15}"
 
 rm -rf "$OUT"

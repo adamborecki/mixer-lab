@@ -2,7 +2,7 @@
 // band input represents. Edit this (not the app code) to rename, reorder,
 // re-map or swap stems. Measurements come from tools/make-excerpts.sh.
 //
-// Three songs, three bands (SONGS). One is "current" at a time: STEM_SET, STEMS,
+// Five songs by four groups, plus four gigs that reuse them (SONGS). One is "current" at a time: STEM_SET, STEMS,
 // SOURCES and SOURCES_BY_ID below are live bindings that useSong() swaps, so
 // every module that imports them sees the current band. Sources that do the
 // same job in both bands share an id (drums, bass, guitars, backing-vocals,
@@ -709,6 +709,111 @@ const FTW_SOURCES = [
   },
 ];
 
+// ---------- the Vocal Jazz Ensemble, live: two pieces, eleven singers ----------
+
+// Chapman's Vocal Jazz Ensemble in concert (2026-10-23), from the board's
+// multitrack: eleven wireless handhelds, track n = the nth singer in the
+// program. No piano track: the piano (Celine You) is only heard faintly
+// through the vocal mics. Every track of both pieces got the same +10 dB
+// (the masters peaked at -11 to -21 dBFS), so each singer's level is their
+// own and the loudest peak sits near -1 dBFS. Mono files (`channels: 1`).
+//
+// Live, with no drummer, the tempo drifts, so every loop runs from one
+// breath to another where all eleven are silent, and each section has its
+// own `length` (seconds) instead of the song's loop length. Song time 0 is
+// SONG_START in tools/make-excerpts.sh: the dead air before the first note
+// and the applause after the last are cut. Bar numbers count from the first
+// bar in tempo; the downbeats were found by beat tracking, not by ear.
+// Who sings where: per bar, each mic's RMS above -50 dBFS on the master.
+const VJ_SINGERS = [
+  ["allie", "Allie Hulbert"],
+  ["karmyn", "Karmyn Trufant"],
+  ["magnolia", "Magnolia Bycott"],
+  ["abbey", "Abbey Sourov"],
+  ["nina", "Nina Brown"],
+  ["shayne", "Shayne Sayre"],
+  ["paola", "Paola Morales"],
+  ["jessica", "Jessica Kaber"],
+  ["brandon", "Brandon Borlaza"],
+  ["michael", "Michael Rogachefsky"],
+  ["silas", "Silas Arora"],
+];
+const ALL_SINGERS = VJ_SINGERS.map(([id]) => id);
+const allBut = (...ids) => ALL_SINGERS.filter((id) => !ids.includes(id));
+const ENSEMBLE = "Vocal Jazz Ensemble";
+
+// "Almost Like Being in Love": a rubato intro, then swing at about 124 bpm
+// (bar 1 at 40.30 s song time). Loops are 8 bars, the intro's two phrases.
+const ALMOST_SET = {
+  id: "almost-like",
+  title: "Almost Like Being in Love",
+  artist: ENSEMBLE,
+  basePath: "audio/almost-like/",
+  loop: { start: 0.5, end: 15.99 },
+  excerpt: { originalStart: 160.41, duration: 16.99 },
+  full: { basePath: "audio/almost-like/full/", segmentSeconds: 20, overlap: 0.5, duration: 222.5, segments: 12, trimDb: 0 },
+  sections: [
+    { id: "intro", bars: "intro", start: 0.65, length: 16.85, label: "Rubato intro, before the beat", plays: allBut("karmyn", "silas"), partly: ["karmyn", "silas"] },
+    { id: "bars-15", bars: "15–22", start: 65.98, length: 15.55, label: "First chorus in tempo, everyone", plays: allBut("nina"), partly: ["nina"] },
+    { id: "bars-45", bars: "45–52", start: 124.06, length: 15.59, label: "Soli: five voices carry the tune", plays: ["nina", "shayne", "paola", "brandon", "silas"], partly: allBut("nina", "shayne", "paola", "brandon", "silas") },
+    { id: "bars-53", bars: "53–60", start: 139.6, length: 15.51, label: "The soli goes on", plays: ["nina", "shayne", "paola", "brandon", "silas"], partly: allBut("nina", "shayne", "paola", "brandon", "silas") },
+    { id: "excerpt", bars: "64–71", start: 160.91, label: "Everyone, full out", plays: ALL_SINGERS, partly: [] },
+  ],
+};
+
+// "Love Me or Leave Me": swing at about 177 bpm (bar 1 at -0.87 s song time,
+// in the piano's intro). Loops are 16 bars.
+const LOVE_ME_SET = {
+  id: "love-me",
+  title: "Love Me or Leave Me",
+  artist: ENSEMBLE,
+  basePath: "audio/love-me/",
+  loop: { start: 0.5, end: 22.61 },
+  excerpt: { originalStart: 49.98, duration: 23.61 },
+  full: { basePath: "audio/love-me/full/", segmentSeconds: 20, overlap: 0.5, duration: 224, segments: 12, trimDb: 0 },
+  sections: [
+    { id: "bars-3", bars: "3–18", start: 1.81, length: 21.47, label: "Abbey's solo, then the ensemble", plays: ["abbey"], partly: allBut("abbey") },
+    { id: "excerpt", bars: "40–55", start: 50.48, label: "Everyone", plays: ALL_SINGERS, partly: [] },
+    { id: "bars-72", bars: "72–87", start: 94.28, length: 21.67, label: "Silas's solo, the others resting", plays: ["silas"], partly: [] },
+    { id: "bars-88", bars: "88–103", start: 116.47, length: 21.61, label: "Silas's solo over the ensemble", plays: ["silas"], partly: allBut("silas") },
+    { id: "bars-119", bars: "119–134", start: 159, length: 21.88, label: "Everyone, in short bursts", plays: [], partly: ALL_SINGERS },
+    { id: "bars-150", bars: "150–165", start: 200.9, length: 21.63, label: "The ending, everyone", plays: ALL_SINGERS, partly: [] },
+  ],
+};
+
+// Measured over the whole song (after the cut) by tools/make-excerpts.sh.
+const vjStems = (song, levels) => Object.fromEntries(VJ_SINGERS.map(([id], i) => [id, { file: `${song}-${String(i + 1).padStart(2, "0")}-${id}.mp3`, channels: 1, treatment: "sum", monoPeakDb: levels[i][0], monoRmsDb: levels[i][1], normalizeDb: 10 }]));
+const ALMOST_STEMS = vjStems("almost-like", [[-4.02, -28.27], [-2.68, -26.95], [-8.29, -28.05], [-6.3, -26.33], [-10.94, -32.82], [-7.73, -28.44], [-3.66, -27.76], [-4.07, -26.3], [-1.9, -25.95], [-4.8, -24.5], [-7.28, -30.21]]);
+const LOVE_ME_STEMS = vjStems("love-me", [[-4.67, -28.62], [-3.47, -26.04], [-4.52, -27.3], [-2.73, -24.67], [-6.11, -30.28], [-7.54, -28.92], [-2.46, -26.88], [-1.21, -25.46], [-1.41, -24.1], [-1.07, -21.27], [-7.65, -27.7]]);
+
+// Mic n is singer n, on receiver channel n. The handhelds are alike: the
+// differences between the meters are the singers' own. `color` names the
+// mic the way Salmon's crew does (its windscreen and ring).
+const handheld = (n, color) => {
+  const [stem, musician] = VJ_SINGERS[n - 1];
+  const first = musician.split(" ")[0];
+  return {
+    id: `vj-${n}`,
+    order: n,
+    name: `Mic ${n}${color ? ` (${color})` : ""} · ${first}`,
+    shortName: `MIC ${n}`,
+    musician,
+    musicianShort: first.toUpperCase(),
+    device: `Wireless handheld ${n}${color ? `, ${color}` : ""} (receiver channel ${n})`,
+    category: "Vocals",
+    deviceType: "wireless-handheld",
+    signalLevel: "mic",
+    connector: "xlr",
+    phantom: "none",
+    outputDb: -30,
+    stem,
+    mixDb: 0,
+    pan: 0,
+    scenarios: ANY_SCENARIO,
+  };
+};
+const JAZZ_SOURCES = VJ_SINGERS.map((_, i) => handheld(i + 1));
+
 // ---------- COB in Irvine: NOSTRADAMUS as a musical ----------
 
 // The Chapman on Broadway (COB) gig in Irvine: performers on wireless headsets
@@ -850,49 +955,20 @@ const KARAOKE_SOURCES = [
   },
 ];
 
-// ---------- Vocal Jazz in Salmon: NOSTRADAMUS's voices a cappella ----------
+// ---------- Vocal Jazz in Salmon: the ensemble's own recording ----------
 
-// Vocal Jazz in Salmon Recital Hall (MUS 248's Vocal Jazz Gig Checklist):
-// thirteen singers on wireless handhelds into the hall's full-size X32.
-// NOSTRADAMUS's three vocal parts stand in for the ensemble, with no band:
-// handheld 1 sings the lead, 2 the harmony, 3–13 the ensemble. Same timeline
-// as NOSTRADAMUS, so the same loops; the stems are its own files.
-const VJ_SET = { ...NOSTRADAMUS_SET, id: "vj", title: "Vocal Jazz in Salmon", artist: "NOSTRADAMUS (Will Tulip), the voices alone" };
-const VJ_LABELS = { "bars-2": "Verse: lead and harmony, the ensemble now and then", excerpt: "A break: voices now and then", "bars-18": "Second verse", "bars-26": "Bridge: the lead alone", "bars-35": "Outro: the ensemble now and then" };
-VJ_SET.sections = NOSTRADAMUS_SET.sections.map((s) => ({ ...s, label: VJ_LABELS[s.id], plays: s.plays.filter((st) => VOX.includes(st)), partly: s.partly.filter((st) => VOX.includes(st)) }));
-const VJ_STEMS = Object.fromEntries(VOX.map((id) => [id, NOSTRADAMUS_STEMS[id]]));
+// Vocal Jazz in Salmon Recital Hall (MUS 248's Vocal Jazz Gig Checklist): the
+// singers on wireless handhelds into the hall's full-size X32. The ensemble's
+// own "Almost Like Being in Love" (the same files and loops), eleven singers
+// on eleven handhelds. Mic n is receiver channel n is X32 input n.
+const VJ_SET = { ...ALMOST_SET, id: "vj", title: "Vocal Jazz in Salmon", artist: `${ENSEMBLE}, “Almost Like Being in Love”` };
+const VJ_STEMS = ALMOST_STEMS;
 
 // The crew names a handheld by its windscreen, then its ring: black 1–8, gray
 // 9–16, rings red, orange, yellow, green, blue, purple, black, gray (the Salmon
-// Simulator's owner-confirmed facts). Mic n is receiver channel n is X32 input n.
-// Each singer holds the mic a little differently, so the levels differ a little.
+// Simulator's owner-confirmed facts).
 const RINGS = ["red", "orange", "yellow", "green", "blue", "purple", "black", "gray"];
-const HANDHELD_LEVELS = [-30, -31, -29, -32, -30, -33, -29, -31, -30, -32, -29, -31, -30];
-const handheld = (n) => {
-  const color = `${n <= 8 ? "black" : "gray"}/${RINGS[(n - 1) % 8]}`;
-  const part = n === 1 ? ["lead", "vox-main", 0] : n === 2 ? ["harmony", "vox-harmony", -4] : ["ensemble", "vox-bgv", -21];
-  return {
-    id: `vj-${n}`,
-    order: n,
-    name: `Mic ${n} (${color}) · ${part[0]}`,
-    shortName: `MIC ${n}`,
-    musician: "Will Tulip",
-    musicianShort: "WILL",
-    device: `Wireless handheld ${n}, ${color} (receiver channel ${n})`,
-    category: "Vocals",
-    deviceType: "wireless-handheld",
-    signalLevel: "mic",
-    connector: "xlr",
-    phantom: "none",
-    outputDb: HANDHELD_LEVELS[n - 1],
-    stem: part[1],
-    mixDb: part[2],
-    pan: 0,
-    scenarios: ANY_SCENARIO,
-    ...(part[0] === "ensemble" ? { note: "One recording stands in for the whole ensemble: mics 3–13 all carry the backing vocals." } : {}),
-  };
-};
-const VJ_SOURCES = Array.from({ length: 13 }, (_, i) => handheld(i + 1));
+const VJ_SOURCES = VJ_SINGERS.map((_, i) => handheld(i + 1, `${i < 8 ? "black" : "gray"}/${RINGS[i % 8]}`));
 
 // ---------- the electroacoustic showcase in Salmon: FTW's parts as stand-ins ----------
 
@@ -954,9 +1030,11 @@ export const SONGS = {
   persephone: { id: "persephone", title: "Persephone", artist: "Giovanna", set: PERSEPHONE_SET, stems: PERSEPHONE_STEMS, sources: PERSEPHONE_SOURCES },
   nostradamus: { id: "nostradamus", title: "NOSTRADAMUS", artist: "Will Tulip", set: NOSTRADAMUS_SET, stems: NOSTRADAMUS_STEMS, sources: NOSTRADAMUS_SOURCES },
   ftw: { id: "ftw", title: "FTW", artist: "after juno", set: FTW_SET, stems: FTW_STEMS, sources: FTW_SOURCES },
+  "almost-like": { id: "almost-like", title: "Almost Like Being in Love", artist: ENSEMBLE, set: ALMOST_SET, stems: ALMOST_STEMS, sources: JAZZ_SOURCES },
+  "love-me": { id: "love-me", title: "Love Me or Leave Me", artist: ENSEMBLE, set: LOVE_ME_SET, stems: LOVE_ME_STEMS, sources: JAZZ_SOURCES },
   // A gig, not just a band: its rig is the X32 Compact's, so it plays on that console only.
   cob: { id: "cob", title: "COB in Irvine", artist: "a musical (NOSTRADAMUS)", set: COB_SET, stems: COB_STEMS, sources: COB_SOURCES, consoles: ["x32c"] },
-  vj: { id: "vj", title: "Vocal Jazz in Salmon", artist: "NOSTRADAMUS's voices, a cappella", set: VJ_SET, stems: VJ_STEMS, sources: VJ_SOURCES, consoles: ["x32"] },
+  vj: { id: "vj", title: "Vocal Jazz in Salmon", artist: "the Vocal Jazz Ensemble (“Almost Like Being in Love”)", set: VJ_SET, stems: VJ_STEMS, sources: VJ_SOURCES, consoles: ["x32"] },
   karaoke: { id: "karaoke", title: "Karaoke in BH 109", artist: "a karaoke track (NOSTRADAMUS)", set: KARAOKE_SET, stems: KARAOKE_STEMS, sources: KARAOKE_SOURCES, consoles: ["x1204usb"] },
   ea: { id: "ea", title: "Electroacoustic showcase", artist: "FTW's parts as stand-ins, and a click", set: EA_SET, stems: EA_STEMS, sources: EA_SOURCES, consoles: ["x32"] },
 };
@@ -1060,6 +1138,21 @@ export const CREDITS = [
     ],
     note: "Used with permission for this educational project.",
   },
+  ...[
+    ["Almost Like Being in Love", "Frederick Loewe and Alan Jay Lerner", "Darmon Meader"],
+    ["Love Me or Leave Me", "Walter Donaldson and Gus Kahn", "Rosana Eckert"],
+  ].map(([title, writers, arranger]) => ({
+    title,
+    lines: [
+      ["Music and lyrics", writers],
+      ["Arrangement", arranger],
+      ["Vocal Jazz Ensemble", VJ_SINGERS.map(([, name]) => name).join(", ")],
+      ["Director", "Alex Robinson"],
+      ["Piano", "Celine You (heard only through the vocal mics)"],
+      ["Recorded", "live in concert, October 23, 2026"],
+    ],
+    note: "Used with permission for this educational project.",
+  })),
   {
     title: "COB in Irvine",
     lines: [["Music", "NOSTRADAMUS by Will Tulip: the instruments as one backing track, the three vocal parts on the headsets"]],
@@ -1067,7 +1160,7 @@ export const CREDITS = [
   },
   {
     title: "Vocal Jazz in Salmon",
-    lines: [["Music", "NOSTRADAMUS by Will Tulip: the three vocal parts alone, on the handhelds"]],
+    lines: [["Music", "“Almost Like Being in Love” by the Vocal Jazz Ensemble, eleven singers on eleven handhelds"]],
     note: "Used with permission for this educational project.",
   },
   {

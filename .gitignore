@@ -4,3 +4,7 @@
 # High-resolution source stems (~440 MB). Kept locally as the masters for
 # tools/make-excerpts.sh; the site only ships the web excerpts in audio/.
 /stems */
+
+# The Vocal Jazz Ensemble's multitrack masters (~740 MB), read by
+# tools/make-excerpts.sh (SONG=almost-like / love-me).
+/audio/VOCAL JAZZ NEW/

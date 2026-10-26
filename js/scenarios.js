@@ -5,7 +5,7 @@
 
 import { SONG, SOURCES_BY_ID, STEMS, sourcesForScenario } from "../audio/source-manifest.js";
 import { CABLES, DEVICE_TYPES, analyzeRig, cableEndFor, channelPortRef, getPort, plugFitsJack } from "./connection-model.js";
-import { BUSES, computeMix, createMixerState, dbToLevel, levelToDb, clamp, listenGroupOf, sourcePeakDb } from "./mixer-state.js";
+import { BUSES, CHANNEL_LAYOUT, computeMix, createMixerState, dbToLevel, levelToDb, clamp, listenGroupOf, sourcePeakDb } from "./mixer-state.js";
 import * as CR1604 from "./cr1604.js";
 import { createF8, createPair, createReverb } from "./devices.js";
 import { createDaw } from "./dante.js";
@@ -27,6 +27,8 @@ const REVERB_CABLES = [
   { from: "reverb/out-l", to: "mixer/ret1-l", cable: "trs" },
   { from: "reverb/out-r", to: "mixer/ret1-r", cable: "trs" },
 ];
+// The Vocal Jazz Ensemble's eleven handhelds (vj-1 … vj-11), all at one send.
+const VJ_SENDS = (db) => Object.fromEntries(Array.from({ length: 11 }, (_, i) => [`vj-${i + 1}`, db]));
 const REVERB_SENDS = { "lead-vocal": -6, "backing-vocals": -10, "harmony-vocal": -10, trumpets: -14, strings: -14, winds: -16, brass: -16 };
 
 // ---------- rig inventory ----------
@@ -500,10 +502,10 @@ export const SCENARIOS = [
       patch: "reference",
       cables: [...HOUSE_CABLES, ...MONITOR_CABLES],
       channels: "mixed",
-      // Every band: Persephone's keys and trumpets, NOSTRADAMUS's extra guitars, harmony and pads, FTW's sections and synths.
+      // Every band: Persephone's keys and trumpets, NOSTRADAMUS's extra guitars, harmony and pads, FTW's sections and synths, the Vocal Jazz Ensemble's handhelds.
       sends: {
-        aux1: { drums: -10, bass: -6, guitars: -6, keys: -5, trumpets: -12, "backing-vocals": -4, "lead-vocal": 0, "lead-guitar": -8, "bridge-guitar": -10, "harmony-vocal": -4, pads: -12, percussion: -14, strings: -10, winds: -12, brass: -14, synths: -10 },
-        aux2: { drums: -2, bass: 0, guitars: -6, keys: -8, trumpets: -12, "backing-vocals": -8, "lead-vocal": -3, "lead-guitar": -8, "bridge-guitar": -10, "harmony-vocal": -10, pads: -14, percussion: -6, strings: -14, winds: -16, brass: -14, synths: -12 },
+        aux1: { drums: -10, bass: -6, guitars: -6, keys: -5, trumpets: -12, "backing-vocals": -4, "lead-vocal": 0, "lead-guitar": -8, "bridge-guitar": -10, "harmony-vocal": -4, pads: -12, percussion: -14, strings: -10, winds: -12, brass: -14, synths: -10, ...VJ_SENDS(-6) },
+        aux2: { drums: -2, bass: 0, guitars: -6, keys: -8, trumpets: -12, "backing-vocals": -8, "lead-vocal": -3, "lead-guitar": -8, "bridge-guitar": -10, "harmony-vocal": -10, pads: -14, percussion: -6, strings: -14, winds: -16, brass: -14, synths: -12, ...VJ_SENDS(-10) },
       },
       listen: "main",
       patchAlso: ["preshow"], // the preshow laptop is patched to stereo input 9/10 ...
@@ -552,6 +554,9 @@ export function buildScenarioState(def, sourcesById = SOURCES_BY_ID, model = "ge
   if (COMPACT[model]) return buildCompactState(model, sourcesById);
   const state = createMixerState();
   const setup = def.setup;
+  // A source whose input number has no matching strip (the Vocal Jazz
+  // Ensemble's mics 9–11 on Mixer A/B) stays on stage, unplugged.
+  const fits = (s) => !!CHANNEL_LAYOUT[s.order - 1] && !!CHANNEL_LAYOUT[s.order - 1].stereo === !!s.stereo;
   const sources = sourcesForScenario(def.id).filter((s) => sourcesById[s.id]);
 
   for (const s of sources) {
@@ -567,13 +572,14 @@ export function buildScenarioState(def, sourcesById = SOURCES_BY_ID, model = "ge
   if (setup.patch === "reference") {
     for (const s of sources) {
       if (s.reference === false && !(setup.patchAlso || []).includes(s.id)) continue; // available on stage, but the student patches it
+      if (!fits(s)) continue;
       addCable({ from: `${sourceDeviceId(s.id)}/out`, to: channelPortRef(s.order - 1), cable: defaultCableFor(s) });
     }
   }
   for (const c of setup.cables || []) addCable(c);
 
   if (setup.channels === "mixed") {
-    for (const s of sources) {
+    for (const s of sources.filter(fits)) {
       const ch = state.channels[s.order - 1];
       ch.gainDb = nominalGainDb(s);
       ch.phantom = s.phantom === "required";
@@ -1311,16 +1317,16 @@ const COB_GIGS = {
 };
 
 // Vocal Jazz in Salmon Recital Hall (MUS 248's Vocal Jazz Gig Checklist and
-// Vocal Jazz Reset), on the hall's full-size X32: thirteen wireless handhelds
-// on LOCAL inputs 1–13 (mic n → receiver channel n → input n). The reset leaves
+// Vocal Jazz Reset), on the hall's full-size X32: the ensemble's eleven
+// wireless handhelds on LOCAL inputs 1–11 (mic n → receiver channel n → input n). The reset leaves
 // ROUTING with CH 1-8, 9-16 and 17-24 on LOCAL and only 25-32 on AES50-A (the
 // S32), every handheld at the same GAIN (30 dB), LOW CUT on, and no
 // dynamics. MIX 1 is the wedges: XLR OUT 1 → S32 OUT 1 → the NX3000's CH A,
 // whose speakON output feeds wedge 1, linked on to 2 and 3.
-const VJ_MICS = Array.from({ length: 13 }, (_, i) => `vj-${i + 1}`);
+const VJ_MICS = Array.from({ length: 11 }, (_, i) => `vj-${i + 1}`);
 const VJ_GIGS = {
   x32: {
-    prompt: "Vocal Jazz in Salmon Recital Hall, on the hall's full-size X32: thirteen singers on wireless handhelds, mic n on receiver channel n on input n (1 sings the lead, 2 the harmony, 3–13 the ensemble). ROUTING: CH 1-8, 9-16 and 17-24 listen to LOCAL (the receivers plug into the console's rear panel); only 25-32 come from AES50-A, the S32 in the stage-side rack. Every handheld has the same GAIN, LOW CUT on, no compressor. MIX 1 is the wedges: XLR OUT 1 reaches S32 OUT 1, into the NX3000's CH A, whose speakON output feeds three passive wedges linked one to the next. MAIN L/R go to the hall's mains.",
+    prompt: "Vocal Jazz in Salmon Recital Hall, on the hall's full-size X32: eleven singers on wireless handhelds, mic n on receiver channel n on input n (mic 1 is Allie, mic 11 Silas: the program's order). ROUTING: CH 1-8, 9-16 and 17-24 listen to LOCAL (the receivers plug into the console's rear panel); only 25-32 come from AES50-A, the S32 in the stage-side rack. Every handheld has the same GAIN, LOW CUT on, no compressor. MIX 1 is the wedges: XLR OUT 1 reaches S32 OUT 1, into the NX3000's CH A, whose speakON output feeds three passive wedges linked one to the next. MAIN L/R go to the hall's mains.",
     patch: Object.fromEntries(VJ_MICS.map((id, i) => [id, [i, "mic"]])),
     cableFor: {},
     gainDb: 30,
@@ -1337,11 +1343,127 @@ const VJ_GIGS = {
       { from: "mains-amp/out-a", to: "hall-l/in", cable: "speaker" },
       { from: "mains-amp/out-b", to: "hall-r/in", cable: "speaker" },
     ],
-    sends: { mix1: { "vj-1": -4, "vj-2": -6, ...each(VJ_MICS.slice(2), -22) } },
+    sends: { mix1: each(VJ_MICS, -8) },
     preFor: ["mix1"],
     hpf: each(VJ_MICS, 0.2), // 80 Hz: low enough for a bass voice (recommended 2026-10-20; the instructor considered 100)
     dyn: {},
     scenes: [{ name: "Vocal Jazz" }],
+  },
+};
+
+// The Vocal Jazz Ensemble's two pieces (Free play) on every console: eleven
+// wireless handhelds, a channel each where there are enough. A small mixer
+// takes a few: Abbey and Silas (mics 4 and 11, the soloists in "Love Me or
+// Leave Me"), or a quartet with Allie and Brandon (1 and 9). The other
+// handhelds stay on stage, unplugged. MIX/AUX 1 is the singers' wedge, 2 the
+// pianist's (the singers, a little lower).
+const JZ = Array.from({ length: 11 }, (_, i) => `vj-${i + 1}`);
+const JZ_DUO = ["vj-4", "vj-11"];
+const JZ_QUARTET = ["vj-1", "vj-4", "vj-9", "vj-11"];
+const JZ_REC = ["vj-1", "vj-3", "vj-4", "vj-7", "vj-9", "vj-11"];
+const jzPatch = (ids, jack, from = 0) => Object.fromEntries(ids.map((id, i) => [id, [from + i, jack]]));
+const JZ_WEDGES = (a, b) => ({ [a]: each(JZ, -6), [b]: each(JZ, -10) });
+const JZ_DESK = {
+  cableFor: {},
+  sends: { ...JZ_WEDGES("mix1", "mix2"), fx1: each(JZ, -14) },
+  hpf: each(JZ, 0.2),
+  dyn: {},
+};
+const JAZZ_GIGS = {
+  mix8: {
+    prompt: "Two singers from the Vocal Jazz Ensemble on a Mackie Mix8: Abbey and Silas (mics 4 and 11, the soloists in “Love Me or Leave Me”) on the two mic channels. The other nine handhelds have no channel left. The singers' wedge is on the AUX send, which on this mixer is post-fader.",
+    patch: jzPatch(JZ_DUO, "mic"),
+    sends: { aux: each(JZ_DUO, -4) },
+  },
+  vlz1202: {
+    prompt: "A quartet from the Vocal Jazz Ensemble on a Mackie 1202-VLZ: Allie, Abbey, Brandon and Silas (mics 1, 4, 9 and 11) on the four mic channels. The other seven handhelds have no channel left. AUX 1 (switched to PRE) feeds the singers' wedge; AUX 2 feeds a reverb that comes back on AUX RETURN 1.",
+    patch: jzPatch(JZ_QUARTET, "mic"),
+    sends: { aux1: each(JZ_QUARTET, -4), aux2: each(JZ_QUARTET, -8) },
+  },
+  mg102: {
+    prompt: "A quartet from the Vocal Jazz Ensemble on a Yamaha MG10/2: Allie and Abbey (mics 1 and 4) on 1 and 2, Brandon and Silas (9 and 11) on the XLRs of 3/4 and 5/6. The other seven handhelds have no channel left. Each channel's one AUX knob feeds either the singers' wedge (AUX1, left) or the reverb (AUX2, right).",
+    patch: jzPatch(JZ_QUARTET, "mic"),
+    sends: { auxPan: each(JZ_QUARTET, -4) },
+    bipolarSides: each(JZ_QUARTET, "left"),
+  },
+  b207mp3: {
+    prompt: "A trio from the Vocal Jazz Ensemble on one Behringer B207MP3: the box is the speaker, the amp and the mixer. Allie, Abbey and Silas (mics 1, 4 and 11) on its three inputs; the other eight handhelds have no channel left. THRU feeds a second B207 on stage as the singers' wedge.",
+    patch: jzPatch(["vj-1", "vj-4", "vj-11"], "in"),
+  },
+  stagepas400bt: {
+    prompt: "A quartet from the Vocal Jazz Ensemble on a Yamaha STAGEPAS 400BT: Allie and Abbey (mics 1 and 4) on 1 and 2, Brandon and Silas (9 and 11) on the combo jacks of 3 and 4. The other seven handhelds have no channel left. SPEAKERS L/R drive the two STAGEPAS speakers directly — the amp is in the mixer — and MONITOR OUT feeds the singers' wedge.",
+    patch: { "vj-1": [0, "mic"], "vj-4": [1, "mic"], "vj-9": [2, "in"], "vj-11": [3, "in"] },
+    sends: { reverb: each(JZ_QUARTET, -10) },
+  },
+  x1204usb: {
+    prompt: "A quartet from the Vocal Jazz Ensemble on a Behringer Xenyx QX1204USB: Allie, Abbey, Brandon and Silas (mics 1, 4, 9 and 11) on the four mic channels. The other seven handhelds have no channel left. AUX 1, with PRE pressed on each channel, feeds the singers' wedge; the FX send feeds the built-in effects, which come back on RETURN 2. No COMP: the singers balance themselves.",
+    patch: jzPatch(JZ_QUARTET, "mic"),
+    sends: { aux1: each(JZ_QUARTET, -4), fx: each(JZ_QUARTET, -8) },
+    comp: {},
+    minus10: [],
+  },
+  sd442: {
+    prompt: "Shooting the Vocal Jazz Ensemble for video with a Sound Devices 442 on a cart: the room pair on channels 1 and 2 (1+2 LINK on, P48 on), the two soloists' handhelds on 3 and 4 (Abbey, mic 4; Silas, mic 11). The XLR master outs feed the camera's two XLR inputs, both outputs and camera inputs at LINE. Listen in the HEADPHONE (try M to check the pair in mono), or at the camera.",
+    patch: { "room-l": [0, "in"], "room-r": [1, "in"], "vj-4": [2, "in"], "vj-11": [3, "in"] },
+    hpf: each(JZ_DUO, 0.25),
+    pans: each(JZ_DUO, 0),
+  },
+  l20: {
+    prompt: "The whole Vocal Jazz Ensemble on a Zoom LiveTrak L-20: the eleven handhelds on inputs 1–11 (mic n on input n). MASTER OUT feeds the house speakers. MONITOR OUT A is the singers' wedge and B the pianist's: each is its own mix on FADER MODE A and B. EFX 1 (hall) is on the voices.",
+    patch: jzPatch(JZ, "in"),
+    padFor: [],
+    sends: { monA: each(JZ, -6), monB: each(JZ, -10), fx1: each(JZ, -12) },
+  },
+  f8n: {
+    prompt: "Filming the Vocal Jazz Ensemble with a Zoom F8n Pro as the recorder and camera mixer: six of the handhelds on inputs 1–6 (mics 1, 3, 4, 7, 9 and 11: Allie, Magnolia, Abbey, Paola, Brandon and Silas), the room pair on 7/8 (Stereo Link, +48V) for everyone. Every input records its own track; the track knobs build the L/R mix. MAIN OUT 1/2 (LINE) feed the main camera's two XLR inputs, SUB OUT (MIC level) the second camera's 3.5 mm mic jack. Listen in the HEADPHONE, or at either camera.",
+    patch: { ...jzPatch(JZ_REC, "in"), "room-l": [6, "in"], "room-r": [7, "in"] },
+    cableFor: {},
+    hpf: each(JZ_REC, 0.25),
+  },
+  ui16: {
+    prompt: "The whole Vocal Jazz Ensemble on a Soundcraft Ui16 digital mixer: the eleven handhelds on inputs 1–11 (mic n on input n). AUX 1 feeds the singers' powered wedge, AUX 2 the pianist's wedge through the power amp; REVERB and DELAY are built in. Pick a mix in the bar above the faders, and SEL a channel to edit it.",
+    patch: jzPatch(JZ, "in"),
+    sends: { ...JZ_WEDGES("aux1", "aux2"), fx1: each(JZ, -14) },
+    hpf: each(JZ, 0.15),
+    dyn: {},
+  },
+  gdig: {
+    prompt: "The whole Vocal Jazz Ensemble on a generic digital mixer: the eleven handhelds on inputs 1–11 (mic n on input n; CH 9-16 is the second layer). MIX 1 (XLR OUT 1) feeds the singers' wedge, MIX 2 (XLR OUT 2) the pianist's wedge through the amp, MAIN comes out of XLR OUT 5/6. FX 1 is a hall reverb. SEL a channel to edit it in the channel strip; SEL a MIX and press SENDS ON FADERS to mix that wedge on the input faders.",
+    patch: jzPatch(JZ, "mic"),
+    ...JZ_DESK,
+  },
+  x32c: {
+    prompt: "The whole Vocal Jazz Ensemble on a Behringer X32 Compact: the eleven handhelds on inputs 1–11 (mic n on input n; CH 9-16 is the second layer). MIX 1 (XLR OUT 1) feeds the singers' wedge, MIX 2 (XLR OUT 2) the pianist's wedge through the amp, MAIN LR comes out of XLR OUT 7/8. FX 1 is a hall reverb. SEL a channel to edit it in the channel strip; SEL a MIX and press SENDS ON FADERS to mix that wedge on the input faders.",
+    patch: jzPatch(JZ, "mic"),
+    ...JZ_DESK,
+  },
+  x32: {
+    prompt: "The whole Vocal Jazz Ensemble on a full-size Behringer X32: the eleven handhelds on inputs 1–11 (CH 1-16), the room pair on 17 and 18 (CH 17-32). XLR OUT 1 carries MIX 1 to the singers' wedge, OUT 2 MIX 2 to the pianist's amp and wedge, OUT 15/16 MAIN L/R to the house: see the ROUTING page. MIX 13 feeds the FX rack's room reverb.",
+    patch: { ...jzPatch(JZ, "mic"), "room-l": [16, "mic"], "room-r": [17, "mic"] },
+    ...JZ_DESK,
+    sends: { ...JZ_WEDGES("mix1", "mix2"), mix13: each(JZ, -14) },
+    scenes: [{ name: "Vocal Jazz" }],
+  },
+  cl3: {
+    prompt: "The whole Vocal Jazz Ensemble on a Yamaha CL3: the handhelds' receivers plug into a Rio3224-D stage box (Rio IN 1–11 feed channels 1–11, the room pair 17 and 18). The OUTPUT PATCH sends MIX 1 to Rio OUT 1 (the singers' wedge), MIX 2 to Rio OUT 2 (the pianist's amp and wedge) and STEREO to Rio OUT 15/16 (the house). MIX 13 feeds the effects rack's reverb. SEL a channel and use the touch screen: OVERVIEW and SELECTED CHANNEL.",
+    patch: { ...jzPatch(JZ, "mic"), "room-l": [16, "mic"], "room-r": [17, "mic"] },
+    ...JZ_DESK,
+    sends: { ...JZ_WEDGES("mix1", "mix2"), mix13: each(JZ, -14) },
+    scenes: [{ name: "Vocal Jazz" }],
+  },
+  dm2000: {
+    prompt: "The whole Vocal Jazz Ensemble on a Yamaha DM2000: the eleven handhelds on the top-panel analog inputs 1–11. STEREO OUT feeds the house. The OUTPUT PATCH puts AUX 1 on OMNI OUT 1 (the singers' wedge) and AUX 2 on OMNI OUT 2 (the pianist's amp and wedge). AUX 7 feeds the reverb (back on CH 73/74). SEL a channel: the SELECTED CHANNEL section and the display follow it.",
+    patch: jzPatch(JZ, "mic"),
+    padFor: [],
+    sends: { ...JZ_WEDGES("aux1", "aux2"), aux7: each(JZ, -14) },
+    dyn: {},
+    scenes: [{ name: "Vocal Jazz" }],
+  },
+  yam01v96: {
+    prompt: "The whole Vocal Jazz Ensemble on a Yamaha 01V96i: the eleven handhelds on inputs 1–11. AUX 1 (OMNI OUT 1) feeds the singers' wedge, AUX 2 (OMNI OUT 2) the pianist's wedge through the amp, STEREO OUT the house. AUX 7 feeds the reverb (back on ST IN 1). FADER MODE turns the faders into an aux's sends; SEL a channel and page through the display.",
+    patch: jzPatch(JZ, "mic"),
+    padFor: [],
+    sends: { ...JZ_WEDGES("aux1", "aux2"), aux7: each(JZ, -14) },
   },
 };
 
@@ -1418,7 +1540,7 @@ const KARAOKE_GIGS = {
 };
 
 // Each band's version of the gigs, over Persephone's.
-const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS, cob: COB_GIGS, vj: VJ_GIGS, ea: EA_GIGS, karaoke: KARAOKE_GIGS };
+const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS, "almost-like": JAZZ_GIGS, "love-me": JAZZ_GIGS, cob: COB_GIGS, vj: VJ_GIGS, ea: EA_GIGS, karaoke: KARAOKE_GIGS };
 
 // A mixer's Free play gig for the band on stage.
 export function gigFor(model) {

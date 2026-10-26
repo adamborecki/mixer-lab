@@ -1,6 +1,6 @@
 # Audio assets
 
-Mixer Lab has three bands, each a set of synchronized stems: "Persephone" (Giovanna, seven stems), "NOSTRADAMUS" (Will Tulip, nine stems) and "FTW" (after juno, nine instrument-group stems). A scenario names its band (`song`, Persephone if none); Free play lets the student pick. Each plays a short looping section in the scenarios, and the whole song in Free play. This folder holds the web delivery files and the manifest that maps them to mixer inputs. For how the app loads, streams and schedules them, see [../docs/AUDIO_ENGINE.md](../docs/AUDIO_ENGINE.md). NOSTRADAMUS and FTW are described [at the end](#nostradamus-will-tulip); everything before them is Persephone.
+Mixer Lab has three bands, each a set of synchronized stems: "Persephone" (Giovanna, seven stems), "NOSTRADAMUS" (Will Tulip, nine stems) and "FTW" (after juno, nine instrument-group stems), and the Vocal Jazz Ensemble live in two pieces (eleven handheld mics each, [described at the end](#the-vocal-jazz-ensemble-live)). A scenario names its band (`song`, Persephone if none); Free play lets the student pick. Each plays a short looping section in the scenarios, and the whole song in Free play. This folder holds the web delivery files and the manifest that maps them to mixer inputs. For how the app loads, streams and schedules them, see [../docs/AUDIO_ENGINE.md](../docs/AUDIO_ENGINE.md). NOSTRADAMUS and FTW are described [at the end](#nostradamus-will-tulip); everything before them is Persephone.
 
 ## Public use
 
@@ -185,11 +185,52 @@ Regenerate with `SONG=ftw tools/make-excerpts.sh`.
 
 Musicians (from Caleb): Nathan Acupan recorded the drums and Elliot Shneider the bass and guitar, in a studio; Caleb Cox did everything else in the production (the vocals, and the mostly sampled percussion, strings, woodwinds, brass and synths). Mixed and mastered by Mitchell Oeth.
 
+## The Vocal Jazz Ensemble, live
+
+Two pieces from the Vocal Jazz Ensemble's concert of October 23, 2026, from the board's multitrack: eleven wireless handhelds, one per singer, cleared by the course owner for public use with the singers credited by name. Track n is the nth singer in the concert program (Allie Hulbert, Karmyn Trufant, Magnolia Bycott, Abbey Sourov, Nina Brown, Shayne Sayre, Paola Morales, Jessica Kaber, Brandon Borlaza, Michael Rogachefsky, Silas Arora), and source `vj-n` is mic n. There is no piano track: Celine You's piano is heard only faintly through the vocal mics. The masters (mono, 44.1 kHz, 24-bit, about 34 MB each) stay local and gitignored in `audio/VOCAL JAZZ NEW/`. Piece 1 of the folder is taken to be the program's first piece.
+
+| Song | Id, files | Song time 0 = master | Ends at | Tempo |
+|---|---|---|---|---|
+| “Almost Like Being in Love” (Loewe and Lerner, arr. Darmon Meader) | `almost-like`, `audio/almost-like/almost-like-NN-<singer>.mp3` | 20.0 s (a mic check runs 0–11.5 s) | 242.5 s (222.5 s long) | rubato intro, then swing at about 124 bpm from 40.3 s |
+| “Love Me or Leave Me” (Donaldson and Kahn, arr. Rosana Eckert) | `love-me`, `audio/love-me/love-me-NN-<singer>.mp3` | 45.0 s (the piano intro, which the mics barely hear) | 269.0 s (224 s long) | swing at about 177 bpm |
+
+- **Levels.** The tracks were recorded low (peaks −11 to −21 dBFS). Every track of both pieces gets the same +10 dB (`normalizeDb: 10`, `SHARED_GAIN_DB` in the script), so the loudest peak sits at −1.07 dBFS and each singer keeps their own level: the meters differ because the singers do. No limiting or compression. `monoPeakDb` / `monoRmsDb` are measured over the whole song.
+- **Mono.** The files are mono MP3s (`channels: 1`), −V4 for the excerpt (about 80 kb/s) and −V5 for the segments. Excerpts are about 1.7 MB (piece 1) and 2.4 MB (piece 2) for all eleven; full songs 12 segments per stem, 132 files, about 18 MB each.
+- **Loops, breath to breath.** With no drummer the tempo drifts by a few percent, so a loop cut on a bar grid would stumble at the seam. Every loop starts and ends in a breath where all eleven mics are below −52 dBFS on the master, the two breaths found the same number of bars apart on a beat tracker's grid. Each section therefore has its own `length`; `loopPoints()` in `js/transport.js` uses it, and the stitched buffer is laid out as usual (0.5 s pre-roll, the loop, 1 s post-roll). Piece 1 loops 8 bars (about 15.5 s; the intro two rubato phrases), piece 2 16 bars (about 21.7 s). Bar numbers count from the first bar in tempo; the downbeats come from beat tracking, not from the score.
+- **Who sings.** Per bar, each mic's RMS above −50 dBFS on the master (the bleed from the other singers sits below that).
+
+“Almost Like Being in Love”:
+
+| Section | Starts | Length | Singing | Partly |
+|---|---|---|---|---|
+| the intro | 0:00.7 | 16.85 s | everyone else | Karmyn, Silas |
+| bars 15–22 | 1:06.0 | 15.55 s | everyone but Nina | Nina |
+| bars 45–52 | 2:04.1 | 15.59 s | the soli: Nina, Shayne, Paola, Brandon, Silas | the other six |
+| bars 53–60 | 2:19.6 | 15.51 s | the same five | the other six |
+| bars 64–71 (the excerpt) | 2:40.9 | 15.49 s | everyone | |
+
+“Love Me or Leave Me”:
+
+| Section | Starts | Length | Singing | Partly |
+|---|---|---|---|---|
+| bars 3–18 | 0:01.8 | 21.47 s | Abbey's solo | the ensemble comes in |
+| bars 40–55 (the excerpt) | 0:50.5 | 22.11 s | everyone | |
+| bars 72–87 | 1:34.3 | 21.67 s | Silas's solo | nobody else |
+| bars 88–103 | 1:56.5 | 21.61 s | Silas | the ensemble behind |
+| bars 119–134 | 2:39.0 | 21.88 s | | everyone, in short bursts |
+| bars 150–165 | 3:20.9 | 21.63 s | everyone, the ending | |
+
+Regenerate with `SONG=almost-like tools/make-excerpts.sh` and `SONG=love-me tools/make-excerpts.sh`.
+
+**Where they play.** Both pieces are in Free play on every console. Where a console has fewer mic inputs than singers, it takes the two soloists (Abbey, mic 4, and Silas, mic 11), a quartet (mics 1, 4, 9, 11) or six of them on the F8n, and the rest stay on stage, unplugged (`JAZZ_GIGS` in `js/scenarios.js`; on Mixer A and B, mics 1–8). The Vocal Jazz in Salmon gig (`vj`) plays “Almost Like Being in Love” on its eleven handhelds.
+
 ## The electroacoustic showcase (stand-ins and a click)
 
 The `ea` song (`SONGS.ea` in `source-manifest.js`) has no recordings of its own: it puts FTW's stems on stage as stand-ins for the showcase's sources, and adds one generated file, a click track on FTW's own timeline, so it stays sample-locked with them: `ftw/ftw-click.mp3` (the excerpt) and `ftw/full/ftw-click-00.mp3` … `-12.mp3` (the segments, cut like the stems). `tools/make-click-track.sh` makes them with ffmpeg: 70 bpm, 1600 Hz on each downbeat and 1000 Hz on the other beats, 40 ms each, from a downbeat measured in FTW's drums at song time 134.846 s (0.03 s after the excerpt's loop start). No permissions needed: it's a synthesized metronome.
 
 ## Credits
+
+“Almost Like Being in Love” (Frederick Loewe and Alan Jay Lerner, arr. Darmon Meader) and “Love Me or Leave Me” (Walter Donaldson and Gus Kahn, arr. Rosana Eckert): the Vocal Jazz Ensemble, Allie Hulbert, Karmyn Trufant, Magnolia Bycott, Abbey Sourov, Nina Brown, Shayne Sayre, Paola Morales, Jessica Kaber, Brandon Borlaza, Michael Rogachefsky and Silas Arora; Alex Robinson, director; Celine You, piano. Recorded live in concert, October 23, 2026. Used with permission for this educational project.
 
 FTW: after juno. Drums Nathan Acupan; bass and guitar Elliot Shneider; vocals and production Caleb Cox; mixing and mastering Mitchell Oeth. Used with permission for this educational project.
 

@@ -9,6 +9,8 @@
 #   tools/make-excerpts.sh full                     # Persephone, full-song segments only
 #   SONG=nostradamus tools/make-excerpts.sh         # NOSTRADAMUS (same options)
 #   SONG=ftw tools/make-excerpts.sh                 # FTW (same options)
+#   SONG=almost-like tools/make-excerpts.sh         # the Vocal Jazz Ensemble's two pieces
+#   SONG=love-me tools/make-excerpts.sh
 #
 # Requires ffmpeg (with libmp3lame) on PATH. Prints a measurement table whose
 # numbers belong in audio/source-manifest.js (STEMS[…].normalizeDb /
@@ -100,7 +102,47 @@ case "$SONG" in
       "FTW_MIXED_v4.5_SYNTHS STEM.wav|ftw-synths"
     )
     ;;
-  *) echo "Unknown SONG '$SONG' (persephone, nostradamus or ftw)." >&2; exit 1 ;;
+  almost-like | love-me)
+    # The Chapman Vocal Jazz Ensemble live (2026-10-23): eleven mono handheld
+    # tracks per piece, track n = the nth singer in the program. Recorded low
+    # (peaks -11 to -21 dBFS), so every track of both pieces gets the same
+    # +10 dB: the loudest peak lands near -1 dBFS and the singers keep their
+    # own balance. No limiting. The song skips the dead air before the first
+    # note and the applause after the last (SONG_START / SONG_END, seconds
+    # on the original). Live tempo drifts, so each loop runs breath to breath
+    # (every singer silent at both ends) and its length is the section's own
+    # (`length` in the manifest); this is the excerpt's.
+    NORM_SPAN=song
+    SHARED_GAIN_DB=10
+    FULL_TRIM_DB=0
+    SINGERS=(allie karmyn magnolia abbey nina shayne paola jessica brandon michael silas)
+    if [ "$SONG" = almost-like ]; then
+      # "Almost Like Being in Love" (piece 1): a rubato intro, then swing at
+      # about 124 bpm from 60.3 s. A mic check runs 0-11.5 s. The excerpt is
+      # bars 64-71 (everyone), 8 bars from breath to breath.
+      MASTERS="audio/VOCAL JAZZ NEW/VJ concert at MAN piece 1"
+      PIECE=1
+      SONG_START=20.0
+      SONG_END=242.5
+      LOOP_START=180.91
+      LOOP_LENGTH=15.49
+    else
+      # "Love Me or Leave Me" (piece 2): a piano intro the vocal mics barely
+      # hear, then swing at about 177 bpm. The excerpt is bars 40-55
+      # (everyone), 16 bars from breath to breath.
+      MASTERS="audio/VOCAL JAZZ NEW/VJ concert at MAN piece 2"
+      PIECE=2
+      SONG_START=45.0
+      SONG_END=269.0
+      LOOP_START=95.48
+      LOOP_LENGTH=22.11
+    fi
+    STEMS=()
+    for n in "${!SINGERS[@]}"; do
+      STEMS+=("261023 MAN vocal jazz_$((n + 1))#02.$PIECE.wav|$SONG-$(printf %02d $((n + 1)))-${SINGERS[$n]}")
+    done
+    ;;
+  *) echo "Unknown SONG '$SONG' (persephone, nostradamus, ftw, almost-like or love-me)." >&2; exit 1 ;;
 esac
 
 SRC_DIR="${SRC_DIR:-$MASTERS}"
@@ -114,17 +156,22 @@ EXCERPT_LENGTH=$(echo "$PRE_ROLL + $LOOP_LENGTH + $POST_ROLL" | bc -l)
 mkdir -p "$OUT_DIR"
 
 # Normalize and measure on the excerpt, or on the whole song (NORM_SPAN).
-if [ "$NORM_SPAN" = song ]; then SPAN=(${SONG_END:+-t "$SONG_END"}); else SPAN=(-ss "$EXCERPT_START" -t "$EXCERPT_LENGTH"); fi
+SONG_START="${SONG_START:-0}"
+if [ "$NORM_SPAN" = song ]; then
+  SPAN=(-ss "$SONG_START")
+  [ -n "${SONG_END:-}" ] && SPAN+=(-t "$(echo "$SONG_END - $SONG_START" | bc -l)")
+else SPAN=(-ss "$EXCERPT_START" -t "$EXCERPT_LENGTH"); fi
 
 # Prints "<overall peak dB> <mono-sum peak dB> <mono-sum RMS dB>" for a filter chain.
 measure() {
   local file="$1" pre="$2"
-  local stereo mono
+  local stereo mono fold="pan=mono|c0=0.5*c0+0.5*c1"
+  [ "$(ffprobe -v error -show_entries stream=channels -of csv=p=0 "$file")" = 1 ] && fold="anull"
   stereo=$(ffmpeg -hide_banner -nostats ${SPAN[@]+"${SPAN[@]}"} -i "$file" \
     -af "${pre}astats=measure_perchannel=none:measure_overall=Peak_level" -f null - 2>&1 |
     awk -F': ' '/Peak level dB/ {v=$2} END {print v}')
   mono=$(ffmpeg -hide_banner -nostats ${SPAN[@]+"${SPAN[@]}"} -i "$file" \
-    -af "${pre}pan=mono|c0=0.5*c0+0.5*c1,astats=measure_perchannel=none:measure_overall=Peak_level+RMS_level" -f null - 2>&1 |
+    -af "${pre}$fold,astats=measure_perchannel=none:measure_overall=Peak_level+RMS_level" -f null - 2>&1 |
     awk -F': ' '/Peak level dB/ {p=$2} /RMS level dB/ {r=$2} END {print p, r}')
   echo "$stereo $mono"
 }
@@ -139,6 +186,8 @@ for entry in "${STEMS[@]}"; do
 
   read -r peak _ _ <<<"$(measure "$in" "")"
   norm=$(echo "$TARGET_PEAK_DB - ($peak)" | bc -l)
+  # One gain for every stem (SHARED_GAIN_DB) instead of peak-normalizing each.
+  [ -n "${SHARED_GAIN_DB:-}" ] && norm=$SHARED_GAIN_DB
 
   if [ "$WHAT" != "full" ]; then
     ffmpeg -hide_banner -loglevel error -y \
@@ -154,8 +203,11 @@ for entry in "${STEMS[@]}"; do
     # SEGMENT_OVERLAP on each side (none before 0 or after the end).
     rate=$(ffprobe -v error -show_entries stream=sample_rate -of csv=p=0 "$in")
     total=$(ffprobe -v error -show_entries stream=duration_ts -of csv=p=0 "$in")
-    # A song can end before its files do (SONG_END, seconds).
-    if [ -n "${SONG_END:-}" ]; then end=$((SONG_END * rate)); [ "$end" -lt "$total" ] && total=$end; fi
+    # A song can end before its files do (SONG_END, seconds), and start after
+    # they do (SONG_START): song time 0 is SONG_START on the original.
+    if [ -n "${SONG_END:-}" ]; then end=$(printf "%.0f" "$(echo "$SONG_END * $rate" | bc -l)"); [ "$end" -lt "$total" ] && total=$end; fi
+    s0=$(printf "%.0f" "$(echo "$SONG_START * $rate" | bc -l)")
+    total=$((total - s0))
     seg=$((SEGMENT_SECONDS * rate))
     pad=$(printf "%.0f" "$(echo "$SEGMENT_OVERLAP * $rate" | bc -l)")
     fullgain=$(echo "$norm - $FULL_TRIM_DB" | bc -l)
@@ -164,7 +216,7 @@ for entry in "${STEMS[@]}"; do
       a=$((k * seg - pad)); [ $a -lt 0 ] && a=0
       b=$(((k + 1) * seg + pad)); [ $b -gt "$total" ] && b=$total
       ffmpeg -hide_banner -loglevel error -y -i "$in" \
-        -af "atrim=start_sample=$a:end_sample=$b,asetpts=PTS-STARTPTS,volume=${fullgain}dB" \
+        -af "atrim=start_sample=$((s0 + a)):end_sample=$((s0 + b)),asetpts=PTS-STARTPTS,volume=${fullgain}dB" \
         -map_metadata -1 -c:a libmp3lame -q:a "$FULL_QUALITY" "$FULL_DIR/$name-$(printf %02d $k).mp3"
       k=$((k + 1))
     done

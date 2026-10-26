@@ -8,6 +8,7 @@ import { DEFAULT_SONG, SONGS, songFits, useSong } from "../audio/source-manifest
 import { ALL_BOARD_SCENARIOS, SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, gigFor, scenarioFor } from "../js/scenarios.js";
 import { MODELS, computeMix, sourcePeakDb } from "../js/mixer-state.js";
 import { pickSection } from "../js/music.js";
+import { loopPoints } from "../js/transport.js";
 
 const exists = (path) => fs.existsSync(new URL(`../${path}`, import.meta.url));
 
@@ -55,7 +56,8 @@ describe("songs", () => {
       assert.ok(set.sections.some((s) => s.id === "excerpt"));
       for (const sec of set.sections) {
         assert.ok(sec.start - set.loop.start >= 0, sec.id);
-        assert.ok(sec.start - set.loop.start + set.loop.end + 1 <= set.full.duration, `${sec.id} runs past the end`);
+        const { start, end } = loopPoints(set, sec.id);
+        assert.ok(sec.start - start + end + 1 <= set.full.duration, `${sec.id} runs past the end`);
         for (const st of [...sec.plays, ...sec.partly]) assert.ok(stems[st] && ids.includes(st), `${sec.id}: ${st}`);
       }
       const ex = set.sections.find((s) => s.id === "excerpt");
