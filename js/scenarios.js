@@ -1281,18 +1281,17 @@ const FTW_GIGS = {
   },
 };
 
-// The COB gig in Irvine (MUS 248's COB Gig Checklist), its own rig: twelve
-// wireless headsets on X32 inputs 1–12 (receiver channel A → 1 … L → 12), the
+// The COB gig in Irvine (MUS 248's COB Gig Checklist), its own rig: eleven
+// wireless headsets on X32 inputs 1–11 (receiver channel A → 1 … K → 11), the
 // backing-track laptop on AUX IN 1/2. The console sits in the booth; an SD8 on
 // the stage floor carries its outputs down one Cat5e: SD8 OUT 1 (MIX 1) → the
 // wedges, daisy-chained on THRU; OUT 7/8 (MAIN L/R) → the STAGEPAS 600BT's line
 // input 5/6, whose amp drives its two passive speakers. Inputs stay LOCAL.
-const COB_HEADSETS = "abcdefghijkl".split("").map((l) => `hs-${l}`);
-const COB_ENSEMBLE = COB_HEADSETS.slice(2);
+const COB_HEADSETS = "abcdefghijk".split("").map((l) => `hs-${l}`);
 const each = (ids, v) => Object.fromEntries(ids.map((id) => [id, v]));
 const COB_GIGS = {
   x32c: {
-    prompt: "COB in Irvine, a musical on a Behringer X32 Compact in the booth: twelve wireless headsets on inputs 1–12 (bodypack A on 1 … L on 12; A sings the lead, B the harmony, C–L the ensemble), the backing tracks from a laptop on AUX IN 1/2. An SD8 stage box on the stage floor carries the outputs down one Cat5e cable: SD8 OUT 1 is MIX 1, the performers' wedges, chained from one B207MP3 to the next on THRU; OUT 7/8 are MAIN L/R into the STAGEPAS 600BT's line input 5/6, whose amp drives its two speakers. The mics stay on LOCAL: the SD8 is only for outputs.",
+    prompt: "COB in Irvine, a musical on a Behringer X32 Compact in the booth: eleven wireless headsets on inputs 1–11 (bodypack A on 1 … K on 11; the Vocal Jazz Ensemble stands in for the cast, headset n is singer n), the backing tracks from a laptop on AUX IN 1/2. The laptop plays silence here (the ensemble's recording has no accompaniment), but its routing and sends count as at the gig. An SD8 stage box on the stage floor carries the outputs down one Cat5e cable: SD8 OUT 1 is MIX 1, the performers' wedges, chained from one B207MP3 to the next on THRU; OUT 7/8 are MAIN L/R into the STAGEPAS 600BT's line input 5/6, whose amp drives its two speakers. The mics stay on LOCAL: the SD8 is only for outputs.",
     patch: { ...Object.fromEntries(COB_HEADSETS.map((id, i) => [id, [i, "mic"]])), track: [16, "lr"] },
     cableFor: {},
     devices: ["sb", "stagepas", "sp6-l", "sp6-r", "cob-w1", "cob-w2", "cob-w3"],
@@ -1307,12 +1306,12 @@ const COB_GIGS = {
       { from: "cob-w2/thru", to: "cob-w3/in", cable: "xlr" },
     ],
     sends: {
-      mix1: { "hs-a": 0, "hs-b": -3, ...each(COB_ENSEMBLE, -20), track: -4 },
-      fx1: { "hs-a": -12, "hs-b": -14, ...each(COB_ENSEMBLE, -24) },
+      mix1: { ...each(COB_HEADSETS, -6), track: -4 },
+      fx1: each(COB_HEADSETS, -16),
     },
     preFor: ["mix1"], // the wedge mix is pre-fader
     hpf: each(COB_HEADSETS, 0.15),
-    dyn: { "hs-a": { threshold: -16, ratio: 3, makeup: 3 } },
+    dyn: {},
   },
 };
 

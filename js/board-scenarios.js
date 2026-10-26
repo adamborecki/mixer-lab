@@ -4142,13 +4142,13 @@ const BOXES = {
 };
 
 // ---------- COB in Irvine: a real MUS 248 gig on the X32 Compact ----------
-// The COB Gig Checklist's rig (js/scenarios.js COB_GIGS): twelve wireless
-// headsets on LOCAL inputs 1–12, the backing tracks on AUX IN 1/2, an SD8 on
+// The COB Gig Checklist's rig (js/scenarios.js COB_GIGS): eleven wireless
+// headsets on LOCAL inputs 1–11, the backing tracks on AUX IN 1/2, an SD8 on
 // the stage floor for the outputs only (OUT 1 = MIX 1 to the wedges on a THRU
 // chain, OUT 7/8 = MAIN L/R to the STAGEPAS 600BT that drives the mains). Each
 // fault is one the checklist's troubleshooting list warns about.
 
-const COB_HS = "abcdefghijkl".split("").map((l) => `hs-${l}`);
+const COB_HS = "abcdefghijk".split("").map((l) => `hs-${l}`);
 const COB_ENDS = ["sp6-l", "sp6-r", "cob-w1", "cob-w2", "cob-w3"];
 const castInHouse = (ctx) => COB_HS.every((s) => house(ctx, s) >= AUDIBLE);
 const ok = (ctx, id) => !!endpoint(ctx, id)?.valid;
@@ -4158,31 +4158,31 @@ const COB = [
   {
     id: "x32c-cob-usb",
     short: "Mics on the USB card",
-    title: "Twelve mics, no sound",
+    title: "Eleven mics, no sound",
     who: "Sound engineer",
-    prompt: "“The X32 came straight from a recording session. All twelve receivers show RF and AF, the cast is wearing their packs — and channels 1–12 show nothing at all.”",
-    goal: "Channels 1–16 listening to the rear-panel jacks again, and all twelve headsets in the house.",
-    music: "bars-2",
+    prompt: "“The X32 came straight from a recording session. All eleven receivers show RF and AF, the cast is wearing their packs — and channels 1–11 show nothing at all.”",
+    goal: "Channels 1–16 listening to the rear-panel jacks again, and all eleven headsets in the house.",
+    music: "excerpt",
     setup: { tweak: (st) => (st.rig.devices.find((d) => d.id === "mixer").inSource = [2, 2]) },
     conditions: [
       goal("routing", "ROUTING: CH 1-8 and CH 9-16 come from LOCAL", (ctx) => mixerDev(ctx).inSource.every((v) => v === 0)),
-      goal("cast", "All twelve headsets are in the house", castInHouse),
+      goal("cast", "All eleven headsets are in the house", castInHouse),
     ],
     hints: ["The receivers light up, so the packs work. Is the console listening to the jacks the receivers plug into?", "The main display's ROUTING page decides where each block of 8 channels listens: LOCAL (the rear-panel jacks), AES50-A (a stage box) or CARD (USB from a computer).", "ROUTING: set CH 1-8 and CH 9-16 to LOCAL."],
     complete: "CARD is the USB card: a computer playing a recording back in. The receivers plug into the console's own jacks, so the inputs listen to LOCAL. AES50-A wouldn't help either: at COB the SD8 only carries outputs. Check ROUTING first on any X32 that's been somewhere else.",
   },
   {
     id: "x32c-cob-gain",
-    short: "Twelve headset gains",
-    title: "Twelve new headsets",
+    short: "Eleven headset gains",
+    title: "Eleven new headsets",
     who: "Music director",
     prompt: "“New cast, new packs: every channel's GAIN went back to the bottom. Can you get the whole company up before the run-through?”",
-    goal: "All twelve headsets at a healthy level on their meters (in the green), none clipping.",
-    music: "bars-2",
+    goal: "All eleven headsets at a healthy level on their meters (in the green), none clipping.",
+    music: "excerpt",
     setup: { tweak: (st, h) => COB_HS.forEach((s) => h.set(s, "gainDb", -12)) },
-    conditions: [goal("gain", "All twelve headset channels read healthy, none in the red", (ctx) => COB_HS.every((s) => ["good", "hot"].includes(mc(ctx, s)?.band) && mc(ctx, s).inputPeakDb < -1))],
-    hints: ["Gain first, faders after: the meter says when a channel's GAIN is right. The ensemble (C–L) only sings now and then in this loop: watch their meters when they come in.", "SEL a channel (CH 1-8, then CH 9-16) and turn GAIN up while the performer sings. Every performer is different: G is the loudest, K the quietest.", "Aim for the green on each channel's meter; back off if it reaches CLIP."],
-    complete: "Twelve people, twelve voices, twelve different distances from the mic: each headset needs its own GAIN. Set it once, at soundcheck, with the performer singing at show volume.",
+    conditions: [goal("gain", "All eleven headset channels read healthy, none in the red", (ctx) => COB_HS.every((s) => ["good", "hot"].includes(mc(ctx, s)?.band) && mc(ctx, s).inputPeakDb < -1))],
+    hints: ["Gain first, faders after: the meter says when a channel's GAIN is right. Everyone sings in this loop, but in bursts: watch each meter while its singer is singing.", "SEL a channel (CH 1-8, then CH 9-16) and turn GAIN up while the performer sings. Every performer is different: J is the loudest, K the quietest.", "Aim for the green on each channel's meter; back off if it reaches CLIP."],
+    complete: "Eleven people, eleven voices, eleven different distances from the mic: each headset needs its own GAIN. Set it once, at soundcheck, with the performer singing at show volume.",
   },
   {
     id: "x32c-cob-tracks",
@@ -4191,7 +4191,7 @@ const COB = [
     who: "Music director",
     prompt: "“Places! The opening number starts on the track, and the house hears nothing from the laptop. The cast hears it fine in the wedges.”",
     goal: "The backing track in the house in stereo, both main speakers, the wedges unchanged.",
-    music: "bars-2",
+    music: "excerpt",
     setup: {
       tweak: (st, h) => {
         h.set("track", "lr", false);
@@ -4229,7 +4229,7 @@ const COB = [
     who: "House manager",
     prompt: "“The audience on the right can barely hear. Their speaker is completely silent.”",
     goal: "The right main speaker playing MAIN R again, the left one unchanged.",
-    music: "bars-2",
+    music: "excerpt",
     setup: { tweak: (st, h) => h.cut("sb/out8") },
     conditions: [
       goal("right", "The right main speaker plays MAIN R", (ctx) => ok(ctx, "sp6-r") && endpoint(ctx, "sp6-r").output === "main-r"),
@@ -4245,7 +4245,7 @@ const COB = [
     who: "Stage hand",
     prompt: "“We lost one of the STAGEPAS speaker cables, so I used a guitar cable for the right speaker. It works, so we're fine, right?”",
     goal: "The right main speaker on a speaker cable, both mains still working.",
-    music: "bars-2",
+    music: "excerpt",
     setup: { tweak: (st) => (st.rig.cables.find((c) => c.from === "stagepas/out-b").cable = "ts") },
     conditions: [
       goal("cable", "SPEAKERS R → the right speaker is a speaker cable", (ctx) => ctx.state.rig.cables.find((c) => c.to === "sp6-r/in")?.cable === "speaker"),
@@ -4261,7 +4261,7 @@ const COB = [
     who: "Performer on the right",
     prompt: "“The two wedges on the left are fine. Mine, on the right end of the row, is dead, and it's switched on.”",
     goal: "All three wedges playing MIX 1, the house unchanged.",
-    music: "bars-2",
+    music: "excerpt",
     setup: { tweak: (st, h) => h.cut("cob-w2/thru") },
     baseline: { main: { metric: "mainDbByChannel" } },
     conditions: [
@@ -4279,14 +4279,14 @@ const COB = [
     who: "Lead performer",
     prompt: "“Every time you pull the ensemble down in the house, they vanish from our wedges too. We need to hear them steady, whatever the audience gets.”",
     goal: "Every headset and the track feed MIX 1 pre-fader, the house unchanged.",
-    music: "bars-2",
+    music: "excerpt",
     setup: { tweak: (st, h) => [...COB_HS, "track"].forEach((s) => h.set(s, "pres.mix1", false)) },
     baseline: { main: { metric: "mainDbByChannel" } },
     conditions: [
       goal("pre", "MIX 1 ignores the channel faders: every headset and the track send PRE", (ctx) => [...COB_HS, "track"].every((s) => ignoresFader(ctx, "mix1", s))),
       { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
     ],
-    hints: ["A post-fader send follows the channel fader; a pre-fader send ignores it. Which do the wedges need?", "SEL a channel: its sends to MIX 1–6 each have a PRE/POST switch in the channel strip.", "On every headset channel (1–12) and AUX 1/2, set the MIX 1 send to PRE."],
+    hints: ["A post-fader send follows the channel fader; a pre-fader send ignores it. Which do the wedges need?", "SEL a channel: its sends to MIX 1–6 each have a PRE/POST switch in the channel strip.", "On every headset channel (1–11) and AUX 1/2, set the MIX 1 send to PRE."],
     complete: "Monitor sends go pre-fader, so the house mix can change all night and the performers' balance stays put. Post-fader sends are for effects, which should follow the fader.",
   },
   {
@@ -4296,7 +4296,7 @@ const COB = [
     who: "Ensemble",
     prompt: "“We can hear each other, but not the track. We're drifting off the tempo by the second chorus.”",
     goal: "The backing track in the wedges, the singers in the wedges and the house all unchanged.",
-    music: "bars-2",
+    music: "excerpt",
     setup: { tweak: (st, h) => h.set("track", "sends.mix1", 0) },
     baseline: { main: { metric: "mainDbByChannel" }, wedges: { metric: "monitorByChannel", bus: "mix1" } },
     conditions: [

@@ -814,47 +814,39 @@ const handheld = (n, color) => {
 };
 const JAZZ_SOURCES = VJ_SINGERS.map((_, i) => handheld(i + 1));
 
-// ---------- COB in Irvine: NOSTRADAMUS as a musical ----------
+// ---------- COB in Irvine: the Vocal Jazz Ensemble as the cast ----------
 
 // The Chapman on Broadway (COB) gig in Irvine: performers on wireless headsets
 // singing to backing tracks from a laptop (the MUS 248 COB Gig Checklist).
-// NOSTRADAMUS stands in for the show: its instruments summed into one stereo
-// backing track (tools/make-backing-track.sh), its three vocal parts on the
-// headsets. The same timeline as NOSTRADAMUS, so the same loops and segments;
-// the vocal stems are NOSTRADAMUS's own files.
-const COB_SET = { ...NOSTRADAMUS_SET, id: "cob", title: "COB in Irvine", artist: "NOSTRADAMUS (Will Tulip) as a musical" };
-// The backing track plays in every bar; the vocals as in NOSTRADAMUS.
-const VOX = ["vox-main", "vox-harmony", "vox-bgv"];
-// The guitars and drums are inside the track now, so the loops are named for the singing.
-const COB_LABELS = { "bars-2": "Verse: lead and harmony over the track", excerpt: "Instrumental break, voices now and then", "bars-18": "Second verse", "bars-26": "Bridge: the lead alone over the track", "bars-35": "Outro: the track, the ensemble now and then" };
-COB_SET.sections = NOSTRADAMUS_SET.sections.map((s) => ({ ...s, label: COB_LABELS[s.id], plays: ["track", ...s.plays.filter((st) => VOX.includes(st))], partly: s.partly.filter((st) => VOX.includes(st)) }));
-
-// track: measured over the whole song by tools/make-backing-track.sh;
-// normalizeDb is the stems' own −0.9 plus the sum's −6.63.
+// The Vocal Jazz Ensemble's "Love Me or Leave Me" stands in for the cast:
+// eleven singers on headsets A–K (the same files and loops). Their recording
+// has no accompaniment, so the laptop plays silence (tools/make-silent-track.sh):
+// its meter stays dark, but the level model keeps the NOSTRADAMUS backing
+// track's numbers, so its gain, routing and sends still count as at the gig.
+// The sections are love-me's: the track isn't heard in any of them.
+const COB_SET = { ...LOVE_ME_SET, id: "cob", title: "COB in Irvine", artist: `${ENSEMBLE} as the cast` };
 const COB_STEMS = {
-  track: { file: "nostradamus-backing-track.mp3", channels: 2, treatment: "stereo", peakDb: -1.09, monoPeakDb: -2.42, monoRmsDb: -18.05, normalizeDb: -7.53 },
-  "vox-main": NOSTRADAMUS_STEMS["vox-main"],
-  "vox-harmony": NOSTRADAMUS_STEMS["vox-harmony"],
-  "vox-bgv": NOSTRADAMUS_STEMS["vox-bgv"],
+  ...LOVE_ME_STEMS,
+  track: { file: "cob-track-silent.mp3", channels: 1, treatment: "stereo", peakDb: -1.09, monoPeakDb: -2.42, monoRmsDb: -18.05, normalizeDb: 0 },
 };
 
-// Twelve headsets, lettered A–L like the bodypacks and the receiver channels
-// (three VocoPro Digital-Quad receivers, four channels each). A receiver
-// channel's XLR out is mic level and needs no phantom power. Each performer
-// sits a little differently on their headset, so each needs its own gain.
-// One recording stands in for the ensemble: C–L all carry the backing vocals,
-// so each sits low in the mix (ten in-phase copies add up to 20 dB).
-const HEADSET_LEVELS = { a: -44, b: -42, c: -40, d: -46, e: -41, f: -44, g: -38, h: -45, i: -43, j: -39, k: -47, l: -42 };
+// Eleven headsets, lettered A–K like the bodypacks and the receiver channels
+// (three VocoPro Digital-Quad receivers, four channels each; L is spare).
+// Headset n is the ensemble's singer n. A receiver channel's XLR out is mic
+// level and needs no phantom power. Each performer sits a little differently
+// on their headset, and each voice is their own, so each needs its own gain.
+const HEADSET_LEVELS = { a: -44, b: -42, c: -40, d: -46, e: -41, f: -44, g: -38, h: -45, i: -43, j: -39, k: -47 };
 const headset = (letter, i) => {
   const L = letter.toUpperCase();
-  const part = letter === "a" ? ["lead", "Lead", "vox-main", 0] : letter === "b" ? ["harmony", "Harmony", "vox-harmony", -4] : ["ensemble", "Ensemble", "vox-bgv", -22];
+  const [stem, musician] = VJ_SINGERS[i];
+  const first = musician.split(" ")[0];
   return {
     id: `hs-${letter}`,
     order: i + 1,
-    name: `Headset ${L} · ${part[0]}`,
+    name: `Headset ${L} · ${first}`,
     shortName: `HS ${L}`,
-    musician: "Will Tulip",
-    musicianShort: "WILL",
+    musician,
+    musicianShort: first.toUpperCase(),
     device: `Wireless headset ${L} (receiver channel ${L})`,
     category: "Vocals",
     deviceType: "wireless-headset",
@@ -862,22 +854,21 @@ const headset = (letter, i) => {
     connector: "xlr",
     phantom: "none",
     outputDb: HEADSET_LEVELS[letter],
-    stem: part[2],
-    mixDb: part[3],
+    stem,
+    mixDb: 0,
     pan: 0,
     scenarios: ANY_SCENARIO,
-    ...(part[0] === "ensemble" ? { note: "One recording stands in for the whole ensemble: headsets C–L all carry the backing vocals." } : {}),
   };
 };
 const COB_SOURCES = [
-  ..."abcdefghijkl".split("").map(headset),
+  ..."abcdefghijk".split("").map(headset),
   {
     id: "track",
     order: 13,
     name: "Backing track",
     shortName: "TRACK",
-    musician: "Will Tulip",
-    musicianShort: "WILL",
+    musician: "Silent laptop",
+    musicianShort: "SILENT",
     device: "Laptop — Backing tracks",
     category: "Playback",
     deviceType: "stereo-laptop",
@@ -890,7 +881,7 @@ const COB_SOURCES = [
     mixDb: -6,
     pan: 0,
     scenarios: ANY_SCENARIO,
-    note: "The show's backing tracks, in stereo: the laptop's 3.5 mm headphone out → a dual 1/4\" breakout → AUX IN 1 (left) and 2 (right).",
+    note: "The show's backing tracks, in stereo: the laptop's 3.5 mm headphone out → a dual 1/4\" breakout → AUX IN 1 (left) and 2 (right). In the lab it plays silence: the ensemble standing in for the cast was recorded without an accompaniment track. Its meter stays dark; its routing and sends still count.",
   },
 ];
 
@@ -903,9 +894,18 @@ const COB_SOURCES = [
 // NOSTRADAMUS's three vocal parts are the singers. Same timeline as
 // NOSTRADAMUS, so the same loops and segments.
 const KARAOKE_SET = { ...NOSTRADAMUS_SET, id: "karaoke", title: "Karaoke in BH 109", artist: "NOSTRADAMUS (Will Tulip) as a karaoke track" };
+// The backing track plays in every bar; the vocals as in NOSTRADAMUS.
+const VOX = ["vox-main", "vox-harmony", "vox-bgv"];
 const KARAOKE_LABELS = { "bars-2": "Verse: two singers over the track", excerpt: "Instrumental break, the V3 singer now and then", "bars-18": "Second verse", "bars-26": "Bridge: the lead singer alone", "bars-35": "Outro: the track, the V3 singer now and then" };
-KARAOKE_SET.sections = COB_SET.sections.map((s) => ({ ...s, label: KARAOKE_LABELS[s.id] }));
-const KARAOKE_STEMS = COB_STEMS;
+KARAOKE_SET.sections = NOSTRADAMUS_SET.sections.map((s) => ({ ...s, label: KARAOKE_LABELS[s.id], plays: ["track", ...s.plays.filter((st) => VOX.includes(st))], partly: s.partly.filter((st) => VOX.includes(st)) }));
+// track: NOSTRADAMUS's instruments summed (tools/make-backing-track.sh),
+// measured over the whole song; normalizeDb is the stems' own −0.9 plus the sum's −6.63.
+const KARAOKE_STEMS = {
+  track: { file: "nostradamus-backing-track.mp3", channels: 2, treatment: "stereo", peakDb: -1.09, monoPeakDb: -2.42, monoRmsDb: -18.05, normalizeDb: -7.53 },
+  "vox-main": NOSTRADAMUS_STEMS["vox-main"],
+  "vox-harmony": NOSTRADAMUS_STEMS["vox-harmony"],
+  "vox-bgv": NOSTRADAMUS_STEMS["vox-bgv"],
+};
 const karaokeSinger = (id, order, name, shortName, device, deviceType, stem, extra) => ({
   id,
   order,
@@ -1033,7 +1033,7 @@ export const SONGS = {
   "almost-like": { id: "almost-like", title: "Almost Like Being in Love", artist: ENSEMBLE, set: ALMOST_SET, stems: ALMOST_STEMS, sources: JAZZ_SOURCES },
   "love-me": { id: "love-me", title: "Love Me or Leave Me", artist: ENSEMBLE, set: LOVE_ME_SET, stems: LOVE_ME_STEMS, sources: JAZZ_SOURCES },
   // A gig, not just a band: its rig is the X32 Compact's, so it plays on that console only.
-  cob: { id: "cob", title: "COB in Irvine", artist: "a musical (NOSTRADAMUS)", set: COB_SET, stems: COB_STEMS, sources: COB_SOURCES, consoles: ["x32c"] },
+  cob: { id: "cob", title: "COB in Irvine", artist: "the Vocal Jazz Ensemble as the cast", set: COB_SET, stems: COB_STEMS, sources: COB_SOURCES, consoles: ["x32c"] },
   vj: { id: "vj", title: "Vocal Jazz in Salmon", artist: "the Vocal Jazz Ensemble (“Almost Like Being in Love”)", set: VJ_SET, stems: VJ_STEMS, sources: VJ_SOURCES, consoles: ["x32"] },
   karaoke: { id: "karaoke", title: "Karaoke in BH 109", artist: "a karaoke track (NOSTRADAMUS)", set: KARAOKE_SET, stems: KARAOKE_STEMS, sources: KARAOKE_SOURCES, consoles: ["x1204usb"] },
   ea: { id: "ea", title: "Electroacoustic showcase", artist: "FTW's parts as stand-ins, and a click", set: EA_SET, stems: EA_STEMS, sources: EA_SOURCES, consoles: ["x32"] },
@@ -1155,7 +1155,7 @@ export const CREDITS = [
   })),
   {
     title: "COB in Irvine",
-    lines: [["Music", "NOSTRADAMUS by Will Tulip: the instruments as one backing track, the three vocal parts on the headsets"]],
+    lines: [["Music", "“Love Me or Leave Me” by the Vocal Jazz Ensemble, eleven singers on eleven headsets; the backing-track laptop is silent"]],
     note: "Used with permission for this educational project.",
   },
   {

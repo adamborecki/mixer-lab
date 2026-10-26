@@ -1016,7 +1016,7 @@ Object.assign(WRONG, {
 });
 
 // COB in Irvine: the X32 Compact gig with the SD8, the STAGEPAS and the wedge chain.
-const COB_HS = "abcdefghijkl".split("").map((l) => `hs-${l}`);
+const COB_HS = "abcdefghijk".split("").map((l) => `hs-${l}`);
 Object.assign(SOLVE, {
   "x32c-cob-usb": (a) => {
     a.st.setDevice("mixer", "inSource.0", 0);

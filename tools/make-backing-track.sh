@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the COB gig's backing track: NOSTRADAMUS without its vocals, one
+# Builds the karaoke gig's backing track (COB's until 2026-10-26): NOSTRADAMUS without its vocals, one
 # stereo file per delivery file (the 8-bar excerpt and every full-song
 # segment), so it plays sample-locked with the vocal stems it leaves out.
 #

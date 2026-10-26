@@ -101,7 +101,7 @@ SONG=nostradamus tools/make-excerpts.sh   # the other bands (same options)
 SONG=ftw tools/make-excerpts.sh
 ```
 
-The COB gig's backing track (NOSTRADAMUS without its vocals) is built from the delivered mp3s, not the masters: `tools/make-backing-track.sh` sums the instrument files side by side, peak-normalizes over the whole song, writes `audio/nostradamus/nostradamus-backing-track.mp3` and its segments, and prints the numbers for its `COB_STEMS` entry.
+The karaoke gig's backing track (NOSTRADAMUS without its vocals; COB used it until 2026-10-26) is built from the delivered mp3s, not the masters: `tools/make-backing-track.sh` sums the instrument files side by side, peak-normalizes over the whole song, writes `audio/nostradamus/nostradamus-backing-track.mp3` and its segments, and prints the numbers for its `KARAOKE_STEMS` entry.
 
 It reads the masters and writes `audio/persephone/*.mp3` (excerpt) and `audio/persephone/full/*-NN.mp3` (segments). The excerpt pass prints a table (`normDb`, `monoPk`, `monoRms`); paste those into `normalizeDb`, `monoPeakDb` and `monoRmsDb` in `source-manifest.js`. The full pass prints one line per stem with its segment count and gain.
 
@@ -222,7 +222,7 @@ Two pieces from the Vocal Jazz Ensemble's concert of October 23, 2026, from the 
 
 Regenerate with `SONG=almost-like tools/make-excerpts.sh` and `SONG=love-me tools/make-excerpts.sh`.
 
-**Where they play.** Both pieces are in Free play on every console. Where a console has fewer mic inputs than singers, it takes the two soloists (Abbey, mic 4, and Silas, mic 11), a quartet (mics 1, 4, 9, 11) or six of them on the F8n, and the rest stay on stage, unplugged (`JAZZ_GIGS` in `js/scenarios.js`; on Mixer A and B, mics 1–8). The Vocal Jazz in Salmon gig (`vj`) plays “Almost Like Being in Love” on its eleven handhelds.
+**Where they play.** Both pieces are in Free play on every console. Where a console has fewer mic inputs than singers, it takes the two soloists (Abbey, mic 4, and Silas, mic 11), a quartet (mics 1, 4, 9, 11) or six of them on the F8n, and the rest stay on stage, unplugged (`JAZZ_GIGS` in `js/scenarios.js`; on Mixer A and B, mics 1–8). The Vocal Jazz in Salmon gig (`vj`) plays “Almost Like Being in Love” on its eleven handhelds. The COB gig (`cob`) puts “Love Me or Leave Me” on its eleven headsets, A–K; its backing-track laptop plays silence (`audio/love-me/cob-track-silent.mp3` and its segments, mono 22.05 kHz at 8 kb/s, about 300 kB, from `tools/make-silent-track.sh`), because the ensemble's recording has no accompaniment track.
 
 ## The electroacoustic showcase (stand-ins and a click)
 
