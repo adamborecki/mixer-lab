@@ -10,7 +10,7 @@ import { buildExport, exportSummary } from "../export.js";
 import { PREVIEW, legacyHref } from "../deploy-context.js";
 import { backupFile, backupFileName, parseBackup } from "../progress.js";
 import { contextLine } from "../bugs.js";
-import { duration } from "../submission.js";
+import { count, duration } from "../submission.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
@@ -24,7 +24,7 @@ export class SubmissionView {
     dialog.innerHTML = `<div class="patch-inner canvas-inner">
       <header class="patch-head"><h2 id="canvas-title">Export to Canvas</h2>
         <button type="button" class="patch-x" data-close-canvas aria-label="Close">✕</button></header>
-      <p class="canvas-note">Everything you've done in Mixer Lab goes in, on any topic or mixer, Free play too: paste it into the Canvas assignment you're handing in. Time counts only while you're actively working (you touched something in the last minute; not on the start screen or in this box); "actions" are changes to the mixer or patch.</p>
+      <p class="canvas-note">Everything you've done in Mixer Lab goes in, on any topic or mixer, Free play too: paste it into the Canvas assignment you're handing in. Time counts only while you're actively working (a minute without touching anything, and that stretch doesn't count; nor does the start screen or this box); "actions" are changes to the mixer or patch.</p>
       <section class="canvas-total" aria-label="Your time so far"></section>
       <section class="canvas-backup" aria-labelledby="canvas-backup-title">
         <p class="ca-head"><strong id="canvas-backup-title">Your progress is saved in this browser only.</strong></p>
@@ -92,7 +92,7 @@ export class SubmissionView {
     const bugs = this.bugs.list();
     const scenarios = s.solved + s.worked;
     this.$(".canvas-total").innerHTML = `<p class="ca-head"><strong>Active time</strong><span>${duration(s.total.sec)}</span></p>
-      <p class="canvas-note">${s.total.actions} actions · ${scenarios} scenario${scenarios === 1 ? "" : "s"}${s.free.sec || s.free.actions ? " + Free play" : ""} · ${s.mixers.length} mixer${s.mixers.length === 1 ? "" : "s"}</p>`;
+      <p class="canvas-note">${count(s.total.actions, "action")} · ${count(scenarios, "scenario")}${s.free.sec || s.free.actions ? " + Free play" : ""} · ${count(s.mixers.length, "mixer")}</p>`;
     this.$(".canvas-bugs").innerHTML = `<p class="ca-head"><strong>Bug reports</strong><span>${bugs.length}</span></p>
       ${bugs.length ? `<ol class="canvas-bug-list">${bugs.map((b, i) => `<li><span>${esc(b.text)}</span><small>${esc(contextLine(b))}</small><button type="button" class="linkish" data-bug-remove="${i}">Remove</button></li>`).join("")}</ol>` : ""}
       <button type="button" class="chip" data-report-bug>Report a bug</button>`;

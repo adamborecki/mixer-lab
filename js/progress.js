@@ -145,6 +145,38 @@ export class Progress {
   }
 }
 
+// Active time. A second counts only if the student interacts again within
+// IDLE_MS of the last time they did: the minute before they walk away never
+// counts, and time starts again with their next action. Seconds wait in
+// `held` until an interaction (or leaving the page soon after one) settles them.
+export const IDLE_MS = 60000;
+export class ActiveTime {
+  constructor(record, idleMs = IDLE_MS) {
+    this.record = record;
+    this.idleMs = idleMs;
+    this.last = -Infinity;
+    this.held = new Map();
+  }
+
+  // Keeps the held seconds if the last interaction was recent, else drops them.
+  settle(now) {
+    if (now - this.last < this.idleMs) for (const [id, sec] of this.held) this.record(id, { sec });
+    this.held.clear();
+  }
+
+  // The student did something at `now` (ms).
+  touch(now) {
+    this.settle(now);
+    this.last = now;
+  }
+
+  // One second spent on `id` at `now`.
+  tick(id, now) {
+    if (now - this.last >= this.idleMs) this.held.clear();
+    else this.held.set(id, (this.held.get(id) || 0) + 1);
+  }
+}
+
 function defaultStorage() {
   try {
     return globalThis.localStorage || null;

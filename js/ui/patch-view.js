@@ -28,6 +28,7 @@ import { F8, PAIR, REVERB, TECHNIQUES, cardStats, techniqueOf } from "../devices
 import { CONNECTOR_GUIDE, deviceIconName, icon, jackIconName, levelIconName, plugIconName } from "./icons.js";
 import { jackArt, plugArt } from "./connector-art.js";
 import { nameMode, sourceName } from "../names.js";
+import { count } from "../submission.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
@@ -533,7 +534,7 @@ class PatchDialog {
     this.el.innerHTML = `<div class="patch-inner">
       ${this.header("Pick a cable")}
       ${this.visual({ target: bRef })}
-      <p class="patch-sub">To <strong>${esc(portLabel(this.rig, bRef))}</strong>. ${fits.length} cables fit both ends; they don't all do the same job.</p>
+      <p class="patch-sub">To <strong>${esc(portLabel(this.rig, bRef))}</strong>. ${count(fits.length, "cable")} fit both ends; they don't all do the same job.</p>
       <div class="cable-grid">${fits.map(card).join("")}</div>
     </div>`;
     if (!this.el.open) this.el.showModal();

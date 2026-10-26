@@ -17,6 +17,7 @@ import { fillTerms, shortTitle } from "../scenarios.js";
 import { SKINS } from "../mixer-models.js";
 import { CANVAS_SCENARIOS, GIGS, MIXERS, THEMES, consoleOf, gigOf, mixerScenarios, skinOf, themeOf, themeScenarios } from "../themes.js";
 import { legacyHref } from "../deploy-context.js";
+import { count } from "../submission.js";
 import { nameMode } from "../names.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -56,7 +57,7 @@ function mixerCard(m, p, attrs) {
     <strong>${esc(mixerName(m))}</strong>
     <span class="theme-q">${esc(m.why)}</span>
     <span class="theme-meter" aria-label="${done} of ${total} solved"><i style="width:${(100 * done) / total}%"></i></span>
-    <small>${done ? `${done} of ${total} solved` : `${total} scenarios`}</small>
+    <small>${done ? `${done} of ${total} solved` : count(total, "scenario")}</small>
   </button>`;
 }
 
@@ -75,7 +76,7 @@ function gigCard(g, p, attrs) {
     <strong>${esc(g.question)}</strong>
     <span class="theme-q">${esc(g.title)} · ${esc(consoleName(themeScenarios(g)[0]))}</span>
     <span class="theme-meter" aria-label="${done} of ${total} solved"><i style="width:${(100 * done) / total}%"></i></span>
-    <small>${done ? `${done} of ${total} solved` : `${total} scenarios`}</small>
+    <small>${done ? `${done} of ${total} solved` : count(total, "scenario")}</small>
   </button>`;
 }
 
@@ -102,7 +103,7 @@ export class StartScreen {
         <strong>${esc(t.question)}</strong>
         <span class="theme-q">${esc(t.title)}</span>
         <span class="theme-meter" aria-label="${done} of ${total} solved"><i style="width:${(100 * done) / total}%"></i></span>
-        <small>${done ? `${done} of ${total} solved` : `${total} scenarios`}</small>
+        <small>${done ? `${done} of ${total} solved` : count(total, "scenario")}</small>
       </button>`;
     };
     this.root.innerHTML = `<div class="start-inner">
@@ -510,7 +511,7 @@ export class MissionView {
     dock.innerHTML = `<div class="dock-inner ${solved ? "is-solved" : ""}">
       <span class="dock-where">${esc(seq.mixer ? "By mixer" : seq.label)} · ${i + 1}/${seq.list.length}</span>
       <strong class="dock-title">${esc(def.title)}</strong>
-      <span class="dock-ticks" role="img" aria-label="${goals.filter((g) => g.met).length} of ${goals.length} goals met">${ticks}</span>
+      <span class="dock-ticks" role="img" aria-label="${goals.filter((g) => g.met).length} of ${count(goals.length, "goal")} met">${ticks}</span>
       <span class="dock-next ${broken && !solved ? "is-broken" : ""}">${esc(next)}</span>
       <span class="dock-actions">
         ${hintsLeft && !solved && !broken ? `<button type="button" class="chip dock-btn" data-act="hint">${this.hints ? "Another hint" : "Hint"}</button>` : ""}
