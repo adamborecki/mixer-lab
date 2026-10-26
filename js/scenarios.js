@@ -130,7 +130,7 @@ export const SCENARIOS = [
     title: "Preshow music",
     who: "Stage manager",
     prompt: "“Doors open soon and the room is silent. Get the preshow music from the laptop playing through the house speakers.”",
-    goal: "The laptop's stereo music heard from both house speakers (Main L and Main R).",
+    goal: "Nothing is plugged in yet: start in Stage & patch. The laptop's stereo music heard from both house speakers (Main L and Main R).",
     setup: {
       devices: ["spk-l", "spk-r"],
       patch: "none",
@@ -141,13 +141,13 @@ export const SCENARIOS = [
     conditions: [
       { id: "patched", kind: "goal", type: "sourcePatched", source: "preshow", label: "The laptop is plugged into the mixer's stereo input" },
       { id: "gain", kind: "goal", type: "sourceGain", source: "preshow", label: "Its input meter shows a healthy level" },
-      { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "preshow", stereo: true, label: "The music comes out of both house speakers, left and right" },
+      { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "preshow", stereo: true, explain: true, label: "The music comes out of both house speakers, left and right" },
       { id: "chain", kind: "keep", type: "validChain", output: "main", zone: "foh", label: "The house speakers keep working" },
     ],
     hints: [
-      "Start at the source. A laptop's headphone jack is a 3.5 mm stereo output: left and right. Which mixer input takes a stereo pair?",
-      "Use input 9/10, the stereo line input, with the 3.5 mm → dual 1/4″ breakout cable (one plug into the laptop, two into the L/R pair). Check its input meter reads Good; a laptop is already line level, so it needs little or no GAIN.",
-      "Bring up the 9/10 {level}. The house speakers are powered and already patched to {main} L/R, so no amplifier is needed.",
+      "Start at the source, in Stage & patch. A laptop's headphone jack is one 3.5 mm plug carrying two signals, left and right. Which mixer input takes a left/right pair?",
+      "Input 9/10 is the stereo line input: two 1/4″ jacks, L and R. Which cable turns one 3.5 mm plug into two 1/4″ plugs? Once it's in, check the input meter: a laptop is already line level, so it needs little or no GAIN.",
+      "Patched and reading Good, but still silent? Follow the 9/10 strip down: its {level} decides how much reaches {main}. The house speakers are powered and already patched, so no amplifier is needed.",
     ],
     complete: "Stereo in, stereo out: one 9/10 strip carries left and right, so the music reaches both house speakers. A laptop is a line-level source: no mic preamp, no +48 V.",
   },
@@ -1633,15 +1633,27 @@ export const CONDITIONS = {
   sourceGain(ctx, c) {
     return { met: isGood(chanFor(ctx, c.source)) };
   },
+  // An input with no meter of its own (a TAPE IN strip, the B207MP3's LEVEL
+  // knobs) can't be checked for a Good band, so it counts by ear: audible in
+  // the house, short of clipping. `explain: true` adds a short note on what is
+  // still wrong once the signal is on its way (never before: that's the puzzle).
   sourceHeardInMain(ctx, c) {
     const ch = chanFor(ctx, c.source);
-    if (!isGood(ch)) return { met: false };
-    if (!c.stereo) return { met: ch.heardMainDb >= AUDIBLE_DB };
+    if (!isWorking(ch)) return { met: false };
+    const meterless = !!ctx.state.channels[ctx.mix.channels.indexOf(ch)]?.tape || COMPACT[ctx.state.model]?.meter === null;
+    const why = (detail) => ({ met: false, detail: c.explain ? detail : undefined });
+    if (ch.band === "clip") return why(meterless ? "Too hot: it's clipping the main mix. Watch the main meters." : "Too hot: its input meter is clipping.");
+    if (!meterless && !isGood(ch)) return why("Too quiet going in: look at its input meter.");
+    const loudest = Math.max(ch.mainDb.L, ch.mainDb.R);
+    const quiet = () => why(loudest <= OFF_DB ? undefined : loudest < AUDIBLE_DB ? "It's in the house mix, but too quiet to hear." : "It's in the mix, but the house speakers aren't playing it.");
+    if (!c.stereo) return ch.heardMainDb >= AUDIBLE_DB ? { met: true } : quiet();
     // Main L and R: "main-l"/"main-r", or a powered mixer's speaker outs (STAGEPAS).
     const { buses } = ctx.mix.rig;
     const works = (side) => Object.entries(buses).some(([p, ends]) => ends.length > 0 && (p === `main-${side}` || p === `spk-${side}` || ctx.state.routing?.[p] === `main-${side}`));
-    const both = works("l") && works("r");
-    return { met: both && ch.mainDb.L >= AUDIBLE_DB && ch.mainDb.R >= AUDIBLE_DB };
+    const plays = { L: works("l") && ch.mainDb.L >= AUDIBLE_DB, R: works("r") && ch.mainDb.R >= AUDIBLE_DB };
+    if (plays.L && plays.R) return { met: true };
+    if (plays.L || plays.R) return why(`Only the ${plays.L ? "left" : "right"} house speaker plays it.`);
+    return quiet();
   },
   // Some channel is audible through a working chain on that bus.
   busAudible(ctx, c) {

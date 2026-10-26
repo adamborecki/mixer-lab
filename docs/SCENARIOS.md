@@ -64,7 +64,7 @@ All levels are peak estimates in dBFS. `AUDIBLE_DB` = -45 (you would hear it at 
 | `heardInMain` | `min` | at least `min` Good/Hot channels reach a valid speaker via Main at >= -45 dBFS |
 | `listenedTo` | `dest` | the student has selected that listen destination (`main`, `aux1`, `aux2` or `pfl`) at some point in this attempt. The start destination counts, and it stays met after they move on; "Start over" clears it |
 | `sourcePatched` / `sourceGain` | `source` | that source's channel is on a working input / reads Good or Hot |
-| `sourceHeardInMain` | `source`, `stereo?` | that source is Good/Hot and audible through Main; `stereo: true` needs Main L and Main R both working and audible |
+| `sourceHeardInMain` | `source`, `stereo?`, `explain?` | that source is Good/Hot and audible through Main (an input with no meter, TAPE IN or the B207MP3, only has to be audible and not clipping); `stereo: true` needs Main L and Main R both working and audible; `explain: true` adds a "why not yet" note once the signal reaches the mix |
 | `busAudible` | `bus` | some channel is audible (>= -45 dBFS) through a working chain on that bus |
 | `mainLowered` | `source`, `baseline`, `minDb` | that source's Main contribution is at least `minDb` below the baseline |
 | `channelUnchanged` | `source`, `baseline`, `toleranceDb` | that channel's GAIN and fader are within tolerance of the `channelSettings` baseline |

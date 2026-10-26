@@ -124,17 +124,19 @@ const compOff = (board, { hints, complete }) => ({
   complete,
 });
 
-// The common "doors open" scenario: the laptop is patched; get it into the house in stereo.
-const doors = (board, { who = "Stage manager", prompt, hints, complete }) => ({
+// The common "doors open" scenario: the laptop is already patched (`where`);
+// get it into the house in stereo. Nothing needs re-patching: the job is to
+// find what stands between that input and the main mix on this desk.
+const doors = (board, { who = "Stage manager", where, prompt, hints, complete }) => ({
   id: `${board}-doors`,
   short: "Doors music",
   title: "Doors music",
   who,
   prompt,
-  goal: "The preshow music from the laptop, in stereo, through both house speakers.",
+  goal: `The laptop is already plugged in (${where}), so nothing needs patching. Its music, in stereo, out of both house speakers.`,
   setup: {},
   conditions: [
-    { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "preshow", stereo: true, label: "The music comes out of both house speakers, left and right" },
+    { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "preshow", stereo: true, explain: true, label: "The music comes out of both house speakers, left and right" },
     { id: "vocal", kind: "keep", type: "sourcePatched", source: "lead-vocal", label: "The singer's mic stays plugged in" },
   ],
   hints,
@@ -145,11 +147,12 @@ const doors = (board, { who = "Stage manager", prompt, hints, complete }) => ({
 
 const MIX8 = [
   doors("mix8", {
+    where: "TAPE IN",
     prompt: "“Doors in five minutes and the room is silent. The laptop is already plugged into TAPE IN — get the music into the house.”",
     hints: [
-      "The laptop is on TAPE IN, the RCA pair in the master section. Where does TAPE IN go right now?",
-      "TAPE IN has one switch: TO MAIN, or TO CR/PHONES only. At the moment only your headphones get it.",
-      "Switch TO CR/PHONES off, so TAPE IN goes into the MAIN MIX.",
+      "Is the laptop really silent? Switch Listen to the PHONES. If you hear it there, the laptop and its cable are fine: the question is where TAPE IN is being sent.",
+      "TAPE IN has no channel strip and no level knob, so the channel LEVELs won't help. Find it in the master section: it has one switch that chooses where it goes.",
+      "That switch sends TAPE IN either into the MAIN MIX or to CR/PHONES only. Which way is it set now, and which way does the house need?",
     ],
     complete: "On the Mix8, TAPE IN goes either into the MAIN MIX or only to CR/PHONES. That second position is for cueing music in headphones before the audience hears it.",
   }),
@@ -246,6 +249,7 @@ const MIX8 = [
 
 const VLZ = [
   doors("vlz1202", {
+    where: "stereo channel 7/8",
     prompt: "“House open in five. The laptop is plugged into stereo channel 7/8 — let's hear the preshow music.”",
     hints: [
       "The laptop is already patched to channel 7/8, a stereo line channel. What's stopping it?",
@@ -380,11 +384,12 @@ const VLZ = [
 
 const MG = [
   doors("mg102", {
+    where: "stereo channel 9/10, on RCA",
     prompt: "“House open in five. The laptop is on channel 9/10 with an RCA cable — let's hear it.”",
     hints: [
-      "The laptop is patched to stereo channel 9/10. What's stopping it?",
-      "Look at channel 9/10's LEVEL.",
-      "Bring 9/10's LEVEL up. 9/10 is built for consumer (−10) gear like a laptop, so it needs no gain.",
+      "The laptop is on stereo channel 9/10, the last strip before the master section. Its input is fine: something further down that strip is holding it back.",
+      "7/8 and 9/10 have no GAIN knob: they're built for consumer (−10) gear like a laptop. So which control on 9/10 decides how much of it reaches the ST mix?",
+      "On the MG, each channel's LEVEL knob is its fader into the ST mix. Where is 9/10's set right now?",
     ],
     complete: "Channels 7/8 and 9/10 are stereo line channels with RCA jacks: one strip for a laptop or player.",
   }),
@@ -494,16 +499,16 @@ const B207 = [
     title: "Doors music",
     who: "Café owner",
     prompt: "“People are coming in and it's dead quiet. The laptop's plugged into the speaker. Can we have some music?”",
-    goal: "The laptop's music playing from the B207.",
+    goal: "The laptop is already plugged into the B207's CD INPUT, so nothing needs patching. Its music playing from the B207.",
     setup: {},
     conditions: [
-      { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "preshow", label: "The music comes out of the B207" },
+      { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "preshow", explain: true, label: "The music comes out of the B207" },
       { id: "vocal", kind: "keep", type: "sourcePatched", source: "lead-vocal", label: "The singer's mic stays plugged in" },
     ],
     hints: [
-      "The laptop is plugged into the B207's CD INPUT (the RCA pair). Which knob belongs to it?",
-      "Each input has one LEVEL knob. The CD INPUT's is LEVEL 4.",
-      "Turn LEVEL 4 well up: a laptop is quieter than the CD player the input expects. There's no speaker to plug in: the speaker is this box.",
+      "The B207 is the speaker, so there's nothing to plug in after it. The laptop is on the CD INPUT, the RCA pair: which knob belongs to that input?",
+      "Each input has just one LEVEL knob, its gain and its level in one. There's no meter on this box: judge it by ear.",
+      "The CD INPUT's knob is LEVEL 4. A laptop is quieter than the CD player that input expects, so it needs more than a nudge.",
     ],
     complete: "The B207 is the speaker, the amp and the mixer in one box, so there's nothing to connect after the mixer. The CD INPUT's left and right are summed: one box plays both.",
   },
@@ -667,6 +672,7 @@ const B207 = [
 
 const SP = [
   doors("stagepas400bt", {
+    where: "channel 7/8",
     prompt: "“Doors in five. The laptop's on channel 7/8 — can we have the preshow music?”",
     hints: [
       "The laptop is patched to stereo channel 7/8 with a 3.5 mm cable. What's stopping it?",
@@ -777,6 +783,7 @@ const SP = [
 
 const XEN = [
   doors("x1204usb", {
+    where: "stereo channel 7/8",
     prompt: "“House open in five. The laptop's on stereo channel 7/8 — preshow music, please.”",
     hints: [
       "The laptop is patched to channel 7/8, and its LEVEL switch is already at −10 dBV for consumer gear. What's stopping it?",
@@ -1009,6 +1016,7 @@ const SD = [
 
 const UI = [
   doors("ui16", {
+    where: "the RCA line input, 13/14",
     prompt: "“Doors in five. The laptop is on the RCA line input (13/14) — preshow music, please.”",
     hints: [
       "Everything on the Ui16 is on screen. The laptop's channel is 13/14, at the right of the fader bank.",
@@ -1148,6 +1156,7 @@ const UI = [
 
 const L20 = [
   doors("l20", {
+    where: "stereo inputs 17/18",
     prompt: "“Doors in five. The laptop is on the stereo inputs 17/18 — preshow music, please.”",
     hints: [
       "The laptop's channel is 17/18, at the right of the channel faders. FADER MODE should be on MASTER.",
@@ -1407,11 +1416,12 @@ const L20 = [
 
 const C16 = [
   doors("cr1604", {
+    where: "TAPE INPUT",
     prompt: "“House open in five. The laptop is plugged into TAPE INPUT — preshow music, please.”",
     hints: [
-      "The laptop is on TAPE INPUT, the RCA pair. Is TAPE INPUT going anywhere yet?",
-      "TAPE INPUT reaches the house only when TAPE TO MAIN MIX is pressed.",
-      "Press TAPE TO MAIN MIX in the master section (and keep TAPE IN's level near U).",
+      "TAPE INPUT has no channel strip, so none of the 16 channel faders will help. Look in the master section for the block labelled TAPE.",
+      "The TAPE block has a level knob (TAPE IN) and a switch. Turning the level up sends it nowhere by itself: where does the switch connect TAPE INPUT to?",
+      "TAPE TO MAIN MIX is TAPE INPUT's only way into the house. Is it on? TAPE IN has no meter of its own, so keep it near U and watch the main meters.",
     ],
     complete: "On the 1604, TAPE INPUT is a stereo input with no channel strip: one level and one switch into the MAIN MIX.",
   }),
@@ -1625,13 +1635,17 @@ MIX8.push(
     title: "Silent headphones",
     who: "You",
     prompt: "“Your headphones are plugged into CR/PHONES, but you hear nothing.”",
-    goal: "The main mix in your headphones.",
+    goal: "The main mix in your headphones: their own level up, and you listening to them (Listen: PHONES).",
     setup: { tweak: (st) => (st.cr.level = 0) },
     conditions: [
       goal("level", "The CR/PHONES level is up", (ctx) => LAWS.master.toDb(ctx.state.cr.level) >= -10),
       { id: "listen", kind: "goal", type: "listenedTo", dest: "phones", label: "You listened in your headphones" },
     ],
-    hints: ["The headphones have their own level, separate from MAIN.", "It's in the CR / PHONES section of the master.", "Turn CR / PHONES LEVEL up, and switch Listen to PHONES."],
+    hints: [
+      "The headphones have their own level, separate from the MAIN MIX: turning MAIN up only changes the house.",
+      "Look in the master section for CR / PHONES. What is its LEVEL set to?",
+      "Once CR / PHONES LEVEL is up, switch Listen to PHONES: it isn't done until you've heard it yourself.",
+    ],
     complete: "CR/PHONES has its own level: what you hear in the headphones never changes what the audience hears.",
   },
   gainFix({
@@ -2524,6 +2538,7 @@ const BAND = ["drums", "bass", "guitars", "keys", "trumpets"];
 
 const X32 = [
   doors("x32c", {
+    where: "AUX IN 1/2",
     prompt: "“Doors in five. The laptop is on AUX IN 1/2 — preshow music, please.”",
     hints: ["The laptop isn't on channels 1–16. The input faders show one layer at a time.", "Press the AUX / FX layer button: the first strip is AUX 1/2.", "On the AUX / FX layer, push AUX 1/2's fader up."],
     complete: "On a digital console the faders are shared: the layer buttons decide which channels they control right now. Always check the layer before you grab a fader.",
@@ -2812,6 +2827,7 @@ const X32 = [
 
 const Y96 = [
   doors("yam01v96", {
+    where: "2TR IN",
     prompt: "“Doors in five. The laptop is on 2TR IN — preshow music, please.”",
     hints: ["2TR IN is a stereo RCA input on the rear panel. On its own it only reaches the monitor outputs.", "Its AD 15/16 selector sends 2TR IN into channels 15 and 16, so it reaches the stereo mix.", "Press AD 15/16 in the REAR PANEL section."],
     complete: "2TR IN feeds the mix only through the AD 15/16 selector, which borrows input channels 15 and 16. Worth knowing before you plug something into 15 or 16!",
@@ -3041,8 +3057,13 @@ const sameAsScene = (ctx, n) => {
 
 const X32F = [
   doors("x32", {
+    where: "AUX IN 1/2",
     prompt: "“Doors in five. The laptop is on AUX IN 1/2 — preshow music, please.”",
-    hints: ["The 16 input faders show one layer at a time. Channels 1–32 aren't where the laptop is.", "Press the AUX IN / USB layer.", "Push AUX 1/2's fader up."],
+    hints: [
+      "The 16 input faders show one layer at a time, and the laptop isn't on channels 1–32. Which layer holds the AUX IN?",
+      "The layer keys beside the input faders decide what those faders control right now. The lit key is the layer you're on.",
+      "Once you're on the AUX IN / USB layer, find AUX 1/2's strip. Where is its fader?",
+    ],
     complete: "Five input layers share 16 faders on the full X32. Check the lit layer key before every move.",
   }),
   {
@@ -3257,6 +3278,7 @@ const like = (board, srcId, over) => {
 };
 const CL3 = [
   doors("cl3", {
+    where: "ST IN 1",
     prompt: "“Doors in five. The laptop is on OMNI IN 1/2, channel ST IN 1. Preshow music, please.”",
     hints: ["The INPUT section shows one bank at a time. Channels 1–32 aren't where the laptop is.", "Press the ST IN bank key above the INPUT faders.", "Push ST IN 1's fader up."],
     complete: "On a CL the stereo inputs live on their own bank, next to the effects returns. Check the lit bank key before every move.",
@@ -3409,6 +3431,7 @@ const CL3 = [
 // BUS TO ST, the OUTPUT PATCH, and Yamaha fader and mute groups.
 const DM = [
   doors("dm2000", {
+    where: "2TR IN, channel 89/90",
     prompt: "“Doors in five. The laptop is on 2TR IN, channel 89/90. Preshow music, please.”",
     hints: ["The faders show one LAYER at a time, and 1–24 are the analog inputs.", "Channels 89–96 are on LAYER 73–96, with the effects returns.", "Press LAYER 73–96 and push channel 89/90's fader up."],
     complete: "96 channels, 24 faders: always check which LAYER is lit before you reach for a fader.",
@@ -3608,6 +3631,7 @@ const DM = [
 // An unbranded desk built on the X32 Compact's model: the same jobs, said in no brand's words.
 const GDIG = [
   doors("gdig", {
+    where: "AUX 1/2",
     prompt: "“Doors in five. The laptop is on AUX 1/2 — preshow music, please.”",
     hints: ["The laptop isn't on channels 1–16. The input faders show one layer at a time.", "Press the AUX / FX layer button: the first strip is AUX 1/2.", "On the AUX / FX layer, push AUX 1/2's fader up."],
     complete: "On a digital mixer the faders are shared: the layer buttons decide which channels they control right now. Always check the layer before you grab a fader.",
