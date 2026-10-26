@@ -1578,13 +1578,14 @@ const masterFix = ({ id, short, title, who, prompt, bus, startDb, raise, listenA
 });
 
 // A condenser mic moves to a channel that can power it.
-const swapToPhantom = ({ id, short, title, who, prompt, out, cable = "xlr", wrongPort, extra, hints, complete, keepSource = "lead-vocal" }) => ({
+// keepBacking: the backing singer is still on stage, so unplugging them isn't a fix.
+const swapToPhantom = ({ id, short, title, who, prompt, out, cable = "xlr", wrongPort, extra, hints, complete, keepBacking = false }) => ({
   id,
   short,
   title,
   who,
   prompt,
-  goal: "The drum overhead (a condenser) heard in the house with its GAIN in Good, the lead vocal still there.",
+  goal: `The drum overhead (a condenser) heard in the house with its GAIN in Good, ${keepBacking ? "both vocals" : "the lead vocal"} still there.`,
   setup: {
     tweak: (st, h) => {
       if (out) h.unplug(out);
@@ -1598,7 +1599,8 @@ const swapToPhantom = ({ id, short, title, who, prompt, out, cable = "xlr", wron
     // single "heard" tick that also needed Good looked broken (student report B3).
     goal("drums", "The overhead is heard in the house", (ctx) => house(ctx, "drums") >= AUDIBLE),
     { id: "gain", kind: "goal", type: "sourceGain", source: "drums", label: "The overhead's GAIN sits in Good, not clipping" },
-    { id: "vox", kind: "keep", type: "sourceHeardInMain", source: keepSource, label: "The lead vocal stays in the house" },
+    { id: "vox", kind: "keep", type: "sourceHeardInMain", source: "lead-vocal", label: "The lead vocal stays in the house" },
+    ...(keepBacking ? [{ id: "bv", kind: "keep", type: "sourceHeardInMain", source: "backing-vocals", label: "The backing vocal stays in the house" }] : []),
   ],
   hints,
   complete,
@@ -1763,7 +1765,7 @@ SP.push(
     out: "guitars",
     wrongPort: "mixer/ch3-in",
     extra: (st) => [0, 1].forEach((i) => (st.channels[i].phantom = true)), // PHANTOM (CH1/2) is on
-    keepSource: "backing-vocals",
+    keepBacking: true,
     hints: ["Phantom is on. Does it reach channel 3?", "On the STAGEPAS, PHANTOM only powers channels 1 and 2. The backing singer's dynamic mic doesn't need it.", "Swap them: overhead into channel 2, backing vocal mic into channel 3."],
     complete: "Not every channel gets phantom. On the STAGEPAS it's only CH1/2, so condensers go there and dynamic mics go anywhere.",
   }),
