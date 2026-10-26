@@ -9,7 +9,7 @@ import { PREVIEW, liveUrl, storageKey } from "./deploy-context.js";
 import { DEFAULT_SKIN, SKINS } from "./mixer-models.js";
 import { MixerStore, computeMix, createMixerState } from "./mixer-state.js";
 import { ALL_BOARD_SCENARIOS, SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, captureBaseline, evaluateScenario, scenarioFor, scenariosFor } from "./scenarios.js";
-import { Progress, numberedScenarios } from "./progress.js";
+import { ActiveTime, Progress, numberedScenarios } from "./progress.js";
 import { FREE_PLAY_STAT_IDS, freePlayStatId } from "./export.js";
 import { pickSection, sittingOut, stageFor, stageNote } from "./music.js";
 import { nameMode, setNameMode, setStandIns } from "./names.js";
@@ -51,7 +51,7 @@ const hardwareOf = (sk) => sk.hardware || "generic";
 
 const store = new MixerStore(createMixerState(hardwareOf(skin)));
 // Every scenario's progress is remembered: the Canvas export (js/export.js) reports all of it.
-// Free play's time is kept per console ("free-play/l20"); plain "free-play" is from before that.
+// Free play's time is kept per console ("free-play/l20"); plain "free-play" is from before that, or legacy/.
 const progress = new Progress([...numberedScenarios(SCENARIOS), ...ALL_BOARD_SCENARIOS].map((s) => s.id), undefined, [...SCENARIOS, ...ALL_BOARD_SCENARIOS].map((s) => s.id).concat(FREE_PLAY_STAT_IDS));
 const engine = new AudioEngine(store, M);
 
@@ -552,18 +552,18 @@ document.addEventListener("click", (e) => {
 
 // ---------- activity (time and actions per scenario, for the Canvas report) ----------
 
-// Active time only: a second counts when the page is visible and the student
-// touched something in the last minute, and not on the start screen or while
-// writing the Canvas export or a bug report. A drag counts as one action, not one per pixel.
-const IDLE_MS = 60000;
-let lastActivity = performance.now();
+// Active time only: a second counts when the page is visible, the student keeps
+// touching things (a minute without, and that stretch doesn't count: ActiveTime),
+// and not on the start screen or while writing the Canvas export or a bug
+// report. A drag counts as one action, not one per pixel.
+const active = new ActiveTime((id, st) => progress.record(id, st));
 let lastAction = { key: "", at: 0 };
-for (const type of ["pointerdown", "keydown", "input"]) document.addEventListener(type, () => (lastActivity = performance.now()), true);
+for (const type of ["pointerdown", "keydown", "input"]) document.addEventListener(type, () => active.touch(performance.now()), true);
 
 function countAction(change) {
   const key = `${change.type}:${change.index ?? change.bus ?? ""}:${change.key ?? ""}`;
   const now = performance.now();
-  lastActivity = now;
+  active.touch(now);
   if (key === lastAction.key && now - lastAction.at < 600) {
     lastAction.at = now;
     return;
@@ -577,11 +577,16 @@ const statId = () => (current.def.id === "free-play" ? freePlayStatId(skin.id) :
 const working = () => !document.hidden && overlay.classList.contains("dismissed") && !$("#canvas").open && !$("#bug").open;
 
 setInterval(() => {
-  if (working() && performance.now() - lastActivity < IDLE_MS) progress.record(statId(), { sec: 1 });
+  if (working()) active.tick(statId(), performance.now());
 }, 1000);
 setInterval(() => progress.flush(), 5000);
-document.addEventListener("visibilitychange", () => progress.flush());
-window.addEventListener("pagehide", () => progress.flush());
+// Leaving soon after an interaction keeps those seconds.
+const leave = () => {
+  active.settle(performance.now());
+  progress.flush();
+};
+document.addEventListener("visibilitychange", leave);
+window.addEventListener("pagehide", leave);
 
 // ---------- Canvas submission ----------
 
