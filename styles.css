@@ -2351,6 +2351,65 @@ dialog::backdrop {
   flex: none;
   min-width: 96px;
 }
+/* A wedge scenario heard from somewhere else: the bar lights up, the wedge's
+   spot pulses, and a nudge offers the switch (js/ears.js). The page leaves
+   room for the taller bar. */
+:root:has(.listen-bar.ears-nudge) {
+  --listen-h: 132px;
+}
+.listen-bar.ears-nudge {
+  border-top: 2px solid var(--accent);
+  box-shadow: 0 -6px 24px rgba(124, 224, 255, 0.18);
+}
+.listen-bar.ears-nudge .listen-label {
+  color: var(--accent);
+  font-weight: 700;
+}
+.ears-nudge-box {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.6rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgba(124, 224, 255, 0.45);
+  border-radius: 8px;
+  background: rgba(124, 224, 255, 0.1);
+}
+.ears-nudge-box[hidden],
+.ears-switch[hidden] {
+  display: none;
+}
+.ears-nudge-text {
+  margin: 0;
+  flex: 1 1 16rem;
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+.ears-switch {
+  flex: none;
+  min-height: 34px;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.82rem;
+}
+.ear-spot.target .spot-dot {
+  stroke: var(--accent);
+  fill: rgba(124, 224, 255, 0.35);
+  animation: ears-pulse 1.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes ears-pulse {
+  50% {
+    transform: scale(1.45);
+    fill: rgba(124, 224, 255, 0.6);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ear-spot.target .spot-dot {
+    animation: none;
+    stroke-width: 2.4;
+  }
+}
 
 @media (max-width: 899px) {
   :root {
@@ -2380,6 +2439,25 @@ dialog::backdrop {
   }
   .listen-msg {
     font-size: 0.75rem;
+  }
+  :root:has(.listen-bar.ears-nudge) {
+    --listen-h: 228px;
+  }
+  .ears-nudge-box {
+    flex-wrap: nowrap;
+    padding: 0.3rem 0.45rem;
+  }
+  .ears-nudge-text {
+    flex: 1 1 auto;
+    font-size: 0.75rem;
+  }
+  .ears-switch {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+  }
+  /* the nudge already says what you're hearing */
+  .listen-bar.ears-nudge .listen-msg {
+    display: none;
   }
   .transport {
     order: 3;

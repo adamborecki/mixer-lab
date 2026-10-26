@@ -4,9 +4,12 @@
 // reach; PFL needs no speakers.
 // On the CR1604-VLZ the list follows the patch: Main, every aux or subgroup
 // with a speaker on it, and the C-R/PHONES (SOURCE matrix, or SOLO).
+// When the scenario is about a wedge and you're listening elsewhere, a nudge
+// says so and offers the switch (js/ears.js); it never switches for you.
 
 import { MeterView } from "../meters.js";
 import { listenDestinations, listenGroupOf, modelOf } from "../mixer-state.js";
+import { earsNudge, earsNudgeText } from "../ears.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const GENERIC = ["main", "aux1", "aux2", "pfl"];
@@ -33,8 +36,9 @@ export function figureSvg(x, y, { scale = 1, phones = false, cls = "ear-figure" 
 }
 
 export class ListenBar {
-  constructor(root, { store, getSkin, onTransport, getRecorder = () => null }) {
+  constructor(root, { store, getSkin, onTransport, getRecorder = () => null, getScenario = () => null }) {
     this.root = root;
+    this.getScenario = getScenario; // the open scenario's def, for the wedge nudge
     this.getRecorder = getRecorder; // the recorder's runtime (take playback), if one is on stage
     this.store = store;
     this.getSkin = getSkin;
@@ -44,6 +48,8 @@ export class ListenBar {
     root.addEventListener("click", (e) => {
       const b = e.target.closest("[data-dest]");
       if (b) store.setListen(b.dataset.dest);
+      const sw = e.target.closest("[data-ears-switch]");
+      if (sw) store.setListen(sw.dataset.earsSwitch);
       if (e.target.closest(".transport")) this.onTransport();
     });
     root.addEventListener("keydown", (e) => {
@@ -80,6 +86,10 @@ export class ListenBar {
         <svg class="ears-map" viewBox="0 0 ${MAP_W} ${MAP_H}" role="radiogroup" aria-label="Where are you listening from?"></svg>
       </div>
       <div class="listen-now">
+        <div class="ears-nudge-box" role="status" hidden>
+          <p class="ears-nudge-text"></p>
+          <button type="button" class="btn btn-start ears-switch"></button>
+        </div>
         <p class="ears-where"></p>
         <p class="listen-msg" aria-live="polite"></p>
       </div>
@@ -91,6 +101,11 @@ export class ListenBar {
     this.where = this.root.querySelector(".ears-where");
     this.msg = this.root.querySelector(".listen-msg");
     this.transport = this.root.querySelector(".transport");
+    this.nudgeBox = this.root.querySelector(".ears-nudge-box");
+    this.nudgeText = this.root.querySelector(".ears-nudge-text");
+    this.nudgeBtn = this.root.querySelector(".ears-switch");
+    this.nudgeKey = "";
+    this.nudgeDest = null;
     this.lastMsg = null;
     this.mapKey = "";
   }
@@ -149,8 +164,9 @@ export class ListenBar {
     const spots = this.places
       .map((p) => {
         const on = state.listen === p.dest;
+        const target = this.nudgeDest === p.dest ? "target" : "";
         const aria = `${p.place} (${p.label})${p.dead ? ", silent" : ""}`;
-        return `<g class="ear-spot kind-${p.kind} ${on ? "on" : ""} ${p.dead ? "dead" : ""}" data-dest="${esc(p.dest)}" role="radio" aria-checked="${on}" tabindex="${on ? 0 : -1}" aria-label="${esc(aria)}">
+        return `<g class="ear-spot kind-${p.kind} ${on ? "on" : ""} ${p.dead ? "dead" : ""} ${target}" data-dest="${esc(p.dest)}" role="radio" aria-checked="${on}" tabindex="${on ? 0 : -1}" aria-label="${esc(aria)}">
           <title>${esc(aria)}</title>
           <circle class="spot-hit" cx="${p.x}" cy="${p.y - 10}" r="12"/>
           ${on ? figureSvg(p.x, p.y, { scale: 0.62, phones: p.kind === "desk" }) : `<circle class="spot-dot" cx="${p.x}" cy="${p.y - 8}" r="4.5"/>`}
@@ -211,10 +227,32 @@ export class ListenBar {
     const dead = (d) => (d === "pfl" ? !pfls.length : d === "phones" ? !phones.solo && (phones.selector ? phones.selector === "OFF" : !phones.sources.length) : d === "rec" ? rec.dead : !ends[d]?.length);
 
     this.places = this.placesFor(wanted, ends, patchedEnds, devices, sub, dead);
-    const key = JSON.stringify([state.listen, this.places.map((p) => [p.dest, p.x, p.y, p.dead, p.deviceIds]), mix.rig.endpoints.map((e) => [e.deviceId, e.valid])]);
+    const nudge = earsNudge(this.getScenario(), state.listen);
+    this.nudgeDest = nudge?.dest || null;
+    const key = JSON.stringify([state.listen, this.nudgeDest, this.places.map((p) => [p.dest, p.x, p.y, p.dead, p.deviceIds]), mix.rig.endpoints.map((e) => [e.deviceId, e.valid])]);
     if (key !== this.mapKey) {
       this.mapKey = key;
       this.drawMap(state, mix);
+    }
+
+    // This scenario is about a wedge, and your ears are somewhere else.
+    const about = (d) => {
+      const eps = ends[d] || [];
+      if (!eps.length) return null;
+      return eps.length > 1 && eps.every((e) => e.zone === "stage") ? "the wedges" : `the ${names(eps)}`;
+    };
+    const nudgeText = nudge ? earsNudgeText({ about: about(nudge.dest), target: this.label(nudge.dest), current: this.label(state.listen) }) : "";
+    const nudgeKey = JSON.stringify([nudgeText, this.nudgeDest]);
+    if (nudgeKey !== this.nudgeKey) {
+      this.nudgeKey = nudgeKey;
+      this.root.classList.toggle("ears-nudge", !!nudge);
+      this.nudgeBox.hidden = !nudge;
+      this.nudgeText.textContent = nudgeText;
+      this.nudgeBtn.hidden = !nudge || !ends[nudge.dest]?.length;
+      if (nudge) {
+        this.nudgeBtn.dataset.earsSwitch = nudge.dest;
+        this.nudgeBtn.textContent = `Listen to ${this.label(nudge.dest)}`;
+      }
     }
 
     const dest = state.listen;

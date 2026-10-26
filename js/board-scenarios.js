@@ -826,6 +826,7 @@ const XEN = [
     who: "Lead singer",
     prompt: "“Something is way too loud in my wedge. I can't hear myself.”",
     goal: "Find it and pull it at least 6 dB under the vocal in the wedge, with the house unchanged.",
+    ears: ["aux1", "phones"], // or AUX 1 soloed in the headphones
     setup: { tweak: (st, h) => h.sendDb("keys", "aux1", 10) },
     baseline: { main: { metric: "mainDbByChannel" } },
     conditions: [
@@ -1575,6 +1576,7 @@ const masterFix = ({ id, short, title, who, prompt, bus, startDb, raise, listenA
   who,
   prompt,
   goal: `The whole wedge ${raise ? "up" : "down"} by at least 8 dB, its balance unchanged.`,
+  ears: listenAlt ? [bus, "phones"] : bus, // see js/ears.js
   setup: { tweak: (st, h) => h.bus(bus, "level", setLevel(startDb)) },
   baseline: { master: { metric: "busDb", bus }, sends: { metric: "sendDbByChannel", bus }, main: { metric: "mainDbByChannel" } },
   conditions: [
