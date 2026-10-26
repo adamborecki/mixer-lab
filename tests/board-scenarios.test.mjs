@@ -1466,3 +1466,31 @@ for (const def of ALL_BOARD_SCENARIOS) {
     }
   });
 }
+
+// Keep-conditions follow the source they name, wherever it's patched. A student
+// unplugged the backing vocal (not the lead) and "the lead vocal stays" didn't tick.
+describe("board scenarios: keep-conditions follow their source", () => {
+  it("STAGEPAS overhead: unplugging the backing vocal leaves the lead vocal's check met", () => {
+    const a = attempt(byId["stagepas400bt-overhead"]);
+    a.unplugAt("src-backing-vocals/out");
+    a.unplugAt("src-drums/out");
+    assert.ok(a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr").ok);
+    const items = Object.fromEntries(a.result().items.map((i) => [i.id, i]));
+    assert.equal(items.drums.met, true, "the overhead is heard");
+    assert.equal(items.vox.met, true, "the lead vocal is still in the house");
+    assert.match(items.vox.label, /lead vocal/);
+    assert.deepEqual(a.unmet(), ["bv"], "only the backing vocal's own check fails");
+    assert.match(items.bv.label, /backing vocal/);
+  });
+
+  it("every condition about the lead or backing vocal checks that source", () => {
+    for (const s of ALL_BOARD_SCENARIOS) {
+      for (const c of s.conditions) {
+        const m = c.source && /^The (lead|backing) vocal/.exec(c.label);
+        if (!m) continue;
+        const named = m[1] === "backing" ? "backing-vocals" : "lead-vocal";
+        assert.equal(c.source, named, `${s.id} ${c.id}: "${c.label}"`);
+      }
+    }
+  });
+});
