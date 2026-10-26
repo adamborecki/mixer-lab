@@ -87,4 +87,13 @@ describe("stage diagram layout", () => {
     assert.equal(shortLabel({ name: "Aux 1 out" }), "AUX 1");
     assert.equal(shortLabel({ name: "C-R OUT R" }), "C-R R");
   });
+
+  // B5: the STAGEPAS's outputs printed "SPEAKERS SPEAKERS MONITOR MONITOR SUBWOOFE",
+  // each wider than its 44 px cell. Five letters fit at any font's widest caps.
+  it("names the STAGEPAS outputs apart, short enough not to overlap", () => {
+    const outs = DEVICE_TYPES.stagepas400bt.ports.filter((p) => p.dir === "out" && isPhysical(p) && p.channel === undefined);
+    const names = outs.map(shortLabel);
+    assert.deepEqual(names, ["SPK L", "SPK R", "MON L", "MON R", "SUB"]);
+    for (const n of names) assert.ok(n.length <= 5, n);
+  });
 });

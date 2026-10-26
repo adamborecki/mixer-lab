@@ -50,6 +50,10 @@ export function shortLabel(p) {
     .replace(/\b(MASTER|MAIN) OUT\b/, "MAIN")
     .replace(/\bSTEREO OUT\b/, "ST")
     .replace(/(?!^)\b(OUTPUT|OUT|SEND)\b/g, "")
+    // Long words would be cut to 8 letters and lose their L/R ("SPEAKERS", "SPEAKERS").
+    .replace(/\bSPEAKERS?\b/, "SPK")
+    .replace(/\bMONITOR\b/, "MON")
+    .replace(/\bSUBWOOFER\b/, "SUB")
     .replace(/\s+/g, " ")
     .trim();
   return (n || p.name.toUpperCase()).slice(0, 8);
