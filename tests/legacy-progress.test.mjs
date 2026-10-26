@@ -28,3 +28,18 @@ describe("legacy progress keeps the newer lab's entries", () => {
     assert.equal(data.stats.preshow, undefined);
   });
 });
+
+describe("legacy Free play time names its console", () => {
+  const key = "mixer-lab-progress-v1";
+  it("records per console, totals for its own export, keeps the newer lab's consoles", () => {
+    const s = store({ [key]: JSON.stringify({ solved: [], stats: { "free-play": { sec: 10, actions: 2 }, "free-play/x32": { sec: 99, actions: 9 } } }) });
+    const p = new Progress(["preshow"], s, ["preshow", "free-play", "free-play/analog", "free-play/compact"], key);
+    p.record("free-play/analog", { sec: 5, actions: 1 });
+    p.record("free-play/compact", { sec: 3 });
+    assert.deepEqual(p.statsFor("free-play"), { sec: 18, actions: 3 });
+    p.flush();
+    const data = JSON.parse(s.m.get(key));
+    assert.deepEqual(data.stats["free-play/analog"], { sec: 5, actions: 1 });
+    assert.deepEqual(data.stats["free-play/x32"], { sec: 99, actions: 9 });
+  });
+});

@@ -21,7 +21,9 @@ const M = { STEM_SET: manifest.STEM_SET, STEMS: manifest.STEMS, SOURCES_BY_ID: m
 const $ = (sel) => document.querySelector(sel);
 
 const store = new MixerStore();
-const progress = new Progress(numberedScenarios(SCENARIOS).map((s) => s.id), undefined, SCENARIOS.map((s) => s.id));
+// Free play's time is kept per console ("free-play/analog"), as the newer Mixer Lab does.
+const freePlayStatId = (skinId) => `free-play/${skinId}`;
+const progress = new Progress(numberedScenarios(SCENARIOS).map((s) => s.id), undefined, [...SCENARIOS.map((s) => s.id), ...Object.keys(SKINS).map(freePlayStatId)]);
 const engine = new AudioEngine(store, M);
 
 let skin = SKINS[readPref("mixer-lab-skin")] || SKINS[DEFAULT_SKIN];
@@ -284,11 +286,14 @@ function countAction(change) {
     return;
   }
   lastAction = { key, at: now };
-  progress.record(current.def.id, { actions: 1 });
+  progress.record(statId(), { actions: 1 });
 }
 
+function statId() {
+  return current.def.id === "free-play" ? freePlayStatId(skin.id) : current.def.id;
+}
 setInterval(() => {
-  if (!document.hidden && performance.now() - lastActivity < IDLE_MS) progress.record(current.def.id, { sec: 1 });
+  if (!document.hidden && performance.now() - lastActivity < IDLE_MS) progress.record(statId(), { sec: 1 });
 }, 1000);
 setInterval(() => progress.flush(), 5000);
 document.addEventListener("visibilitychange", () => progress.flush());

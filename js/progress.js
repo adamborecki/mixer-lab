@@ -65,8 +65,12 @@ export class Progress {
     this.dirty = true;
   }
 
+  // "free-play" is the total of this version's Free play: the old plain entry
+  // plus its per-console ones ("free-play/analog").
   statsFor(id) {
-    return this.stats[id] || { sec: 0, actions: 0 };
+    if (id !== "free-play") return this.stats[id] || { sec: 0, actions: 0 };
+    const all = Object.entries(this.stats).filter(([k]) => k === id || k.startsWith(`${id}/`));
+    return all.reduce((t, [, s]) => ({ sec: t.sec + s.sec, actions: t.actions + s.actions }), { sec: 0, actions: 0 });
   }
 
   flush() {
