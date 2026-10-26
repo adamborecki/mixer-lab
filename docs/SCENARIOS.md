@@ -188,7 +188,7 @@ Some pairs are deliberately set against each other: MUTE spares PRE sends on the
 
 1. Start with a person, a problem and a destination, not "turn this knob".
 2. Pick baselines that describe the start state, then compare against them instead of hard-coding numbers.
-3. Use a `goal` for the change and a `keep` for what must not move, including the *other* wedge. Make the tempting wrong fix fail (gain instead of send, the wrong bus's send or master, every send instead of the master). If the fix only makes sense after hearing the right destination, start on a different listen destination and add a `listenedTo` goal.
+3. Use a `goal` for the change and a `keep` for what must not move, including the *other* wedge. Make the tempting wrong fix fail (gain instead of send, the wrong bus's send or master, every send instead of the master). If the fix only makes sense after hearing the right destination, start on a different listen destination and add a `listenedTo` goal. While the student listens anywhere else, the listen bar nudges them toward that wedge with a one-click switch (`js/ears.js`): it takes the first `listenedTo` goal that isn't `main`, `pfl`, `phones` or `rec`, else the bus of a monitor goal. A scenario whose listen goal is `custom` sets `ears: "aux2"` (or `["aux1", "phones"]` for other spots that count); `ears: null` turns the nudge off.
 4. Choose thresholds larger than a casual nudge and tolerances wider than control rounding (at least 1 dB).
 5. Start with every goal unmet and every `keep` met; the tests enforce it.
 6. Write labels as outcomes. Write three hints: destination, path, control.

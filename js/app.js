@@ -173,6 +173,7 @@ const listenBar = new ListenBar($("#listen-bar"), {
   getSkin: () => skin,
   onTransport: () => (engine.playing ? engine.stop() : engine.play()),
   getRecorder: () => (firstRecorderId() ? engine.recorder(firstRecorderId()) : null),
+  getScenario: () => current.def,
 });
 
 renderFlow($("#flow"), skin);
