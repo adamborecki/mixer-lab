@@ -32,10 +32,7 @@ export class Progress {
   // What's stored, normalized. Unreadable or unavailable storage reads as empty.
   read() {
     try {
-      const data = JSON.parse(this.storage?.getItem(this.key) || "null");
-      const stats = {};
-      for (const [id, v] of Object.entries(data?.stats || {})) stats[id] = { sec: Math.max(0, Math.floor(Number(v?.sec)) || 0), actions: Math.max(0, Math.floor(Number(v?.actions)) || 0) };
-      return { ...data, solved: Array.isArray(data?.solved) ? data.solved.filter((id) => typeof id === "string") : [], stats };
+      return normalizeProgress(JSON.parse(this.storage?.getItem(this.key) || "null"));
     } catch (e) {
       return { solved: [], stats: {} };
     }
@@ -105,6 +102,36 @@ export class Progress {
     return true;
   }
 
+  // Everything stored plus this tab's unsaved work: what a progress file holds.
+  snapshot() {
+    this.flush();
+    if (!this.dirty) return this.read();
+    // Storage failed: what this tab last read, plus its unsaved work.
+    const stats = {};
+    for (const id of new Set([...Object.keys(this.base.stats), ...Object.keys(this.pending.stats)])) {
+      const b = this.base.stats[id] || { sec: 0, actions: 0 };
+      const p = this.pending.stats[id] || { sec: 0, actions: 0 };
+      stats[id] = { sec: b.sec + p.sec, actions: b.actions + p.actions };
+    }
+    return { ...this.base, solved: [...new Set([...this.base.solved, ...this.pending.solved])], stats };
+  }
+
+  // Merges a progress file's data into what's stored (mergeProgress: nothing is
+  // lost on either side). Returns how many more scenarios are solved here, or
+  // null if it couldn't be saved (then nothing changed).
+  merge(incoming) {
+    this.flush();
+    if (this.dirty || !this.storage) return null;
+    const before = this.solved.size;
+    try {
+      this.storage.setItem(this.key, JSON.stringify(mergeProgress(this.read(), incoming)));
+    } catch (e) {
+      return null;
+    }
+    this.load();
+    return this.solved.size - before;
+  }
+
   // Clears this key for every tab (another open tab keeps only what it does next).
   clear() {
     try {
@@ -124,4 +151,65 @@ function defaultStorage() {
   } catch (e) {
     return null;
   }
+}
+
+// Stored or loaded progress, cleaned up: solved ids are strings, times and
+// actions whole and never negative. Anything else in it is kept as it is.
+export function normalizeProgress(data) {
+  const stats = {};
+  for (const [id, v] of Object.entries(data?.stats || {})) stats[id] = { sec: Math.max(0, Math.floor(Number(v?.sec)) || 0), actions: Math.max(0, Math.floor(Number(v?.actions)) || 0) };
+  return { ...data, solved: Array.isArray(data?.solved) ? data.solved.filter((id) => typeof id === "string") : [], stats };
+}
+
+// Two copies of a student's progress (two browsers, or this one and a file)
+// as one: every scenario solved in either, and for each scenario the larger
+// time and the larger action count. Never removes anything, and loading the
+// same file twice changes nothing. Pure.
+export function mergeProgress(a, b) {
+  const x = normalizeProgress(a);
+  const y = normalizeProgress(b);
+  const stats = { ...x.stats };
+  for (const [id, v] of Object.entries(y.stats)) {
+    const s = stats[id] || { sec: 0, actions: 0 };
+    stats[id] = { sec: Math.max(s.sec, v.sec), actions: Math.max(s.actions, v.actions) };
+  }
+  return { ...x, solved: [...new Set([...x.solved, ...y.solved])], stats };
+}
+
+// ---------- progress files: a backup to carry to another browser or device ----------
+
+export const BACKUP_KIND = "mixer-lab-progress";
+const BACKUP_VERSION = 1;
+const MAX_BACKUP_BYTES = 1_000_000;
+
+// The file's text. `preview` is the branch preview it came from (null on the live site).
+export function backupFile(progress, { now = new Date(), preview = null } = {}) {
+  const { solved, stats } = normalizeProgress(progress);
+  return JSON.stringify({ kind: BACKUP_KIND, version: BACKUP_VERSION, saved: now.toISOString(), preview, progress: { solved, stats } }, null, 1);
+}
+
+export const backupFileName = ({ now = new Date(), preview = null } = {}) => `mixer-lab-progress${preview ? `-${preview}` : ""}-${now.toISOString().slice(0, 10)}.json`;
+
+// Reads a progress file. { ok: true, progress, saved, preview } or { ok: false, reason }
+// with a reason to show the student.
+export function parseBackup(text) {
+  const bad = (reason) => ({ ok: false, reason });
+  if (typeof text !== "string" || !text.trim()) return bad("That file is empty.");
+  if (text.length > MAX_BACKUP_BYTES) return bad("That file is too big to be a Mixer Lab progress file.");
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    return bad("That isn't a Mixer Lab progress file. Choose the .json file you saved with “Save progress file”.");
+  }
+  if (data?.kind !== BACKUP_KIND) return bad("That isn't a Mixer Lab progress file. Choose the .json file you saved with “Save progress file”.");
+  if (!(data.version >= 1)) return bad("That progress file is damaged (no version).");
+  if (data.version > BACKUP_VERSION) return bad("That progress file is from a newer Mixer Lab. Reload this page and try again.");
+  const p = data.progress;
+  const isObj = (o) => o && typeof o === "object" && !Array.isArray(o);
+  if (!isObj(p) || !Array.isArray(p.solved) || !isObj(p.stats)) return bad("That progress file is damaged: its scenario list is missing.");
+  if (p.solved.some((id) => typeof id !== "string") || Object.values(p.stats).some((v) => !isObj(v) || ![v.sec, v.actions].every((n) => Number.isFinite(n) && n >= 0)))
+    return bad("That progress file is damaged: some of its entries can't be read.");
+  const { solved, stats } = normalizeProgress(p);
+  return { ok: true, progress: { solved, stats }, saved: typeof data.saved === "string" ? data.saved : null, preview: typeof data.preview === "string" ? data.preview : null };
 }

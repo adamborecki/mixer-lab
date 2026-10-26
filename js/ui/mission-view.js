@@ -114,6 +114,7 @@ export class StartScreen {
         <button type="button" class="start-big start-free" data-choose="free"><strong>Free play</strong><span>No goals: any console, the whole band, break things</span></button>
       </div>
       <p class="start-legacy">Late with Assignment 1 (the ten scenarios)? <a href="${legacyHref()}">Finish it in the original version</a>: your saved progress is there too.</p>
+      <p class="start-legacy">Your progress is saved in this browser only. Switching devices? <button type="button" class="linkish" data-open-canvas>Save a progress file</button> to load on the other one.</p>
       <h2 class="start-h">Chapman gigs <small>a real MUS 248 gig: its room, its rig, its checklist</small></h2>
       <div class="theme-grid gig-grid">${GIGS.map((g) => gigCard(g, p, `data-choose="theme:${g.id}"`)).join("")}</div>
       <h2 class="start-h">By topic <small>one question, answered on mixer after mixer</small></h2>

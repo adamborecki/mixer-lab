@@ -6442,6 +6442,7 @@ dialog::backdrop {
   color: var(--accent);
 }
 .canvas-total,
+.canvas-backup,
 .canvas-bugs {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
@@ -6480,6 +6481,18 @@ dialog::backdrop {
   align-self: center;
 }
 .canvas-bugs .chip {
+  margin-top: 0.4rem;
+}
+.canvas-backup-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.canvas-backup-status:empty {
+  display: none;
+}
+.canvas-backup-status {
   margin-top: 0.4rem;
 }
 .bug-where {
