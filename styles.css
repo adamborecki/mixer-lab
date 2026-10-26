@@ -794,6 +794,47 @@ kbd {
   color: var(--ok);
   font-size: 1.15rem;
 }
+/* The optional one-question check after a solve. */
+.concept-check {
+  margin-top: 0.4rem;
+}
+.concept-check .cc-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.3rem 0;
+}
+.concept-check .chip.is-right {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+.concept-check .chip.is-wrong {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.concept-check .cc-why {
+  font-size: 0.9rem;
+}
+/* First visit to a big digital console: where its knobs went. */
+.console-tip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: 0.7rem 1rem;
+  margin-bottom: 0.9rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.console-tip[hidden] {
+  display: none;
+}
+.console-tip p {
+  margin: 0;
+  flex: 1 1 22rem;
+}
 @keyframes pop {
   from {
     transform: scale(0.97);
