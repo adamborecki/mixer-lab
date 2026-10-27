@@ -119,23 +119,23 @@ case "$SONG" in
     if [ "$SONG" = almost-like ]; then
       # "Almost Like Being in Love" (piece 1): a rubato intro, then swing at
       # about 124 bpm from 60.3 s. A mic check runs 0-11.5 s. The excerpt is
-      # bars 64-71 (everyone), 8 bars from breath to breath.
+      # bars 64-78 (everyone), about 30 s from breath to breath.
       MASTERS="audio/VOCAL JAZZ NEW/VJ concert at MAN piece 1"
       PIECE=1
       SONG_START=20.0
       SONG_END=242.5
       LOOP_START=180.91
-      LOOP_LENGTH=15.49
+      LOOP_LENGTH=29.49
     else
       # "Love Me or Leave Me" (piece 2): a piano intro the vocal mics barely
-      # hear, then swing at about 177 bpm. The excerpt is bars 40-55
-      # (everyone), 16 bars from breath to breath.
+      # hear, then swing at about 177 bpm. The excerpt is bars 40-71
+      # (everyone), a whole 32-bar chorus from breath to breath.
       MASTERS="audio/VOCAL JAZZ NEW/VJ concert at MAN piece 2"
       PIECE=2
       SONG_START=45.0
       SONG_END=269.0
       LOOP_START=95.48
-      LOOP_LENGTH=22.11
+      LOOP_LENGTH=43.80
     fi
     STEMS=()
     for n in "${!SINGERS[@]}"; do

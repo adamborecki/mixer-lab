@@ -1321,12 +1321,13 @@ const COB_GIGS = {
 // ROUTING with CH 1-8, 9-16 and 17-24 on LOCAL and only 25-32 on AES50-A (the
 // S32), every handheld at the same GAIN (30 dB), LOW CUT on, and no
 // dynamics. MIX 1 is the wedges: XLR OUT 1 → S32 OUT 1 → the NX3000's CH A,
-// whose speakON output feeds wedge 1, linked on to 2 and 3.
+// whose speakON output feeds wedge 1, linked on to 2 and 3. The crew's test
+// music (a laptop at FOH) is on AUX IN 1/2, its fader down and out of MIX 1.
 const VJ_MICS = Array.from({ length: 11 }, (_, i) => `vj-${i + 1}`);
 const VJ_GIGS = {
   x32: {
-    prompt: "Vocal Jazz in Salmon Recital Hall, on the hall's full-size X32: eleven singers on wireless handhelds, mic n on receiver channel n on input n (mic 1 is Allie, mic 11 Silas: the program's order). ROUTING: CH 1-8, 9-16 and 17-24 listen to LOCAL (the receivers plug into the console's rear panel); only 25-32 come from AES50-A, the S32 in the stage-side rack. Every handheld has the same GAIN, LOW CUT on, no compressor. MIX 1 is the wedges: XLR OUT 1 reaches S32 OUT 1, into the NX3000's CH A, whose speakON output feeds three passive wedges linked one to the next. MAIN L/R go to the hall's mains.",
-    patch: Object.fromEntries(VJ_MICS.map((id, i) => [id, [i, "mic"]])),
+    prompt: "Vocal Jazz in Salmon Recital Hall, on the hall's full-size X32: eleven singers on wireless handhelds, mic n on receiver channel n on input n (mic 1 is Allie, mic 11 Silas: the program's order). ROUTING: CH 1-8, 9-16 and 17-24 listen to LOCAL (the receivers plug into the console's rear panel); only 25-32 come from AES50-A, the S32 in the stage-side rack. Every handheld has the same GAIN, LOW CUT on, no compressor. MIX 1 is the wedges: XLR OUT 1 reaches S32 OUT 1, into the NX3000's CH A, whose speakON output feeds three passive wedges linked one to the next. MAIN L/R go to the hall's mains. The crew's test music, a laptop at FOH, is on AUX IN 1/2 (fader down): it checks the mains and then the wedges before the singers arrive.",
+    patch: { ...Object.fromEntries(VJ_MICS.map((id, i) => [id, [i, "mic"]])), preshow: [32, "lr"] },
     cableFor: {},
     gainDb: 30,
     inSource: [0, 0, 0, 1],
@@ -1539,7 +1540,7 @@ const KARAOKE_GIGS = {
 };
 
 // Each band's version of the gigs, over Persephone's.
-const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS, "almost-like": JAZZ_GIGS, "love-me": JAZZ_GIGS, cob: COB_GIGS, vj: VJ_GIGS, ea: EA_GIGS, karaoke: KARAOKE_GIGS };
+const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS, "almost-like": JAZZ_GIGS, "love-me": JAZZ_GIGS, cob: COB_GIGS, vj: VJ_GIGS, "vj-love": VJ_GIGS, ea: EA_GIGS, karaoke: KARAOKE_GIGS };
 
 // A mixer's Free play gig for the band on stage.
 export function gigFor(model) {
@@ -1616,7 +1617,8 @@ function buildCompactState(model, sourcesById) {
     }
     if (def.phantom.perChannel && s.phantom === "required") ch.phantom = true;
     if (c.gain.switch) ch.micLine = s.signalLevel === "line" ? "line" : "mic";
-    else if (c.gain.min !== undefined) ch.gainDb = clamp(gig.gainDb ?? -s.outputDb - channelGainDb(def, { ...ch, gainDb: 0 }, input), c.gain.min, c.gain.max);
+    // `gainDb`: one GAIN for every mic (Vocal Jazz); line sources are still gain-staged.
+    else if (c.gain.min !== undefined) ch.gainDb = clamp(gig.gainDb !== undefined && s.signalLevel === "mic" ? gig.gainDb : -s.outputDb - channelGainDb(def, { ...ch, gainDb: 0 }, input), c.gain.min, c.gain.max);
     // A LEVEL that is also the gain (B207MP3) has to make up the source's level as well.
     ch.level = levelLaw(def).toPos(def.levelIsGain ? s.mixDb - s.outputDb - channelGainDb(def, ch, input) : s.mixDb);
     if (!ch.stereo && !def.mono) ch.pan = gig.pans?.[s.id] ?? s.pan;

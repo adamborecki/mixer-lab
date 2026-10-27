@@ -8,6 +8,7 @@ import { loopPoints } from "../js/transport.js";
 import { CABLES, DEVICE_TYPES, cableFitsPort } from "../js/connection-model.js";
 import { MODELS, MixerStore, computeMix } from "../js/mixer-state.js";
 import { SCENARIOS_BY_ID, buildScenarioState, scenarioFor } from "../js/scenarios.js";
+import { BOARD_SCENARIOS } from "../js/board-scenarios.js";
 
 function gig() {
   useSong("vj");
@@ -22,7 +23,30 @@ const WEDGES = ["vj-w1", "vj-w2", "vj-w3"];
 
 describe("Vocal Jazz in Salmon", () => {
   it("plays on the full X32 only", () => {
-    assert.deepEqual(MODELS.filter((m) => songFits("vj", m)), ["x32"]);
+    for (const id of ["vj", "vj-love"]) assert.deepEqual(MODELS.filter((m) => songFits(id, m)), ["x32"], id);
+  });
+
+  it("takes turns with the two pieces, from the mains test to patching the wedges", () => {
+    const vj = BOARD_SCENARIOS.x32.filter((s) => s.id.startsWith("x32-vj-"));
+    assert.equal(vj[0].id, "x32-vj-mains");
+    assert.equal(vj[1].id, "x32-vj-monitors");
+    assert.equal(vj.at(-1).id, "x32-vj-patch");
+    vj.forEach((s, i) => assert.equal(s.song, i % 2 ? "vj-love" : "vj", s.id));
+    assert.equal(SONGS["vj-love"].set.full.basePath, SONGS["love-me"].set.full.basePath);
+  });
+
+  it("has the test music on AUX IN 1/2: patched, fader down, out of the wedges, gain-staged as a line source", () => {
+    const { st, mix } = gig();
+    const m = mix();
+    const aux = m.channels.find((c) => c.sourceId === "preshow");
+    assert.equal(aux.index, 32);
+    assert.equal(st.state.channels[32].level, 0);
+    assert.ok(aux.aux.mix1.heardDb < -60);
+    assert.ok(["good", "hot"].includes(aux.band));
+    assert.notEqual(st.state.channels[32].gainDb, 30);
+    assert.equal(SOURCES_BY_ID.preshow.name, "Test music (laptop)", "the song's own laptop wins over the shared one");
+    useSong(DEFAULT_SONG);
+    assert.equal(SOURCES_BY_ID.preshow.name, "Preshow music");
   });
 
   it("puts mic n on input n, every one at the same GAIN, on LOCAL with 25-32 on AES50-A", () => {
@@ -84,8 +108,9 @@ describe("the Vocal Jazz Ensemble's two pieces", () => {
   for (const id of ["almost-like", "love-me", "vj"]) {
     it(`${id}: mic n is the program's nth singer, every track mono at the same +10 dB`, () => {
       const song = SONGS[id];
-      assert.deepEqual(song.sources.map((s) => s.musician), PROGRAM);
-      song.sources.forEach((s, i) => assert.equal(s.order, i + 1));
+      const mics = song.sources.filter((s) => s.deviceType === "wireless-handheld");
+      assert.deepEqual(mics.map((s) => s.musician), PROGRAM);
+      mics.forEach((s, i) => assert.equal(s.order, i + 1));
       for (const stem of Object.values(song.stems)) {
         assert.equal(stem.normalizeDb, 10);
         assert.equal(stem.channels, 1);
@@ -96,10 +121,12 @@ describe("the Vocal Jazz Ensemble's two pieces", () => {
 
   it("Salmon plays the ensemble's own “Almost Like Being in Love”", () => {
     assert.equal(SONGS.vj.set.full.basePath, SONGS["almost-like"].set.full.basePath);
-    assert.ok(SONGS.vj.sources.every((s) => s.deviceType === "wireless-handheld" && /\(black|\(gray/.test(s.name)));
+    assert.ok(SONGS.vj.sources.filter((s) => s.id !== "preshow").every((s) => s.deviceType === "wireless-handheld" && /\(black|\(gray/.test(s.name)));
   });
 
-  it("each section loops for its own length; the excerpt for the song's", () => {
+  it("each section loops for its own length; the excerpt for the song's, long enough to listen", () => {
+    assert.ok(SONGS["almost-like"].set.loop.end - SONGS["almost-like"].set.loop.start > 29);
+    assert.ok(SONGS["love-me"].set.loop.end - SONGS["love-me"].set.loop.start > 43);
     const set = SONGS["love-me"].set;
     assert.deepEqual(loopPoints(set, "excerpt"), set.loop);
     const solo = set.sections.find((s) => s.id === "bars-72");

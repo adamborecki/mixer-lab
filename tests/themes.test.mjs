@@ -3,6 +3,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { ALL_BOARD_SCENARIOS, MIXER_ORDER, SCENARIOS } from "../js/scenarios.js";
+import { SONGS } from "../audio/source-manifest.js";
 import { FREE_CONSOLES } from "../js/ui/mission-view.js";
 import { SKINS } from "../js/mixer-models.js";
 import { CANVAS_SCENARIOS, GIGS, MIXERS, OPEN_GIGS, THEMES, consoleOf, gigOf, isCanvas, mixerScenarios, nextInTheme, skinOf, themeOf, themeScenarios } from "../js/themes.js";
@@ -64,7 +65,8 @@ describe("Chapman gigs", () => {
     for (const g of OPEN_GIGS) {
       const list = themeScenarios(g);
       assert.equal(new Set(list.map(consoleOf)).size, 1, g.id);
-      assert.equal(new Set(list.map((s) => s.song)).size, 1, g.id);
+      // One band and rig, though a gig may take turns with its pieces (Vocal Jazz).
+      assert.equal(new Set(list.map((s) => SONGS[s.song].sources)).size, 1, g.id);
     }
   });
 

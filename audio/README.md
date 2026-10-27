@@ -195,8 +195,8 @@ Two pieces from the Vocal Jazz Ensemble's concert of October 23, 2026, from the 
 | “Love Me or Leave Me” (Donaldson and Kahn, arr. Rosana Eckert) | `love-me`, `audio/love-me/love-me-NN-<singer>.mp3` | 45.0 s (the piano intro, which the mics barely hear) | 269.0 s (224 s long) | swing at about 177 bpm |
 
 - **Levels.** The tracks were recorded low (peaks −11 to −21 dBFS). Every track of both pieces gets the same +10 dB (`normalizeDb: 10`, `SHARED_GAIN_DB` in the script), so the loudest peak sits at −1.07 dBFS and each singer keeps their own level: the meters differ because the singers do. No limiting or compression. `monoPeakDb` / `monoRmsDb` are measured over the whole song.
-- **Mono.** The files are mono MP3s (`channels: 1`), −V4 for the excerpt (about 80 kb/s) and −V5 for the segments. Excerpts are about 1.7 MB (piece 1) and 2.4 MB (piece 2) for all eleven; full songs 12 segments per stem, 132 files, about 18 MB each.
-- **Loops, breath to breath.** With no drummer the tempo drifts by a few percent, so a loop cut on a bar grid would stumble at the seam. Every loop starts and ends in a breath where all eleven mics are below −52 dBFS on the master, the two breaths found the same number of bars apart on a beat tracker's grid. Each section therefore has its own `length`; `loopPoints()` in `js/transport.js` uses it, and the stitched buffer is laid out as usual (0.5 s pre-roll, the loop, 1 s post-roll). Piece 1 loops 8 bars (about 15.5 s; the intro two rubato phrases), piece 2 16 bars (about 21.7 s). Bar numbers count from the first bar in tempo; the downbeats come from beat tracking, not from the score.
+- **Mono.** The files are mono MP3s (`channels: 1`), −V4 for the excerpt (about 80 kb/s) and −V5 for the segments. Excerpts are about 3.0 MB (piece 1) and 4.5 MB (piece 2) for all eleven; full songs 12 segments per stem, 132 files, about 18 MB each.
+- **Loops, breath to breath.** With no drummer the tempo drifts by a few percent, so a loop cut on a bar grid would stumble at the seam. Every loop starts and ends in a breath where all eleven mics are below −52 dBFS on the master, the two breaths found the same number of bars apart on a beat tracker's grid. Each section therefore has its own `length`; `loopPoints()` in `js/transport.js` uses it, and the stitched buffer is laid out as usual (0.5 s pre-roll, the loop, 1 s post-roll). Piece 1's sections loop 8 bars (about 15.5 s; the intro two rubato phrases), piece 2's 16 bars (about 21.7 s). The excerpts are longer, so a scenario has time to listen: 15 bars of piece 1 (29.5 s) and a whole 32-bar chorus of piece 2 (43.8 s). Bar numbers count from the first bar in tempo; the downbeats come from beat tracking, not from the score.
 - **Who sings.** Per bar, each mic's RMS above −50 dBFS on the master (the bleed from the other singers sits below that).
 
 “Almost Like Being in Love”:
@@ -207,14 +207,14 @@ Two pieces from the Vocal Jazz Ensemble's concert of October 23, 2026, from the 
 | bars 15–22 | 1:06.0 | 15.55 s | everyone but Nina | Nina |
 | bars 45–52 | 2:04.1 | 15.59 s | the soli: Nina, Shayne, Paola, Brandon, Silas | the other six |
 | bars 53–60 | 2:19.6 | 15.51 s | the same five | the other six |
-| bars 64–71 (the excerpt) | 2:40.9 | 15.49 s | everyone | |
+| bars 64–78 (the excerpt) | 2:40.9 | 29.49 s | everyone | |
 
 “Love Me or Leave Me”:
 
 | Section | Starts | Length | Singing | Partly |
 |---|---|---|---|---|
 | bars 3–18 | 0:01.8 | 21.47 s | Abbey's solo | the ensemble comes in |
-| bars 40–55 (the excerpt) | 0:50.5 | 22.11 s | everyone | |
+| bars 40–71 (the excerpt) | 0:50.5 | 43.80 s | everyone | |
 | bars 72–87 | 1:34.3 | 21.67 s | Silas's solo | nobody else |
 | bars 88–103 | 1:56.5 | 21.61 s | Silas | the ensemble behind |
 | bars 119–134 | 2:39.0 | 21.88 s | | everyone, in short bursts |
@@ -222,7 +222,7 @@ Two pieces from the Vocal Jazz Ensemble's concert of October 23, 2026, from the 
 
 Regenerate with `SONG=almost-like tools/make-excerpts.sh` and `SONG=love-me tools/make-excerpts.sh`.
 
-**Where they play.** Both pieces are in Free play on every console. Where a console has fewer mic inputs than singers, it takes the two soloists (Abbey, mic 4, and Silas, mic 11), a quartet (mics 1, 4, 9, 11) or six of them on the F8n, and the rest stay on stage, unplugged (`JAZZ_GIGS` in `js/scenarios.js`; on Mixer A and B, mics 1–8). The Vocal Jazz in Salmon gig (`vj`) plays “Almost Like Being in Love” on its eleven handhelds. The COB gig (`cob`) puts “Love Me or Leave Me” on its eleven headsets, A–K; its backing-track laptop plays silence (`audio/love-me/cob-track-silent.mp3` and its segments, mono 22.05 kHz at 8 kb/s, about 300 kB, from `tools/make-silent-track.sh`), because the ensemble's recording has no accompaniment track.
+**Where they play.** Both pieces are in Free play on every console. Where a console has fewer mic inputs than singers, it takes the two soloists (Abbey, mic 4, and Silas, mic 11), a quartet (mics 1, 4, 9, 11) or six of them on the F8n, and the rest stay on stage, unplugged (`JAZZ_GIGS` in `js/scenarios.js`; on Mixer A and B, mics 1–8). The Vocal Jazz in Salmon gig puts both on its eleven handhelds, taking turns scenario by scenario (`vj` is “Almost Like Being in Love”, `vj-love` “Love Me or Leave Me”), with the preshow “Bossa Nova” as the crew's test music on AUX IN 1/2. The COB gig (`cob`) puts “Love Me or Leave Me” on its eleven headsets, A–K; its backing-track laptop plays silence (`audio/love-me/cob-track-silent.mp3` and its segments, mono 22.05 kHz at 8 kb/s, about 300 kB, from `tools/make-silent-track.sh`), because the ensemble's recording has no accompaniment track.
 
 ## The electroacoustic showcase (stand-ins and a click)
 

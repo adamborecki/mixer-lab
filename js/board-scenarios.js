@@ -4335,8 +4335,12 @@ const COB = [
 // The Vocal Jazz Gig Checklist's rig (js/scenarios.js VJ_GIGS): eleven
 // wireless handhelds on LOCAL inputs 1–11, CH 25-32 on AES50-A (the S32), MIX 1
 // out through S32 OUT 1 to the NX3000's CH A and three passive wedges linked
-// on speakON. Each fault is one the checklist, the reset or the crew's own
-// troubleshooting order warns about.
+// on speakON, and the crew's test music (a laptop at FOH) on AUX IN 1/2. It
+// opens with the checklist's two tests (the mains, then the wedges, with the
+// test music) and closes by patching the monitor rig from scratch; between
+// them, each fault is one the checklist, the reset or the crew's own
+// troubleshooting order warns about. The scenarios take turns with the
+// ensemble's two pieces (songOf), so one doesn't play every time.
 
 const VJ = Array.from({ length: 11 }, (_, i) => `vj-${i + 1}`);
 const VJ_WEDGES = ["vj-w1", "vj-w2", "vj-w3"];
@@ -4347,8 +4351,62 @@ const singersInWedges = (ctx) => VJ.every((s) => wedge(ctx, "mix1", s) >= AUDIBL
 const wedgeOk = (ctx, id) => ok(ctx, id) && endpoint(ctx, id).output === "out1";
 const vjLocal = (ctx) => [0, 1, 2].every((b) => mixerDev(ctx).inSource[b] === 0);
 const gainOf = (ctx, s) => sc(ctx, s)?.gainDb ?? NaN;
+const sendOf = (ctx, bus, s) => mc(ctx, s)?.aux[bus]?.sendDb ?? -Infinity;
+// A cable between two ports, whichever end was plugged first.
+const joined = (ctx, a, b) => ctx.state.rig.cables.some((c) => (c.from === a && c.to === b) || (c.from === b && c.to === a));
+const VJ_MONITOR_RIG = ["s32/out1", "nx3000/out-a", "vj-w1/link", "vj-w2/link"];
 
 const VJS = [
+  {
+    id: "x32-vj-mains",
+    short: "Mains test",
+    title: "Test the mains",
+    who: "Crew chief",
+    prompt: "“Before the singers come in, we test the mains. The laptop at FOH is on AUX IN 1/2, playing the bossa nova. Put it through both hall speakers, and only them: the wedges are the next test.”",
+    goal: "The test music out of both hall speakers, left and right, and not in the wedges.",
+    music: "excerpt",
+    setup: { listen: "pfl" },
+    conditions: [
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "main", label: "You listened to the house (MAIN)" },
+      { id: "heard", kind: "goal", type: "sourceHeardInMain", source: "preshow", stereo: true, label: "The test music comes out of both hall speakers, left and right" },
+      keep("wedges", "The test music stays out of the wedges", (ctx) => wedge(ctx, "mix1", "preshow") < AUDIBLE),
+    ],
+    hints: [
+      "The laptop is plugged in and playing. Its channel isn't one of CH 1-32: which input layer holds AUX IN 1/2?",
+      "Press the AUX IN / USB layer key beside the input faders: AUX 1/2 has its own strip there. Is its fader up, and is MAIN LR on?",
+      "On the AUX IN / USB layer, push AUX 1/2's fader up to about 0 dB and listen to the MAIN. Leave its MIX 1 send down.",
+    ],
+    complete: "That's the checklist's mains test. Music you know, through one known channel, proves the console, the mains amp and both hall speakers before anyone touches a mic, and a dead side or a torn speaker is easier to hear in music than in a voice.",
+  },
+  {
+    id: "x32-vj-monitors",
+    short: "Monitor test",
+    title: "Test the wedges",
+    who: "Crew chief",
+    prompt: "“The mains sound good. Now the wedges: take the music out of the house first, so all you hear is the stage. Then put the bossa nova in all three wedges.”",
+    goal: "The test music out of the house and playing in all three wedges (MIX 1), every singer's MIX 1 send unchanged.",
+    music: "excerpt",
+    setup: {
+      tweak: (st, h) => {
+        h.faderDb("preshow", 0); // still up from the mains test
+        h.bus("mix1", "level", 0);
+        h.bus("mix1", "mute", true);
+      },
+      listen: "main",
+    },
+    conditions: [
+      goal("out", "The test music is out of the house", (ctx) => house(ctx, "preshow") < AUDIBLE),
+      { id: "listen", kind: "goal", type: "listenedTo", dest: "mix1", label: "You listened to the wedges (MIX 1)" },
+      goal("wedges", "The test music plays in all three wedges", (ctx) => wedge(ctx, "mix1", "preshow") >= AUDIBLE && VJ_WEDGES.every((id) => wedgeOk(ctx, id))),
+      keep("sends", "Every singer's MIX 1 send stays where it is", (ctx) => VJ.every((s) => Math.abs(sendOf(ctx, "mix1", s) + 8) <= 1)),
+    ],
+    hints: [
+      "Two jobs, the house first: what put the music in the mains during the last test? Then the wedges: they're MIX 1. What does the music need to reach them?",
+      "AUX 1/2's fader is the house. Its way to the wedges is its MIX 1 send: SEL MIX 1 on the BUS 1-8 layer and press SENDS ON FADERS, and the input faders become sends to MIX 1. Then MIX 1's own master on the BUS 1-8 layer: is it up, and is it unmuted?",
+      "Pull AUX 1/2's fader down. With SENDS ON FADERS lit and MIX 1 selected, bring AUX 1/2's fader up, then switch SENDS ON FADERS off. On the BUS 1-8 layer push MIX 1's fader to about 0 dB and switch its MUTE off.",
+    ],
+    complete: "The monitor test: the house down so you hear only the stage, then the music into MIX 1. A send from the channel, and the bus master up and unmuted: miss either and the wedges stay silent. Three wedges playing music you know prove S32 OUT 1, the amp and every speakON in the chain. Now the singers can come in.",
+  },
   {
     id: "x32-vj-local",
     short: "Mics on AES50",
@@ -4505,6 +4563,30 @@ const VJS = [
     ],
     hints: ["The mics and the house both work. What do the wedges have that the mics don't?", VJ_ROOM + " MIX 1 reaches the amp through the S32. How does the S32 reach the console?", "Patch a Cat5e (etherCON) cable from the S32's AES50 A to the X32's AES50 A."],
     complete: "In Salmon the mics come in on LOCAL, so they don't need the stage box. MIX 1 does: it leaves through the S32. With no AES50 link the mics carry on and the wedges go quiet. That's also why the reset keeps CH 1-24 on LOCAL.",
+  },
+  {
+    id: "x32-vj-patch",
+    short: "Patch the wedges from scratch",
+    title: "Patch the monitor rig",
+    who: "Crew chief",
+    prompt: "“Load-in's done. The S32 is in the stage-side rack with its Cat5e to the X32, the NX3000 is in the monitor amp rack, and the three wedges are on the lip of the stage. None of it is patched. Get MIX 1 into all three wedges.”",
+    goal: "S32 OUT 1 into the amp, the amp into wedge 1, wedge 1 linked on to wedge 2 and wedge 2 to wedge 3: all three wedges playing MIX 1.",
+    music: "excerpt",
+    setup: { tweak: (st, h) => VJ_MONITOR_RIG.forEach((ref) => h.cut(ref)) },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("amp", "The NX3000 gets MIX 1 from the S32 and drives wedge 1", (ctx) => wedgeOk(ctx, "vj-w1")),
+      goal("chain", "Wedge 1 links on to wedge 2, and wedge 2 to wedge 3", (ctx) => joined(ctx, "vj-w1/link", "vj-w2/in") && joined(ctx, "vj-w2/link", "vj-w3/in")),
+      goal("wedges", "All three wedges play MIX 1, every singer in them", (ctx) => VJ_WEDGES.every((id) => wedgeOk(ctx, id)) && singersInWedges(ctx)),
+      keep("link", "The Cat5e between the S32 and the X32 stays as it is", (ctx) => linked(ctx, "s32")),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house stays the same" },
+    ],
+    hints: [
+      VJ_ROOM + " MIX 1 already reaches the S32 over the Cat5e. Follow it from there: where does it go next, and what does a passive wedge need?",
+      "S32 OUT 1 is line level: an XLR into the NX3000's CH A input. The amp's CH A output is speaker level: a speakON cable to wedge 1.",
+      "Then the daisy chain: a speakON from wedge 1's second jack (link) into wedge 2, and another from wedge 2's link into wedge 3.",
+    ],
+    complete: "That's the whole monitor path in Salmon: X32 → AES50 → S32 OUT 1 → XLR → NX3000 CH A → speakON → wedge 1 → link → wedge 2 → link → wedge 3. XLR carries the mix at line level, speakON the amp's power (twist it to lock). Every silent-wedge fault on this list is one of those cables.",
   },
 ];
 
@@ -4914,7 +4996,7 @@ const ORDER = {
   l20: ["doors", "gain", "pad", "lowcut", "mud", "eq-on", "keys-wedge", "less-guitar", "out-of-house", "wedge-quiet", "switch", "reverb", "efx-mon"],
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
   yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "mud", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
-  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9", "vj-local", "vj-gain", "vj-lowcut", "vj-muted", "vj-send", "vj-amp", "vj-chain", "vj-link", "ea-chain", "ea-route", "ea-bank", "ea-48v", "ea-collision", "ea-click", "ea-dead"],
+  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9", "vj-mains", "vj-monitors", "vj-local", "vj-gain", "vj-lowcut", "vj-muted", "vj-send", "vj-amp", "vj-chain", "vj-link", "vj-patch", "ea-chain", "ea-route", "ea-bank", "ea-48v", "ea-collision", "ea-click", "ea-dead"],
   f8n: ["track", "trim", "room", "hpf", "pfl", "balance", "link", "camera", "dslr", "iso-safety"],
   dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
   cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "dante-back", "dante-fix", "scene-recall", "scene-store"],
@@ -4994,10 +5076,13 @@ const FTW = {
   gdig: ["winds", "comp-on", "bus-mute"],
   x32c: ["sections-48v", "comp-on", "bus-mute", "orchestra"],
 };
+// Vocal Jazz takes turns with the ensemble's two pieces: the first scenario
+// plays "Almost Like Being in Love", the second "Love Me or Leave Me", and so on.
+const vjSong = (board, k) => (ORDER[board].filter((x) => x.startsWith("vj-")).indexOf(k) % 2 ? "vj-love" : "vj");
 // A gig is its own song (its cast, its tracks, its rig): COB, Vocal Jazz, the showcase, karaoke.
 const songOf = (board, id) => {
   const k = id.slice(board.length + 1);
-  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? "vj" : k.startsWith("ea-") ? "ea" : k.startsWith("ky-") ? "karaoke" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
+  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? vjSong(board, k) : k.startsWith("ea-") ? "ea" : k.startsWith("ky-") ? "karaoke" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
 };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.

@@ -743,37 +743,39 @@ const allBut = (...ids) => ALL_SINGERS.filter((id) => !ids.includes(id));
 const ENSEMBLE = "Vocal Jazz Ensemble";
 
 // "Almost Like Being in Love": a rubato intro, then swing at about 124 bpm
-// (bar 1 at 40.30 s song time). Loops are 8 bars, the intro's two phrases.
+// (bar 1 at 40.30 s song time). Loops are 8 bars, the intro's two phrases;
+// the excerpt, which the Salmon scenarios play, is about 30 s.
 const ALMOST_SET = {
   id: "almost-like",
   title: "Almost Like Being in Love",
   artist: ENSEMBLE,
   basePath: "audio/almost-like/",
-  loop: { start: 0.5, end: 15.99 },
-  excerpt: { originalStart: 160.41, duration: 16.99 },
+  loop: { start: 0.5, end: 29.99 },
+  excerpt: { originalStart: 160.41, duration: 30.99 },
   full: { basePath: "audio/almost-like/full/", segmentSeconds: 20, overlap: 0.5, duration: 222.5, segments: 12, trimDb: 0 },
   sections: [
     { id: "intro", bars: "intro", start: 0.65, length: 16.85, label: "Rubato intro, before the beat", plays: allBut("karmyn", "silas"), partly: ["karmyn", "silas"] },
     { id: "bars-15", bars: "15–22", start: 65.98, length: 15.55, label: "First chorus in tempo, everyone", plays: allBut("nina"), partly: ["nina"] },
     { id: "bars-45", bars: "45–52", start: 124.06, length: 15.59, label: "Soli: five voices carry the tune", plays: ["nina", "shayne", "paola", "brandon", "silas"], partly: allBut("nina", "shayne", "paola", "brandon", "silas") },
     { id: "bars-53", bars: "53–60", start: 139.6, length: 15.51, label: "The soli goes on", plays: ["nina", "shayne", "paola", "brandon", "silas"], partly: allBut("nina", "shayne", "paola", "brandon", "silas") },
-    { id: "excerpt", bars: "64–71", start: 160.91, label: "Everyone, full out", plays: ALL_SINGERS, partly: [] },
+    { id: "excerpt", bars: "64–78", start: 160.91, label: "Everyone, full out", plays: ALL_SINGERS, partly: [] },
   ],
 };
 
 // "Love Me or Leave Me": swing at about 177 bpm (bar 1 at -0.87 s song time,
-// in the piano's intro). Loops are 16 bars.
+// in the piano's intro). Loops are 16 bars; the excerpt, which COB and the
+// Salmon scenarios play, is a whole 32-bar chorus.
 const LOVE_ME_SET = {
   id: "love-me",
   title: "Love Me or Leave Me",
   artist: ENSEMBLE,
   basePath: "audio/love-me/",
-  loop: { start: 0.5, end: 22.61 },
-  excerpt: { originalStart: 49.98, duration: 23.61 },
+  loop: { start: 0.5, end: 44.3 },
+  excerpt: { originalStart: 49.98, duration: 45.3 },
   full: { basePath: "audio/love-me/full/", segmentSeconds: 20, overlap: 0.5, duration: 224, segments: 12, trimDb: 0 },
   sections: [
     { id: "bars-3", bars: "3–18", start: 1.81, length: 21.47, label: "Abbey's solo, then the ensemble", plays: ["abbey"], partly: allBut("abbey") },
-    { id: "excerpt", bars: "40–55", start: 50.48, label: "Everyone", plays: ALL_SINGERS, partly: [] },
+    { id: "excerpt", bars: "40–71", start: 50.48, label: "Everyone, a whole chorus", plays: ALL_SINGERS, partly: [] },
     { id: "bars-72", bars: "72–87", start: 94.28, length: 21.67, label: "Silas's solo, the others resting", plays: ["silas"], partly: [] },
     { id: "bars-88", bars: "88–103", start: 116.47, length: 21.61, label: "Silas's solo over the ensemble", plays: ["silas"], partly: allBut("silas") },
     { id: "bars-119", bars: "119–134", start: 159, length: 21.88, label: "Everyone, in short bursts", plays: [], partly: ALL_SINGERS },
@@ -784,7 +786,7 @@ const LOVE_ME_SET = {
 // Measured over the whole song (after the cut) by tools/make-excerpts.sh.
 const vjStems = (song, levels) => Object.fromEntries(VJ_SINGERS.map(([id], i) => [id, { file: `${song}-${String(i + 1).padStart(2, "0")}-${id}.mp3`, channels: 1, treatment: "sum", monoPeakDb: levels[i][0], monoRmsDb: levels[i][1], normalizeDb: 10 }]));
 const ALMOST_STEMS = vjStems("almost-like", [[-4.02, -28.27], [-2.68, -26.95], [-8.29, -28.05], [-6.3, -26.33], [-10.94, -32.82], [-7.73, -28.44], [-3.66, -27.76], [-4.07, -26.3], [-1.9, -25.95], [-4.8, -24.5], [-7.28, -30.21]]);
-const LOVE_ME_STEMS = vjStems("love-me", [[-4.67, -28.62], [-3.47, -26.04], [-4.52, -27.3], [-2.73, -24.67], [-6.11, -30.28], [-7.54, -28.92], [-2.46, -26.88], [-1.21, -25.46], [-1.41, -24.1], [-1.07, -21.27], [-7.65, -27.7]]);
+const LOVE_ME_STEMS = vjStems("love-me", [[-4.67, -28.63], [-3.47, -26.06], [-4.52, -27.32], [-2.73, -24.69], [-6.11, -30.3], [-7.54, -28.94], [-2.46, -26.9], [-1.21, -25.48], [-1.41, -24.12], [-1.07, -21.29], [-7.65, -27.72]]);
 
 // Mic n is singer n, on receiver channel n. The handhelds are alike: the
 // differences between the meters are the singers' own. `color` names the
@@ -959,16 +961,28 @@ const KARAOKE_SOURCES = [
 
 // Vocal Jazz in Salmon Recital Hall (MUS 248's Vocal Jazz Gig Checklist): the
 // singers on wireless handhelds into the hall's full-size X32. The ensemble's
-// own "Almost Like Being in Love" (the same files and loops), eleven singers
-// on eleven handhelds. Mic n is receiver channel n is X32 input n.
+// own two pieces (the same files and loops), eleven singers on eleven
+// handhelds; the scenarios take turns, so one plays "Almost Like Being in
+// Love" (`vj`) and the next "Love Me or Leave Me" (`vj-love`). Mic n is
+// receiver channel n is X32 input n.
 const VJ_SET = { ...ALMOST_SET, id: "vj", title: "Vocal Jazz in Salmon", artist: `${ENSEMBLE}, “Almost Like Being in Love”` };
-const VJ_STEMS = ALMOST_STEMS;
+const VJ_LOVE_SET = { ...LOVE_ME_SET, id: "vj-love", title: "Vocal Jazz in Salmon", artist: `${ENSEMBLE}, “Love Me or Leave Me”` };
 
 // The crew names a handheld by its windscreen, then its ring: black 1–8, gray
 // 9–16, rings red, orange, yellow, green, blue, purple, black, gray (the Salmon
 // Simulator's owner-confirmed facts).
 const RINGS = ["red", "orange", "yellow", "green", "blue", "purple", "black", "gray"];
-const VJ_SOURCES = VJ_SINGERS.map((_, i) => handheld(i + 1, `${i < 8 ? "black" : "gray"}/${RINGS[i % 8]}`));
+// The crew's test music: a laptop at FOH on AUX IN 1/2 plays the preshow
+// loop ("Bossa Nova") for the mains test and the monitor test.
+const VJ_LAPTOP = {
+  ...PRESHOW_SOURCE,
+  order: 33, // AUX IN 1/2
+  name: "Test music (laptop)",
+  device: "Laptop at FOH — test music",
+  scenarios: ANY_SCENARIO,
+  note: "The crew's test music, from a laptop at FOH into AUX IN 1/2: they play it through the mains, then the wedges, before the singers arrive. A 3.5 mm → dual 1/4\" breakout cable.",
+};
+const VJ_SOURCES = [...VJ_SINGERS.map((_, i) => handheld(i + 1, `${i < 8 ? "black" : "gray"}/${RINGS[i % 8]}`)), VJ_LAPTOP];
 
 // ---------- the electroacoustic showcase in Salmon: FTW's parts as stand-ins ----------
 
@@ -1034,7 +1048,8 @@ export const SONGS = {
   "love-me": { id: "love-me", title: "Love Me or Leave Me", artist: ENSEMBLE, set: LOVE_ME_SET, stems: LOVE_ME_STEMS, sources: JAZZ_SOURCES },
   // A gig, not just a band: its rig is the X32 Compact's, so it plays on that console only.
   cob: { id: "cob", title: "COB in Irvine", artist: "the Vocal Jazz Ensemble as the cast", set: COB_SET, stems: COB_STEMS, sources: COB_SOURCES, consoles: ["x32c"] },
-  vj: { id: "vj", title: "Vocal Jazz in Salmon", artist: "the Vocal Jazz Ensemble (“Almost Like Being in Love”)", set: VJ_SET, stems: VJ_STEMS, sources: VJ_SOURCES, consoles: ["x32"] },
+  vj: { id: "vj", title: "Vocal Jazz in Salmon", artist: "the Vocal Jazz Ensemble (“Almost Like Being in Love”)", set: VJ_SET, stems: ALMOST_STEMS, sources: VJ_SOURCES, consoles: ["x32"] },
+  "vj-love": { id: "vj-love", title: "Vocal Jazz in Salmon", artist: "the Vocal Jazz Ensemble (“Love Me or Leave Me”)", set: VJ_LOVE_SET, stems: LOVE_ME_STEMS, sources: VJ_SOURCES, consoles: ["x32"] },
   karaoke: { id: "karaoke", title: "Karaoke in BH 109", artist: "a karaoke track (NOSTRADAMUS)", set: KARAOKE_SET, stems: KARAOKE_STEMS, sources: KARAOKE_SOURCES, consoles: ["x1204usb"] },
   ea: { id: "ea", title: "Electroacoustic showcase", artist: "FTW's parts as stand-ins, and a click", set: EA_SET, stems: EA_STEMS, sources: EA_SOURCES, consoles: ["x32"] },
 };
@@ -1048,7 +1063,8 @@ export let STEM_SET;
 export let STEMS;
 export let SOURCES;
 // The band's sources plus the room pair and the preshow laptop, so a loop
-// player or a room mic is found whichever band is on stage.
+// player or a room mic is found whichever band is on stage. A song's own
+// source wins over a shared one with its id (Salmon's test-music laptop).
 export let SOURCES_BY_ID;
 
 // Puts a song's band on stage. Returns true if it changed.
@@ -1059,7 +1075,7 @@ export function useSong(id) {
   STEM_SET = song.set;
   STEMS = song.stems;
   SOURCES = song.sources;
-  SOURCES_BY_ID = Object.fromEntries([...SOURCES, ...ROOM_SOURCES, PRESHOW_SOURCE].map((s) => [s.id, s]));
+  SOURCES_BY_ID = Object.fromEntries([...ROOM_SOURCES, PRESHOW_SOURCE, ...SOURCES].map((s) => [s.id, s]));
   return changed;
 }
 useSong(DEFAULT_SONG);

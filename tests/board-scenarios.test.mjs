@@ -1068,9 +1068,29 @@ Object.assign(WRONG, {
 });
 
 // Vocal Jazz in Salmon: the full X32 with the S32, the NX3000 and the speakON wedge chain.
-const VJ = Array.from({ length: 13 }, (_, i) => `vj-${i + 1}`);
+const VJ = Array.from({ length: 11 }, (_, i) => `vj-${i + 1}`);
 const routeVj = (a, blocks) => blocks.forEach((v, b) => a.st.setDevice("mixer", `inSource.${b}`, v));
+// The monitor test, all but the parts `skip` names.
+const wedgeTest = (a, skip = []) => {
+  a.st.setListen("mix1");
+  if (!skip.includes("house")) a.st.setChannel(a.idx("preshow"), "level", 0);
+  if (!skip.includes("send")) a.sendDb("preshow", "mix1", 0);
+  if (!skip.includes("master")) a.st.setBus("mix1", "level", LAWS.level.toPos(0));
+  if (!skip.includes("mute")) a.st.setBus("mix1", "mute", false);
+};
+const patchWedges = (a, chain = true) => {
+  assert.ok(a.st.connect("s32/out1", "nx3000/in-a", "xlr").ok);
+  assert.ok(a.st.connect("nx3000/out-a", "vj-w1/in", "speakon").ok);
+  if (!chain) return;
+  assert.ok(a.st.connect("vj-w1/link", "vj-w2/in", "speakon").ok);
+  assert.ok(a.st.connect("vj-w2/link", "vj-w3/in", "speakon").ok);
+};
 Object.assign(SOLVE, {
+  "x32-vj-mains": (a) => {
+    a.faderDb("preshow", 0);
+    a.st.setListen("main");
+  },
+  "x32-vj-monitors": (a) => wedgeTest(a),
   "x32-vj-local": (a) => routeVj(a, [0, 0, 0, 1]),
   "x32-vj-gain": (a) => ["vj-4", "vj-6", "vj-10"].forEach((s) => a.set(s, "gainDb", 30)),
   "x32-vj-lowcut": (a) => {
@@ -1089,9 +1109,25 @@ Object.assign(SOLVE, {
   },
   "x32-vj-chain": (a) => assert.ok(a.st.connect("vj-w2/link", "vj-w3/in", "speakon").ok),
   "x32-vj-link": (a) => assert.ok(a.st.connect("s32/aes50a", "mixer/aes50a", "cat5").ok),
+  "x32-vj-patch": (a) => patchWedges(a),
 });
 
 Object.assign(WRONG, {
+  "x32-vj-mains": [["fixed without listening", (a) => a.faderDb("preshow", 0)], ["into the wedges too", (a) => {
+    a.faderDb("preshow", 0);
+    a.sendDb("preshow", "mix1", 0);
+    a.st.setListen("main");
+  }]],
+  "x32-vj-monitors": [
+    ["still in the house", (a) => wedgeTest(a, ["house"])],
+    ["no send from the laptop", (a) => wedgeTest(a, ["send"])],
+    ["MIX 1 still down", (a) => wedgeTest(a, ["master"])],
+    ["MIX 1 still muted", (a) => wedgeTest(a, ["mute"])],
+    ["every singer's send up instead", (a) => {
+      wedgeTest(a);
+      VJ.forEach((s) => a.sendDb(s, "mix1", 0));
+    }],
+  ],
   "x32-vj-local": [["every block on LOCAL, the stage box too", (a) => routeVj(a, [0, 0, 0, 0])], ["only CH 1-8", (a) => a.st.setDevice("mixer", "inSource.0", 0)]],
   "x32-vj-gain": [["the quiet ones' faders up instead", (a) => ["vj-10"].forEach((s) => a.nudge(s, 8))], ["every GAIN at 40", (a) => VJ.forEach((s) => a.set(s, "gainDb", 40))]],
   "x32-vj-lowcut": [["low cut only", (a) => ["vj-3", "vj-7", "vj-11"].forEach((s) => a.set(s, "hpf", 0.25))], ["compressors only", (a) => ["vj-1", "vj-2"].forEach((s) => a.set(s, "compOn", false))]],
@@ -1104,6 +1140,10 @@ Object.assign(WRONG, {
   "x32-vj-amp": [["S32 OUT 2 into CH A", (a) => assert.ok(a.st.connect("s32/out2", "nx3000/in-a", "xlr").ok)]],
   "x32-vj-chain": [["wedge 3 on the amp's CH B", (a) => assert.ok(a.st.connect("nx3000/out-b", "vj-w3/in", "speakon").ok)]],
   "x32-vj-link": [["the mics routed to AES50-A", (a) => routeVj(a, [1, 1, 1, 1])]],
+  "x32-vj-patch": [["only wedge 1", (a) => patchWedges(a, false)], ["each wedge on its own amp channel", (a) => {
+    patchWedges(a, false);
+    assert.ok(a.st.connect("nx3000/out-b", "vj-w2/in", "speakon").ok);
+  }]],
 });
 
 // The electroacoustic showcase in Salmon (js/scenarios.js EA_GIGS).
