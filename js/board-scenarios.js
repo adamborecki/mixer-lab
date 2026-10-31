@@ -4365,6 +4365,7 @@ const VJS = [
     prompt: "“Before the singers come in, we test the mains. The laptop at FOH is on AUX IN 1/2, playing the bossa nova. Put it through both hall speakers, and only them: the wedges are the next test.”",
     goal: "The test music out of both hall speakers, left and right, and not in the wedges.",
     music: "excerpt",
+    stage: { silent: true, note: "The singers aren't in yet: only the laptop is playing." },
     setup: { listen: "pfl" },
     conditions: [
       { id: "listen", kind: "goal", type: "listenedTo", dest: "main", label: "You listened to the house (MAIN)" },
@@ -4386,6 +4387,7 @@ const VJS = [
     prompt: "“The mains sound good. Now the wedges: take the music out of the house first, so all you hear is the stage. Then put the bossa nova in all three wedges.”",
     goal: "The test music out of the house and playing in all three wedges (MIX 1), every singer's MIX 1 send unchanged.",
     music: "excerpt",
+    stage: { silent: true, note: "The singers aren't in yet: only the laptop is playing." },
     setup: {
       tweak: (st, h) => {
         h.faderDb("preshow", 0); // still up from the mains test
