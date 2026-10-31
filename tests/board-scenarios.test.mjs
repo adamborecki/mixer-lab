@@ -1569,3 +1569,31 @@ describe("Vocal Jazz: either wedge jack", () => {
     assert.ok(a.done());
   });
 });
+
+// Wedge checks before the show: muting MAIN LR (or pulling its fader) to hear
+// only the wedges is fair, but a channel's own way into the house isn't.
+describe("wedge checks: the MAIN LR master may move", () => {
+  const FREE = ["x32-vj-send", "x32-vj-amp", "x32-vj-chain", "x32-vj-patch", "x32-ea-bank", "x32c-cob-thru"];
+  for (const id of FREE) {
+    it(`${id}: solved with the mains muted and the MAIN LR fader down`, () => {
+      const a = attempt(byId[id]);
+      a.st.setBus("main", "mute", true);
+      a.st.setBus("main", "level", 0.3);
+      SOLVE[id](a);
+      assert.deepEqual(a.unmet(), []);
+    });
+    it(`${id}: still not solved with a channel taken out of the house`, () => {
+      const a = attempt(byId[id]);
+      SOLVE[id](a);
+      const ch = a.mix().channels.find((c) => c.sourceId && Math.max(c.mainDb.L, c.mainDb.R) > -40);
+      a.st.setChannel(ch.index, "level", 0);
+      assert.ok(a.unmet().includes("house"), `${ch.sourceId} out of the house`);
+    });
+  }
+  it("a mid-song check still counts the master: x32-ea-dead with the mains muted", () => {
+    const a = attempt(byId["x32-ea-dead"]);
+    SOLVE["x32-ea-dead"](a);
+    a.st.setBus("main", "mute", true);
+    assert.ok(a.unmet().includes("house"));
+  });
+});

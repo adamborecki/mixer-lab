@@ -1711,6 +1711,8 @@ export function captureBaseline(def, state, sourcesById = SOURCES_BY_ID, stems =
   const patch = Object.fromEntries(mix.channels.filter((c) => c.sourceId).map((c) => [c.sourceId, c.index]));
   for (const [name, spec] of Object.entries(def.baseline || {})) out[name] = METRICS[spec.metric]({ state, mix, sourcesById, patch }, spec);
   if ((state.model || "generic") !== "generic") Object.defineProperty(out, "__patch", { value: patch, enumerable: false });
+  // The MAIN LR master as the scenario opened (mainUnchanged's `masterFree`).
+  Object.defineProperty(out, "__main", { value: structuredClone(state.main), enumerable: false });
   return out;
 }
 
@@ -1852,7 +1854,11 @@ export const CONDITIONS = {
   },
   mainUnchanged(ctx, c) {
     const base = ctx.baseline[c.baseline];
-    const now = METRICS.mainDbByChannel(ctx);
+    // `masterFree`: the MAIN LR master's own fader and MUTE may move. Muting the
+    // mains to hear only the wedges is fair during a wedge check, so the channels'
+    // balance into MAIN LR is compared as if the master were where it started.
+    const st = c.masterFree && ctx.baseline.__main ? { ...ctx.state, main: ctx.baseline.__main } : null;
+    const now = st ? computeMix(st, ctx.sourcesById, ctx.stems).channels.map((ch) => Math.max(ch.mainDb.L, ch.mainDb.R)) : METRICS.mainDbByChannel(ctx);
     const skip = exceptIndexes(ctx, c.except);
     const moved = now.map((v, i) => !skip.includes(i) && !same(v, base[i], c.toleranceDb));
     return { met: !moved.some(Boolean), moved: moved.map((m, i) => (m ? i : -1)).filter((i) => i >= 0) };
@@ -1900,7 +1906,7 @@ function delta(now, base) {
 // { listened: Set of listen destinations the student has selected }.
 export function evaluateScenario(def, state, baseline = {}, sourcesById = SOURCES_BY_ID, stems = STEMS, session = {}) {
   const mix = computeMix(state, sourcesById, stems);
-  const ctx = { state, mix, baseline, sourcesById, session, patch: baseline.__patch };
+  const ctx = { state, mix, baseline, sourcesById, stems, session, patch: baseline.__patch };
   const items = def.conditions.map((c) => {
     const fn = CONDITIONS[c.type];
     const r = fn ? fn(ctx, c) : { met: false, detail: `unknown condition ${c.type}` };
