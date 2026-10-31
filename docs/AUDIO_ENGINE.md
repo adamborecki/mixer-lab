@@ -89,6 +89,8 @@ The listen selector (`LISTEN_DESTINATIONS`: `main`, `aux1`, `aux2`, `pfl`) opens
 
 The selector picks a bus to audition, not a place to stand. If a bus has no valid chain, nothing plays and the listening bar says so. If a student patches Aux 1 into a house speaker, then Aux 1 is what comes out of that speaker; where a speaker physically sits is not modelled. Speakers still carry a `zone` (`foh` or `stage`), but the engine ignores it. Only scenario conditions read it (`validChain` and `noBrokenChains` take a `zone` parameter). Each device also has a `short` name ("singer's wedge", "drummer's wedge", "house left", ...) that the listening bar uses to say which speakers a bus reaches.
 
+**Spill between places isn't modelled either.** In a real hall, standing at FOH with the mains down, you still hear the wedges: their low end and the stage's reverb, bounced off the back and side walls of the stage. (The reverse is true on stage too: the mains spill back toward the performers.) Here, In the audience is the Main mix and nothing else, so a wedge check heard from the audience is silent in a way the room never is. See the idea in [HANDOFF.md](HANDOFF.md).
+
 The +4 dB fixed listening trim and the limiter sit before the destination to keep a typical mix comfortable and protect ears. They are not mix tools.
 
 ## Metering

@@ -265,6 +265,7 @@ Ideas, roughly in order:
 - Recording on the Zoom F8n board itself (the outboard F8 already records WAV takes; the board doesn't), and SUB OUT routing.
 - More mixers on the same frameworks: a compact-mixer definition plus a skin (analog), or a surface view built on `mixer-x32-view.js` / `mixer-cl-view.js` helpers (digital).
 - UI work (planned in a separate session).
+- **Wedge spill at FOH** (the owner's observation, 2026-10-31; deliberately not built yet). At FOH with the mains down you still hear the wedges, mostly their low end and the stage's reverb coming back off the stage walls. A modest version: while listening In the audience, add the stage-zone speakers' signal low-passed, well down in level and through the existing reverb (`buildReverb` in `js/outboard-audio.js`), under the Main mix. The catch to design around first: "Out of the house" scenarios, where a student hearing the source faintly from the wedges could think it's still in the mains. It would need a clear cue (the listening bar naming what's spill) or an off switch per scenario.
 - A click track and/or a playback engineer for NOSTRADAMUS's pads laptop (the owner's idea, "a whole thing"): the laptop would send the band a click in their in-ears and the pads to FOH, so its outputs need routing of their own.
 
 ## Credits
