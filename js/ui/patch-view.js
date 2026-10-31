@@ -12,6 +12,7 @@ import {
   cableEndFor,
   cablesForPort,
   checkConnection,
+  orient,
   getPort,
   isMixer,
   listPorts,
@@ -512,8 +513,9 @@ class PatchDialog {
     const a = getPort(this.rig, aRef);
     const b = getPort(this.rig, bRef);
     if (!a || !b) return;
-    if (a.dir === b.dir) return this.view.toast(`Both are ${a.dir === "out" ? "outputs" : "inputs"}. A cable runs from an output to an input.`, "bad");
-    const [from, to] = a.dir === "out" ? [aRef, bRef] : [bRef, aRef];
+    const ends = orient(this.rig, aRef, bRef);
+    if (!ends) return this.view.toast(`Both are ${a.dir === "out" ? "outputs" : "inputs"}. A cable runs from an output to an input.`, "bad");
+    const [from, to] = ends;
     const fits = Object.values(CABLES).filter((c) => checkConnection(this.rig, from, to, c.id).ok);
     if (!fits.length) {
       const why = Object.values(CABLES).map((c) => checkConnection(this.rig, from, to, c.id)).find((r) => !/doesn't fit/.test(r.reason || ""));
@@ -549,7 +551,7 @@ class PatchDialog {
     return `<header class="patch-head">
       <p class="patch-kicker">${step}</p>
       <h2 id="patch-title">${esc(portLabel(this.rig, this.ref))}</h2>
-      <p class="patch-sub">${icon(jackIconName(p.jack, p.dir), { size: 28 })}${p.dir === "out" ? "Output" : "Input"} · ${esc(JACKS[p.jack].name)} jack · ${esc(lvl ? lvl.name : LEVEL_SHORT[p.level] || p.level)}</p>
+      <p class="patch-sub">${icon(jackIconName(p.jack, p.dir), { size: 28 })}${p.parallel ? "Either way (wired in parallel)" : p.dir === "out" ? "Output" : "Input"} · ${esc(JACKS[p.jack].name)} jack · ${esc(lvl ? lvl.name : LEVEL_SHORT[p.level] || p.level)}</p>
       <button type="button" class="patch-x" data-act="close" aria-label="Close">✕</button>
     </header>`;
   }
@@ -604,10 +606,10 @@ class PatchDialog {
     const groups = [];
     for (const d of rig.devices) {
       if (d.id === p.device.id) continue;
-      const ports = listPorts(rig, d).filter((q) => q.dir !== p.dir && plugFitsJack(ends.far, q.jack));
+      const ports = listPorts(rig, d).filter((q) => orient(rig, this.ref, q.ref) && plugFitsJack(ends.far, q.jack));
       if (!ports.length) continue;
       const items = ports.map((q) => {
-        const [from, to] = p.dir === "out" ? [this.ref, q.ref] : [q.ref, this.ref];
+        const [from, to] = orient(rig, this.ref, q.ref);
         const check = checkConnection(rig, from, to, cableId);
         const busy = cableAt(rig, q.ref);
         const why = check.ok ? "" : busy ? `In use → ${portLabel(rig, busy.from === q.ref ? busy.to : busy.from)}` : check.reason;
@@ -630,8 +632,7 @@ class PatchDialog {
   }
 
   connect(targetRef) {
-    const p = getPort(this.rig, this.ref);
-    const [from, to] = p.dir === "out" ? [this.ref, targetRef] : [targetRef, this.ref];
+    const [from, to] = orient(this.rig, this.ref, targetRef) || [this.ref, targetRef];
     const result = this.view.store.connect(from, to, this.cable);
     if (!result.ok) {
       this.view.toast(result.reason, "bad");

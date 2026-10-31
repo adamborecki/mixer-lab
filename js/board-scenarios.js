@@ -4335,7 +4335,8 @@ const COB = [
 // The Vocal Jazz Gig Checklist's rig (js/scenarios.js VJ_GIGS): eleven
 // wireless handhelds on LOCAL inputs 1–11, CH 25-32 on AES50-A (the S32), MIX 1
 // out through S32 OUT 1 to the NX3000's CH A and three passive wedges linked
-// on speakON, and the crew's test music (a laptop at FOH) on AUX IN 1/2. It
+// on speakON (either jack: they're in parallel), MAIN L/R through S32 OUT 15/16
+// and the mains rack, and the crew's test music (a laptop at FOH) on AUX IN 1/2. It
 // opens with the checklist's two tests (the mains, then the wedges, with the
 // test music) and closes by patching the monitor rig from scratch; between
 // them, each fault is one the checklist, the reset or the crew's own
@@ -4344,7 +4345,7 @@ const COB = [
 
 const VJ = Array.from({ length: 11 }, (_, i) => `vj-${i + 1}`);
 const VJ_WEDGES = ["vj-w1", "vj-w2", "vj-w3"];
-const VJ_ROOM = "Turn around to Stage & patch (T): the X32 and the receivers at FOH, the S32 in the stage-side rack, the NX3000 in the monitor amp rack, the wedges on stage.";
+const VJ_ROOM = "Turn around to Stage & patch (T): the X32 and the receivers at FOH, the S32 in the stage-side rack, the NX3000 in the monitor amp rack, the Mackie and the mains amp in the mains rack, the wedges on stage.";
 const singersInHouse = (ctx) => VJ.every((s) => house(ctx, s) >= AUDIBLE);
 const singersInWedges = (ctx) => VJ.every((s) => wedge(ctx, "mix1", s) >= AUDIBLE);
 // A wedge plays MIX 1: a working chain from XLR OUT 1 (MIX 1, through S32 OUT 1).
@@ -4352,8 +4353,8 @@ const wedgeOk = (ctx, id) => ok(ctx, id) && endpoint(ctx, id).output === "out1";
 const vjLocal = (ctx) => [0, 1, 2].every((b) => mixerDev(ctx).inSource[b] === 0);
 const gainOf = (ctx, s) => sc(ctx, s)?.gainDb ?? NaN;
 const sendOf = (ctx, bus, s) => mc(ctx, s)?.aux[bus]?.sendDb ?? -Infinity;
-// A cable between two ports, whichever end was plugged first.
-const joined = (ctx, a, b) => ctx.state.rig.cables.some((c) => (c.from === a && c.to === b) || (c.from === b && c.to === a));
+// A cable between two wedges, on either of each one's jacks (they're wired in parallel).
+const wedgesJoined = (ctx, a, b) => ctx.state.rig.cables.some((c) => [c.from, c.to].map((r) => r.split("/")[0]).sort().join() === [a, b].sort().join());
 const VJ_MONITOR_RIG = ["s32/out1", "nx3000/out-a", "vj-w1/link", "vj-w2/link"];
 
 const VJS = [
@@ -4377,7 +4378,7 @@ const VJS = [
       "Press the AUX IN / USB layer key beside the input faders: AUX 1/2 has its own strip there. Is its fader up, and is MAIN LR on?",
       "On the AUX IN / USB layer, push AUX 1/2's fader up to about 0 dB and listen to the MAIN. Leave its MIX 1 send down.",
     ],
-    complete: "That's the checklist's mains test. Music you know, through one known channel, proves the console, the mains amp and both hall speakers before anyone touches a mic, and a dead side or a torn speaker is easier to hear in music than in a voice.",
+    complete: "That's the checklist's mains test. Music you know, through one known channel, proves the console, the S32's OUT 15/16, the mains rack and both hall speakers before anyone touches a mic, and a dead side or a torn speaker is easier to hear in music than in a voice.",
   },
   {
     id: "x32-vj-monitors",
@@ -4546,25 +4547,26 @@ const VJS = [
       keep("w12", "Wedges 1 and 2 keep playing MIX 1", (ctx) => ["vj-w1", "vj-w2"].every((id) => wedgeOk(ctx, id))),
       { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house stays the same" },
     ],
-    hints: [VJ_ROOM, "One speakON run feeds the first wedge, and each wedge passes it on from its second jack. Where does wedge 3's cable come from?", "Patch a speakON cable from wedge 2's second jack (link) into wedge 3."],
-    complete: "A daisy chain: one amp channel, three wedges, each passing it on. When only the end of the row is dead, reseat the last link before it. The crew reseats every cable on the monitor path when the wedges act up: speakONs twist to lock, and one that's in but not twisted can still drop out.",
+    hints: [VJ_ROOM, "One speakON run feeds the first wedge, and each wedge passes it on from its other jack. Where does wedge 3's cable come from?", "Patch a speakON cable from wedge 2's free jack into either of wedge 3's jacks."],
+    complete: "A daisy chain: one amp channel, three wedges, each passing it on. A wedge's two speakON jacks are wired together (in parallel), so it doesn't matter which one takes the cable in and which one passes it on. When only the end of the row is dead, reseat the last link before it. The crew reseats every cable on the monitor path when the wedges act up: speakONs twist to lock, and one that's in but not twisted can still drop out.",
   },
   {
     id: "x32-vj-link",
     short: "No AES50 link",
-    title: "The mics work, the wedges don't",
+    title: "The mics work, the speakers don't",
     who: "Mic engineer",
-    prompt: "“Every meter at the X32 is moving and the house sounds great, but all three wedges went silent at once.”",
-    goal: "The S32 linked to the X32 again and all three wedges playing, the mics still on LOCAL.",
+    prompt: "“Every meter at the X32 is moving, but the hall speakers and all three wedges went silent at the same moment.”",
+    goal: "The S32 linked to the X32 again: both hall speakers and all three wedges playing, the mics still on LOCAL.",
     music: "excerpt",
     setup: { tweak: (st, h) => h.cut("s32/aes50a") },
     conditions: [
       goal("link", "A Cat5e cable joins the S32's AES50 A and the X32's AES50 A", (ctx) => linked(ctx, "s32")),
+      goal("house", "Both hall speakers play the mains again", (ctx) => ["hall-l", "hall-r"].every((id) => ok(ctx, id)) && singersInHouse(ctx)),
       goal("wedges", "All three wedges play MIX 1", (ctx) => VJ_WEDGES.every((id) => wedgeOk(ctx, id))),
       keep("local", "CH 1-24 stay on LOCAL, every mic with signal", (ctx) => vjLocal(ctx) && VJ.every((s) => ["good", "hot"].includes(mc(ctx, s)?.band))),
     ],
-    hints: ["The mics and the house both work. What do the wedges have that the mics don't?", VJ_ROOM + " MIX 1 reaches the amp through the S32. How does the S32 reach the console?", "Patch a Cat5e (etherCON) cable from the S32's AES50 A to the X32's AES50 A."],
-    complete: "In Salmon the mics come in on LOCAL, so they don't need the stage box. MIX 1 does: it leaves through the S32. With no AES50 link the mics carry on and the wedges go quiet. That's also why the reset keeps CH 1-24 on LOCAL.",
+    hints: ["The console hears every mic, so the mics are fine. Everything that went quiet is an output: what do the mains and the wedges have in common?", VJ_ROOM + " MIX 1 and MAIN L/R both leave the X32 through the S32 (OUT 1, and OUT 15/16). How does the S32 reach the console?", "Patch a Cat5e (etherCON) cable from the S32's AES50 A to the X32's AES50 A."],
+    complete: "In Salmon the mics come in on LOCAL, so they don't need the stage box. Every output does: MIX 1 leaves through S32 OUT 1 and MAIN L/R through S32 OUT 15/16, all down one Cat5e. With no AES50 link the meters keep moving and every speaker in the hall goes quiet at once. That's also why the reset keeps CH 1-24 on LOCAL.",
   },
   {
     id: "x32-vj-patch",
@@ -4572,13 +4574,13 @@ const VJS = [
     title: "Patch the monitor rig",
     who: "Crew chief",
     prompt: "“Load-in's done. The S32 is in the stage-side rack with its Cat5e to the X32, the NX3000 is in the monitor amp rack, and the three wedges are on the lip of the stage. None of it is patched. Get MIX 1 into all three wedges.”",
-    goal: "S32 OUT 1 into the amp, the amp into wedge 1, wedge 1 linked on to wedge 2 and wedge 2 to wedge 3: all three wedges playing MIX 1.",
+    goal: "S32 OUT 1 into the amp, the amp into wedge 1, wedge 1 linked on to wedge 2 and wedge 2 to wedge 3: all three wedges playing MIX 1. Either jack on a wedge works.",
     music: "excerpt",
     setup: { tweak: (st, h) => VJ_MONITOR_RIG.forEach((ref) => h.cut(ref)) },
     baseline: { main: { metric: "mainDbByChannel" } },
     conditions: [
       goal("amp", "The NX3000 gets MIX 1 from the S32 and drives wedge 1", (ctx) => wedgeOk(ctx, "vj-w1")),
-      goal("chain", "Wedge 1 links on to wedge 2, and wedge 2 to wedge 3", (ctx) => joined(ctx, "vj-w1/link", "vj-w2/in") && joined(ctx, "vj-w2/link", "vj-w3/in")),
+      goal("chain", "Wedge 1 links on to wedge 2, and wedge 2 to wedge 3", (ctx) => wedgesJoined(ctx, "vj-w1", "vj-w2") && wedgesJoined(ctx, "vj-w2", "vj-w3")),
       goal("wedges", "All three wedges play MIX 1, every singer in them", (ctx) => VJ_WEDGES.every((id) => wedgeOk(ctx, id)) && singersInWedges(ctx)),
       keep("link", "The Cat5e between the S32 and the X32 stays as it is", (ctx) => linked(ctx, "s32")),
       { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house stays the same" },
@@ -4586,9 +4588,9 @@ const VJS = [
     hints: [
       VJ_ROOM + " MIX 1 already reaches the S32 over the Cat5e. Follow it from there: where does it go next, and what does a passive wedge need?",
       "S32 OUT 1 is line level: an XLR into the NX3000's CH A input. The amp's CH A output is speaker level: a speakON cable to wedge 1.",
-      "Then the daisy chain: a speakON from wedge 1's second jack (link) into wedge 2, and another from wedge 2's link into wedge 3.",
+      "Then the daisy chain: a speakON from wedge 1's free jack into wedge 2, and another from wedge 2's free jack into wedge 3. A wedge's two jacks are wired together, so either one is fine.",
     ],
-    complete: "That's the whole monitor path in Salmon: X32 → AES50 → S32 OUT 1 → XLR → NX3000 CH A → speakON → wedge 1 → link → wedge 2 → link → wedge 3. XLR carries the mix at line level, speakON the amp's power (twist it to lock). Every silent-wedge fault on this list is one of those cables.",
+    complete: "That's the whole monitor path in Salmon: X32 → AES50 → S32 OUT 1 → XLR → NX3000 CH A → speakON → wedge 1 → speakON → wedge 2 → speakON → wedge 3. XLR carries the mix at line level, speakON the amp's power (twist it to lock). Every silent-wedge fault on this list is one of those cables.",
   },
 ];
 

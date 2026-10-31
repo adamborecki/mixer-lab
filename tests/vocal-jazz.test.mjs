@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { CREDITS, DEFAULT_SONG, SONGS, SOURCES_BY_ID, STEMS, songFits, useSong } from "../audio/source-manifest.js";
 import { loopPoints } from "../js/transport.js";
-import { CABLES, DEVICE_TYPES, cableFitsPort } from "../js/connection-model.js";
+import { CABLES, DEVICE_TYPES, cableFitsPort, orient } from "../js/connection-model.js";
 import { MODELS, MixerStore, computeMix } from "../js/mixer-state.js";
 import { SCENARIOS_BY_ID, buildScenarioState, scenarioFor } from "../js/scenarios.js";
 import { BOARD_SCENARIOS } from "../js/board-scenarios.js";
@@ -82,11 +82,53 @@ describe("Vocal Jazz in Salmon", () => {
     useSong(DEFAULT_SONG);
   });
 
-  it("keeps the mics without the AES50 link, and loses the wedges", () => {
+  it("takes the mains from S32 OUT 15/16, through the Mackie in the mains rack, to the mains amp", () => {
+    const { st, ep } = gig();
+    assert.equal(ep("hall-l").output, "out15");
+    assert.equal(ep("hall-r").output, "out16");
+    for (const id of ["hall-l", "hall-r"]) {
+      assert.equal(ep(id).valid, true, id);
+      assert.equal(ep(id).viaAmp, "mains-amp", id);
+    }
+    const cables = st.state.rig.cables;
+    assert.ok(cables.some((c) => c.from === "s32/out15" && c.to === "mains-mackie/in-l"));
+    assert.ok(cables.some((c) => c.from === "mains-mackie/out-r" && c.to === "mains-amp/in-b"));
+    assert.ok(!cables.some((c) => c.from.startsWith("mixer/out")), "nothing leaves the X32's own XLR outputs");
+    useSong(DEFAULT_SONG);
+  });
+
+  it("keeps the mics without the AES50 link, and loses the wedges and the mains", () => {
     const { st, ep, mix, cableTo } = gig();
     st.disconnect(cableTo("mixer/aes50a").id);
-    for (const id of WEDGES) assert.equal(ep(id).valid, false, id);
+    for (const id of [...WEDGES, "hall-l", "hall-r"]) assert.equal(ep(id).valid, false, id);
     for (const c of mix().channels.slice(0, 11)) assert.ok(["good", "hot"].includes(c.band), c.sourceId);
+    useSong(DEFAULT_SONG);
+  });
+
+  it("wires a wedge's two speakON jacks in parallel: either one takes the amp or passes it on", () => {
+    const { st, ep } = gig();
+    for (const c of st.state.rig.cables.filter((c) => /^vj-w/.test(c.to) || /^vj-w/.test(c.from))) st.disconnect(c.id);
+    // the amp into wedge 1's second jack, then each wedge on to the next from its first jack, into the next one's second
+    assert.ok(st.connect("nx3000/out-a", "vj-w1/link", "speakon").ok);
+    assert.ok(st.connect(...orient(st.state.rig, "vj-w1/in", "vj-w2/link"), "speakon").ok);
+    assert.ok(st.connect(...orient(st.state.rig, "vj-w2/in", "vj-w3/link"), "speakon").ok);
+    for (const id of WEDGES) {
+      assert.equal(ep(id).valid, true, id);
+      assert.equal(ep(id).output, "out1", id);
+    }
+    useSong(DEFAULT_SONG);
+  });
+
+  it("lets the last wedge hang off either jack, and stays silent with no amp on the chain", () => {
+    const { st, ep, cableTo } = gig();
+    st.disconnect(cableTo("vj-w3/in").id);
+    assert.deepEqual(orient(st.state.rig, "vj-w2/link", "vj-w3/link"), ["vj-w2/link", "vj-w3/link"]);
+    assert.ok(st.connect("vj-w2/link", "vj-w3/link", "speakon").ok, "two 'outputs' that are really parallel jacks");
+    assert.equal(ep("vj-w3").valid, true);
+    st.disconnect(cableTo("vj-w1/in").id); // the amp's speakON
+    for (const id of WEDGES) assert.equal(ep(id).valid, false, id);
+    assert.deepEqual(orient(st.state.rig, "vj-w1/in", "nx3000/out-a"), ["nx3000/out-a", "vj-w1/in"], "the amp end is always the source");
+    assert.equal(orient(st.state.rig, "nx3000/out-a", "nx3000/out-b"), null);
     useSong(DEFAULT_SONG);
   });
 

@@ -340,15 +340,32 @@ DEVICE_TYPES.nx3000 = {
   ],
   blurb: "Line level in on XLR, speaker level out on speakON. Channel A in drives channel A out.",
 };
+// The two jacks are `parallel`: wired straight together inside, so neither is
+// an input or an output. A cable on either one is the same connection, drawn
+// either way round (`orient`, and `throughLinks` follows them).
 DEVICE_TYPES["passive-wedge"] = {
   name: "Passive wedge (two speakON jacks)",
   endpoint: true,
   amp: "none",
   ports: [
-    { id: "in", dir: "in", jack: "speakon", level: "speaker", name: "In (speakON 1)" },
-    { id: "link", dir: "out", jack: "speakon", level: "speaker", role: "thru", through: "in", name: "Link (speakON 2)" },
+    { id: "in", dir: "in", jack: "speakon", level: "speaker", parallel: true, short: "1", name: "speakON jack 1" },
+    { id: "link", dir: "out", jack: "speakon", level: "speaker", parallel: true, short: "2", name: "speakON jack 2" },
   ],
-  blurb: "No amp inside. Its two speakON jacks are wired together: either one takes the amp, the other passes it on to the next wedge.",
+  blurb: "No amp inside. Its two speakON jacks are wired together (in parallel): either one takes the amp, and the other passes it on to the next wedge.",
+};
+
+// Salmon's mains rack: a small Mackie mixer sits between the S32's OUT 15/16
+// (MAIN L/R) and the mains amp. Here it only passes the mix on at line level;
+// its knobs, and which of its jacks are used, aren't modelled.
+DEVICE_TYPES["line-passthru"] = {
+  name: "Mackie mini mixer (passes the mix on)",
+  ports: [
+    { id: "in-l", dir: "in", jack: "combo", level: "line", short: "IN L", name: "Input L" },
+    { id: "in-r", dir: "in", jack: "combo", level: "line", short: "IN R", name: "Input R" },
+    { id: "out-l", dir: "out", jack: "xlr", level: "line", role: "thru", through: "in-l", short: "OUT L", name: "Output L" },
+    { id: "out-r", dir: "out", jack: "xlr", level: "line", role: "thru", through: "in-r", short: "OUT R", name: "Output R" },
+  ],
+  blurb: "A small mixer in the mains rack. Here it just passes the mix on: line level in, the same line level out.",
 };
 
 // BH 109, the choir room (MUS 248's BH 109 Karaoke Gig Checklist): the room's
@@ -529,7 +546,51 @@ export function throughLinks(rig) {
       }
     }
   }
+  // Parallel jacks (a passive wedge's two speakONs): whatever drives one jack
+  // drives the whole box, and every cable between parallel jacks passes it on,
+  // whichever end was plugged first. Each box reached is fed on its first jack.
+  const parallelOf = (ref) => getPort(rig, ref)?.parallel;
+  if (rig.devices.some((d) => (DEVICE_TYPES[d.type]?.ports || []).some((p) => p.parallel))) {
+    const all = [...rig.cables, ...links];
+    const firstJack = (id) => portRef(id, DEVICE_TYPES[getDevice(rig, id).type].ports.find((p) => p.parallel).id);
+    const done = new Set();
+    for (const drive of all.filter((c) => parallelOf(c.to) && !parallelOf(c.from))) {
+      const start = splitRef(drive.to).deviceId;
+      if (done.has(start)) continue; // two amps on one chain: the first one wins
+      const queue = [[start, drive.to, drive.cable, null]];
+      while (queue.length) {
+        const [id, at, cable, via] = queue.shift();
+        if (done.has(id)) continue;
+        done.add(id);
+        if (at !== firstJack(id) || via) links.push({ id: `par-${id}`, from: drive.from, to: firstJack(id), cable, via: via || id });
+        for (const c of rig.cables) {
+          for (const [near, far] of [[c.from, c.to], [c.to, c.from]]) {
+            if (splitRef(near).deviceId !== id || !parallelOf(near) || !parallelOf(far)) continue;
+            const next = splitRef(far).deviceId;
+            if (next !== id && !done.has(next)) queue.push([next, far, c.cable, id]);
+          }
+        }
+      }
+    }
+  }
   return links;
+}
+
+// Which way a cable between two jacks runs: [from, to], or null when it can't
+// (two inputs, two outputs). A parallel jack is either: it takes the other
+// end's direction, and between two parallel jacks the first one is `from`.
+export function orient(rig, aRef, bRef) {
+  const a = getPort(rig, aRef);
+  const b = getPort(rig, bRef);
+  if (!a || !b) return null;
+  const canIn = (p) => p.dir === "in" || p.parallel;
+  const canOut = (p) => p.dir === "out" || p.parallel;
+  if (a.parallel && b.parallel) return [aRef, bRef];
+  if (a.dir === "out" && !a.parallel && canIn(b)) return [aRef, bRef];
+  if (b.dir === "out" && !b.parallel && canIn(a)) return [bRef, aRef];
+  if (canOut(a) && b.dir === "in") return [aRef, bRef];
+  if (canOut(b) && a.dir === "in") return [bRef, aRef];
+  return null;
 }
 
 // Where a digital stage box's inputs start on the console's AES50 A port: 0 for
@@ -610,7 +671,7 @@ export function checkConnection(rig, fromRef, toRef, cableId) {
   const to = getPort(rig, toRef);
   const cable = CABLES[cableId];
   if (!from || !to || !cable) return { ok: false, reason: "Unknown port or cable." };
-  if (from.dir !== "out" || to.dir !== "in") return { ok: false, reason: "Cables run from an output to an input." };
+  if (!(from.dir === "out" || from.parallel) || !(to.dir === "in" || to.parallel)) return { ok: false, reason: "Cables run from an output to an input." };
   if (from.device.id === to.device.id) return { ok: false, reason: "That would loop a device back into itself." };
 
   const ends = cableEndFor(cableId, from.jack);

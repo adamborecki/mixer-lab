@@ -67,14 +67,16 @@ export const PLAYBACK_DEVICES = {
   "cob-w3": { type: "b207-speaker", label: "B207 wedge 3 (right)", short: "wedge 3 (right)", zone: "stage", pan: 0.6 },
   // Vocal Jazz in Salmon Recital Hall: an S32 in the stage-side rack on AES50,
   // the NX3000 in the monitor amp rack driving three passive wedges down one
-  // speakON chain, and the hall's mains (simplified: a power amp and two passive
-  // speakers on MAIN L/R; the real path through the mains rack isn't modelled).
+  // speakON chain, and the hall's mains: MAIN L/R leave on XLR OUT 15/16, reach
+  // S32 OUT 15/16 over AES50, then the mains rack (a Mackie mini mixer that
+  // just passes them on, and a power amp) drives two passive speakers.
   s32: { type: "s32", label: "S32 · stage-side rack" },
   nx3000: { type: "nx3000", label: "NX3000 · monitor amp rack" },
   "vj-w1": { type: "passive-wedge", label: "Wedge 1 (left)", short: "wedge 1 (left)", zone: "stage", pan: -0.6 },
   "vj-w2": { type: "passive-wedge", label: "Wedge 2 (center)", short: "wedge 2 (center)", zone: "stage", pan: 0 },
   "vj-w3": { type: "passive-wedge", label: "Wedge 3 (right)", short: "wedge 3 (right)", zone: "stage", pan: 0.6 },
   "mains-amp": { type: "power-amp", label: "Mains amp · mains rack" },
+  "mains-mackie": { type: "line-passthru", label: "Mackie mini mixer · mains rack" },
   // The electroacoustic showcase: an SD8 on the far side of the stage, chained off the S32's AES50 B, and the bass clarinetist's wedge.
   "ea-sd8": { type: "sd8", label: "SD8 · far side of the stage" },
   "ea-perf": { type: "powered-speaker", label: "Powered wedge · bass clarinetist", short: "performer's wedge", zone: "stage", pan: 0.4 },
@@ -1326,20 +1328,22 @@ const COB_GIGS = {
 const VJ_MICS = Array.from({ length: 11 }, (_, i) => `vj-${i + 1}`);
 const VJ_GIGS = {
   x32: {
-    prompt: "Vocal Jazz in Salmon Recital Hall, on the hall's full-size X32: eleven singers on wireless handhelds, mic n on receiver channel n on input n (mic 1 is Allie, mic 11 Silas: the program's order). ROUTING: CH 1-8, 9-16 and 17-24 listen to LOCAL (the receivers plug into the console's rear panel); only 25-32 come from AES50-A, the S32 in the stage-side rack. Every handheld has the same GAIN, LOW CUT on, no compressor. MIX 1 is the wedges: XLR OUT 1 reaches S32 OUT 1, into the NX3000's CH A, whose speakON output feeds three passive wedges linked one to the next. MAIN L/R go to the hall's mains. The crew's test music, a laptop at FOH, is on AUX IN 1/2 (fader down): it checks the mains and then the wedges before the singers arrive.",
+    prompt: "Vocal Jazz in Salmon Recital Hall, on the hall's full-size X32: eleven singers on wireless handhelds, mic n on receiver channel n on input n (mic 1 is Allie, mic 11 Silas: the program's order). ROUTING: CH 1-8, 9-16 and 17-24 listen to LOCAL (the receivers plug into the console's rear panel); only 25-32 come from AES50-A, the S32 in the stage-side rack. Every handheld has the same GAIN, LOW CUT on, no compressor. MIX 1 is the wedges: XLR OUT 1 reaches S32 OUT 1, into the NX3000's CH A, whose speakON output feeds three passive wedges linked one to the next. MAIN L/R leave on XLR OUT 15/16 and come out of S32 OUT 15/16, through a Mackie mini mixer in the mains rack (it only passes them on, at line level) to the mains amp: no AES50 link, no mains and no wedges. The crew's test music, a laptop at FOH, is on AUX IN 1/2 (fader down): it checks the mains and then the wedges before the singers arrive.",
     patch: { ...Object.fromEntries(VJ_MICS.map((id, i) => [id, [i, "mic"]])), preshow: [32, "lr"] },
     cableFor: {},
     gainDb: 30,
     inSource: [0, 0, 0, 1],
-    devices: ["s32", "nx3000", "vj-w1", "vj-w2", "vj-w3", "mains-amp", "hall-l", "hall-r"],
+    devices: ["s32", "nx3000", "vj-w1", "vj-w2", "vj-w3", "mains-mackie", "mains-amp", "hall-l", "hall-r"],
     cables: [
       { from: "s32/aes50a", to: "mixer/aes50a", cable: "cat5" },
       { from: "s32/out1", to: "nx3000/in-a", cable: "xlr" },
       { from: "nx3000/out-a", to: "vj-w1/in", cable: "speakon" },
       { from: "vj-w1/link", to: "vj-w2/in", cable: "speakon" },
       { from: "vj-w2/link", to: "vj-w3/in", cable: "speakon" },
-      { from: "mixer/out15", to: "mains-amp/in-a", cable: "xlr" },
-      { from: "mixer/out16", to: "mains-amp/in-b", cable: "xlr" },
+      { from: "s32/out15", to: "mains-mackie/in-l", cable: "xlr" },
+      { from: "s32/out16", to: "mains-mackie/in-r", cable: "xlr" },
+      { from: "mains-mackie/out-l", to: "mains-amp/in-a", cable: "xlr" },
+      { from: "mains-mackie/out-r", to: "mains-amp/in-b", cable: "xlr" },
       { from: "mains-amp/out-a", to: "hall-l/in", cable: "speaker" },
       { from: "mains-amp/out-b", to: "hall-r/in", cable: "speaker" },
     ],
@@ -1478,22 +1482,24 @@ const JAZZ_GIGS = {
 // AUX IN; the lab's X32 has AUX IN 1/2 only). MIX 3 is the bass clarinetist's
 // wedge: click, track and a little of the clarinet, XLR OUT 3 → AES50 → SD8
 // OUT 3 (OUTPUT switch on 1-8). The click is off MAIN LR. MAIN L/R go to the
-// hall's mains. TUNNEL's own 8-channel system isn't here: it never touched the X32.
+// hall's mains through S32 OUT 15/16 and the mains rack. TUNNEL's own 8-channel system isn't here: it never touched the X32.
 const EA_GIGS = {
   x32: {
-    prompt: "The electroacoustic showcase in Salmon Recital Hall, on the hall's full-size X32. On stage, the S32 (on the X32's AES50 A) takes the bass clarinet mic on IN 25, the condenser inside the grand piano on IN 26 and the guitarist's rig on IN 27: ROUTING has CH 25-32 on AES50 A25-32. On the far side of the stage, an SD8 hangs off the S32's AES50 B (a daisy chain), so its inputs arrive as AES50 A33-40: the flower-pot mic on SD8 IN 1 and the MalletKAT rig on IN 2, heard on CH 17-18 because ROUTING puts CH 17-24 on AES50 A33-40. At FOH the Mac mini plays the electronics into AUX IN 1/2 and a click into LOCAL 1. MIX 3 is the bass clarinetist's wedge (click, track and a little clarinet): XLR OUT 3 reaches SD8 OUT 3 with the SD8's OUTPUT switch on 1-8. The click is off MAIN LR: the audience never hears it. MAIN L/R go to the hall's mains. The audio stands in for the pieces: FTW's woodwinds, strings, guitar, percussion, vocals and synths, and a click.",
+    prompt: "The electroacoustic showcase in Salmon Recital Hall, on the hall's full-size X32. On stage, the S32 (on the X32's AES50 A) takes the bass clarinet mic on IN 25, the condenser inside the grand piano on IN 26 and the guitarist's rig on IN 27: ROUTING has CH 25-32 on AES50 A25-32. On the far side of the stage, an SD8 hangs off the S32's AES50 B (a daisy chain), so its inputs arrive as AES50 A33-40: the flower-pot mic on SD8 IN 1 and the MalletKAT rig on IN 2, heard on CH 17-18 because ROUTING puts CH 17-24 on AES50 A33-40. At FOH the Mac mini plays the electronics into AUX IN 1/2 and a click into LOCAL 1. MIX 3 is the bass clarinetist's wedge (click, track and a little clarinet): XLR OUT 3 reaches SD8 OUT 3 with the SD8's OUTPUT switch on 1-8. The click is off MAIN LR: the audience never hears it. MAIN L/R come out of S32 OUT 15/16, through a Mackie mini mixer in the mains rack (it only passes them on), to the mains amp. The audio stands in for the pieces: FTW's woodwinds, strings, guitar, percussion, vocals and synths, and a click.",
     patch: { "ea-click": [0, "mic"], "ea-track": [32, "lr"] },
     // Sources on a stage box: [box, its input number, the console channel that hears it].
     boxPatch: { "ea-pots": ["ea-sd8", 1, 16], "ea-kat": ["ea-sd8", 2, 17], "ea-bcl": ["s32", 25, 24], "ea-piano": ["s32", 26, 25], "ea-guitar": ["s32", 27, 26] },
     cableFor: { "ea-click": "xlr-trs", "ea-kat": "xlr-trs" },
     inSource: [0, 0, 3 + 4, 1],
-    devices: ["s32", "ea-sd8", "ea-perf", "mains-amp", "hall-l", "hall-r"],
+    devices: ["s32", "ea-sd8", "ea-perf", "mains-mackie", "mains-amp", "hall-l", "hall-r"],
     cables: [
       { from: "s32/aes50a", to: "mixer/aes50a", cable: "cat5" },
       { from: "ea-sd8/aes50a", to: "s32/aes50b", cable: "cat5" },
       { from: "ea-sd8/out3", to: "ea-perf/in", cable: "xlr" },
-      { from: "mixer/out15", to: "mains-amp/in-a", cable: "xlr" },
-      { from: "mixer/out16", to: "mains-amp/in-b", cable: "xlr" },
+      { from: "s32/out15", to: "mains-mackie/in-l", cable: "xlr" },
+      { from: "s32/out16", to: "mains-mackie/in-r", cable: "xlr" },
+      { from: "mains-mackie/out-l", to: "mains-amp/in-a", cable: "xlr" },
+      { from: "mains-mackie/out-r", to: "mains-amp/in-b", cable: "xlr" },
       { from: "mains-amp/out-a", to: "hall-l/in", cable: "speaker" },
       { from: "mains-amp/out-b", to: "hall-r/in", cable: "speaker" },
     ],

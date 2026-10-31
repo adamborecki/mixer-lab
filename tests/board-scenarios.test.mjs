@@ -1139,7 +1139,12 @@ Object.assign(WRONG, {
   }], ["fixed without listening", (a) => a.sendDb("vj-5", "mix1", -22)]],
   "x32-vj-amp": [["S32 OUT 2 into CH A", (a) => assert.ok(a.st.connect("s32/out2", "nx3000/in-a", "xlr").ok)]],
   "x32-vj-chain": [["wedge 3 on the amp's CH B", (a) => assert.ok(a.st.connect("nx3000/out-b", "vj-w3/in", "speakon").ok)]],
-  "x32-vj-link": [["the mics routed to AES50-A", (a) => routeVj(a, [1, 1, 1, 1])]],
+  "x32-vj-link": [["the mics routed to AES50-A", (a) => routeVj(a, [1, 1, 1, 1])], ["the mains moved onto the X32's own OUT 15/16", (a) => {
+    a.unplugAt("mains-mackie/in-l");
+    a.unplugAt("mains-mackie/in-r");
+    assert.ok(a.st.connect("mixer/out15", "mains-mackie/in-l", "xlr").ok);
+    assert.ok(a.st.connect("mixer/out16", "mains-mackie/in-r", "xlr").ok);
+  }]],
   "x32-vj-patch": [["only wedge 1", (a) => patchWedges(a, false)], ["each wedge on its own amp channel", (a) => {
     patchWedges(a, false);
     assert.ok(a.st.connect("nx3000/out-b", "vj-w2/in", "speakon").ok);
@@ -1543,5 +1548,24 @@ describe("board scenarios: keep-conditions follow their source", () => {
         assert.equal(c.source, named, `${s.id} ${c.id}: "${c.label}"`);
       }
     }
+  });
+});
+
+// A passive wedge's two speakON jacks are in parallel: the Vocal Jazz wedge
+// scenarios accept a chain plugged into either jack, drawn either way round.
+describe("Vocal Jazz: either wedge jack", () => {
+  it("x32-vj-patch: the amp into wedge 1's second jack, each wedge on from its first jack", () => {
+    const a = attempt(byId["x32-vj-patch"]);
+    assert.ok(a.st.connect("s32/out1", "nx3000/in-a", "xlr").ok);
+    assert.ok(a.st.connect("nx3000/out-a", "vj-w1/link", "speakon").ok);
+    assert.ok(a.st.connect("vj-w1/in", "vj-w2/link", "speakon").ok);
+    assert.ok(a.st.connect("vj-w2/in", "vj-w3/in", "speakon").ok);
+    assert.deepEqual(a.unmet(), []);
+    assert.ok(a.done());
+  });
+  it("x32-vj-chain: wedge 2 into wedge 3's second jack", () => {
+    const a = attempt(byId["x32-vj-chain"]);
+    assert.ok(a.st.connect("vj-w2/link", "vj-w3/link", "speakon").ok);
+    assert.ok(a.done());
   });
 });

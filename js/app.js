@@ -268,6 +268,7 @@ function selectScenario(id) {
   const def = scenarioFor(found, hardwareOf(skin));
   const state = buildScenarioState(def, M.SOURCES_BY_ID, hardwareOf(skin));
   store.replace(state);
+  mixerView.resetSurface();
   resetUndo();
   current = { def, baseline: captureBaseline(def, state, M.SOURCES_BY_ID, M.STEMS), session: { listened: new Set([state.listen]) } };
   lastEval = "";

@@ -8,7 +8,7 @@
 //   drag a plugged jack         move that cable's end to another jack
 //   tap a box                   its details (status, settings) below the diagram
 
-import { CABLES, DEVICE_TYPES, JACKS, SIGNAL_LEVELS, cableAt, getPort, isMixer, mixerOf } from "../connection-model.js";
+import { CABLES, DEVICE_TYPES, JACKS, SIGNAL_LEVELS, cableAt, getPort, isMixer, mixerOf, orient } from "../connection-model.js";
 import { deviceIconName, icon, jackIconName } from "./icons.js";
 import { JACK, layoutStage } from "./stage-layout.js";
 import { cableHue, portLabel } from "./patch-view.js";
@@ -459,7 +459,7 @@ export class StageView {
     // Move a plugged cable's end: same cable, new jack. Put it back if it doesn't go.
     const keep = d.cable.from === d.ref ? d.cable.to : d.cable.from;
     const keepPort = getPort(this.store.state.rig, keep);
-    const [from, into] = keepPort.dir === "out" ? [keep, to] : [to, keep];
+    const [from, into] = orient(this.store.state.rig, keep, to) || (keepPort.dir === "out" ? [keep, to] : [to, keep]);
     this.store.disconnect(d.cable.id);
     const r = this.store.connect(from, into, d.cable.cable);
     if (!r.ok) {

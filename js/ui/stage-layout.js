@@ -171,7 +171,7 @@ function simpleBox(d, col) {
     dy: (ports.length > 1 ? HEAD + 10 + i * JACK + JACK / 2 : h - 22),
     side: sideFor(col, p),
     port: p,
-    word: ports.length > 1 ? p.name.split(" ")[0].toUpperCase() : "",
+    word: ports.length > 1 ? p.short || p.name.split(" ")[0].toUpperCase() : "",
     wordSide: col === "stage" ? "left" : "right",
   }));
   // The DAW laptop has no jacks: one network port to the Dante switch.

@@ -40,6 +40,14 @@ export class MixerView {
     this.render();
   }
 
+  // A new scenario (or Start over) finds the console as anyone would: no
+  // SENDS ON FADERS, fader mode or assign mode left on from the last one, and
+  // its first layer and page. Each digital surface keeps that on the view.
+  resetSurface() {
+    for (const k of ["x32", "cl", "dm", "y96", "digital", "f8", "l20"]) delete this[k];
+    if (this.root.childElementCount) this.render();
+  }
+
   // Drop the drawn surface before the state changes shape (switching to or
   // from a mixer with a different channel layout); setSkin draws it again.
   detach() {
