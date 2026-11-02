@@ -117,7 +117,8 @@ export function computeMix(state, sourcesById, stems) {
   const channels = state.channels.map((ch, i) => {
     const input = rig.channels[i] || { connected: false, signal: false };
     const source = input.sourceId ? sourcesById[input.sourceId] : null;
-    const peakDb = sourcePeakDb(source, stems);
+    const stemPeak = sourcePeakDb(source, stems);
+    const peakDb = stemPeak === null ? null : stemPeak + (input.trimDb ?? 0);
     let inputPeakDb = -Infinity;
     if (input.connected && input.signal && source && peakDb !== null) {
       inputPeakDb = peakDb + source.outputDb + (input.padDb || 0) + ch.gainDb + HEADROOM_DB;

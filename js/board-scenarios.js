@@ -4743,6 +4743,361 @@ const EAS = [
   },
 ];
 
+// ---------- CME in Salmon: a real MUS 248 gig on the full X32 (Essentials) ----------
+// The CME Gig Checklist's rig (js/scenarios.js CME_GIGS): wireless handhelds
+// on LOCAL 17-21, the band on a Hosa sub snake into S32 IN 25-32, three wedges
+// on MIX 9-11 (two passive on the KM750, one active), MAIN L/R to the Yamahas
+// downstage through the amp rack's Crown and to the hall's mains rack, its
+// Mix5 4/5 LEVEL down. Essentials follow a gig as the crew runs it: the
+// speakers first (mains, the hall's turned down, the wedges, a music test),
+// then the mics, the band, the levels, a bad cable, and the end of the night.
+// The faults are the ones from the dress rehearsal and the instructor's notes
+// (2026-11-02). CME: Advanced, with the harder troubleshooting, comes later.
+
+const CME_ROOM = "Turn around to Stage & patch (T): the band and the Hosa sub snake on stage, the S32 in the stage-side rack, the KM750 and the Crown in the amp rack, the hall's mains rack (the Mix5 into the Crown at its bottom), and the speakers: three wedges, the two Yamahas on stands, the hall's installed pair.";
+const CME_VOX = ["cme-red", "cme-orange", "cme-yellow", "cme-green"];
+const CME_HANDHELDS = [...CME_VOX, "cme-blue"];
+const CME_WEDGES = { "cme-w1": "out9", "cme-w2": "out10", "cme-w3": "out11" };
+const CME_HALL = { "cme-hall-l": "out15", "cme-hall-r": "out16" };
+const devOf = (ctx, id) => ctx.state.rig.devices.find((d) => d.id === id);
+const knob = (ctx, id, key, start) => devOf(ctx, id)?.[key] ?? start;
+// A speaker that plays: a working chain from that output, and no knob on the way turned right down.
+const plays = (ctx, id, out) => {
+  const e = endpoint(ctx, id);
+  return !!e?.valid && (!out || e.output === out) && (e.gainDb ?? 0) > -18;
+};
+const cmeMainsOk = (ctx) => plays(ctx, "cme-main-l", "out13") && plays(ctx, "cme-main-r", "out14");
+const cmeWedgesOk = (ctx, ids = Object.keys(CME_WEDGES)) => ids.every((id) => plays(ctx, id, CME_WEDGES[id]));
+const hallPatched = (ctx) => Object.entries(CME_HALL).every(([id, out]) => endpoint(ctx, id)?.valid && endpoint(ctx, id).output === out);
+const onSpeakerCable = (ctx, ref) => ctx.state.rig.cables.some((c) => c.to === ref && c.cable === "speaker");
+const vocalsIn = (ctx, bus) => CME_VOX.every((s) => wedge(ctx, bus, s) >= AUDIBLE);
+const goodBand = (ctx, s) => ["good", "hot"].includes(mc(ctx, s)?.band);
+const cmeOnChannel = (ctx, s, ch) => mc(ctx, s)?.index === ch - 1 && goodBand(ctx, s);
+const HOUSE_SAME = { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, masterFree: true, label: "The house balance stays the same (muting MAIN LR to hear only the wedges is fine)" };
+
+const CMES = [
+  {
+    id: "x32-cme-mains",
+    short: "Downstage mains",
+    title: "Put the mains downstage",
+    who: "Crew chief",
+    prompt: "“The two Yamahas are on their stands downstage of the band, and the Crown in the amp rack is on. Nothing's patched yet. MAIN L/R already leave the S32 on OUT 13 and 14, and the test music is up on AUX IN 1/2. Get it out of both Yamahas.”",
+    goal: "S32 OUT 13 and 14 into the Crown's 1/4\" inputs, the Crown's outputs into the two Yamahas on speaker cable: the test music out of both.",
+    music: "excerpt",
+    stage: { silent: true, note: "The band isn't on stage yet: only the test music is playing." },
+    setup: {
+      tweak: (st, h) => {
+        h.faderDb("preshow", 0);
+        ["s32/out13", "s32/out14", "cme-crown/out-a", "cme-crown/out-b"].forEach((ref) => h.cut(ref));
+      },
+      listen: "main",
+    },
+    conditions: [
+      goal("left", "The left Yamaha plays MAIN L (S32 OUT 13, Crown CH 1)", (ctx) => plays(ctx, "cme-main-l", "out13")),
+      goal("right", "The right Yamaha plays MAIN R (S32 OUT 14, Crown CH 2)", (ctx) => plays(ctx, "cme-main-r", "out14")),
+      goal("cable", "Both Yamahas are on 1/4\" speaker cable, not instrument cable", (ctx) => ["cme-main-l/in", "cme-main-r/in"].every((r) => onSpeakerCable(ctx, r))),
+      { id: "music", kind: "goal", type: "sourceHeardInMain", source: "preshow", stereo: true, label: "The test music comes out of both, left and right" },
+    ],
+    hints: [
+      CME_ROOM + " MAIN L/R are already on S32 OUT 13/14. What does a passive speaker need between it and a line-level output?",
+      "A power amp: the Crown in the amp rack. Its inputs are 1/4\": an XLR-to-1/4\" cable from S32 OUT 13 into CH 1, and from OUT 14 into CH 2.",
+      "Then speaker level out: a 1/4\" speaker cable (the thick one, not an instrument cable) from CH 1's output to the left Yamaha, and the long one from CH 2's output across the stage to the right Yamaha.",
+    ],
+    complete: "That's CME's own mains, downstage of the band, so every open mic is behind them: what the speakers play doesn't go straight back into the mics, and feedback is much less likely. Most concerts in Salmon just use the hall's installed speakers; CME is loud enough that the extra setup is worth it. The right Yamaha's cable is the very long one with its own box in BH 102.",
+  },
+  {
+    id: "x32-cme-house",
+    short: "Hall speakers down",
+    title: "The hall's speakers are on too",
+    who: "Crew chief",
+    prompt: "“The Yamahas sound great. But the hall's own speakers are playing the same thing from up by the ceiling, right over the mics. Turn them down in the hall's mains rack, the right way: the next group still needs that rack.”",
+    goal: "The Mix5's 4/5 LEVEL (S32 OUT 15/16) all the way down: the hall's speakers silent, the Yamahas still playing, the Mix5's MAIN MIX where it was.",
+    music: "excerpt",
+    stage: { silent: true, note: "The band isn't on stage yet: only the test music is playing." },
+    setup: {
+      tweak: (st, h) => {
+        h.faderDb("preshow", 0);
+        h.dev("cme-house", "lvl45", 7.5); // as Vocal Jazz left it
+      },
+      listen: "main",
+    },
+    conditions: [
+      goal("knob", "The Mix5's 4/5 LEVEL, the knob for S32 OUT 15/16, is all the way down", (ctx) => knob(ctx, "cme-house", "lvl45", 7.5) <= 0.5),
+      goal("hall", "The hall's installed speakers are silent", (ctx) => !Object.keys(CME_HALL).some((id) => plays(ctx, id))),
+      keep("main", "The Mix5's MAIN MIX stays where it is (a phone in its 3.5 mm input still works)", (ctx) => knob(ctx, "cme-house", "main", 7.5) === 7.5),
+      keep("yamahas", "Both Yamahas keep playing MAIN", cmeMainsOk),
+      keep("rack", "The hall's mains rack stays patched", hallPatched),
+    ],
+    hints: [
+      "The hall's speakers get MAIN L/R from S32 OUT 15/16, through the mains rack. Don't change anything on the X32: the Yamahas need MAIN too.",
+      CME_ROOM + " Tap the hall's mains rack. The Mix5 in it has two knobs that matter: 4/5 LEVEL (S32 OUT 15/16 come in on its LINE IN 4/5) and MAIN MIX.",
+      "Turn the Mix5's 4/5 LEVEL all the way down. Leave MAIN MIX alone: then someone who plugs a phone into the rack's 3.5 mm input still gets sound.",
+    ],
+    complete: "4/5 LEVEL, not MAIN MIX: the hall's speakers stop playing the X32, and the rack still works for a phone or a laptop on its 3.5 mm input. It's also the one thing that's easy to forget at the end of the night: the next group (Vocal Jazz, say) uses the hall's speakers and won't think to look in a rack.",
+  },
+  {
+    id: "x32-cme-wedges",
+    short: "Three wedges, three mixes",
+    title: "Three wedges, three mixes",
+    who: "Monitor engineer",
+    prompt: "“The wedges are out of BH 102 and on stage. Each one gets its own mix: MIX 9 left, MIX 10 center, MIX 11 right, already on S32 OUT 9-11. The two passive ones go on the KM750, a channel each. The right one is active. Nothing's plugged in.”",
+    goal: "Wedge 1 on the KM750's CH A from S32 OUT 9, wedge 2 on CH B from OUT 10, the active wedge 3 on OUT 11 with its power plugged in: each one playing its own mix.",
+    music: "excerpt",
+    setup: {
+      tweak: (st, h) => {
+        ["s32/out9", "s32/out10", "s32/out11", "cme-km750/out-a", "cme-km750/out-b"].forEach((ref) => h.cut(ref));
+        h.dev("cme-w3", "iec", 0);
+      },
+      listen: "main",
+    },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("w1", "Wedge 1 (left) plays MIX 9: S32 OUT 9 → KM750 CH A", (ctx) => plays(ctx, "cme-w1", "out9")),
+      goal("w2", "Wedge 2 (center) plays MIX 10: S32 OUT 10 → KM750 CH B", (ctx) => plays(ctx, "cme-w2", "out10")),
+      goal("w3", "Wedge 3 (right, active) plays MIX 11 from S32 OUT 11, powered", (ctx) => plays(ctx, "cme-w3", "out11")),
+      goal("cable", "The passive wedges are on 1/4\" speaker cable", (ctx) => ["cme-w1/in", "cme-w2/in"].every((r) => onSpeakerCable(ctx, r))),
+      HOUSE_SAME,
+    ],
+    hints: [
+      CME_ROOM + " Three wedges on three mixes: no daisy chain this time. Which of them need an amp?",
+      "The passive ones. An XLR from S32 OUT 9 into the KM750's CH A input, and OUT 10 into CH B. From each channel's output, a 1/4\" speaker cable to its wedge. The active wedge takes its line-level XLR straight from OUT 11.",
+      "An active wedge has its amp inside, so it needs mains power too: tap wedge 3 and plug in its IEC power cable.",
+    ],
+    complete: "Three mixes, three separate paths: each passive wedge on its own amp channel (two different mixes never share one), and the active wedge on its own output. The active one has the amp built in: line level in on an XLR, mains power on an IEC cable, and its own VOLUME knob.",
+  },
+  {
+    id: "x32-cme-wedge-test",
+    short: "Music through each wedge",
+    title: "Test each wedge with music",
+    who: "Crew chief",
+    prompt: "“Before anyone plays a note: put the test music into each wedge's mix, and listen to all three, one at a time. Keep it out of the house.”",
+    goal: "The test music in MIX 9, 10 and 11, heard from all three wedges, and still out of the house.",
+    music: "excerpt",
+    stage: { silent: true, note: "Nobody is playing yet: only the test music." },
+    setup: { tweak: (st, h) => h.dev("cme-w3", "vol", 0), listen: "main" },
+    conditions: [
+      { id: "l9", kind: "goal", type: "listenedTo", dest: "mix9", label: "You listened to wedge 1 (MIX 9)" },
+      { id: "l10", kind: "goal", type: "listenedTo", dest: "mix10", label: "You listened to wedge 2 (MIX 10)" },
+      { id: "l11", kind: "goal", type: "listenedTo", dest: "mix11", label: "You listened to wedge 3 (MIX 11)" },
+      goal("music", "The test music plays in all three wedges", (ctx) => ["mix9", "mix10", "mix11"].every((b) => wedge(ctx, b, "preshow") >= AUDIBLE) && cmeWedgesOk(ctx)),
+      keep("house", "The test music stays out of the house", (ctx) => house(ctx, "preshow") < AUDIBLE),
+    ],
+    hints: [
+      "The music needs a send to each wedge's mix. SEL MIX 9 on the BUS 9-16 layer and press SENDS ON FADERS: the faders send to MIX 9, AUX IN 1/2 on the AUX IN / USB layer too. Then MIX 10, then MIX 11.",
+      "Listen to each wedge in the listening bar. One of them stays silent with the music in its mix: follow that wedge's path out from the S32.",
+      "Wedge 3 is active, with its own VOLUME knob, and it's all the way down. Tap it in Stage & patch and turn it up to about 7.",
+    ],
+    complete: "That's the test the checklist asks for: music you know, through each wedge on its own, before a single mic. It proves the mix, the output, the cable, the amp and the speaker, and it's when you set a rough level. An active wedge has its own VOLUME: the console can send it everything and you still hear nothing with that knob down.",
+  },
+  {
+    id: "x32-cme-amp-knob",
+    short: "Amp knob down",
+    title: "The center wedge is barely there",
+    who: "Lead singer",
+    prompt: "“The two side wedges are fine. Mine, in the middle, I can barely hear, and the engineer at FOH says MIX 10 is up as far as the others.”",
+    goal: "Wedge 2 back to a normal level, fixed at the amp: MIX 10 itself unchanged.",
+    music: "bars-53",
+    setup: { tweak: (st, h) => h.dev("cme-km750", "volB", 1), listen: "mix10" },
+    baseline: { wedge: { metric: "monitorByChannel", bus: "mix10" }, main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("amp", "The KM750's CH B level is back up, about where CH A is", (ctx) => knob(ctx, "cme-km750", "volB", 7) >= 6),
+      goal("wedge", "Wedge 2 plays MIX 10 at a normal level, the singers in it", (ctx) => plays(ctx, "cme-w2", "out10") && vocalsIn(ctx, "mix10")),
+      { id: "mix", kind: "keep", type: "monitorMixUnchanged", bus: "mix10", baseline: "wedge", toleranceDb: 1, label: "MIX 10 stays as it was: its master and every send" },
+      HOUSE_SAME,
+    ],
+    hints: [
+      "MIX 10's meter on the X32 is as high as the other two, so the mix is fine. Something after the console turns it down.",
+      CME_ROOM + " Wedge 2 is passive: S32 OUT 10 → the KM750's CH B → the wedge. The amp has a level knob on each channel.",
+      "Turn the KM750's CH B level back up to match CH A (about 7). Leave MIX 10 alone.",
+    ],
+    complete: "Two engineers, two sets of knobs: the one at FOH has the console, the one by the amp rack has the amps' knobs. Set the amp knobs during the music test, about the same on every channel, and then mix at the console. Cranking MIX 10 to make up for an amp that's turned down leaves the console no room, and gets very loud when someone turns the amp back up.",
+  },
+  {
+    id: "x32-cme-mics",
+    short: "Muted and off at the mic",
+    title: "Two backing singers are silent",
+    who: "Mic engineer",
+    prompt: "“Batteries are in and all five handhelds went on. Now yellow's receiver shows signal but CH 19 doesn't move. Green's meter is dead too, and its receiver shows nothing at all.”",
+    goal: "Yellow and green in the house again, their GAIN and faders unchanged.",
+    music: "bars-37",
+    setup: {
+      tweak: (st, h) => {
+        h.dev("src-cme-yellow", "mic", 1);
+        h.dev("src-cme-green", "mic", 2);
+      },
+    },
+    baseline: { y: { metric: "channelSettings", source: "cme-yellow" }, g: { metric: "channelSettings", source: "cme-green" } },
+    conditions: [
+      goal("yellow", "Yellow (CH 19) is in the house", (ctx) => house(ctx, "cme-yellow") >= AUDIBLE),
+      goal("green", "Green (CH 20) is in the house", (ctx) => house(ctx, "cme-green") >= AUDIBLE),
+      { id: "y", kind: "keep", type: "channelUnchanged", source: "cme-yellow", baseline: "y", toleranceDb: 1, label: "Yellow's GAIN and fader stay where they are" },
+      { id: "g", kind: "keep", type: "channelUnchanged", source: "cme-green", baseline: "g", toleranceDb: 1, label: "Green's GAIN and fader stay where they are" },
+    ],
+    hints: [
+      "Signal at the mixer first: CH 19 and 20 show nothing, and nothing on the X32 is muted. So the trouble is before the console.",
+      "Look at each mic in Stage & patch: its display says ON, MUTED or OFF, and so does the receiver in its own way. Signal with no audio means muted; no signal at all means off (or a flat battery).",
+      "Yellow: one tap on its button unmutes it. Green: press and hold switches it on.",
+    ],
+    complete: "One button, two jobs: a tap mutes or unmutes, press and hold switches it on or off. Singers fiddle with their mics, so this is the first thing to suspect when a handheld goes quiet. The receiver tells you which: signal with no audio is a muted mic; no signal at all is a mic that's off, or a flat battery.",
+  },
+  {
+    id: "x32-cme-vox",
+    short: "Vocals in every wedge",
+    title: "The singers in every wedge",
+    who: "Monitor engineer",
+    prompt: "“The most important thing tonight: the singers in the house and in the wedges. Wedge 1 has them. Wedges 2 and 3 have nothing yet.”",
+    goal: "All four vocal mics (red, orange, yellow, green) in MIX 10 and MIX 11, wedge 1 and the house unchanged.",
+    music: "bars-53",
+    setup: {
+      tweak: (st, h) => {
+        for (const s of CME_HANDHELDS) for (const b of ["mix10", "mix11"]) h.set(s, `sends.${b}`, 0);
+      },
+      listen: "main",
+    },
+    baseline: { w1: { metric: "monitorByChannel", bus: "mix9" }, main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "l10", kind: "goal", type: "listenedTo", dest: "mix10", label: "You listened to wedge 2 (MIX 10)" },
+      { id: "l11", kind: "goal", type: "listenedTo", dest: "mix11", label: "You listened to wedge 3 (MIX 11)" },
+      goal("w2", "Every vocal mic is in wedge 2 (MIX 10)", (ctx) => vocalsIn(ctx, "mix10")),
+      goal("w3", "Every vocal mic is in wedge 3 (MIX 11)", (ctx) => vocalsIn(ctx, "mix11")),
+      { id: "w1", kind: "keep", type: "monitorMixUnchanged", bus: "mix9", baseline: "w1", toleranceDb: 1, label: "Wedge 1 (MIX 9) stays as it is" },
+      HOUSE_SAME,
+    ],
+    hints: [
+      "Each wedge is its own mix: MIX 9 left, 10 center, 11 right. A singer needs a send into each one.",
+      "SEL MIX 10 on the BUS 9-16 layer and press SENDS ON FADERS: on the CH 17-32 layer, the faders for CH 17-20 are now their sends to MIX 10.",
+      "With SENDS ON FADERS on, push CH 17-20 up to about −5 dB for MIX 10, then select MIX 11 and do the same. Switch SENDS ON FADERS off when you're done.",
+    ],
+    complete: "Vocals first, in the house and in every wedge: that's the job, in that order. The amps are loud on stage already; the singers can't hear themselves without the wedges. Each wedge is a mix of its own, so each singer needs a send in each one. With more time, the instruments can go in too.",
+  },
+  {
+    id: "x32-cme-band",
+    short: "Plug in the band",
+    title: "Plug in the band",
+    who: "Crew chief",
+    prompt: "“The Hosa sub snake is by the piano, its tails in S32 IN 25-32. Plug the band in left to right across the stage: the Nord DI on 1, the piano's pencil condensers on 3 and 4, the bass DI on 5, the SM57 on the guitar amp on 6. Then check every channel.”",
+    goal: "The Nord on CH 25, the piano mics on 27 and 28 with 48V, the bass on 29, the guitar on 30: each one with signal.",
+    music: "bars-25",
+    setup: {
+      tweak: (st, h) => {
+        for (const s of ["cme-pno-l", "cme-pno-r"]) h.set(s, "phantom", false);
+        for (const s of ["cme-nord", "cme-pno-l", "cme-pno-r", "cme-bass", "cme-gtr1"]) h.cut(`src-${s}/out`);
+      },
+    },
+    conditions: [
+      goal("nord", "The Nord DI on CH 25 (sub snake 1), with signal", (ctx) => cmeOnChannel(ctx, "cme-nord", 25)),
+      goal("piano", "The piano mics on CH 27 and 28 (sub snake 3 and 4), with 48V and signal", (ctx) => cmeOnChannel(ctx, "cme-pno-l", 27) && cmeOnChannel(ctx, "cme-pno-r", 28)),
+      goal("bass", "The bass DI on CH 29 (sub snake 5), with signal", (ctx) => cmeOnChannel(ctx, "cme-bass", 29)),
+      goal("gtr", "The guitar amp's SM57 on CH 30 (sub snake 6), with signal", (ctx) => cmeOnChannel(ctx, "cme-gtr1", 30)),
+      keep("vox", "The vocal mics stay in the house", (ctx) => ["cme-orange", "cme-yellow"].every((s) => house(ctx, s) >= AUDIBLE)),
+    ],
+    hints: [
+      "The input list runs left to right across the stage: sub snake n → S32 IN 24 + n → CH 24 + n. Snake 2 is spare, for the Nord if it ever comes in stereo.",
+      CME_ROOM + " Each source's XLR goes into its sub snake input on stage. The two piano mics are condensers: what do they need that the DIs and the SM57 don't?",
+      "XLR cables: the Nord DI into sub snake 1, the piano mics into 3 and 4, the bass DI into 5, the SM57 into 6. Then SEL CH 27 and 28 and press 48V.",
+    ],
+    complete: "The sub snake is passive: eight more inputs on stage, its tails into the S32, and the S32's preamps (GAIN and 48V switched from the X32) do the rest. 48V travels down the snake too. With the band on CH 25-32 and the singers on 17-21, the whole gig sits on one layer.",
+  },
+  {
+    id: "x32-cme-gtr",
+    short: "Amp turned down",
+    title: "No guitar anywhere",
+    who: "Lead singer",
+    prompt: "“Something's wrong with the guitar: there's none in the house, CH 30's meter is flat, and the SM57 is right where it was at soundcheck.”",
+    goal: "The guitar back in the house, with the amp where it was at soundcheck and CH 30's GAIN and fader unchanged.",
+    music: "excerpt",
+    setup: { tweak: (st, h) => h.dev("src-cme-gtr1", "vol", 0) },
+    baseline: { ch: { metric: "channelSettings", source: "cme-gtr1" } },
+    conditions: [
+      goal("house", "The guitar is in the house", (ctx) => house(ctx, "cme-gtr1") >= AUDIBLE && goodBand(ctx, "cme-gtr1")),
+      goal("amp", "The Katana-50's MASTER is back about where it was (5)", (ctx) => {
+        const v = knob(ctx, "src-cme-gtr1", "vol", 5);
+        return v >= 4 && v <= 6.5;
+      }),
+      { id: "ch", kind: "keep", type: "channelUnchanged", source: "cme-gtr1", baseline: "ch", toleranceDb: 1, label: "CH 30's GAIN and fader stay where they are" },
+    ],
+    hints: [
+      "Signal at the mixer? CH 30 shows nothing. More GAIN won't help: there's nothing coming in to turn up.",
+      "Follow it back: CH 30 ← S32 IN 30 ← sub snake 6 ← the SM57. The mic only hears what the amp plays.",
+      "Tap the guitar amp's SM57 in Stage & patch: the Katana's MASTER is all the way down. Ask the guitarist, then bring it back to about 5, where it was at soundcheck.",
+    ],
+    complete: "A mic on an amp hears the amp, so the amp's own knobs are part of the signal flow: GAIN on the X32 can't bring back a signal that isn't there. Guitarists turn their amps down between songs; ask before you touch anyone's amp, and write its settings on the level sheet at soundcheck.",
+  },
+  {
+    id: "x32-cme-cable",
+    short: "Bad cable",
+    title: "Wedge 1 died",
+    who: "Pianist",
+    prompt: "“My wedge was fine at the music test. Now it's dead, and everything looks plugged in.”",
+    goal: "Wedge 1 playing MIX 9 again, on a 1/4\" speaker cable, the other wedges and the house unchanged.",
+    music: "bars-25",
+    setup: { tweak: (st) => (st.rig.cables.find((c) => c.to === "cme-w1/in").broken = true), listen: "mix9" },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("w1", "Wedge 1 plays MIX 9 again, on a 1/4\" speaker cable (not an instrument cable)", (ctx) => plays(ctx, "cme-w1", "out9") && vocalsIn(ctx, "mix9") && onSpeakerCable(ctx, "cme-w1/in")),
+      keep("others", "Wedges 2 and 3 keep playing", (ctx) => cmeWedgesOk(ctx, ["cme-w2", "cme-w3"])),
+      HOUSE_SAME,
+    ],
+    hints: [
+      "MIX 9's meter moves and S32 OUT 9 is patched. Follow the path: OUT 9 → the KM750's CH A → speaker cable → wedge 1.",
+      CME_ROOM + " Every jack on the way is the right one. When everything is right and nothing gets through, suspect the cable itself.",
+      "Unplug the speaker cable between the KM750's CH A output and wedge 1, and patch a fresh 1/4\" speaker cable in its place. Set the bad one aside and tell your supervisor.",
+    ],
+    complete: "Cables fail inside, where you can't see it, especially speaker cables that get stepped on and coiled tight. Swap it for a real speaker cable: the thin instrument cable has the same plug but can't carry an amp's power safely. At the dress rehearsal one wedge never worked and there wasn't time to find out why: arrive early, don't assume the gear works, and tag a bad cable with gaff tape so it doesn't go back in the box.",
+  },
+  {
+    id: "x32-cme-gains",
+    short: "Gains and the level sheet",
+    title: "Set the gains, then write them down",
+    who: "Crew chief",
+    prompt: "“Line check before the dress rehearsal. Some of these gains are nowhere near right. Get every channel into the good range, then write the numbers on the level sheet.”",
+    goal: "Every CME channel's input in the good range, set with GAIN.",
+    music: "excerpt",
+    setup: {
+      tweak: (st, h) => {
+        h.set("cme-orange", "gainDb", 12);
+        for (const s of ["cme-pno-l", "cme-pno-r"]) h.set(s, "gainDb", 20);
+        h.set("cme-bass", "gainDb", 52);
+        h.set("cme-gtr1", "gainDb", 56);
+      },
+    },
+    baseline: { faders: { metric: "channelLevels" } },
+    conditions: [
+      goal("vox", "Every handheld's input is in the good range", (ctx) => CME_HANDHELDS.every((s) => mc(ctx, s)?.band === "good")),
+      goal("band", "Every band channel's input is in the good range", (ctx) => ["cme-nord", "cme-pno-l", "cme-pno-r", "cme-bass", "cme-gtr1", "cme-gtr2", "cme-oh"].every((s) => mc(ctx, s)?.band === "good")),
+      keep("faders", "Every fader stays where it is: gain first", (ctx) => ctx.state.channels.every((c, i) => Math.abs(c.level - ctx.baseline.faders[i]) < 0.02)),
+    ],
+    hints: [
+      "Watch each channel's meter while that player plays or the singer sings. Too low sits down around −40; clipping is red.",
+      "Fix it with GAIN, not the fader: SEL the channel and turn GAIN until its peaks sit in the good range, around −18 to −6.",
+      "Orange (CH 18) and the piano mics (27 and 28) need more GAIN; the bass DI (29) and the guitar's SM57 (30) need less. Then write every GAIN on the level sheet.",
+    ],
+    complete: "GAIN sets how hot each signal comes into the console; the faders are for the mix. The dress rehearsal is right before the show, so the level sheet is what gets the show back to where soundcheck ended if something gets bumped. Later, a saved scene can hold it too.",
+  },
+  {
+    id: "x32-cme-end",
+    short: "End of the night",
+    title: "The end of the night",
+    who: "Crew chief",
+    prompt: "“Show's over. Before anything gets unplugged, the one thing people forget: Vocal Jazz rehearses here tomorrow on the hall's own speakers.”",
+    goal: "The Mix5's 4/5 LEVEL back up to U: the hall's installed speakers playing MAIN again.",
+    music: "excerpt",
+    stage: { silent: true, note: "The band has gone: only the test music is playing." },
+    setup: { tweak: (st, h) => h.faderDb("preshow", 0), listen: "main" },
+    conditions: [
+      goal("knob", "The Mix5's 4/5 LEVEL is back at U (7.5 on the knob)", (ctx) => Math.abs(knob(ctx, "cme-house", "lvl45", 7.5) - 7.5) <= 0.5),
+      goal("hall", "Both of the hall's installed speakers play MAIN", (ctx) => plays(ctx, "cme-hall-l", "out15") && plays(ctx, "cme-hall-r", "out16")),
+      keep("main", "The Mix5's MAIN MIX stays where it is", (ctx) => knob(ctx, "cme-house", "main", 7.5) === 7.5),
+    ],
+    hints: [
+      "During the gig, the hall's own speakers were turned down so CME's Yamahas could do the job. Who uses those speakers next?",
+      CME_ROOM + " Tap the hall's mains rack: the Mix5's 4/5 LEVEL takes S32 OUT 15/16.",
+      "Turn the Mix5's 4/5 LEVEL back up to U (7.5 on this knob). Then strike: amps off first, everything else after.",
+    ],
+    complete: "Do the easy-to-forget thing first: the hall's speakers back on, before anyone starts coiling cables. Then strike: amps off before anything is unplugged; wedges, Yamahas and stands back to BH 102; IEC cables in their labeled box (or with the amp that needs one), AC cords in the black milk crates, the long speaker cable in its own box. Leave the closet cleaner than you found it.",
+  },
+];
+
 // ---------- Karaoke in BH 109: a real MUS 248 gig on the Xenyx ----------
 // The BH 109 Karaoke Gig Checklist's rig (js/scenarios.js KARAOKE_GIGS): two
 // SM58s on CH 1-2, the karaoke laptop on LINE IN 5/6, an SM58 through a Zoom V3
@@ -5000,7 +5355,7 @@ const ORDER = {
   l20: ["doors", "gain", "pad", "lowcut", "mud", "eq-on", "keys-wedge", "less-guitar", "out-of-house", "wedge-quiet", "switch", "reverb", "efx-mon"],
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
   yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "mud", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
-  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9", "vj-mains", "vj-monitors", "vj-local", "vj-gain", "vj-lowcut", "vj-muted", "vj-send", "vj-amp", "vj-chain", "vj-link", "vj-patch", "ea-chain", "ea-route", "ea-bank", "ea-48v", "ea-collision", "ea-click", "ea-dead"],
+  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9", "vj-mains", "vj-monitors", "vj-local", "vj-gain", "vj-lowcut", "vj-muted", "vj-send", "vj-amp", "vj-chain", "vj-link", "vj-patch", "ea-chain", "ea-route", "ea-bank", "ea-48v", "ea-collision", "ea-click", "ea-dead", "cme-mains", "cme-house", "cme-wedges", "cme-wedge-test", "cme-amp-knob", "cme-mics", "cme-vox", "cme-band", "cme-gtr", "cme-cable", "cme-gains", "cme-end"],
   f8n: ["track", "trim", "room", "hpf", "pfl", "balance", "link", "camera", "dslr", "iso-safety"],
   dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
   cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "dante-back", "dante-fix", "scene-recall", "scene-store"],
@@ -5008,7 +5363,7 @@ const ORDER = {
   x32c: ["doors", "gain", "48v", "sections-48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "orchestra", "mute-group", "new-mix", "stagebox", "cob-usb", "cob-gain", "cob-tracks", "cob-link", "cob-one-side", "cob-speaker-cable", "cob-thru", "cob-prefader", "cob-tracks-wedge", "cob-scene"],
 };
 
-const LISTS = { gdig: GDIG, l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: [...XEN, ...KY], sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c, ...COB], yam01v96: Y96, x32: [...X32F, ...BOXES.x32, ...VJS, ...EAS] };
+const LISTS = { gdig: GDIG, l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: [...XEN, ...KY], sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c, ...COB], yam01v96: Y96, x32: [...X32F, ...BOXES.x32, ...VJS, ...EAS, ...CMES] };
 
 // Who is on stage (js/music.js stageFor). Every scenario's story was read for
 // this; anything not listed has the whole band playing (the 8-bar section it
@@ -5083,10 +5438,10 @@ const FTW = {
 // Vocal Jazz takes turns with the ensemble's two pieces: the first scenario
 // plays "Almost Like Being in Love", the second "Love Me or Leave Me", and so on.
 const vjSong = (board, k) => (ORDER[board].filter((x) => x.startsWith("vj-")).indexOf(k) % 2 ? "vj-love" : "vj");
-// A gig is its own song (its cast, its tracks, its rig): COB, Vocal Jazz, the showcase, karaoke.
+// A gig is its own song (its cast, its tracks, its rig): COB, Vocal Jazz, the showcase, karaoke, CME.
 const songOf = (board, id) => {
   const k = id.slice(board.length + 1);
-  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? vjSong(board, k) : k.startsWith("ea-") ? "ea" : k.startsWith("ky-") ? "karaoke" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
+  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? vjSong(board, k) : k.startsWith("ea-") ? "ea" : k.startsWith("ky-") ? "karaoke" : k.startsWith("cme-") ? "cme" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
 };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.

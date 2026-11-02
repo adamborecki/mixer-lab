@@ -3245,6 +3245,20 @@ dialog::backdrop {
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
+/* A wireless handheld's one button (tap = mute, press and hold = power). */
+.mic-display {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.mic-display strong {
+  color: var(--text);
+}
+.mic-press {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
 .dev-technique {
   margin: 0;
   font-size: 0.8rem;

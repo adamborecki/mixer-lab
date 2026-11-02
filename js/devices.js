@@ -124,13 +124,25 @@ const KEYS = {
   },
 };
 
+// The knobs on amps, a rack's mixer and an active wedge (DEVICE_TYPES `knobs`:
+// 0–10 in half steps, or a choice), a wireless handheld's button (`mic`: 0 ON,
+// 1 MUTED, 2 OFF) and the volume knob on the amp or instrument in front of a
+// source's mic or DI (`vol`, 0–10).
+function gearKey(dev, field) {
+  const k = DEVICE_TYPES[dev.type]?.knobs?.find((x) => x.key === field);
+  if (k) return k.select ? range(0, k.select.length - 1, 1) : range(0, 10, 0.5);
+  if (field === "mic" && dev.type === "wireless-handheld") return range(0, 2, 1);
+  if (field === "vol" && dev.sourceId) return range(0, 10, 0.5);
+  return null;
+}
+
 // Applies one setting to a device in place; returns true if it changed.
 // Keys: "decay", "spacingCm", "angleDeg", "hpLevel", "tracks.3.trimDb",
 // "link.1", "dual.0". A linked pair moves together (trim, 48V, arm).
 export function setDeviceValue(dev, key, value) {
   const parts = key.split(".");
   const field = parts.length === 3 ? parts[2] : parts[0];
-  const fn = KEYS[dev.type]?.[field];
+  const fn = KEYS[dev.type]?.[field] || gearKey(dev, field);
   if (!fn || !DEVICE_TYPES[dev.type]) return false;
   const v = fn(value);
   if (v === undefined) return false;

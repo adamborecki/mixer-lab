@@ -115,7 +115,8 @@ export function layoutStage(rig, { order = () => 0, channelLabels = [], mixerNam
     const type = DEVICE_TYPES[d.type];
     if (type.passthrough) {
       measured.box.push(stageBoxBox(d, (p) => p.end === "stage", [["INPUTS", (p) => p.dir === "in"], ["RETURNS", (p) => p.dir === "out"]]));
-      measured.foh.push(stageBoxBox(d, (p) => p.end === "foh", [["TAILS (to the console)", (p) => p.dir === "out"], ["RETURN SENDS", (p) => p.dir === "in"]], { id: `${d.id}-fan`, title: "Snake fan-out at FOH" }));
+      // A sub snake's tails plug into a stage box, so they sit beside it (`fanColumn`).
+      measured[type.fanColumn || "foh"].push(stageBoxBox(d, (p) => p.end === "foh", [[type.fanColumn ? "TAILS" : "TAILS (to the console)", (p) => p.dir === "out"], ["RETURN SENDS", (p) => p.dir === "in"]], { id: `${d.id}-fan`, title: type.fanTitle || "Snake fan-out at FOH" }));
       multicores.push([d.id, `${d.id}-fan`]);
     } else measured.box.push(stageBoxBox(d));
   }

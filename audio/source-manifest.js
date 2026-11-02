@@ -1031,6 +1031,100 @@ const EA_SOURCES = [
   eaSource("ea-track", 33, "synths", "Electronics (Mac mini, SSL 2+ OUT 1/2)", "TRACK", "Mac mini · SSL 2+ OUT 1/2: the electronics", "stereo-laptop", { outputDb: -10, stereo: true, mixDb: -4, note: "The fixed electronics for the bass clarinet pieces, from the Mac mini at FOH into AUX IN 1/2. Stand-in audio: FTW's synths." }),
 ];
 
+// ---------- CME in Salmon: Persephone as the Commercial Music Ensemble ----------
+
+// The Commercial Music Ensemble (CME) in Salmon Recital Hall (MUS 248's CME
+// Gig Checklist): a rock band on the hall's X32. Persephone's stems stand in
+// for the band. Its stereo stems split into their two sides where CME has two
+// of something: the two guitar amps (guitars L and R), the two pencil
+// condensers on the grand piano (piano L and R) and two backing singers
+// (backing vocals L and R; measured 2026-11-02, the sides correlate 0.35–0.55,
+// so they are different parts). The Nord plays the whole piano stem, and the
+// mic over the piano (red) carries the lead vocal, for the songs the pianist
+// sings: a scenario's stage says who is playing (js/music.js stageFor).
+const CME_SET = { ...PERSEPHONE_SET, id: "cme", title: "CME in Salmon", artist: "Persephone (Giovanna) as the band" };
+const CME_SPLIT = { guitars: ["gtr-l", "gtr-r"], piano: ["piano", "piano-l", "piano-r"], "backing-vocals": ["bv-l", "bv-r"] };
+const cmeStems = (list) => list.flatMap((st) => CME_SPLIT[st] || [st]);
+CME_SET.sections = PERSEPHONE_SET.sections.map((s) => ({ ...s, plays: cmeStems(s.plays), partly: cmeStems(s.partly) }));
+const side = (stem, treatment, monoPeakDb, monoRmsDb) => ({ ...PERSEPHONE_STEMS[stem], treatment, monoPeakDb, monoRmsDb });
+const CME_STEMS = {
+  drums: PERSEPHONE_STEMS.drums,
+  bass: PERSEPHONE_STEMS.bass,
+  "gtr-l": side("guitars", "left", -0.9, -14.3),
+  "gtr-r": side("guitars", "right", -1.3, -14.1),
+  piano: PERSEPHONE_STEMS.piano,
+  "piano-l": side("piano", "left", -1.0, -13.2),
+  "piano-r": side("piano", "right", -3.1, -17.0),
+  trumpets: PERSEPHONE_STEMS.trumpets,
+  "bv-l": side("backing-vocals", "left", -1.2, -15.0),
+  "bv-r": side("backing-vocals", "right", -2.8, -16.9),
+  "lead-vocals": PERSEPHONE_STEMS["lead-vocals"],
+};
+const PERSEPHONE_BY_STEM = Object.fromEntries(PERSEPHONE_SOURCES.filter((s) => s.stem).map((s) => [s.stem, s]));
+const cmeSource = (id, order, name, shortName, device, deviceType, stem, extra) => {
+  const player = PERSEPHONE_BY_STEM[{ "gtr-l": "guitars", "gtr-r": "guitars", "piano-l": "piano", "piano-r": "piano", "bv-l": "backing-vocals", "bv-r": "backing-vocals" }[stem] || stem];
+  return {
+    id,
+    order,
+    name,
+    shortName,
+    musician: player.musician,
+    musicianShort: player.musicianShort,
+    device,
+    category: "CME",
+    deviceType,
+    signalLevel: "mic",
+    connector: "xlr",
+    phantom: deviceType === "condenser-mic" ? "required" : "none",
+    stem,
+    pan: 0,
+    mixDb: 0,
+    scenarios: ANY_SCENARIO,
+    ...extra,
+  };
+};
+// The wireless handhelds go left to right across the stage in ring order:
+// red is the mic over the piano, orange the lead singer, yellow and green the
+// backing singers, blue the horn player (who always comes in on a wireless).
+// Receiver channels 17–24 plug into LOCAL 17–24, so they're on CH 17–24.
+const cmeHandheld = (id, n, ring, who, stem, extra) => cmeSource(id, 16 + n, `${who} (${ring})`, ring.toUpperCase(), `Wireless handheld, ${ring} ring, no windscreen (receiver channel ${16 + n})`, "wireless-handheld", stem, { outputDb: -30, ...extra });
+const CME_SOURCES = [
+  cmeHandheld("cme-red", 1, "red", "Piano vocal mic", "lead-vocals", { note: "A handheld on a boom over the grand piano: some songs the pianist sings lead." }),
+  cmeHandheld("cme-orange", 2, "orange", "Lead vocal", "lead-vocals"),
+  cmeHandheld("cme-yellow", 3, "yellow", "Backing vocal 1", "bv-l", { mixDb: -4, pan: -0.3 }),
+  cmeHandheld("cme-green", 4, "green", "Backing vocal 2", "bv-r", { mixDb: -4, pan: 0.3 }),
+  cmeHandheld("cme-blue", 5, "blue", "Horn", "trumpets", { mixDb: -6, pan: 0.2, outputDb: -34, note: "The horn player comes in on a wireless handheld too." }),
+  cmeSource("cme-nord", 25, "Nord (DI)", "NORD", "Nord Stage 4 → DI box, on sub snake 1", "di-box", "piano", {
+    outputDb: -32,
+    mixDb: -6,
+    pan: -0.3,
+    volumeKnob: { label: "Nord MASTER LEVEL", unity: 7.5, start: 7.5 },
+    note: "The Nord's output into a DI box, the DI's XLR into sub snake 1. One channel is enough; 26 is free if it ever comes in stereo.",
+  }),
+  cmeSource("cme-pno-l", 27, "Piano mic L (pencil condenser)", "PNO L", "Pencil condenser in the grand piano, on sub snake 3", "condenser-mic", "piano-l", { outputDb: -40, mixDb: -6, pan: -0.5 }),
+  cmeSource("cme-pno-r", 28, "Piano mic R (pencil condenser)", "PNO R", "Pencil condenser in the grand piano, on sub snake 4", "condenser-mic", "piano-r", { outputDb: -40, mixDb: -6, pan: 0.5 }),
+  cmeSource("cme-bass", 29, "Bass (DI)", "BASS", "Bass guitar → DI box, on sub snake 5", "di-box", "bass", {
+    outputDb: -32,
+    mixDb: -3,
+    volumeKnob: { label: "Bass guitar VOLUME", unity: 10, start: 10 },
+    note: "The DI goes between the bass and its amp: the bass amp is for the player, the DI is for the PA.",
+  }),
+  cmeSource("cme-gtr1", 30, "Guitar amp 1 (SM57)", "GTR 1", "SM57 on the Boss Katana-50, on sub snake 6", "dynamic-mic", "gtr-l", {
+    outputDb: -36,
+    mixDb: -5,
+    pan: -0.4,
+    volumeKnob: { label: "Katana-50 MASTER", unity: 5, start: 5 },
+    note: "An SM57 an inch or two from the amp's grille. The mic hears whatever the amp plays, so the amp's own knobs come first.",
+  }),
+  cmeSource("cme-gtr2", 31, "Guitar amp 2 (SM57)", "GTR 2", "SM57 on a second guitar amp, on sub snake 7", "dynamic-mic", "gtr-r", { outputDb: -36, mixDb: -5, pan: 0.4, volumeKnob: { label: "Amp 2 MASTER", unity: 5, start: 5 } }),
+  cmeSource("cme-oh", 32, "Drum overhead (condenser)", "OH", "Condenser over the drum kit, on sub snake 8", "condenser-mic", "drums", {
+    outputDb: -34,
+    mixDb: -6,
+    note: "Optional: the kit is loud enough in Salmon on its own. The lab has no room sound, so an overhead stands in for it.",
+  }),
+  { ...VJ_LAPTOP, note: "The crew's test music, from a laptop at FOH into AUX IN 1/2: through the mains, then each wedge, before anyone plays. A 3.5 mm → dual 1/4\" breakout cable." },
+];
+
 // Virtual sources: the two mics of the stereo room pair. Their sound is built
 // from the band stems by js/room-mics.js (distance, angle, delay, room reverb).
 export const ROOM_SOURCES = [
@@ -1052,6 +1146,7 @@ export const SONGS = {
   "vj-love": { id: "vj-love", title: "Vocal Jazz in Salmon", artist: "the Vocal Jazz Ensemble (“Love Me or Leave Me”)", set: VJ_LOVE_SET, stems: LOVE_ME_STEMS, sources: VJ_SOURCES, consoles: ["x32"] },
   karaoke: { id: "karaoke", title: "Karaoke in BH 109", artist: "a karaoke track (NOSTRADAMUS)", set: KARAOKE_SET, stems: KARAOKE_STEMS, sources: KARAOKE_SOURCES, consoles: ["x1204usb"] },
   ea: { id: "ea", title: "Electroacoustic showcase", artist: "FTW's parts as stand-ins, and a click", set: EA_SET, stems: EA_STEMS, sources: EA_SOURCES, consoles: ["x32"] },
+  cme: { id: "cme", title: "CME in Salmon", artist: "Persephone (Giovanna) as the Commercial Music Ensemble", set: CME_SET, stems: CME_STEMS, sources: CME_SOURCES, consoles: ["x32"] },
 };
 // Can this song play on this console? A gig's song (`consoles`) only on its own.
 export const songFits = (id, model) => !SONGS[id]?.consoles || SONGS[id].consoles.includes(model);

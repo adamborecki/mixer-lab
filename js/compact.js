@@ -360,7 +360,9 @@ export function computeMix(def, state, sourcesById, stems, sourcePeakDb) {
   const channels = state.channels.map((ch, i) => {
     const input = rig.channels[i] || { connected: false, signal: false };
     const source = input.sourceId ? sourcesById[input.sourceId] : null;
-    const peak = sourcePeakDb(source, stems);
+    const stemPeak = sourcePeakDb(source, stems);
+    // A muted handheld or an amp turned down at the source (rig device settings).
+    const peak = stemPeak === null ? null : stemPeak + (input.trimDb ?? 0);
     const live = input.connected && input.signal && source && peak !== null;
     const aux = Object.fromEntries(buses.map((b) => [b, { sendDb: OFF, monitorDb: OFF, heardDb: OFF }]));
     const base = { index: i, sourceId: input.sourceId || null, input, aux, pflDb: OFF };

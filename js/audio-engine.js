@@ -11,7 +11,7 @@
 // Stem playback and synchronization live in js/transport.js. Switching mixers
 // rebuilds only the mixer graph: the stems keep playing on one timeline.
 
-import { DEVICE_TYPES, analyzeRig, mixerOf, rigLinks } from "./connection-model.js";
+import { DEVICE_TYPES, analyzeRig, mixerOf, rigLinks, sourceTrimDb } from "./connection-model.js";
 import { dbToGain, listenDestinations, listenGroupOf, modelOf } from "./mixer-state.js";
 import { LoopPlayer } from "./loop-player.js";
 import { VoicePlayer } from "./voice-player.js";
@@ -206,7 +206,12 @@ export class AudioEngine {
       const node = (ep.camera || ep.gainDb !== undefined) && this.endpointNodes.get(ep.deviceId);
       if (node) this.set(node.input.gain, dbToGain(ep.gainDb ?? 0));
       // A clipping wall speaker (BH 109): the distortion is heard, not a jump in level.
-      if (node?.trim && !ep.camera) this.set(node.trim.gain, ep.gainDb ? 0.3 : 1);
+      if (node?.trim && !ep.camera) this.set(node.trim.gain, ep.status === "hot" ? 0.3 : 1);
+    }
+    // A source's own button or volume knob (a muted handheld, a guitar amp turned down).
+    for (const dev of state.rig.devices) {
+      const out = dev.sourceId && this.transport?.outs.get(dev.sourceId);
+      if (out) this.set(out.gain, dbToGain(sourceTrimDb(dev, SOURCES_BY_ID[dev.sourceId])));
     }
     for (const dev of state.rig.devices) {
       const d = this.devices.get(dev.id);

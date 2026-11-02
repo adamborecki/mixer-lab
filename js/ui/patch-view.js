@@ -22,6 +22,9 @@ import {
   aesOffset,
   inSourceName,
   throughLinks,
+  MIC_STATES,
+  knobDb,
+  knobPos,
 } from "../connection-model.js";
 import { modelOf } from "../mixer-state.js";
 import { F8, PAIR, REVERB, TECHNIQUES, cardStats, techniqueOf } from "../devices.js";
@@ -47,8 +50,9 @@ export function portLabel(rig, ref, { short = false } = {}) {
 }
 
 export class PatchView {
-  constructor({ sourcesRoot, outputsRoot, store, manifest, toast, getTerms, onOpenRecorder = () => {}, getRecorder = () => null, onOpenDante = () => {} }) {
+  constructor({ sourcesRoot, outputsRoot, store, manifest, toast, getTerms, onOpenRecorder = () => {}, getRecorder = () => null, onOpenDante = () => {}, onSettle = () => {} }) {
     this.onOpenRecorder = onOpenRecorder;
+    this.onSettle = onSettle;
     this.onOpenDante = onOpenDante;
     this.getRecorder = getRecorder;
     this.sourcesRoot = sourcesRoot;
@@ -73,6 +77,21 @@ export class PatchView {
         if (rec) this.onOpenRecorder(rec.dataset.openRecorder);
         const dante = e.target.closest("[data-open-dante]");
         if (dante) this.onOpenDante(dante.dataset.openDante);
+        // A wireless handheld's one button: a tap mutes or unmutes it, press and hold switches it on or off.
+        const press = e.target.closest("[data-mic-press]");
+        if (press) {
+          const d = this.store.state.rig.devices.find((x) => x.id === press.dataset.device);
+          const now = d?.mic || 0;
+          const next = press.dataset.micPress === "tap" ? (now === 2 ? 2 : 1 - now) : now === 2 ? 0 : 2;
+          if (d && next !== now) {
+            this.store.setDevice(d.id, "mic", next);
+            this.onSettle();
+          }
+        }
+      });
+      // A knob let go, or a choice made: the cards' status follows.
+      root.addEventListener("change", (e) => {
+        if (e.target.closest("[data-device-key]")) this.onSettle();
       });
       // Device settings (mic pair spacing/angle, reverb decay). The panel isn't
       // redrawn while dragging; only the readouts next to the slider change.
@@ -160,6 +179,7 @@ export class PatchView {
         </div>
         <div class="tags">${tags}</div>
         ${this.portButton(ref, "out")}
+        ${sourceGearHtml(d, src)}
         ${msgs.map((m) => `<p class="port-msg">${esc(m)}</p>`).join("")}
         ${note ? `<p class="source-note">${esc(note)}</p>` : ""}
       </li>`);
@@ -282,6 +302,9 @@ export class PatchView {
         card.querySelector('[data-readout="technique"]').innerHTML = techniqueText(d);
       }
       if (d.type === "reverb") set("decay", `${d.decay.toFixed(1)} s`);
+      for (const k of DEVICE_TYPES[d.type].knobs || []) if (!k.select) set(k.key, knobText(knobPos(d, k), k.unity));
+      const vk = d.sourceId && this.manifest.SOURCES_BY_ID[d.sourceId]?.volumeKnob;
+      if (vk) set("vol", knobText(d.vol ?? vk.start, vk.unity));
       if (d.type === "camera-input") set("inputLevel", d.inputLevel === 1 ? "LINE" : "MIC");
     }
   }
@@ -293,7 +316,12 @@ export class PatchView {
     const mixer = mixerOf(rig);
     const outs = listPorts(rig, mixer).filter((p) => p.dir === "out");
     const endpoints = new Map(mix.rig.endpoints.map((e) => [e.deviceId, e]));
-    const busName = (portId) => ({ "main-l": "Main L", "main-r": "Main R", "cr-l": "C-R L", "cr-r": "C-R R" })[portId] || terms[portId] || portId;
+    // A routed output (full X32) is named by its jack and what ROUTING sends it: "XLR OUT 11 · MIX 11".
+    const routedName = (portId) => {
+      const src = state.routing?.[portId];
+      return src && `XLR OUT ${portId.slice(3)} · ${({ "main-l": "MAIN L", "main-r": "MAIN R" })[src] || terms[src] || src.toUpperCase().replace(/(\d+)$/, " $1")}`;
+    };
+    const busName = (portId) => ({ "main-l": "Main L", "main-r": "Main R", "cr-l": "C-R L", "cr-r": "C-R R" })[portId] || terms[portId] || routedName(portId) || portId;
     const boardNames = modelOf(state) !== "generic"; // real mixers' jacks are named as printed on them
 
     const outRows = outs
@@ -362,6 +390,8 @@ export class PatchView {
             .join("")}</div>
         </div>
         ${micSwitchHtml(d)}
+        ${knobsHtml(d)}
+        ${DEVICE_TYPES[d.type].where ? `<p class="source-note">${esc(DEVICE_TYPES[d.type].where)}</p>` : ""}
       </li>`),
       )
       .join("");
@@ -389,6 +419,7 @@ export class PatchView {
             .map((p) => this.portButton(p.ref, p.dir))
             .join("")}
           ${settings}
+          ${knobsHtml(d)}
           ${ep.messages.map((m) => `<p class="port-msg">${esc(m)}</p>`).join("")}
         </li>`);
       })
@@ -404,6 +435,43 @@ export class PatchView {
       <h3 class="group-title">${icon("role-destination", { size: 22 })}${speakers.every((d) => DEVICE_TYPES[d.type].camera) ? "Camera — does the level match?" : "Speakers — where is the amplifier?"}</h3>
       <ul class="device-list">${spkHtml}</ul>`;
   }
+}
+
+// A knob's position and what it does, as its readout prints it: "7 · −6 dB".
+function knobText(pos, unity) {
+  const db = knobDb(pos, unity);
+  return `${pos} · ${db === -Infinity ? "off" : Math.abs(db) < 0.5 ? "0 dB" : `${db > 0 ? "+" : "−"}${Math.abs(db).toFixed(0)} dB`}`;
+}
+const knobInput = (d, key, label, pos, unity) => `<label>${esc(label)} <output data-readout="${esc(key)}">${knobText(pos, unity)}</output>
+  <input type="range" min="0" max="10" step="0.5" value="${pos}" data-device="${esc(d.id)}" data-device-key="${esc(key)}" aria-label="${esc(d.label || DEVICE_TYPES[d.type].name)}: ${esc(label)}" /></label>`;
+
+// The knobs on an amp, a rack's mixer or an active wedge (DEVICE_TYPES `knobs`).
+function knobsHtml(d) {
+  const knobs = DEVICE_TYPES[d.type].knobs;
+  if (!knobs) return "";
+  return `<div class="dev-settings" data-device-card="${esc(d.id)}">${knobs
+    .map((k) =>
+      k.select
+        ? `<label>${esc(k.label)} <select data-device="${esc(d.id)}" data-device-key="${esc(k.key)}" aria-label="${esc(d.label || DEVICE_TYPES[d.type].name)}: ${esc(k.label)}">${k.select.map((t, i) => `<option value="${i}"${knobPos(d, k) === i ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></label>`
+        : knobInput(d, k.key, k.label, knobPos(d, k), k.unity),
+    )
+    .join("")}</div>`;
+}
+
+// What a source's own gear lets you do: a wireless handheld's one button, or
+// the volume knob on the amp or instrument in front of its mic or DI.
+function sourceGearHtml(d, src) {
+  if (d.type === "wireless-handheld") {
+    const st = d.mic || 0;
+    const rx = ["Receiver: signal ✓ · audio ✓", "Receiver: signal ✓ · audio —", "Receiver: no signal"][st];
+    return `<div class="dev-settings mic-button" data-device-card="${esc(d.id)}">
+      <p class="mic-display"><strong>Mic: ${MIC_STATES[st]}</strong> · ${rx}</p>
+      <div class="mic-press"><button type="button" class="btn" data-device="${esc(d.id)}" data-mic-press="tap">Tap the button</button><button type="button" class="btn" data-device="${esc(d.id)}" data-mic-press="hold">Press and hold</button></div>
+      <p class="source-note">One button: a tap mutes or unmutes it, press and hold switches it on or off.</p>
+    </div>`;
+  }
+  const k = src.volumeKnob;
+  return k ? `<div class="dev-settings" data-device-card="${esc(d.id)}">${knobInput(d, "vol", k.label, d.vol ?? k.start, k.unity)}</div>` : "";
 }
 
 // A line mixer's Line / Mic button in front of an amp (BH 109's rack: the Ashly's Ch.1).

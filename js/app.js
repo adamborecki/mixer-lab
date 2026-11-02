@@ -83,6 +83,8 @@ const patchView = new PatchView({
   onOpenRecorder: (id) => recorderView.open(id),
   onOpenDante: (tab) => danteView.open(tab),
   getRecorder: (id) => engine.recorder(id),
+  // A knob let go or a button pressed on the gear: the cards' status follows.
+  onSettle: () => (pending.any = pending.patch = true),
 });
 
 // The field recorder's own panel (opened from its card in Outputs).

@@ -449,6 +449,120 @@ DEVICE_TYPES.sd8 = aes50Box("Behringer SD8", 8, 8, "8 remote mic preamps and 8 o
 // The SD8's output-bank switch: which AES50 channels its 8 outputs carry.
 export const SD8_BANKS = ["1-8", "9-16", "17-24"];
 
+// ---------- knobs on the gear (CME in Salmon) ----------
+
+// A volume knob on a piece of gear, 0 to 10 as printed on most of them: at
+// `unity` it passes the signal at its own level, below that it turns it down,
+// above it adds a few dB, and 0 is off. An amp's knob has its unity at the
+// top (it only attenuates). A device's `knobs` list them; each one with a
+// `pair` acts on that amp channel only, the rest on everything through it.
+// The value lives on the rig device (`device[key]`, else `start`).
+export function knobDb(pos, unity = 10) {
+  return pos > 0 ? 40 * Math.log10(pos / unity) : -Infinity;
+}
+export const knobPos = (device, k) => device?.[k.key] ?? k.start;
+export function knobsDb(device, pair) {
+  const knobs = DEVICE_TYPES[device?.type]?.knobs || [];
+  return knobs.filter((k) => !k.select && (!k.pair || k.pair === pair)).reduce((db, k) => db + knobDb(knobPos(device, k), k.unity), 0);
+}
+
+// What a source's own gear does to it before the mixer (rig device settings):
+// a wireless handheld's one button (`mic`: 0 on, 1 muted by a tap, 2 switched
+// off by a press and hold), or the volume knob on the amp or instrument in
+// front of the mic or DI (`source.volumeKnob`, value `vol`).
+export const MIC_STATES = ["ON", "MUTED", "OFF"];
+export function sourceTrimDb(device, source) {
+  if (device?.mic) return -Infinity;
+  const k = source?.volumeKnob;
+  return k ? knobDb(device?.vol ?? k.start, k.unity) : 0;
+}
+
+// Behringer KM750 (two in Salmon's monitor amp rack): one channel per wedge,
+// each with its own level knob. The wedges at CME take a 1/4" speaker cable.
+DEVICE_TYPES.km750 = {
+  name: "Behringer KM750 (power amp)",
+  poweramp: true,
+  ports: [
+    { id: "in-a", dir: "in", jack: "combo", level: "line", role: "amp-in", pair: "a", name: "CH A input (XLR / 1/4\")", short: "CH A IN" },
+    { id: "in-b", dir: "in", jack: "combo", level: "line", role: "amp-in", pair: "b", name: "CH B input (XLR / 1/4\")", short: "CH B IN" },
+    { id: "out-a", dir: "out", jack: "quarter", level: "speaker", role: "amp-out", pair: "a", name: "CH A speaker output (1/4\")", short: "CH A OUT" },
+    { id: "out-b", dir: "out", jack: "quarter", level: "speaker", role: "amp-out", pair: "b", name: "CH B speaker output (1/4\")", short: "CH B OUT" },
+  ],
+  knobs: [
+    { key: "volA", label: "CH A level", pair: "a", unity: 10, start: 7 },
+    { key: "volB", label: "CH B level", pair: "b", unity: 10, start: 7 },
+  ],
+  blurb: "Line level in, speaker level out, a level knob on each channel. Channel A in drives channel A out.",
+};
+// The Crown in the separate amp rack: 1/4" in and 1/4" out on each channel,
+// and the long 1/4" speaker cable to the far side of the stage.
+DEVICE_TYPES["crown-amp"] = {
+  name: "Crown amp (1/4\" in and out)",
+  poweramp: true,
+  ports: [
+    { id: "in-a", dir: "in", jack: "quarter", level: "line", role: "amp-in", pair: "a", name: "CH 1 input (1/4\")", short: "CH 1 IN" },
+    { id: "in-b", dir: "in", jack: "quarter", level: "line", role: "amp-in", pair: "b", name: "CH 2 input (1/4\")", short: "CH 2 IN" },
+    { id: "out-a", dir: "out", jack: "quarter", level: "speaker", role: "amp-out", pair: "a", name: "CH 1 speaker output (1/4\")", short: "CH 1 OUT" },
+    { id: "out-b", dir: "out", jack: "quarter", level: "speaker", role: "amp-out", pair: "b", name: "CH 2 speaker output (1/4\")", short: "CH 2 OUT" },
+  ],
+  knobs: [
+    { key: "volA", label: "CH 1 level", pair: "a", unity: 10, start: 8 },
+    { key: "volB", label: "CH 2 level", pair: "b", unity: 10, start: 8 },
+  ],
+  blurb: "Line level in on 1/4\" jacks, speaker level out on 1/4\" jacks, a level knob on each channel.",
+};
+// Salmon's hall mains rack as one box: S32 OUT 15/16 (MAIN L/R) on 1/4"
+// cables into the Mackie Mix5's LINE IN 4/5, its MAIN OUT into the Crown at
+// the bottom of the rack, which drives the hall's installed speakers. Only the
+// two knobs that matter are here: 4/5 LEVEL (turned down when a gig brings
+// its own mains, so the 3.5 mm input for a phone still works) and MAIN MIX.
+DEVICE_TYPES["mix5-rack"] = {
+  name: "Hall mains rack · Mackie Mix5 → Crown",
+  poweramp: true,
+  ports: [
+    { id: "in-a", dir: "in", jack: "quarter", level: "line", role: "amp-in", pair: "a", name: "Mix5 LINE IN 4 (L)", short: "LINE IN 4" },
+    { id: "in-b", dir: "in", jack: "quarter", level: "line", role: "amp-in", pair: "b", name: "Mix5 LINE IN 5 (R)", short: "LINE IN 5" },
+    { id: "out-a", dir: "out", jack: "quarter", level: "speaker", role: "amp-out", pair: "a", name: "Crown CH 1 (hall speaker L)", short: "CROWN 1" },
+    { id: "out-b", dir: "out", jack: "quarter", level: "speaker", role: "amp-out", pair: "b", name: "Crown CH 2 (hall speaker R)", short: "CROWN 2" },
+  ],
+  knobs: [
+    { key: "lvl45", label: "Mix5 4/5 LEVEL", unity: 7.5, start: 7.5 },
+    { key: "main", label: "Mix5 MAIN MIX", unity: 7.5, start: 7.5 },
+  ],
+  where: "S32 OUT 15/16 → Mix5 LINE IN 4/5 → MAIN OUT → Crown → the hall's installed speakers",
+  blurb: "The hall's own mains: the Mix5 in the rack feeds the Crown at its bottom, which drives the installed speakers.",
+};
+// A powered wedge with its own volume knob and an IEC power cable (`iec`:
+// 0 unplugged, 1 plugged in). No power, no sound, however good the signal.
+DEVICE_TYPES["active-wedge"] = {
+  name: "Active wedge (powered)",
+  endpoint: true,
+  amp: "internal",
+  ports: [{ id: "in", dir: "in", jack: "combo", level: "line", name: "INPUT (XLR / 1/4\")" }],
+  knobs: [
+    { key: "vol", label: "VOLUME", unity: 7.5, start: 7.5 },
+    { key: "iec", label: "IEC power cable", select: ["Unplugged", "Plugged in"], start: 1 },
+  ],
+  blurb: "The amp is inside: line level in, its own VOLUME knob, and an IEC power cable to plug in.",
+};
+
+// Hosa's Little Bro sub snake (SH-8XO-25): eight XLR inputs in a box on
+// stage, eight XLR tails 25 ft away. Passive, so phantom power goes through.
+// In Salmon its tails plug into the S32's last eight inputs (IN 25–32).
+const SUB_CH = 8;
+DEVICE_TYPES.subsnake = {
+  name: "Hosa sub snake (8 channels)",
+  stagebox: true,
+  passthrough: true,
+  fanColumn: "box",
+  fanTitle: "Sub snake tails (at the S32)",
+  ports: [
+    ...Array.from({ length: SUB_CH }, (_, i) => ({ id: `in${i + 1}`, dir: "in", jack: "xlr", level: "any", role: "snake-in", end: "stage", through: `tail${i + 1}`, name: `Sub snake MIC IN ${i + 1}` })),
+    ...Array.from({ length: SUB_CH }, (_, i) => ({ id: `tail${i + 1}`, dir: "out", jack: "xlr", level: "any", role: "snake-out", end: "foh", through: `in${i + 1}`, name: `Sub snake tail ${i + 1}` })),
+  ],
+  blurb: "Eight mic lines in one cable: plug in at the box on stage, and tail n comes out at the stage box rack.",
+};
+
 // What a console's input block listens to (rig device `inSource`, per block of
 // 8 channels): 0 LOCAL, 1 AES50-A with the block's own numbers (CH 25-32 ←
 // AES50 A25-32), 2 CARD, 3 + k AES50-A block k (A1-8 … A41-48), for a block
@@ -483,6 +597,17 @@ export function throughLinks(rig) {
   const byTo = new Map(rig.cables.map((c) => [c.to, c]));
   const byFrom = new Map(rig.cables.map((c) => [c.from, c]));
   const mixer = rig.devices.find(isMixer);
+  // A passive snake's tail in a stage box input (a sub snake into the S32):
+  // follow it back to what is plugged in on stage. Null if that end is empty.
+  const upstream = (c) => {
+    for (let hop = 0; c && hop < 4; hop++) {
+      const p = getPort(rig, c.from);
+      if (p?.role !== "snake-out" || !DEVICE_TYPES[p.device.type].passthrough) return c;
+      const back = byTo.get(portRef(p.device.id, p.through));
+      c = back ? { ...c, from: back.from } : null;
+    }
+    return c;
+  };
   for (const d of rig.devices) {
     const type = DEVICE_TYPES[d.type];
     if (!type?.stagebox) continue;
@@ -514,7 +639,7 @@ export function throughLinks(rig) {
     };
     for (const p of type.ports) {
       if (p.role === "sb-in") {
-        const into = byTo.get(portRef(d.id, p.id));
+        const into = upstream(byTo.get(portRef(d.id, p.id)));
         if (!into) continue;
         for (const ch of mixerPorts.filter((q) => q.jack === net.network && remoteOf(q) === offset + p.index)) links.push({ id: `${net.network}-${into.id}-${ch.channel}`, from: into.from, to: portRef(mixer.id, ch.id), cable: into.cable, via: d.id });
       }
@@ -802,7 +927,8 @@ export function analyzeRig(rig, channels = [], sources = {}) {
 
   const buses = {};
   for (const p of mixerPorts.filter((p) => p.role === "bus-out")) {
-    buses[p.id] = endpoints.filter((e) => e.valid && e.output === p.id).map((e) => e.deviceId);
+    // A speaker turned all the way down (a knob at 0) doesn't count as reaching anyone.
+    buses[p.id] = endpoints.filter((e) => e.valid && e.output === p.id && e.gainDb !== -Infinity).map((e) => e.deviceId);
   }
 
   // Aux returns: which jacks are in use (a lone L is normalled to both sides).
@@ -849,6 +975,8 @@ function analyzeChannelInput(rig, cable, ch, sources, port) {
     signal: true,
     status: "ok",
     messages: [],
+    // The source's own button or volume knob (a muted handheld, a guitar amp turned down).
+    trimDb: sourceTrimDb(from.device, source),
   };
   const deviceType = DEVICE_TYPES[from.device.type];
   // Playback over Dante is already audio: no mic, so no phantom power to need.
@@ -929,6 +1057,19 @@ function analyzeCamera(result, device, up) {
   return result;
 }
 
+// The knobs between the mixer and a speaker (an amp's level, a rack mixer's
+// knobs, an active wedge's VOLUME): `gainDb` is what they do to the level
+// (the engine applies it), and a speaker turned right down says which knob.
+function quietIf(result, device, pair) {
+  const knobs = (DEVICE_TYPES[device.type].knobs || []).filter((k) => !k.select && (!k.pair || k.pair === pair));
+  result.gainDb = knobsDb(device, pair);
+  const low = knobs.map((k) => ({ k, db: knobDb(knobPos(device, k), k.unity) })).sort((a, b) => a.db - b.db)[0];
+  if (!low || result.gainDb > -18) return;
+  result.status = "weak";
+  const name = `${device.label || DEVICE_TYPES[device.type].name}: ${low.k.label}`;
+  result.messages.push(result.gainDb === -Infinity ? `Silent: ${name} is all the way down.` : `Very quiet: ${name} is at ${knobPos(device, low.k)} (${Math.round(result.gainDb)} dB).`);
+}
+
 // Walks upstream from a speaker to the mixer output that feeds it.
 function analyzeEndpoint(rig, device, byTo) {
   const type = DEVICE_TYPES[device.type];
@@ -957,6 +1098,14 @@ function analyzeEndpoint(rig, device, byTo) {
   }
   const up = getPort(rig, cable.from);
   result.chain.unshift(cable.from);
+  // A cable that has failed inside (`broken`): every jack on the way is right, and nothing gets through.
+  const broken = (c) => {
+    if (!c?.broken) return false;
+    result.status = "invalid";
+    result.messages.push("Everything on the way is plugged into the right jack, but nothing gets through. What's left is a cable itself.");
+    return true;
+  };
+  if (broken(cable)) return result;
   const warnCable = (c, level) => {
     const def = CABLES[c.cable];
     if (level === "speaker" && def.kind !== "speaker") result.messages.push(`${def.name} carrying speaker level: use real speaker cable (thin shielded wire can overheat).`);
@@ -973,9 +1122,17 @@ function analyzeEndpoint(rig, device, byTo) {
       return result;
     }
     if (up.role === "bus-out") {
+      // Its own IEC power cable and VOLUME knob (CME's active wedge).
+      const power = (type.knobs || []).find((k) => k.key === "iec");
+      if (power && !knobPos(device, power)) {
+        result.status = "no-power";
+        result.messages.push("No power: its IEC cable isn't plugged in. A powered speaker needs mains power for its amp.");
+        return result;
+      }
       result.output = up.id;
       result.valid = true;
       result.status = "ok";
+      if (type.knobs) quietIf(result, device);
       return result;
     }
     result.status = "invalid";
@@ -1007,6 +1164,7 @@ function analyzeEndpoint(rig, device, byTo) {
       result.messages.push(`The amp's Input ${up.pair.toUpperCase()} has nothing plugged in.`);
       return result;
     }
+    if (broken(ampCable)) return result;
     const src = getPort(rig, ampCable.from);
     result.chain.unshift(ampCable.from);
     warnCable(ampCable, src.level);
@@ -1014,6 +1172,8 @@ function analyzeEndpoint(rig, device, byTo) {
       result.output = src.id;
       result.valid = true;
       result.status = "ok";
+      // The amp's level knobs (and a rack's mixer knobs in front of it).
+      if (DEVICE_TYPES[up.device.type].knobs) quietIf(result, up.device, up.pair);
       // A line mixer in front of the amp (BH 109's Ashly) with its MIC button in.
       const sw = DEVICE_TYPES[up.device.type].micSwitch;
       if (sw) {

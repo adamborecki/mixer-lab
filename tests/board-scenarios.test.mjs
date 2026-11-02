@@ -1190,6 +1190,102 @@ Object.assign(WRONG, {
   }]],
 });
 
+// CME in Salmon (js/scenarios.js CME_GIGS): Essentials.
+const CME_VOX = ["cme-red", "cme-orange", "cme-yellow", "cme-green"];
+const cmeMains = (a, cable = "speaker", [l, r] = ["in-a", "in-b"]) => {
+  assert.ok(a.st.connect("s32/out13", `cme-crown/${l}`, "xlr-trs").ok);
+  assert.ok(a.st.connect("s32/out14", `cme-crown/${r}`, "xlr-trs").ok);
+  assert.ok(a.st.connect("cme-crown/out-a", "cme-main-l/in", cable).ok);
+  assert.ok(a.st.connect("cme-crown/out-b", "cme-main-r/in", cable).ok);
+};
+const cmeWedges = (a, { cable = "speaker", power = true } = {}) => {
+  assert.ok(a.st.connect("s32/out9", "cme-km750/in-a", "xlr").ok);
+  assert.ok(a.st.connect("cme-km750/out-a", "cme-w1/in", cable).ok);
+  assert.ok(a.st.connect("s32/out10", "cme-km750/in-b", "xlr").ok);
+  assert.ok(a.st.connect("cme-km750/out-b", "cme-w2/in", cable).ok);
+  assert.ok(a.st.connect("s32/out11", "cme-w3/in", "xlr").ok);
+  if (power) a.st.setDevice("cme-w3", "iec", 1);
+};
+const cmeMusicTest = (a, { listen = true, volume = true } = {}) => {
+  for (const b of ["mix9", "mix10", "mix11"]) {
+    a.sendDb("preshow", b, 0);
+    if (listen) a.st.setListen(b);
+  }
+  if (volume) a.st.setDevice("cme-w3", "vol", 7);
+};
+const cmeVox = (a, buses = ["mix10", "mix11"]) => {
+  for (const b of buses) {
+    a.st.setListen(b);
+    for (const s of CME_VOX) a.sendDb(s, b, -5);
+  }
+};
+const cmeBand = (a, { phantom = true, order = { "cme-nord": 1, "cme-pno-l": 3, "cme-pno-r": 4, "cme-bass": 5, "cme-gtr1": 6 } } = {}) => {
+  for (const [s, n] of Object.entries(order)) assert.ok(a.st.connect(`src-${s}/out`, `cme-hosa/in${n}`, "xlr").ok, s);
+  if (phantom) for (const ch of [26, 27]) a.st.setChannel(ch, "phantom", true);
+};
+Object.assign(SOLVE, {
+  "x32-cme-mains": (a) => cmeMains(a),
+  "x32-cme-house": (a) => a.st.setDevice("cme-house", "lvl45", 0),
+  "x32-cme-wedges": (a) => cmeWedges(a),
+  "x32-cme-wedge-test": (a) => cmeMusicTest(a),
+  "x32-cme-amp-knob": (a) => a.st.setDevice("cme-km750", "volB", 7),
+  "x32-cme-mics": (a) => {
+    a.st.setDevice("src-cme-yellow", "mic", 0);
+    a.st.setDevice("src-cme-green", "mic", 0);
+  },
+  "x32-cme-vox": (a) => cmeVox(a),
+  "x32-cme-band": (a) => cmeBand(a),
+  "x32-cme-gtr": (a) => a.st.setDevice("src-cme-gtr1", "vol", 5),
+  "x32-cme-cable": (a) => {
+    a.unplugAt("cme-w1/in");
+    assert.ok(a.st.connect("cme-km750/out-a", "cme-w1/in", "speaker").ok);
+  },
+  "x32-cme-gains": (a) => {
+    a.set("cme-orange", "gainDb", 30);
+    for (const s of ["cme-pno-l", "cme-pno-r"]) a.set(s, "gainDb", 40);
+    a.set("cme-bass", "gainDb", 32);
+    a.set("cme-gtr1", "gainDb", 36);
+  },
+  "x32-cme-end": (a) => a.st.setDevice("cme-house", "lvl45", 7.5),
+});
+Object.assign(WRONG, {
+  "x32-cme-mains": [["instrument cable to the Yamahas", (a) => cmeMains(a, "ts")], ["left and right swapped at the amp", (a) => cmeMains(a, "speaker", ["in-b", "in-a"])]],
+  "x32-cme-house": [["MAIN MIX down instead", (a) => a.st.setDevice("cme-house", "main", 0)], ["the rack unplugged", (a) => {
+    a.unplugAt("cme-house/in-a");
+    a.unplugAt("cme-house/in-b");
+  }], ["4/5 LEVEL only halfway down", (a) => a.st.setDevice("cme-house", "lvl45", 4)]],
+  "x32-cme-wedges": [["the active wedge left unplugged from power", (a) => cmeWedges(a, { power: false })], ["instrument cable to the passive wedges", (a) => cmeWedges(a, { cable: "ts" })]],
+  "x32-cme-wedge-test": [["fixed without listening", (a) => cmeMusicTest(a, { listen: false })], ["MIX 11 up instead of the wedge's VOLUME", (a) => {
+    cmeMusicTest(a, { volume: false });
+    a.st.setBus("mix11", "level", 1);
+  }], ["the music up in the house too", (a) => {
+    cmeMusicTest(a);
+    a.faderDb("preshow", 0);
+  }]],
+  "x32-cme-amp-knob": [["MIX 10's master up instead", (a) => a.st.setBus("mix10", "level", 1)], ["the singers' MIX 10 sends up instead", (a) => CME_VOX.forEach((s) => a.sendDb(s, "mix10", 10))]],
+  "x32-cme-mics": [["GAIN up instead", (a) => ["cme-yellow", "cme-green"].forEach((s) => a.set(s, "gainDb", 60))], ["only yellow", (a) => a.st.setDevice("src-cme-yellow", "mic", 0)], ["green tapped instead of held", (a) => {
+    a.st.setDevice("src-cme-yellow", "mic", 0);
+    a.st.setDevice("src-cme-green", "mic", 1);
+  }]],
+  "x32-cme-vox": [["only wedge 2", (a) => cmeVox(a, ["mix10"])], ["the masters up instead", (a) => {
+    a.st.setListen("mix10");
+    a.st.setListen("mix11");
+    a.st.setBus("mix10", "level", 1);
+    a.st.setBus("mix11", "level", 1);
+  }]],
+  "x32-cme-band": [["no 48V on the piano mics", (a) => cmeBand(a, { phantom: false })], ["plugged in out of order", (a) => cmeBand(a, { order: { "cme-nord": 2, "cme-pno-l": 3, "cme-pno-r": 4, "cme-bass": 6, "cme-gtr1": 5 } })]],
+  "x32-cme-gtr": [["GAIN all the way up instead", (a) => a.set("cme-gtr1", "gainDb", 60)], ["the amp's MASTER all the way up", (a) => a.st.setDevice("src-cme-gtr1", "vol", 10)]],
+  "x32-cme-cable": [["an instrument cable in its place", (a) => {
+    a.unplugAt("cme-w1/in");
+    assert.ok(a.st.connect("cme-km750/out-a", "cme-w1/in", "ts").ok);
+  }], ["the KM750's CH A level up", (a) => a.st.setDevice("cme-km750", "volA", 10)]],
+  "x32-cme-gains": [["faders instead of GAIN", (a) => {
+    a.nudge("cme-orange", 10);
+    a.nudge("cme-bass", -10);
+  }], ["only the vocals", (a) => a.set("cme-orange", "gainDb", 30)]],
+  "x32-cme-end": [["MAIN MIX up instead", (a) => a.st.setDevice("cme-house", "main", 10)]],
+});
+
 // The generic digital mixer is the X32 Compact's model with no brand on it: the same fixes (and mistakes) apply.
 for (const k of ["doors", "gain", "48v", "lowcut", "lr", "mud", "eq-on", "comp-on", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "new-mix"]) {
   SOLVE[`gdig-${k}`] = SOLVE[`x32c-${k}`];

@@ -173,6 +173,10 @@ const TYPE_ICONS = {
   "power-amp": "power-amp",
   "stagepas-amp": "power-amp",
   nx3000: "power-amp",
+  km750: "power-amp",
+  "crown-amp": "power-amp",
+  "mix5-rack": "power-amp",
+  subsnake: "stage-box",
   "line-passthru": "mixer",
   "bh109-rack": "power-amp",
   "wireless-headset": "mic",
@@ -188,7 +192,7 @@ const TYPE_ICONS = {
 export function deviceIconName(device, type) {
   if (TYPE_ICONS[device.type]) return TYPE_ICONS[device.type];
   if (device.id === "mixer") return "mixer"; // every real mixer (compact ones included)
-  const active = device.type === "powered-speaker" || device.type === "b207-speaker" || type?.amp === "internal";
+  const active = ["powered-speaker", "b207-speaker", "active-wedge"].includes(device.type) || type?.amp === "internal";
   if (device.zone === "stage") return active ? "wedge-active" : "wedge-passive";
   return active ? "pa-speaker-active" : "pa-speaker-passive";
 }

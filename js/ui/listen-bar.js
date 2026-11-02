@@ -197,7 +197,8 @@ export class ListenBar {
       const g = listenGroupOf(state, e.output);
       patched.add(g);
       (patchedEnds[g] ||= []).push(e);
-      if (e.valid) (ends[g] ||= []).push(e);
+      // A speaker turned all the way down (an amp or rack knob at 0) plays nothing.
+      if (e.valid && e.gainDb !== -Infinity) (ends[g] ||= []).push(e);
     }
 
     // The spots follow the mixer (and, on the 1604, the patch): the main mix,
@@ -229,7 +230,7 @@ export class ListenBar {
     this.places = this.placesFor(wanted, ends, patchedEnds, devices, sub, dead);
     const nudge = earsNudge(this.getScenario(), state.listen);
     this.nudgeDest = nudge?.dest || null;
-    const key = JSON.stringify([state.listen, this.nudgeDest, this.places.map((p) => [p.dest, p.x, p.y, p.dead, p.deviceIds]), mix.rig.endpoints.map((e) => [e.deviceId, e.valid])]);
+    const key = JSON.stringify([state.listen, this.nudgeDest, this.places.map((p) => [p.dest, p.x, p.y, p.dead, p.deviceIds]), mix.rig.endpoints.map((e) => [e.deviceId, e.valid, e.gainDb])]);
     if (key !== this.mapKey) {
       this.mapKey = key;
       this.drawMap(state, mix);
