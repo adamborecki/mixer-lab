@@ -132,6 +132,30 @@ describe("Vocal Jazz in Salmon", () => {
     useSong(DEFAULT_SONG);
   });
 
+  it("flags two amp outputs tied together through the wedges' parallel jacks", () => {
+    const { st, ep, cableTo } = gig();
+    st.disconnect(cableTo("vj-w3/in").id);
+    assert.ok(st.connect("vj-w2/link", "vj-w3/link", "speakon").ok);
+    assert.ok(st.connect("nx3000/out-b", "vj-w3/in", "speakon").ok);
+    for (const id of WEDGES) {
+      assert.equal(ep(id).valid, false, id);
+      assert.equal(ep(id).status, "danger", id);
+    }
+    assert.match(ep("vj-w1").messages.join(" "), /can damage the amp/);
+    useSong(DEFAULT_SONG);
+  });
+
+  it("feeds the chain the same whatever order its cables went in", () => {
+    const patch = [["s32/out1", "nx3000/in-a", "xlr"], ["nx3000/out-a", "vj-w1/in", "speakon"], ["vj-w1/link", "vj-w2/in", "speakon"], ["vj-w2/link", "vj-w3/link", "speakon"]];
+    for (const order of [patch, [...patch].reverse(), [patch[3], patch[1], patch[0], patch[2]]]) {
+      const { st, ep } = gig();
+      for (const c of st.state.rig.cables.filter((c) => /^vj-w|^nx3000/.test(c.to) || /^vj-w/.test(c.from))) st.disconnect(c.id);
+      for (const [f, t, c] of order) assert.ok(st.connect(f, t, c).ok);
+      for (const id of WEDGES) assert.equal(ep(id).output, "out1", `${id} after ${order.map((c) => c[1]).join(", ")}`);
+    }
+    useSong(DEFAULT_SONG);
+  });
+
   it("fits a speakON cable into speakON jacks only", () => {
     const wedgeIn = DEVICE_TYPES["passive-wedge"].ports.find((p) => p.id === "in");
     assert.ok(cableFitsPort("speakon", wedgeIn));

@@ -546,30 +546,40 @@ export function throughLinks(rig) {
       }
     }
   }
-  // Parallel jacks (a passive wedge's two speakONs): whatever drives one jack
-  // drives the whole box, and every cable between parallel jacks passes it on,
-  // whichever end was plugged first. Each box reached is fed on its first jack.
+  // Parallel jacks (a passive wedge's two speakONs): every box joined by
+  // cables between parallel jacks is one electrical chain, whichever end was
+  // plugged first. One output driving the chain feeds every box in it (on its
+  // first jack, where analyzeEndpoint looks). Two different outputs on one
+  // chain are tied together, which can damage an amp: every box in it gets a
+  // `conflict` link instead, and plays nothing.
   const parallelOf = (ref) => getPort(rig, ref)?.parallel;
-  if (rig.devices.some((d) => (DEVICE_TYPES[d.type]?.ports || []).some((p) => p.parallel))) {
-    const all = [...rig.cables, ...links];
+  const parDevs = rig.devices.filter((d) => (DEVICE_TYPES[d.type]?.ports || []).some((p) => p.parallel));
+  if (parDevs.length) {
     const firstJack = (id) => portRef(id, DEVICE_TYPES[getDevice(rig, id).type].ports.find((p) => p.parallel).id);
-    const done = new Set();
-    for (const drive of all.filter((c) => parallelOf(c.to) && !parallelOf(c.from))) {
-      const start = splitRef(drive.to).deviceId;
-      if (done.has(start)) continue; // two amps on one chain: the first one wins
-      const queue = [[start, drive.to, drive.cable, null]];
-      while (queue.length) {
-        const [id, at, cable, via] = queue.shift();
-        if (done.has(id)) continue;
-        done.add(id);
-        if (at !== firstJack(id) || via) links.push({ id: `par-${id}`, from: drive.from, to: firstJack(id), cable, via: via || id });
-        for (const c of rig.cables) {
-          for (const [near, far] of [[c.from, c.to], [c.to, c.from]]) {
-            if (splitRef(near).deviceId !== id || !parallelOf(near) || !parallelOf(far)) continue;
-            const next = splitRef(far).deviceId;
-            if (next !== id && !done.has(next)) queue.push([next, far, c.cable, id]);
+    const devOf = (ref) => splitRef(ref).deviceId;
+    // What reaches each jack: the last route wins, as in analyzeRig's byTo.
+    const into = new Map([...rig.cables, ...links].map((c) => [c.to, c]));
+    const between = rig.cables.filter((c) => parallelOf(c.from) && parallelOf(c.to) && devOf(c.from) !== devOf(c.to));
+    const seen = new Set();
+    for (const d of parDevs) {
+      if (seen.has(d.id)) continue;
+      const group = [d.id];
+      seen.add(d.id);
+      for (let i = 0; i < group.length; i++) {
+        for (const c of between) {
+          const [a, b] = [devOf(c.from), devOf(c.to)];
+          const next = a === group[i] ? b : b === group[i] ? a : null;
+          if (next && !seen.has(next)) {
+            seen.add(next);
+            group.push(next);
           }
         }
+      }
+      const drives = [...into.values()].filter((c) => parallelOf(c.to) && !parallelOf(c.from) && group.includes(devOf(c.to)));
+      const sources = [...new Set(drives.map((c) => c.from))];
+      if (!sources.length) continue;
+      for (const id of group) {
+        links.push({ id: `par-${id}`, from: sources[0], to: firstJack(id), cable: drives[0].cable, via: id, ...(sources.length > 1 ? { conflict: sources } : {}) });
       }
     }
   }
@@ -938,6 +948,11 @@ function analyzeEndpoint(rig, device, byTo) {
   const cable = byTo.get(inRef);
   if (!cable) {
     result.messages.push(type.amp === "none" ? "Nothing connected. A passive speaker needs a power amp." : "Nothing connected.");
+    return result;
+  }
+  if (cable.conflict) {
+    result.status = "danger";
+    result.messages.push(`Two amp outputs are tied together through the speakers' parallel jacks (${cable.conflict.map((r) => { const q = getPort(rig, r); return q ? `${q.device.label || q.type.name} · ${q.name}` : r; }).join(" and ")}). That can damage the amp: one amp channel per chain.`);
     return result;
   }
   const up = getPort(rig, cable.from);

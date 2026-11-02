@@ -74,7 +74,7 @@ All levels are peak estimates in dBFS. `AUDIBLE_DB` = -45 (you would hear it at 
 | `sendRaised` | `bus`, `source`, `baseline`, `minDb` | that bus's send dB now minus baseline >= `minDb` (one-sided) |
 | `monitorRaised` | `bus`, `source`, `baseline`, `minDb` | heard dB on that bus now minus baseline >= `minDb`, and now >= -45 |
 | `monitorMixUnchanged` | `bus`, `baseline`, `toleranceDb`, `except?` | every channel's heard contribution to that bus is within +/-`toleranceDb` of baseline; two "off" values match. It measures what reaches a working wedge, so unplugging that wedge's chain also fails it |
-| `mainUnchanged` | `baseline`, `toleranceDb`, `except?` | every channel's Main contribution (max of L/R, including fader, mute, pan and master) is within +/-`toleranceDb` of baseline; two "off" values match |
+| `mainUnchanged` | `baseline`, `toleranceDb`, `except?`, `masterFree?` | every channel's Main contribution (max of L/R, including fader, mute, pan and master) is within +/-`toleranceDb` of baseline; two "off" values match. `masterFree: true` leaves out the MAIN LR master (its fader and MUTE): for wedge checks before the show, where muting the mains to hear only the stage is fair |
 | `masterRaised` | `bus`, `baseline`, `minDb` | that master's dB now minus baseline >= `minDb` |
 | `sendBalanceKept` | `bus`, `baseline`, `toleranceDb` | every send on that bus moved by the same amount: each channel's change is within +/-`toleranceDb` of the median change; a send that was off stays off and one that was on stays on |
 

@@ -468,7 +468,7 @@ class PatchDialog {
     const p = getPort(this.rig, this.ref);
     const dev = p.device.label || DEVICE_TYPES[p.device.type].name;
     return `<div class="pv">
-      <figure class="pv-end pv-from">${jackArt(p.jack, p.dir)}<figcaption><small>${p.dir === "out" ? "From" : "Into"}</small> ${esc(isMixer(p.device) ? "Mixer" : dev)} · ${esc(p.name)}</figcaption></figure>
+      <figure class="pv-end pv-from">${jackArt(p.jack, p.dir)}<figcaption><small>${p.parallel || p.dir === "out" ? "From" : "Into"}</small> ${esc(isMixer(p.device) ? "Mixer" : dev)} · ${esc(p.name)}</figcaption></figure>
       <div class="pv-cable">${this.cableArt(cable)}</div>
       <figure class="pv-end pv-to">${this.targetArt(target)}</figure>
     </div>`;
@@ -489,7 +489,7 @@ class PatchDialog {
   targetArt(ref) {
     if (!ref) return `<div class="pv-unknown" aria-hidden="true">?</div><figcaption><small>To</small> …</figcaption>`;
     const q = getPort(this.rig, ref);
-    return `${jackArt(q.jack, q.dir)}<figcaption><small>${q.dir === "in" ? "To" : "From"}</small> ${esc(portLabel(this.rig, ref))}</figcaption>`;
+    return `${jackArt(q.jack, q.dir)}<figcaption><small>${q.parallel || q.dir === "in" ? "To" : "From"}</small> ${esc(portLabel(this.rig, ref))}</figcaption>`;
   }
 
   showCableArt(cableId) {

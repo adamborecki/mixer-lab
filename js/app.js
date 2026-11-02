@@ -143,7 +143,7 @@ const missionView = new MissionView($("#mission"), {
     if (id === manifest.SONG || !manifest.SONGS[id]) return;
     freeSong = id;
     writePref("mixer-lab-song", id);
-    selectScenario("free-play");
+    selectScenario("free-play", { keepSurface: true }); // another band, the same console as you left it
     toast(`${manifest.SONGS[id].title} (${manifest.SONGS[id].artist}) is on stage`, "");
   },
   onMusicMode: (m) => {
@@ -259,7 +259,10 @@ function resetUndo() {
 // ---------- scenarios ----------
 
 // Builds a scenario on the current console (the skin must already be the right one).
-function selectScenario(id) {
+let switchingConsole = false; // useConsole draws the surface itself, after build()
+// `keepSurface`: leave the console's layer, page and modes as they are (Free
+// play's song picker); otherwise a new scenario or Start over resets them.
+function selectScenario(id, { keepSurface = false } = {}) {
   const available = scenariosFor(hardwareOf(skin));
   const found = available.find((s) => s.id === id) || SCENARIOS_BY_ID["free-play"];
   // The band first: the rig, the gig text and the music all follow the song.
@@ -268,7 +271,7 @@ function selectScenario(id) {
   const def = scenarioFor(found, hardwareOf(skin));
   const state = buildScenarioState(def, M.SOURCES_BY_ID, hardwareOf(skin));
   store.replace(state);
-  mixerView.resetSurface();
+  if (!keepSurface) mixerView.resetSurface({ render: !switchingConsole });
   resetUndo();
   current = { def, baseline: captureBaseline(def, state, M.SOURCES_BY_ID, M.STEMS), session: { listened: new Set([state.listen]) } };
   lastEval = "";
@@ -372,7 +375,12 @@ function useConsole(id, build) {
   if (changed) mixerView.detach();
   skin = SKINS[id];
   booted = true;
-  build();
+  switchingConsole = true;
+  try {
+    build();
+  } finally {
+    switchingConsole = false;
+  }
   mixerView.setSkin(skin);
   renderFlow($("#flow"), skin);
   listenBar.render();

@@ -1858,7 +1858,7 @@ export const CONDITIONS = {
     // mains to hear only the wedges is fair during a wedge check, so the channels'
     // balance into MAIN LR is compared as if the master were where it started.
     const st = c.masterFree && ctx.baseline.__main ? { ...ctx.state, main: ctx.baseline.__main } : null;
-    const now = st ? computeMix(st, ctx.sourcesById, ctx.stems).channels.map((ch) => Math.max(ch.mainDb.L, ch.mainDb.R)) : METRICS.mainDbByChannel(ctx);
+    const now = METRICS.mainDbByChannel(st ? { mix: computeMix(st, ctx.sourcesById, ctx.stems) } : ctx);
     const skip = exceptIndexes(ctx, c.except);
     const moved = now.map((v, i) => !skip.includes(i) && !same(v, base[i], c.toleranceDb));
     return { met: !moved.some(Boolean), moved: moved.map((m, i) => (m ? i : -1)).filter((i) => i >= 0) };
