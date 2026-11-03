@@ -152,7 +152,7 @@ export const GIGS = [
     question: "Can you set up a rock band's gig, start to finish?",
     concept: "The Commercial Music Ensemble on Salmon's full-size X32: wireless handhelds on LOCAL 17-21, the band on a Hosa sub snake into the S32's IN 25-32, three wedges on three mixes (MIX 9-11: two passive wedges on a KM750, one active wedge with its own VOLUME and IEC cable), and CME's own mains on stands downstage of the band, so the mics are behind them, with the hall's speakers turned down at the Mix5 in its mains rack. It opens with the whole rig working, then follows the gig as a crew runs it, one fault at a time: speakers, a music test, mics, the band, levels, a bad cable, and the end of the night.",
     checklist: `${SITE}/cme-gig-checklist/`,
-    ids: ["x32-cme-tour", "x32-cme-mains", "x32-cme-house", "x32-cme-wedges", "x32-cme-wedge-test", "x32-cme-amp-knob", "x32-cme-mics", "x32-cme-vox", "x32-cme-band", "x32-cme-gtr", "x32-cme-cable", "x32-cme-gains", "x32-cme-end"],
+    ids: ["x32-cme-tour", "x32-cme-rack", "x32-cme-mains", "x32-cme-house", "x32-cme-wedges", "x32-cme-wedge-test", "x32-cme-amp-knob", "x32-cme-mics", "x32-cme-vox", "x32-cme-band", "x32-cme-gtr", "x32-cme-cable", "x32-cme-gains", "x32-cme-end"],
   },
   {
     id: "cme-advanced",

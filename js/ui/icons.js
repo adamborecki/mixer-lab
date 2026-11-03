@@ -120,6 +120,10 @@ const ICONS = {
     label: "etherCON plug: a network (RJ45) plug in a locking round shell",
     body: `<circle cx="24" cy="24" r="17"${F}/><path d="M21 7V4h6v3"/><rect x="15" y="17" width="18" height="14" rx="1.5"/><path d="M18 31v-4M21 31v-4M24 31v-4M27 31v-4M30 31v-4" stroke-width="1.2"/><path d="M20 17v-3h8v3" stroke-width="1.6"/>`,
   },
+  bnc: {
+    label: "BNC plug: antenna coax with a bayonet collar (a quarter turn locks it)",
+    body: `<circle cx="24" cy="24" r="12"${F}/><circle cx="24" cy="24" r="6"/><circle cx="24" cy="24" r="1.8"${S}/><path d="M12 24h-6M42 24h-6" stroke-width="1.6"/><path d="M33 15l3-3M15 33l-3 3" stroke-width="1.4"/>`,
+  },
   iec: {
     label: "IEC power cable end (AC power, not a signal cable)",
     body: `<path d="M8 8h32v20l-7 12H15L8 28z"${F}/><rect x="14" y="14" width="5" height="11" rx="1"/><rect x="29" y="14" width="5" height="11" rx="1"/><rect x="21.5" y="26" width="5" height="9" rx="1"/>`,
@@ -134,6 +138,7 @@ const ICONS = {
   "jack-mini": { label: "3.5 mm jack", body: `<circle cx="24" cy="24" r="10"${F}/><circle cx="24" cy="24" r="5"/><circle cx="24" cy="24" r="2"${S}/>` },
   "jack-rca": { label: "RCA jack", body: `<circle cx="24" cy="24" r="14"${F}/><circle cx="24" cy="24" r="9" stroke-dasharray="5 3"/><circle cx="24" cy="24" r="3"${S}/>` },
   "jack-ethercon": { label: "etherCON jack (network)", body: `<circle cx="24" cy="24" r="17"${F}/><rect x="15" y="16" width="18" height="15" rx="1.5"/><rect x="20" y="31" width="8" height="3"${S}/><path d="M18 20h12" stroke-width="1.2"/>` },
+  "jack-bnc": { label: "BNC jack (antenna coax)", body: `<circle cx="24" cy="24" r="13"${F}/><circle cx="24" cy="24" r="7"/><circle cx="24" cy="24" r="2"${S}/><path d="M24 9v-4M24 43v-4" stroke-width="1.6"/>` },
   "jack-pair": { label: 'Left and right 1/4 inch jacks', body: `<circle cx="13" cy="24" r="10"${F}/><circle cx="13" cy="24" r="5"/><circle cx="13" cy="24" r="1.8"${S}/><circle cx="35" cy="24" r="10"${F}/><circle cx="35" cy="24" r="5"/><circle cx="35" cy="24" r="1.8"${S}/>` },
 
   // ---- signal and cable kinds (shape and weight differ, not just colour) ----
@@ -183,6 +188,15 @@ const TYPE_ICONS = {
   "bh109-rack": "power-amp",
   "wireless-headset": "mic",
   "wireless-handheld": "mic",
+  "rf-handheld": "mic",
+  ptu6000: "mixer",
+  ptu7000: "mixer",
+  pas225: "power-amp",
+  pas225x: "power-amp",
+  antenna: "mic",
+  "rack-furman": "iec",
+  "iem-tx": "power-amp",
+  "foh-mac": "laptop",
   "camera-input": "camera",
   "dslr-input": "camera",
   snake: "stage-box",
@@ -202,12 +216,12 @@ export function deviceIconName(device, type) {
 // An XLR plug into an output jack is female; into an input jack it is male.
 export function plugIconName(plugId, intoDir = "in") {
   if (plugId === "xlr") return intoDir === "out" ? "xlr-f" : "xlr-m";
-  return { trs14: "trs14", ts14: "ts14", rca: "rca", trs35: "trs35", dualts14: "ts-pair", ethercon: "ethercon", speakon: "speakon" }[plugId] || null;
+  return { trs14: "trs14", ts14: "ts14", rca: "rca", trs35: "trs35", dualts14: "ts-pair", ethercon: "ethercon", speakon: "speakon", bnc: "bnc" }[plugId] || null;
 }
 
 // A port's jack (the socket on the gear). XLR on an output is male, on an input female.
 export function jackIconName(jackId, dir = "in") {
-  return { xlr: dir === "out" ? "xlr-m" : "xlr-f", combo: "jack-combo", quarter: "jack-quarter", rca: "jack-rca", mini: "jack-mini", linepair: "jack-pair", rcapair: "jack-rca", ethercon: "jack-ethercon", speakon: "speakon" }[jackId] || null;
+  return { xlr: dir === "out" ? "xlr-m" : "xlr-f", combo: "jack-combo", quarter: "jack-quarter", rca: "jack-rca", mini: "jack-mini", linepair: "jack-pair", rcapair: "jack-rca", ethercon: "jack-ethercon", speakon: "speakon", bnc: "jack-bnc" }[jackId] || null;
 }
 
 export const levelIconName = (level) => (level === "speaker" ? "level-speaker" : "level-line");

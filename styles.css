@@ -7031,3 +7031,40 @@ dialog::backdrop {
   font-size: 0.72rem;
   color: #9fb4c8;
 }
+/* Antenna coax (BNC): thin and dark. Radio from a handheld to the antennas: a faint dashed line, no cable. */
+.cable-rf .cable-core {
+  stroke: #6b6f7d;
+  stroke-width: 2.5;
+}
+.cable-radio .cable-core {
+  stroke: rgba(150, 200, 255, 0.35);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 7;
+  fill: none;
+}
+/* A wireless receiver's channels, as its displays show them. */
+.rx-status {
+  list-style: none;
+  margin: 0.4rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.rx-status strong {
+  color: var(--text);
+  margin-right: 0.3rem;
+}
+/* The room's zones: FOH (the booth) tinted apart from the stage and the stage-side racks. */
+.zone-foh .col-band {
+  fill: rgba(110, 170, 255, 0.07);
+  stroke: rgba(110, 170, 255, 0.25);
+  stroke-dasharray: 4 4;
+}
+.zone-foh .col-label {
+  fill: #8fc4ff;
+}
+.zone-side .col-band {
+  fill: rgba(255, 200, 120, 0.035);
+}

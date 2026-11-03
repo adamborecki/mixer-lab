@@ -247,3 +247,71 @@ describe("CME in Salmon: the song", () => {
     assert.ok(!set.sections.find((s) => s.id === "bars-17").plays.includes("piano-l"), "Band in, no keys");
   });
 });
+
+describe("CME in Salmon: the wireless rack at FOH", () => {
+  const VOX = ["cme-red", "cme-orange", "cme-yellow", "cme-green", "cme-blue"];
+
+  it("brings the handhelds in through receiver 3: no cable from the mic, its AF OUT n into LOCAL 16 + n", () => {
+    const { st, ch } = gig();
+    VOX.forEach((s, i) => {
+      assert.equal(ch(s).index, 16 + i, s);
+      assert.equal(ch(s).input.fromPort, `cme-rx3/out${i + 1}`, s);
+      assert.ok(!st.state.rig.cables.some((c) => c.from.startsWith(`src-${s}/`)), `${s} has no cable`);
+    });
+    done();
+  });
+
+  it("goes dark with the Furman off, and comes back with it on", () => {
+    const { st, ch } = gig();
+    st.setDevice("cme-wl-power", "power", 0);
+    for (const s of VOX) assert.equal(ch(s).band, "none", s);
+    assert.equal(ch("cme-nord").band, "good", "the band isn't in the wireless rack");
+    st.setDevice("cme-wl-power", "power", 1);
+    for (const s of VOX) assert.ok(["good", "hot"].includes(ch(s).band), s);
+    done();
+  });
+
+  it("needs radio from the antennas: receiver 3 hangs off the PAS-225X, daisy-chained from the PAS-225", () => {
+    const { st, ch, cableTo } = gig();
+    st.disconnect(cableTo("cme-pas-x/ant-a").id);
+    assert.equal(ch("cme-orange").band, "good", "one antenna is still enough (diversity)");
+    st.disconnect(cableTo("cme-pas-x/ant-b").id);
+    assert.equal(ch("cme-orange").band, "none", "no antenna, no mics on receiver 3");
+    st.setDevice("cme-pas", "power", 0);
+    assert.ok(st.connect("cme-pas/out4a", "cme-pas-x/ant-a", "bnc").ok);
+    assert.equal(ch("cme-orange").band, "none", "the PAS-225 off passes nothing on");
+    st.setDevice("cme-pas", "power", 1);
+    assert.equal(ch("cme-orange").band, "good");
+    done();
+  });
+
+  it("sets each channel's level at the receiver's VOL knob: 9 o'clock is right at 30 dB of gain, all the way up clips", () => {
+    const { st, ch } = gig();
+    assert.equal(st.state.channels[17].gainDb, 30);
+    st.setDevice("cme-rx3", "vol2", 10);
+    assert.equal(ch("cme-orange").band, "clip");
+    st.setDevice("cme-rx3", "vol2", 0);
+    assert.equal(ch("cme-orange").band, "none");
+    done();
+  });
+
+  it("keeps the PTU-7000 on LOCAL 25-28 (unheard while CH 25-32 are on the S32) and the IEMs on XLR OUT 9-12", () => {
+    const { st } = gig();
+    const into = (from) => st.state.rig.cables.find((c) => c.from === from)?.to;
+    for (let n = 1; n <= 4; n++) {
+      assert.equal(into(`cme-rx-lav/out${n}`), `mixer/ch${24 + n}-mic`);
+      assert.equal(into(`mixer/out${8 + n}`), `cme-iem/in${n}`);
+    }
+    assert.equal(into("mixer/card-dante"), "src-preshow/dante", "the X-DANTE card to the FOH Mac mini");
+    done();
+  });
+
+  it("takes antenna coax only between antennas, distribution units and receivers", () => {
+    const { st, cableTo } = gig();
+    st.disconnect(cableTo("cme-rx3/ant-a").id);
+    assert.equal(st.connect("cme-pas-x/out1a", "mixer/ch32-mic", "bnc").ok, false);
+    assert.equal(st.connect("cme-rx2/out1", "cme-rx3/ant-a", "xlr").ok, false);
+    assert.ok(st.connect("cme-pas-x/out1a", "cme-rx3/ant-a", "bnc").ok);
+    done();
+  });
+});

@@ -1086,8 +1086,11 @@ const cmeSource = (id, order, name, shortName, device, deviceType, stem, extra) 
 // The wireless handhelds go left to right across the stage in ring order:
 // red is the mic over the piano, orange the lead singer, yellow and green the
 // backing singers, blue the horn player (who always comes in on a wireless).
-// Receiver channels 17–24 plug into LOCAL 17–24, so they're on CH 17–24.
-const cmeHandheld = (id, n, ring, who, stem, extra) => cmeSource(id, 16 + n, `${who} (${ring})`, ring.toUpperCase(), `Wireless handheld, ${ring} ring, no windscreen (receiver channel ${16 + n})`, "wireless-handheld", stem, { outputDb: -30, ...extra });
+// They're the no-windscreen set, paired with the third PTU-6000 in the
+// wireless rack at FOH (channels 17–24), whose AF OUTs plug into LOCAL 17–24.
+// No cable: by radio to the receiver (`rf-handheld`). `outputDb` is the
+// receiver's AF OUT with its VOL knob at 9 o'clock, as the rack leaves it.
+const cmeHandheld = (id, n, ring, who, stem, extra) => cmeSource(id, 16 + n, `${who} (${ring})`, ring.toUpperCase(), `Wireless handheld, ${ring} ring, no windscreen → receiver 3 CH ${n} (CH ${16 + n})`, "rf-handheld", stem, { outputDb: -30, ...extra });
 const CME_SOURCES = [
   cmeHandheld("cme-red", 1, "red", "Piano vocal mic", "lead-vocals", { note: "A handheld on a boom over the grand piano: some songs the pianist sings lead." }),
   cmeHandheld("cme-orange", 2, "orange", "Lead vocal", "lead-vocals"),
@@ -1122,7 +1125,14 @@ const CME_SOURCES = [
     mixDb: -6,
     note: "Optional: the kit is loud enough in Salmon on its own. The lab has no room sound, so an overhead stands in for it.",
   }),
-  { ...VJ_LAPTOP, note: "The crew's test music, from a laptop at FOH into AUX IN 1/2: through the mains, then each wedge, before anyone plays. A 3.5 mm → dual 1/4\" breakout cable." },
+  {
+    ...VJ_LAPTOP,
+    name: "Test music (Mac mini · SSL 2+)",
+    device: "FOH Mac mini (MUS-BH100-MINI) → SSL 2+",
+    deviceType: "foh-mac",
+    connector: "trs14",
+    note: "The crew's test music, from the FOH Mac mini through its SSL 2+ into AUX IN 1/2 (two 1/4\" TRS cables): through the mains, then each wedge, before anyone plays. The same Mac mini takes the X32's Dante multitrack.",
+  },
 ];
 
 // Virtual sources: the two mics of the stereo room pair. Their sound is built

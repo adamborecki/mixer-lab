@@ -170,7 +170,7 @@ export class StageView {
 
     // Column headings and faint bands.
     for (const c of L.columns) {
-      parts.push(`<g class="col col-${c.id}"><rect class="col-band" x="${c.x - 10}" y="4" width="${c.w + 20}" height="${L.height - 4}" rx="14"/>
+      parts.push(`<g class="col col-${c.id} zone-${c.zone || "stage"}"><rect class="col-band" x="${c.x - 10}" y="4" width="${c.w + 20}" height="${L.height - 4}" rx="14"/>
         <text class="col-label" x="${c.x}" y="22">${esc(c.label.toUpperCase())}</text>${c.sub ? `<text class="col-sub" x="${c.x}" y="36">${esc(c.sub)}</text>` : ""}</g>`);
     }
     // Racks: one frame around each rack's gear (the amp rack, the hall's mains rack).
@@ -184,7 +184,8 @@ export class StageView {
     // A snake's multicore: one thick jacket from the stage box to its fan-out at FOH.
     // A sub snake's tails: thin cables off the end of its multicore, each ending in a plug.
     for (const m of L.links || []) {
-      if (m.kind === "tail") cables.push(`<g class="cable cable-tail fixed"><path class="cable-shadow" d="${cablePath(m.a, m.b)}"/><path class="cable-core" d="${cablePath(m.a, m.b)}"/></g>`);
+      if (m.kind === "rf") cables.push(`<g class="cable cable-radio fixed"><title>Radio: a wireless handheld reaches the antennas at FOH, no cable</title><path class="cable-core" d="${cablePath(m.a, m.b)}"/></g>`);
+      else if (m.kind === "tail") cables.push(`<g class="cable cable-tail fixed"><path class="cable-shadow" d="${cablePath(m.a, m.b)}"/><path class="cable-core" d="${cablePath(m.a, m.b)}"/></g>`);
       else cables.push(`<g class="cable cable-multicore fixed"><title>${esc(m.title || "Multicore: every snake channel and return in one cable, stage ↔ FOH")}</title><path class="cable-shadow" d="${cablePath(m.a, m.b)}"/><path class="cable-core" d="${cablePath(m.a, m.b)}"/></g>`);
     }
 
@@ -197,7 +198,7 @@ export class StageView {
       const hue = cableHue(c.id);
       const st = status.cables.get(c.id) || "ok";
       const d = cablePath(a, b);
-      const kind = def.kind === "speaker" ? "speaker" : def.kind === "network" ? "network" : def.kind === "multicore" ? "multicore" : "signal";
+      const kind = def.kind === "speaker" ? "speaker" : def.kind === "network" ? "network" : def.kind === "multicore" ? "multicore" : def.kind === "rf" ? "rf" : "signal";
       cables.push(`<g class="cable cable-${kind} st-${st}" data-cable="${esc(c.id)}" style="--hue:${hue}">
         <title>${esc(def.name || c.cable)}: ${esc(portLabel(rig, c.from))} → ${esc(portLabel(rig, c.to))}</title>
         <path class="cable-hit" d="${d}"/><path class="cable-shadow" d="${d}"/><path class="cable-core" d="${d}"/>${kind === "speaker" ? `<path class="cable-pair" d="${d}"/>` : ""}<path class="cable-flow" d="${d}"/></g>`);
@@ -281,6 +282,12 @@ export class StageView {
     // Sources: what their channels say.
     const inputs = [...mix.channels.map((c) => c.input), ...Object.values(mix.rig.recorders || {}).flat()].filter((i) => i && i.connected);
     for (const d of rig.devices.filter((x) => DEVICE_TYPES[x.type].source)) {
+      // A radio handheld: by its receiver's channel, which goes silent if the rack, the antennas or the mic are off.
+      if (DEVICE_TYPES[d.type].rf) {
+        const ch = mix.channels.find((c) => c.sourceId === d.sourceId);
+        devices.set(d.id, !ch ? { tone: "warn", text: "! No channel" } : ch.band === "none" ? { tone: "warn", text: "! No audio" } : { tone: "ok", text: `✓ Radio · CH ${ch.index + 1}` });
+        continue;
+      }
       const mine = inputs.filter((i) => i.sourceDeviceId === d.id);
       const worst = mine.find((i) => i.status === "danger") || mine.find((i) => i.status !== "ok");
       // Plugged in (into a snake or stage box) but no channel hears it.

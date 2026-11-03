@@ -787,6 +787,8 @@ export const COMPACT = {
     // AES50 A on the rear panel: a stage box (S32, SD8) on Cat5. ROUTING picks, per
     // block of 8 channels, LOCAL jacks or AES50-A (rig device `inSource`, 0 / 1).
     aes50: true,
+    // Salmon's expansion card (the only full X32 in the lab is Salmon's): an X-DANTE, 32 in / 32 out.
+    card: "x-dante",
     main: { label: "MAIN LR", law: "level" },
     phones: { label: "PHONES", sources: null },
     solo: { mode: "pfl", label: "SOLO" },
@@ -967,6 +969,8 @@ export function compactPorts(def) {
     ports.push(out("main-l", "quarter", `${mainName} L`, { bus: "main", side: "L" }), out("main-r", "quarter", `${mainName} R`, { bus: "main", side: "R" }));
   }
   if (def.aes50) ports.push({ id: "aes50a", dir: "in", jack: "ethercon", level: "line", role: "net", network: "aes50", name: "AES50 A" });
+  // The expansion card's network port: Salmon's X32 has an X-DANTE (32 in / 32 out), sending a multitrack to the FOH Mac mini.
+  if (def.card === "x-dante") ports.push({ id: "card-dante", dir: "out", jack: "ethercon", level: "line", role: "net", network: "dante", name: "CARD · X-DANTE (Dante)", short: "DANTE" });
   if (o.includes("alt")) ports.push(out("alt-l", "quarter", "ALT OUT L", { bus: "alt", side: "L" }), out("alt-r", "quarter", "ALT OUT R", { bus: "alt", side: "R" }));
   if (o.includes("cr")) ports.push(out("cr-l", "quarter", "C-R OUT L", { bus: "cr", side: "L" }), out("cr-r", "quarter", "C-R OUT R", { bus: "cr", side: "R" }));
   for (const b of ["aux1", "aux2", "aux3", "aux4"]) if (o.includes(b)) ports.push(out(b, def.auxOut || "quarter", def.auxOut === "xlr" ? `${def.buses[b].label} OUT (XLR)` : `${def.buses[b].label} SEND`, { bus: b }));

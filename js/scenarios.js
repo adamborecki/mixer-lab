@@ -89,6 +89,21 @@ export const PLAYBACK_DEVICES = {
   // rack power, a Crown inside), its 4/5 LEVEL turned down while CME's mains
   // are up. `rack` groups a rack's gear in the diagram.
   "cme-hosa": { type: "subsnake", label: "Hosa sub snake · by the piano" },
+  // The wireless rack at FOH, top to bottom: the antennas on its outside, the
+  // Furman, three PTU-6000s (CH 1-8, 9-16, 17-24), the PTU-7000 (lav and
+  // headset packs, on LOCAL 25-28), the two antenna distribution units, and
+  // the IEM transmitters in the drawer (on XLR OUT 9-12). Receiver 3 is paired
+  // with CME's handhelds (`pairs`).
+  "cme-ant-a": { type: "antenna", label: "Antenna A · on the wireless rack", rack: "wireless" },
+  "cme-ant-b": { type: "antenna", label: "Antenna B · on the wireless rack", rack: "wireless" },
+  "cme-wl-power": { type: "rack-furman", label: "Furman · wireless rack power", rack: "wireless" },
+  "cme-rx1": { type: "ptu6000", label: "PTU-6000 #1 · CH 1-8 (black windscreens)", rack: "wireless" },
+  "cme-rx2": { type: "ptu6000", label: "PTU-6000 #2 · CH 9-16 (gray windscreens)", rack: "wireless" },
+  "cme-rx3": { type: "ptu6000", label: "PTU-6000 #3 · CH 17-24 (no windscreen)", rack: "wireless", pairs: { out1: "cme-red", out2: "cme-orange", out3: "cme-yellow", out4: "cme-green", out5: "cme-blue" } },
+  "cme-rx-lav": { type: "ptu7000", label: "PTU-7000 · lav and headset packs", rack: "wireless" },
+  "cme-pas": { type: "pas225", label: "PAS-225 · antenna distribution", rack: "wireless" },
+  "cme-pas-x": { type: "pas225x", label: "PAS-225X · antenna distribution (daisy-chained)", rack: "wireless" },
+  "cme-iem": { type: "iem-tx", label: "IEM transmitters · rack drawer", rack: "wireless" },
   // The amp rack (it rolls): an NX3000, two KM750s and a Crown, one above the other.
   "cme-nx3000": { type: "nx3000", label: "NX3000 · amp rack", rack: "amp" },
   "cme-km750": { type: "km750", label: "KM750 #1 · amp rack", rack: "amp" },
@@ -1552,14 +1567,32 @@ const CME_MICS = ["cme-red", "cme-orange", "cme-yellow", "cme-green", "cme-blue"
 export const CME_SNAKE = { "cme-nord": 1, "cme-pno-l": 3, "cme-pno-r": 4, "cme-bass": 5, "cme-gtr1": 6, "cme-gtr2": 7, "cme-oh": 8 };
 const CME_GIGS = {
   x32: {
-    prompt: "The Commercial Music Ensemble (CME) in Salmon Recital Hall, on the hall's full-size X32. Everyone is on one layer, CH 17-32. The wireless handhelds come in on LOCAL 17-21, left to right across the stage: red is the mic over the piano, orange the lead singer, yellow and green the backing singers, blue the horn. The band is on a Hosa sub snake by the piano whose tails fill the S32's IN 25-32: Nord DI on 25, the piano's two pencil condensers on 27-28, bass DI 29, the guitar amps' SM57s 30 and 31, a drum overhead 32. Three wedges, three mixes: MIX 9, 10 and 11 leave on XLR OUT 9-11 and come out of S32 OUT 9-11: wedge 1 (left) and wedge 2 (center) are passive, on a KM750's CH A and B; wedge 3 (right) is active, with its own VOLUME and an IEC power cable. The amp rack also holds an NX3000 and a second KM750. MAIN L/R leave on OUT 13/14 and 15/16: 13/14 into the Crown in the amp rack and the two Yamaha speakers on stands downstage of the band (the open mics are behind them, against feedback), 15/16 into the Mackie Mix5 on top of the hall's mains rack (Console: Mix5), whose 4/5 LEVEL is turned down while CME's own mains are up; the Mix5's MAIN OUT feeds the Crown inside that rack, on cables that stay put. The test music, a laptop at FOH, is on AUX IN 1/2. Persephone's stems stand in for the band.",
-    patch: { ...Object.fromEntries(CME_MICS.map((id, i) => [id, [16 + i, "mic"]])), preshow: [32, "lr"] },
+    prompt: "The Commercial Music Ensemble (CME) in Salmon Recital Hall, on the hall's full-size X32. Everyone is on one layer, CH 17-32. The wireless handhelds (left to right across the stage: red is the mic over the piano, orange the lead singer, yellow and green the backing singers, blue the horn) reach the wireless rack at FOH by radio: two antennas into the PAS-225, daisy-chained to the PAS-225X, feed three PTU-6000 receivers; CME's handhelds are on receiver 3, whose AF OUT 1-5 plug into LOCAL 17-21. The rack's Furman powers it all. The band is on a Hosa sub snake by the piano whose tails fill the S32's IN 25-32: Nord DI on 25, the piano's two pencil condensers on 27-28, bass DI 29, the guitar amps' SM57s 30 and 31, a drum overhead 32. Three wedges, three mixes: MIX 9, 10 and 11 leave on XLR OUT 9-11 and come out of S32 OUT 9-11: wedge 1 (left) and wedge 2 (center) are passive, on a KM750's CH A and B; wedge 3 (right) is active, with its own VOLUME and an IEC power cable. The amp rack also holds an NX3000 and a second KM750. MAIN L/R leave on OUT 13/14 and 15/16: 13/14 into the Crown in the amp rack and the two Yamaha speakers on stands downstage of the band (the open mics are behind them, against feedback), 15/16 into the Mackie Mix5 on top of the hall's mains rack (Console: Mix5), whose 4/5 LEVEL is turned down while CME's own mains are up; the Mix5's MAIN OUT feeds the Crown inside that rack, on cables that stay put. The test music comes from the FOH Mac mini through its SSL 2+ into AUX IN 1/2, and the X32's X-DANTE card sends the multitrack to the same Mac mini. Persephone's stems stand in for the band.",
+    patch: { preshow: [32, "lr"] },
+    // The handhelds by radio to receiver 3, its AF OUT n into LOCAL 16 + n: [receiver, channel, console channel].
+    rxPatch: Object.fromEntries(CME_MICS.map((id, i) => [id, ["cme-rx3", i + 1, 16 + i]])),
     // Sources on a stage box: [box, its input number, the console channel that hears it].
     boxPatch: Object.fromEntries(Object.entries(CME_SNAKE).map(([id, n]) => [id, ["cme-hosa", n, 23 + n]])),
-    cableFor: {},
+    cableFor: { preshow: "pair-trs" },
     inSource: [0, 0, 0, 1],
-    devices: ["s32", "cme-hosa", "cme-nx3000", "cme-km750", "cme-km750-2", "cme-crown", "cme-mix5", "cme-hall-power", "cme-hall-crown", "cme-w1", "cme-w2", "cme-w3", "cme-main-l", "cme-main-r", "cme-hall-l", "cme-hall-r"],
+    devices: ["cme-ant-a", "cme-ant-b", "cme-wl-power", "cme-rx1", "cme-rx2", "cme-rx3", "cme-rx-lav", "cme-pas", "cme-pas-x", "cme-iem", "s32", "cme-hosa", "cme-nx3000", "cme-km750", "cme-km750-2", "cme-crown", "cme-mix5", "cme-hall-power", "cme-hall-crown", "cme-w1", "cme-w2", "cme-w3", "cme-main-l", "cme-main-r", "cme-hall-l", "cme-hall-r"],
     cables: [
+      // The wireless rack: two antennas into the PAS-225; it feeds receivers 1 and 2, the PTU-7000
+      // and, daisy-chained, the PAS-225X, which feeds receiver 3. (Which output feeds which is the lab's assumption.)
+      { from: "cme-ant-a/out", to: "cme-pas/ant-a", cable: "bnc" },
+      { from: "cme-ant-b/out", to: "cme-pas/ant-b", cable: "bnc" },
+      ...[["out1", "cme-rx1"], ["out2", "cme-rx2"], ["out3", "cme-rx-lav"], ["out4", "cme-pas-x"]].flatMap(([o, to]) => ["a", "b"].map((x) => ({ from: `cme-pas/${o}${x}`, to: `${to}/ant-${x}`, cable: "bnc" }))),
+      ...["a", "b"].map((x) => ({ from: `cme-pas-x/out1${x}`, to: `cme-rx3/ant-${x}`, cable: "bnc" })),
+      // Every receiver channel into its LOCAL input (receiver 3's first five come from rxPatch).
+      ...Array.from({ length: 8 }, (_, i) => ({ from: `cme-rx1/out${i + 1}`, to: `mixer/ch${i + 1}-mic`, cable: "xlr" })),
+      ...Array.from({ length: 8 }, (_, i) => ({ from: `cme-rx2/out${i + 1}`, to: `mixer/ch${i + 9}-mic`, cable: "xlr" })),
+      ...[6, 7, 8].map((n) => ({ from: `cme-rx3/out${n}`, to: `mixer/ch${n + 16}-mic`, cable: "xlr" })),
+      // The PTU-7000 is on LOCAL 25-28: with CH 25-32 on the S32 for CME, those packs can't be heard.
+      ...Array.from({ length: 4 }, (_, i) => ({ from: `cme-rx-lav/out${i + 1}`, to: `mixer/ch${i + 25}-mic`, cable: "xlr" })),
+      // The IEM transmitters are on XLR OUT 9-12, the same outputs CME's wedges use.
+      ...Array.from({ length: 4 }, (_, i) => ({ from: `mixer/out${i + 9}`, to: `cme-iem/in${i + 1}`, cable: "xlr" })),
+      // The X32's X-DANTE card to the FOH Mac mini, for the multitrack.
+      { from: "mixer/card-dante", to: "src-preshow/dante", cable: "cat5" },
       { from: "s32/aes50a", to: "mixer/aes50a", cable: "cat5" },
       ...Array.from({ length: 8 }, (_, i) => ({ from: `cme-hosa/tail${i + 1}`, to: `s32/in${25 + i}`, cable: "xlr" })),
       { from: "s32/out9", to: "cme-km750/in-a", cable: "xlr" },
@@ -1649,7 +1682,7 @@ function buildCompactState(model, sourcesById) {
   for (const s of sources) state.rig.devices.push({ id: sourceDeviceId(s.id), type: s.deviceType, sourceId: s.id, label: s.device });
   for (const id of gig.devices) {
     const d = PLAYBACK_DEVICES[id];
-    state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan, ...(d.rack ? { rack: d.rack } : {}), ...(d.inputLevel !== undefined ? { inputLevel: d.inputLevel } : {}) });
+    state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan, ...(d.rack ? { rack: d.rack } : {}), ...(d.pairs ? { pairs: { ...d.pairs } } : {}), ...(d.inputLevel !== undefined ? { inputLevel: d.inputLevel } : {}) });
   }
   if (gig.reverb) state.rig.devices.push(STAGE_GEAR.reverb());
   // The room pair's two mics are sources too (442).
@@ -1659,6 +1692,12 @@ function buildCompactState(model, sourcesById) {
   const addCable = (c) => state.rig.cables.push({ id: `c${++n}`, ...c });
   const tape = def.channels.length;
   for (const s of sources) {
+    // A wireless handheld: its receiver channel's AF OUT into the console (`rxPatch`: [receiver, channel, console channel]).
+    const rx = gig.rxPatch?.[s.id];
+    if (rx) {
+      addCable({ from: `${rx[0]}/out${rx[1]}`, to: `mixer/ch${rx[2] + 1}-mic`, cable: "xlr" });
+      continue;
+    }
     // A source on a stage box input (the console hears it over AES50).
     const box = gig.boxPatch?.[s.id];
     if (box) {
@@ -1685,7 +1724,7 @@ function buildCompactState(model, sourcesById) {
   // Gain-stage and mix what is patched.
   const mix = compactModel(model).computeMix(state, sourcesById, STEMS, (src) => sourcePeakDb(src, STEMS));
   for (const s of sources) {
-    const where = gig.patch[s.id] || (gig.boxPatch?.[s.id] && [gig.boxPatch[s.id][2], "aes"]);
+    const where = gig.patch[s.id] || (gig.boxPatch?.[s.id] && [gig.boxPatch[s.id][2], "aes"]) || (gig.rxPatch?.[s.id] && [gig.rxPatch[s.id][2], "mic"]);
     if (!where || where[0] === "tape") continue;
     const ch = state.channels[where[0]];
     const c = def.channels[where[0]];

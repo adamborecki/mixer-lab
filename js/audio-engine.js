@@ -11,7 +11,7 @@
 // Stem playback and synchronization live in js/transport.js. Switching mixers
 // rebuilds only the mixer graph: the stems keep playing on one timeline.
 
-import { DEVICE_TYPES, analyzeRig, mixerOf, rigLinks, sourceTrimDb } from "./connection-model.js";
+import { DEVICE_TYPES, analyzeRig, mixerOf, rigLinks, sourceTrimDb, wirelessDb } from "./connection-model.js";
 import { dbToGain, listenDestinations, listenGroupOf, modelOf } from "./mixer-state.js";
 import { LoopPlayer } from "./loop-player.js";
 import { VoicePlayer } from "./voice-player.js";
@@ -211,7 +211,8 @@ export class AudioEngine {
     // A source's own button or volume knob (a muted handheld, a guitar amp turned down).
     for (const dev of state.rig.devices) {
       const out = dev.sourceId && this.transport?.outs.get(dev.sourceId);
-      if (out) this.set(out.gain, dbToGain(sourceTrimDb(dev, SOURCES_BY_ID[dev.sourceId])));
+      // A radio handheld also goes through its receiver: the rack's power, the antennas, the channel's VOL.
+      if (out) this.set(out.gain, dbToGain(sourceTrimDb(dev, SOURCES_BY_ID[dev.sourceId]) + (DEVICE_TYPES[dev.type]?.rf ? wirelessDb(state.rig, dev.sourceId) : 0)));
     }
     for (const dev of state.rig.devices) {
       const d = this.devices.get(dev.id);
@@ -254,7 +255,8 @@ export class AudioEngine {
     if (d) return d.rt.outputs[portId] || null;
     const dev = this.store.state.rig.devices.find((x) => x.id === deviceId);
     // A device with several sources (the DAW): each port names its own.
-    const sourceId = dev && (DEVICE_TYPES[dev.type]?.ports.find((p) => p.id === portId)?.sourceId || dev.sourceId);
+    // A wireless receiver's AF OUT plays the handheld paired with that channel (`pairs`).
+    const sourceId = dev && (DEVICE_TYPES[dev.type]?.ports.find((p) => p.id === portId)?.sourceId || dev.sourceId || dev.pairs?.[portId]);
     if (!sourceId) return null;
     const loop = this.loops.get(sourceId);
     return loop ? loop.out : this.transport.outs.get(sourceId) || null;

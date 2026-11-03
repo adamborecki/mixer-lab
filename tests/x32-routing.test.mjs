@@ -31,11 +31,11 @@ describe("X32 ROUTING → BLOCK → INPUT", () => {
 
   it("lets CH 9-16 take Local 1-8: the wireless on LOCAL 1-8 is heard on 9-16 too, and 9-16's own jacks aren't", () => {
     const { st, ch } = cme();
-    // Patch a handheld into LOCAL 1 and another into LOCAL 9.
-    st.disconnect(st.state.rig.cables.find((c) => c.from === "src-cme-red/out").id);
-    st.disconnect(st.state.rig.cables.find((c) => c.from === "src-cme-orange/out").id);
-    assert.ok(st.connect("src-cme-red/out", "mixer/ch1-mic", "xlr").ok);
-    assert.ok(st.connect("src-cme-orange/out", "mixer/ch9-mic", "xlr").ok);
+    // Move receiver 3's channels for red and orange onto LOCAL 1 and LOCAL 9.
+    const pull = (ref) => st.disconnect(st.state.rig.cables.find((c) => c.from === ref || c.to === ref).id);
+    for (const ref of ["cme-rx3/out1", "cme-rx3/out2", "mixer/ch1-mic", "mixer/ch9-mic"]) pull(ref);
+    assert.ok(st.connect("cme-rx3/out1", "mixer/ch1-mic", "xlr").ok);
+    assert.ok(st.connect("cme-rx3/out2", "mixer/ch9-mic", "xlr").ok);
     assert.equal(ch(8).sourceId, "cme-orange");
     st.setDevice("mixer", "inSource.1", 10);
     assert.equal(ch(0).sourceId, "cme-red", "CH 1 still hears LOCAL 1");

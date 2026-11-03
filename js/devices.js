@@ -135,7 +135,7 @@ const KEYS = {
 function gearKey(dev, field) {
   const k = DEVICE_TYPES[dev.type]?.knobs?.find((x) => x.key === field);
   if (k) return k.select ? range(0, k.select.length - 1, 1) : range(0, 10, 0.5);
-  if (field === "mic" && dev.type === "wireless-handheld") return range(0, 2, 1);
+  if (field === "mic" && (dev.type === "wireless-handheld" || dev.type === "rf-handheld")) return range(0, 2, 1);
   if (field === "vol" && dev.sourceId) return range(0, 10, 0.5);
   return null;
 }

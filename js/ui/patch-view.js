@@ -25,6 +25,7 @@ import {
   MIC_STATES,
   knobDb,
   knobPos,
+  receiverChannel,
 } from "../connection-model.js";
 import { modelOf } from "../mixer-state.js";
 import { F8, PAIR, REVERB, TECHNIQUES, cardStats, techniqueOf } from "../devices.js";
@@ -39,7 +40,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 const CABLE_HUES = [195, 145, 45, 330, 265, 20, 170, 290];
 export const cableHue = (id) => CABLE_HUES[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % CABLE_HUES.length];
 
-const LEVEL_SHORT = { mic: "Mic level", instrument: "Instrument level", line: "Line level", speaker: "Speaker level", "mic-or-line": "Mic (XLR) or line (¼″)", any: "Passes whatever is plugged in at the other end" };
+const LEVEL_SHORT = { mic: "Mic level", instrument: "Instrument level", line: "Line level", speaker: "Speaker level", "mic-or-line": "Mic (XLR) or line (¼″)", any: "Passes whatever is plugged in at the other end", rf: "RF (antenna)" };
 
 export function portLabel(rig, ref, { short = false } = {}) {
   const p = getPort(rig, ref);
@@ -151,7 +152,9 @@ export class PatchView {
     const cards = sources.map((d) => {
       const src = SOURCES_BY_ID[d.sourceId];
       const ref = `${d.id}/out`;
-      const chInfo = mix.channels.find((c) => c.input.sourceDeviceId === d.id);
+      // A radio handheld has no cable: its channel is the one its receiver feeds.
+      const rf = DEVICE_TYPES[d.type].rf;
+      const chInfo = mix.channels.find((c) => (rf ? c.sourceId === d.sourceId : c.input.sourceDeviceId === d.id));
       const input = chInfo ? chInfo.input : null;
       const status = !input ? "idle" : input.status === "ok" ? "ok" : input.status === "danger" ? "bad" : "warn";
       const msgs = input ? input.messages : [];
@@ -181,7 +184,7 @@ export class PatchView {
           <span class="status-pill status-${status}">${status === "ok" ? "✓ Signal" : status === "idle" ? "Unpatched" : status === "bad" ? "✕ Danger" : "! Check"}</span>
         </div>
         <div class="tags">${tags}</div>
-        ${this.portButton(ref, "out")}
+        ${rf ? rfLine(rig, d) : this.portButton(ref, "out")}
         ${sourceGearHtml(d, src)}
         ${msgs.map((m) => `<p class="port-msg">${esc(m)}</p>`).join("")}
         ${note ? `<p class="source-note">${esc(note)}</p>` : ""}
@@ -399,13 +402,15 @@ export class PatchView {
       )
       .join("");
 
-    // A small mixer with a console of its own (the hall's Mix5), and a rack's power.
-    const gear = rig.devices.filter((d) => DEVICE_TYPES[d.type].console || DEVICE_TYPES[d.type].decor);
+    // A small mixer with a console of its own (the hall's Mix5), a rack's power, and the wireless rack's gear.
+    const gear = rig.devices.filter((d) => ["console", "decor", "rackPower", "receiver", "rfSplit", "sink"].some((f) => DEVICE_TYPES[d.type][f]) || d.type === "antenna");
     const gearHtml = gear
       .map((d) => {
         const type = DEVICE_TYPES[d.type];
         return this.card(d.id, `<li class="device-card" data-device-card="${esc(d.id)}">
         <div class="device-top"><span class="dev-ico">${icon(deviceIconName(d), { size: 44 })}</span><div class="source-names"><strong>${esc(d.label || type.name)}</strong><span>${esc(type.blurb)}</span></div></div>
+        ${type.receiver ? receiverHtml(rig, d, this.manifest.SOURCES_BY_ID) : ""}
+        ${type.console ? "" : knobsHtml(d)}
         ${listPorts(rig, d).map((p) => this.portButton(p.ref, p.dir)).join("")}
         ${type.console ? `<button type="button" class="btn btn-start" data-open-console="${esc(d.id)}">Open Console: ${esc(type.name.replace(/^Mackie /, ""))}</button>` : ""}
       </li>`);
@@ -475,10 +480,31 @@ function knobsHtml(d) {
     .join("")}</div>`;
 }
 
+// A radio handheld's way in: no cable, its receiver channel at FOH and the input that one plugs into.
+function rfLine(rig, d) {
+  const rx = rig.devices.find((x) => DEVICE_TYPES[x.type].receiver && Object.values(x.pairs || {}).includes(d.sourceId));
+  const port = rx && Object.keys(rx.pairs).find((k) => rx.pairs[k] === d.sourceId);
+  const into = port && rig.cables.find((c) => c.from === `${rx.id}/${port}`);
+  return `<p class="source-note">No cable: by radio to ${rx ? `${esc(rx.label)}, CH ${port.slice(3)}` : "no receiver"}${into ? `, whose AF OUT is in ${esc(into.to.replace("mixer/", "the console's ").replace(/ch(\d+)-mic/, "LOCAL $1"))}` : ""}.</p>`;
+}
+
+// A receiver's channels: which mic each is paired with, and what its display shows.
+function receiverHtml(rig, d, sources) {
+  const rows = Array.from({ length: DEVICE_TYPES[d.type].channels }, (_, i) => {
+    const ch = receiverChannel(rig, d, i + 1);
+    const tx = ch.sourceId && rig.devices.find((x) => x.sourceId === ch.sourceId);
+    const txOn = !!tx && (tx.mic || 0) !== 2;
+    const status = !ch.on ? "off" : !(ch.a || ch.b) ? "no antenna" : !ch.sourceId ? "no mic paired" : !txOn ? "no signal (the mic is off)" : tx.mic ? "signal ✓ · audio — (muted at the mic)" : "signal ✓ · audio ✓";
+    const one = ch.on && ch.sourceId && ch.a !== ch.b ? " · one antenna only" : "";
+    return `<li><strong>CH ${i + 1}</strong> ${esc(ch.sourceId ? sources[ch.sourceId]?.name || ch.sourceId : "—")} · ${status}${one}</li>`;
+  });
+  return `<ul class="rx-status">${rows.join("")}</ul>`;
+}
+
 // What a source's own gear lets you do: a wireless handheld's one button, or
 // the volume knob on the amp or instrument in front of its mic or DI.
 function sourceGearHtml(d, src) {
-  if (d.type === "wireless-handheld") {
+  if (d.type === "wireless-handheld" || d.type === "rf-handheld") {
     const st = d.mic || 0;
     const rx = ["Receiver: signal ✓ · audio ✓", "Receiver: signal ✓ · audio —", "Receiver: no signal"][st];
     return `<div class="dev-settings mic-button" data-device-card="${esc(d.id)}">

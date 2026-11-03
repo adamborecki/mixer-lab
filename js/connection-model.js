@@ -20,6 +20,8 @@ export const SIGNAL_LEVELS = {
   instrument: { id: "instrument", name: "Instrument level", nominalDb: -20, blurb: "Weak, high-impedance. Needs a DI or instrument input." },
   line: { id: "line", name: "Line level", nominalDb: 0, blurb: "Strong. What mixers and powered speakers pass around." },
   speaker: { id: "speaker", name: "Speaker level", nominalDb: 30, blurb: "Amplified power that moves a speaker cone. Never into an input." },
+  // Radio from the antennas, on BNC coax: it only ever goes into a receiver or an antenna distribution unit.
+  rf: { id: "rf", name: "RF (antenna)", nominalDb: -80, blurb: "Radio from an antenna, on coax. Not audio: it goes into a wireless receiver, never a mixer." },
 };
 
 // ---------- connectors ----------
@@ -37,6 +39,8 @@ export const PLUGS = {
   ethercon: { id: "ethercon", name: "etherCON (RJ45)", family: "ethercon" },
   // The twist-lock speaker plug (Neutrik speakON NL4): speaker level only.
   speakon: { id: "speakon", name: "speakON", family: "speakon" },
+  // The bayonet plug on antenna coax: a quarter turn locks it.
+  bnc: { id: "bnc", name: "BNC", family: "bnc" },
 };
 
 export const JACKS = {
@@ -51,6 +55,7 @@ export const JACKS = {
   rcapair: { id: "rcapair", name: "RCA L/R pair", accepts: ["rca"] },
   ethercon: { id: "ethercon", name: "etherCON", accepts: ["ethercon"] },
   speakon: { id: "speakon", name: "speakON", accepts: ["speakon"] },
+  bnc: { id: "bnc", name: "BNC", accepts: ["bnc"] },
 };
 
 export function plugFitsJack(plugId, jackId) {
@@ -77,6 +82,10 @@ export const CABLES = {
   mini: { id: "mini", name: "3.5 mm aux cable", ends: ["trs35", "trs35"], kind: "signal", balanced: false, blurb: "Phone/laptop aux cable." },
   speakon: { id: "speakon", name: "speakON speaker cable", ends: ["speakon", "speakon"], kind: "speaker", balanced: false, blurb: "Heavy speaker cable with twist-lock plugs: push in, twist until it clicks. Speaker level only." },
   cat5: { id: "cat5", name: "Cat5e cable (etherCON)", ends: ["ethercon", "ethercon"], kind: "network", balanced: false, blurb: "Shielded network cable. One of these carries every channel between a digital stage box and the console, both ways." },
+  // Antenna coax (RG-58) with BNC plugs: radio from an antenna to a distribution unit or a receiver.
+  bnc: { id: "bnc", name: "BNC antenna cable (coax)", ends: ["bnc", "bnc"], kind: "rf", balanced: false, blurb: "Antenna coax: carries radio, not audio. A quarter turn locks it." },
+  // Two 1/4" TRS cables taped together: an interface's L/R outs into a stereo input's L/R jacks.
+  "pair-trs": { id: "pair-trs", name: '1/4" TRS pair (L + R)', ends: ["dualts14", "dualts14"], kind: "signal", balanced: true, stereo: true, blurb: "Two balanced 1/4\" cables, left and right: an audio interface's outputs into a stereo line input." },
 };
 
 // The plug on the far end if `plugAtPort` goes into the near port, or null.
@@ -592,6 +601,126 @@ DEVICE_TYPES["active-wedge"] = {
   blurb: "The amp is inside: line level in, its own VOLUME knob, and an IEC power cable to plug in.",
 };
 
+// ---------- the wireless rack at FOH (Salmon) ----------
+
+// Salmon's wireless rack sits at FOH next to the X32 (the salmon repo's device
+// reference and photos; the instructor, 2026-11-03). Top to bottom: a Furman
+// (the rack's power: off, everything in it is dark), three Phenyx Pro
+// PTU-6000 receivers (8 channels each, a VOL knob per channel, set to 9
+// o'clock), a PTU-7000 (4 channels: lav and headset packs), and two PAS-225
+// antenna distribution units. The two antennas are on the outside of the rack
+// and go into the PAS-225; it feeds several receivers and, daisy-chained, the
+// PAS-225X, which feeds the rest. Each receiver needs both antennas (A and B).
+// A receiver channel's XLR AF OUT carries the handheld it's paired with
+// (rig device `pairs`: { out3: sourceId }).
+DEVICE_TYPES["rack-furman"] = {
+  name: "Furman (rack power)",
+  rackPower: true,
+  ports: [],
+  knobs: [{ key: "power", label: "POWER", select: ["Off", "On"], start: 1 }],
+  blurb: "The rack's power switch. Off, and everything in the rack is dark.",
+};
+DEVICE_TYPES.antenna = {
+  name: "Antenna",
+  ports: [{ id: "out", dir: "out", jack: "bnc", level: "rf", name: "BNC (to the antenna distribution)", short: "BNC" }],
+  blurb: "Picks up the handhelds' radio. Its coax goes into the antenna distribution's ANT A or B input.",
+};
+// An antenna distribution unit: ANT A and B in, four pairs of A/B outs (each
+// passes on its own letter), its own POWER button. The output pair count is
+// the lab's assumption (open item: not checked on the unit).
+const pas = (name) => ({
+  name,
+  rfSplit: true,
+  ports: [
+    { id: "ant-a", dir: "in", jack: "bnc", level: "rf", side: "a", name: "ANT A input", short: "ANT A IN" },
+    { id: "ant-b", dir: "in", jack: "bnc", level: "rf", side: "b", name: "ANT B input", short: "ANT B IN" },
+    ...[1, 2, 3, 4].flatMap((n) => ["a", "b"].map((x) => ({ id: `out${n}${x}`, dir: "out", jack: "bnc", level: "rf", side: x, name: `OUT ${n} ${x.toUpperCase()}`, short: `${n}${x.toUpperCase()}` }))),
+  ],
+  knobs: [{ key: "power", label: "POWER", select: ["Off", "On"], start: 1 }],
+  blurb: "Splits two antennas (A and B) to several receivers, and on to the next distribution unit.",
+});
+DEVICE_TYPES.pas225 = pas("Phenyx Pro PAS-225 (antenna distribution)");
+DEVICE_TYPES.pas225x = pas("Phenyx Pro PAS-225X (antenna distribution)");
+// A wireless receiver: ANT A and B in (diversity: one is enough to work, both
+// is right), an XLR AF OUT and a VOL knob per channel (9 o'clock = 2 on the
+// lab's 0–10, the level everything else here is set for).
+const receiver = (name, channels) => ({
+  name,
+  receiver: true,
+  channels,
+  ports: [
+    { id: "ant-a", dir: "in", jack: "bnc", level: "rf", side: "a", name: "ANT A", short: "ANT A" },
+    { id: "ant-b", dir: "in", jack: "bnc", level: "rf", side: "b", name: "ANT B", short: "ANT B" },
+    ...Array.from({ length: channels }, (_, i) => ({ id: `out${i + 1}`, dir: "out", jack: "xlr", level: "line", name: `AF OUT ${i + 1} (CH ${i + 1})`, short: `OUT ${i + 1}` })),
+  ],
+  knobs: Array.from({ length: channels }, (_, i) => ({ key: `vol${i + 1}`, label: `CH ${i + 1} VOL`, unity: 2, start: 2 })),
+  blurb: `${channels} wireless channels. Each channel's XLR AF OUT carries the mic it's paired with; its VOL knob sets how hot.`,
+});
+DEVICE_TYPES.ptu6000 = receiver("Phenyx Pro PTU-6000 (8-channel receiver)", 8);
+DEVICE_TYPES.ptu7000 = receiver("Phenyx Pro PTU-7000 (4-channel receiver: lav and headset packs)", 4);
+// The IEM transmitters (in the rack's drawer): four inputs, not in use (no bodypacks are on).
+DEVICE_TYPES["iem-tx"] = {
+  name: "IEM transmitters",
+  sink: true,
+  ports: [1, 2, 3, 4].map((n) => ({ id: `in${n}`, dir: "in", jack: "combo", level: "line", name: `IEM ${n} input`, short: `IN ${n}` })),
+  blurb: "In-ear monitor transmitters. Not in use: nobody is wearing a bodypack. Whatever the outputs they're plugged into carry would go to them.",
+};
+// A handheld that reaches the console by radio: no cable. What it sends comes
+// out of the receiver channel paired with it.
+DEVICE_TYPES["rf-handheld"] = {
+  name: "Wireless handheld",
+  source: true,
+  rf: true,
+  ports: [],
+  blurb: "A handheld with its transmitter in the handle. No cable: it reaches its receiver channel at FOH by radio.",
+};
+// The FOH Mac mini (MUS-BH100-MINI) with its SSL 2+ interface: test music out
+// of the SSL 2+'s 1/4" outs, and Ethernet for Dante (the X32's X-DANTE card).
+DEVICE_TYPES["foh-mac"] = {
+  name: "Mac mini + SSL 2+ (FOH)",
+  source: true,
+  foh: true, // drawn at FOH, under the console, not on stage
+  stereo: true,
+  ports: [
+    { id: "out", dir: "out", jack: "linepair", level: "line", stereo: true, name: 'SSL 2+ OUT L/R (1/4")', short: "SSL OUT" },
+    { id: "dante", dir: "in", jack: "ethercon", level: "line", role: "net", network: "dante", name: "Ethernet (Dante)", short: "DANTE" },
+  ],
+  blurb: "The FOH computer: test music through its SSL 2+, and the Dante multitrack from the X32's card into Logic.",
+};
+
+// Is this device switched on? Its own POWER (if it has one), and its rack's Furman.
+export function powered(rig, d) {
+  const own = DEVICE_TYPES[d.type]?.knobs?.find((k) => k.key === "power");
+  if (own && !knobPos(d, own)) return false;
+  const strip = d.rack && rig.devices.find((x) => x.rack === d.rack && DEVICE_TYPES[x.type]?.rackPower);
+  return !strip || strip === d || !!knobPos(strip, DEVICE_TYPES[strip.type].knobs[0]);
+}
+// Does radio reach this antenna input? Back along the coax: an antenna, or a
+// powered distribution unit whose own input of the same letter has radio.
+export function rfAt(rig, ref, depth = 0) {
+  const c = rig.cables.find((x) => x.to === ref);
+  const p = c && !c.broken && depth < 5 && getPort(rig, c.from);
+  if (!p) return false;
+  if (p.device.type === "antenna") return true;
+  return !!DEVICE_TYPES[p.device.type].rfSplit && powered(rig, p.device) && rfAt(rig, portRef(p.device.id, `ant-${p.side}`), depth + 1);
+}
+// One receiver channel: on, radio on A and B, the paired mic, and what its VOL knob does.
+export function receiverChannel(rig, rx, n) {
+  const on = powered(rig, rx);
+  const a = on && rfAt(rig, portRef(rx.id, "ant-a"));
+  const b = on && rfAt(rig, portRef(rx.id, "ant-b"));
+  const k = DEVICE_TYPES[rx.type].knobs.find((x) => x.key === `vol${n}`);
+  return { on, a, b, sourceId: rx.pairs?.[`out${n}`] || null, db: on && (a || b) ? knobDb(knobPos(rx, k), k.unity) : -Infinity };
+}
+// What the wireless path does to a handheld: its receiver channel's, or silence with no receiver.
+export function wirelessDb(rig, sourceId) {
+  for (const d of rig.devices) {
+    const port = DEVICE_TYPES[d.type]?.receiver && Object.keys(d.pairs || {}).find((k) => d.pairs[k] === sourceId);
+    if (port) return receiverChannel(rig, d, Number(port.slice(3))).db;
+  }
+  return -Infinity;
+}
+
 // Hosa's Little Bro sub snake (SH-8XO-25): eight XLR inputs in a box on
 // stage, eight XLR tails 25 ft away. Passive, so phantom power goes through.
 // In Salmon its tails plug into the S32's last eight inputs (IN 25–32).
@@ -934,6 +1063,9 @@ export function checkConnection(rig, fromRef, toRef, cableId) {
     if (sibling) return { ok: false, reason: `${sibling.name} is already in use. Use one input per channel.` };
   }
 
+  if ((from.level === "rf") !== (to.level === "rf")) {
+    return { ok: false, reason: "Antenna coax carries radio, not audio: it goes from an antenna to a distribution unit or a receiver, and nowhere else." };
+  }
   if (isMixer(from.device) && isMixer(to.device)) {
     return { ok: false, reason: "Patching the mixer into itself makes a feedback loop." };
   }
@@ -958,8 +1090,8 @@ export function checkConnection(rig, fromRef, toRef, cableId) {
   if (from.type.source && !isMixer(to.device) && to.role !== "rec-in" && !throughStage) {
     return { ok: false, reason: "In this lab, sources plug into the mixer (or a recorder, or a stage box) first." };
   }
-  if (to.role === "channel-input" && !from.type.source && from.role !== "snake-out") {
-    return { ok: false, reason: "Only sources go into the mixer's channel inputs here (straight, or through a snake)." };
+  if (to.role === "channel-input" && !from.type.source && !from.type.receiver && from.role !== "snake-out") {
+    return { ok: false, reason: "Only sources (or a wireless receiver's outputs) go into the mixer's channel inputs here (straight, or through a snake)." };
   }
   if (to.role === "return-in" && from.role !== "proc-out") {
     return { ok: false, reason: "The aux returns take an effects unit's outputs." };
@@ -1069,8 +1201,11 @@ function analyzeChannelInput(rig, cable, ch, sources, port) {
   const from = getPort(rig, cable.from);
   const plug = cable.plug || plugAtInput(rig, cable);
   const path = port.path || (plug === "xlr" ? "mic" : "line");
-  const sourceId = from.sourceId || from.device.sourceId || null;
+  // A receiver channel carries the handheld paired with it.
+  const rxChannel = from.type.receiver ? receiverChannel(rig, from.device, Number(from.id.slice(3))) : null;
+  const sourceId = from.sourceId || from.device.sourceId || rxChannel?.sourceId || null;
   const source = sources[sourceId] || null;
+  const txDevice = rxChannel ? rig.devices.find((d) => d.sourceId === sourceId) : from.device;
   const info = {
     connected: true,
     sourceDeviceId: from.device.id,
@@ -1090,7 +1225,7 @@ function analyzeChannelInput(rig, cable, ch, sources, port) {
     status: "ok",
     messages: [],
     // The source's own button or volume knob (a muted handheld, a guitar amp turned down).
-    trimDb: sourceTrimDb(from.device, source),
+    trimDb: sourceTrimDb(txDevice, source) + (rxChannel ? rxChannel.db : 0),
   };
   const deviceType = DEVICE_TYPES[from.device.type];
   // Playback over Dante is already audio: no mic, so no phantom power to need.
@@ -1111,7 +1246,8 @@ function analyzeChannelInput(rig, cable, ch, sources, port) {
     info.status = "no-phantom";
     info.messages.push("Condenser mic, no +48 V: it's plugged in but silent. Turn on phantom power.");
   }
-  if (from.level === "line" && path === "mic" && !from.type.source) {
+  // A receiver's AF OUT is line level, turned down at its VOL knob (9 o'clock): fine into a mic preamp.
+  if (from.level === "line" && path === "mic" && !from.type.source && !from.type.receiver) {
     if (info.status === "ok") info.status = "hot";
     info.messages.push("Line level into a mic preamp: far too hot, even with the gain all the way down. Use a 1/4\" cable into the line input.");
   }

@@ -510,7 +510,7 @@ export function routingScreen(view, def, ui, rerender) {
   ui.rtab ||= "input";
   ui.rcur ||= {};
   const box = el("div", "x32-rscreen");
-  box.appendChild(connectedBar(view));
+  box.appendChild(connectedBar(view, def));
   const tabs = ui.rmode === "block" ? BLOCK_TABS : PATCH_TABS;
   const bar = el("div", "x32-rtabs");
   bar.setAttribute("role", "tablist");
@@ -541,12 +541,12 @@ export function routingScreen(view, def, ui, rerender) {
 }
 
 // Along the top of the screen: what's on AES50 A and B, and the card.
-function connectedBar(view) {
+function connectedBar(view, def) {
   const line = el("p", "x32-rconnected");
   view.bindings.push({ kind: "fn", run: (s) => {
     const mixer = mixerOfState(s);
     const onA = s.rig.devices.find((d) => DEVICE_TYPES[d.type]?.network === "aes50" && aesOffset(s.rig, d, mixer) === 0);
-    const text = `CONNECTED DEVICES · A: ${onA ? DEVICE_TYPES[onA.type].name.replace(/^Behringer /, "") : "NO DEVICE"} · B: NO DEVICE · C: USB card`;
+    const text = `CONNECTED DEVICES · A: ${onA ? DEVICE_TYPES[onA.type].name.replace(/^Behringer /, "") : "NO DEVICE"} · B: NO DEVICE · C: ${def.card === "x-dante" ? "Dante (X-DANTE)" : "USB card"}`;
     if (line.textContent !== text) line.textContent = text;
   } });
   return line;
@@ -635,7 +635,7 @@ function inputBlocks(view, def, ui) {
     current: (s, c) => (c < blocks ? String(mixerOfState(s).inSource?.[c] ?? 0) : "auxins"),
     connect: (c, id) => c < blocks && store.setDevice("mixer", `inSource.${c}`, Number(id)),
   });
-  page.appendChild(el("p", "x32-rhelp", "Each block of 8 channels listens to one block of 8 inputs: the rear panel's LOCAL jacks, a stage box on AES50 A (its input n arrives as AES50 A n; a box chained off the first box's AES50 B comes after it, so an SD8 behind an S32 is AES50 A33-40), AES50 B, or the card. Nothing is connected to AES50 B here, and the lab's USB card plays nothing: those blocks go silent."));
+  page.appendChild(el("p", "x32-rhelp", "Each block of 8 channels listens to one block of 8 inputs: the rear panel's LOCAL jacks, a stage box on AES50 A (its input n arrives as AES50 A n; a box chained off the first box's AES50 B comes after it, so an SD8 behind an S32 is AES50 A33-40), AES50 B, or the card. Nothing is connected to AES50 B here, and nothing plays back into the lab's card: those blocks go silent."));
   return page;
 }
 
@@ -672,7 +672,7 @@ function cardBlocks(view, def, ui) {
     current: (s, c) => (mixerOfState(s).cardOut || CARD_OUT_START)[c],
     connect: (c, id) => store.setDevice("mixer", `cardOut.${c}`, id),
   });
-  page.appendChild(el("p", "x32-rhelp", "CONNECTED DEVICE: the lab's X32 has a USB card; Salmon's has an X-DANTE (32 in / 32 out Dante card). Local 1-8 … 25-32 on the card's outputs are direct outs of the inputs, for a multitrack recording: card out 1 is input 1. The lab stores this page but records nothing yet."));
+  page.appendChild(el("p", "x32-rhelp", def.card === "x-dante" ? "CONNECTED DEVICE: X-DANTE, 32 in / 32 out Dante card. Its Dante port goes to the FOH Mac mini (MUS-BH100-MINI), which records the multitrack in Logic through Dante Virtual Soundcard. Local 1-8 … 25-32 on the card's outputs are direct outs of the inputs: card out 1 is input 1. The lab stores this page but records nothing yet." : "CONNECTED DEVICE: a USB card. Local 1-8 … 25-32 on the card's outputs are direct outs of the inputs, for a multitrack recording: card out 1 is input 1. The lab stores this page but records nothing yet."));
   return page;
 }
 
