@@ -4,9 +4,11 @@
 // ({ id, type, label, ...settings }) and change through MixerStore.setDevice.
 // Pure JS: the audio side is js/outboard-audio.js. See docs/CR1604.md.
 
-import { DEVICE_TYPES } from "./connection-model.js";
+import { BLOCK_SOURCE_BY_ID, DEVICE_TYPES, IN_SOURCE_VALUES } from "./connection-model.js";
 
 const bool = (v) => !!v;
+// One of a fixed list (a number from a <select> arrives as a string, and is matched as a number).
+const oneOf = (list) => (v) => list.find((x) => x === v || (typeof x === "number" && x === Number(v)));
 const range = (lo, hi, step) => (v) => {
   const n = Math.min(hi, Math.max(lo, Number(v)));
   return Number.isFinite(n) ? (step ? Math.round(n / step) * step : n) : undefined;
@@ -109,8 +111,10 @@ const KEYS = {
   sd442: { outLevel: range(0, 2, 1) }, // the 442's XLR OUTPUT LEVEL: 0 = MIC, 1 = −10, 2 = LINE
   f8n: { mainLevel: range(0, 1, 1), subLevel: range(0, 1, 1) },
   l20: Object.fromEntries(["A", "B", "C", "D", "E", "F"].map((x) => [`phones${x}`, range(0, 1, 1)])), // MONITOR OUT PHONES/SPEAKER switches (0 = SPEAKER)
-  x32: { inSource: range(0, 8, 1) }, // ROUTING inputs, per block of 8: 0 = LOCAL, 1 = AES50-A (same numbers), 2 = CARD (the USB card), 3 + k = AES50-A block k (connection-model aesBlockOf)
-  x32c: { inSource: range(0, 8, 1) },
+  // ROUTING → BLOCK: INPUT per block of 8 channels (connection-model inSourceName for the values),
+  // and what each block of 8 AES50-A and card outputs carries (BLOCK_SOURCES ids).
+  x32: { inSource: oneOf(IN_SOURCE_VALUES), aesOut: oneOf(Object.keys(BLOCK_SOURCE_BY_ID)), cardOut: oneOf(Object.keys(BLOCK_SOURCE_BY_ID)) },
+  x32c: { inSource: oneOf(IN_SOURCE_VALUES), aesOut: oneOf(Object.keys(BLOCK_SOURCE_BY_ID)), cardOut: oneOf(Object.keys(BLOCK_SOURCE_BY_ID)) },
   sd8: { outBank: range(0, 2, 1) }, // the SD8's OUTPUT switch: 0 = 1-8, 1 = 9-16, 2 = 17-24
   cl3: { danteRx: range(0, 16, 1), inPatch: range(0, 1, 1) }, // Dante Controller subscriptions (0 = none); INPUT PATCH 0 = Rio, 1 = Dante
   "daw-dvs": { outs: range(0, 16, 1) }, // each DAW track's output: DVS channel 1–16 (0 = none) // Output Level: MAIN OUT 0 = LINE, 1 = NORMAL; SUB OUT 0 = NORMAL, 1 = MIC

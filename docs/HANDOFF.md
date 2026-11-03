@@ -144,6 +144,16 @@ Moved from the topics into Chapman gigs (it was "Gig: COB in Irvine", theme `cob
 
 Chapman's only Xenyx is the QX1204USB (BH 109's karaoke rig), so the lab's `x1204usb` model became one on 2026-10-22, keeping its id so saved progress and links still work. From photos of the board: 2-TRACK IN/OUT and USB/2-TR TO MAIN (was CD/TAPE), the meter as printed (−20 … +10, CLIP), a slot on CH 1-2 for a Behringer digital wireless receiver (not modelled), and Klark Teknik effects with 32 presets in the groups printed on the panel (01-04 REVERB A large halls, 05-08 REVERB B small rooms, 09-15 REVERB C special reverbs, 16-19 DELAY/AMBIENCE, 20-23 MODULATION, 24-26 DETUNE/PITCH, 27-29 COMBINATION FX, 30-32 SPECIAL FX). Only the groups are from the board: each preset is named by its group and number, and its sound is a stand-in. `x1204usb-slapback` now asks for 16, DELAY/AMBIENCE 1.
 
+### The X32's ROUTING screen
+
+The main display's ROUTING page is laid out as the X32's own (firmware 4, from photos of Salmon's console, 2026-10-20 and 2026-11): a **BLOCK** row (INPUT · AES A · AES B · CARD · XLR), a **PATCH POINTS** button to the **PATCH** row (OUT · AUX · P16 · USER), and the connected devices along the top. It takes the whole width of the desk while it's open (`x32-display-wide`). Each block is a column listing what it can take, in the console's order: the filled item is connected; tapping another puts the yellow cursor on it, and **CONNECT** under the column applies it (OUT: pick an output, CATEGORY and OUT SIGNAL, then **ASSIGN**). Items the lab doesn't build are listed, dimmed, and CONNECT says so instead of pretending.
+
+- **INPUT** (`inSource`): any LOCAL block on any channel block (`10 + k`, a `remap` link from those jacks in `throughLinks`; the block's own jacks then aren't heard), any AES50 A block, AES50 B (`20 + k`) and the card (`2`, `30 + k`), both silent (nothing on AES50 B; the USB card plays nothing). `IN_SOURCE_VALUES`, `localBlockOf`, `inSourceName`. AUX IN lists the console's choices; only Aux Ins is built.
+- **AES A** (`aesOut`, `BLOCK_SOURCES`): what each block of 8 AES50 A output channels carries, so a stage box's outputs. Output 1-8 and Output 9-16 are built; anything else leaves that block silent. Starts as Salmon's (`AES_OUT_START`: Output 1-8, 9-16, 1-8, 9-16, P16 1-8, P16 9-16).
+- **CARD** (`cardOut`): stored, starts as Salmon's Local 1-8 … 25-32; the lab's card records nothing yet. **AES B**, **XLR**, **AUX**, **P16**, **USER** say what they do on the console and that they aren't built.
+- **OUT**: `state.routing` as before (the X32 Compact's outputs are fixed in the lab, and its OUT page says so). TAP is shown, fixed at Post Fader.
+- **Tests:** `tests/x32-routing.test.mjs`.
+
 ### CME in Salmon
 
 Twelve full-X32 scenarios (`x32-cme-*`, the `CMES` list in `js/board-scenarios.js`) from MUS 248's CME Gig Checklist: the Commercial Music Ensemble's dress rehearsal (2026-11) and the instructor's notes and photos. Listed as **CME in Salmon: Essentials**; **CME in Salmon: Advanced** is a `soon: true` gig with no scenarios yet (planned: more inputs than the sub snake, so CH 9-16 on AES50 A9-16; the pianist singing lead on the red mic; an instrument cable on a wedge; a powered wedge on an amp's speaker output; the Mix5's 1/4" cables gone; faults stacked together).

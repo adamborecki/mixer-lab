@@ -3128,7 +3128,7 @@ const X32F = [
       { id: "chain", kind: "goal", type: "validChain", output: "main", zone: "foh", label: "The house speakers are fed by MAIN" },
       { id: "wedge", kind: "keep", type: "monitorMixUnchanged", bus: "mix1", baseline: "singer", toleranceDb: 1, label: "The singer's wedge keeps working" },
     ],
-    hints: ["The mix is fine and the speakers are plugged into XLR OUT 15 and 16. What do those outputs carry?", "On the X32 each XLR OUT carries whatever ROUTING says (main display, ROUTING page).", "Set XLR OUT 15 to MAIN L and 16 to MAIN R."],
+    hints: ["The mix is fine and the speakers are plugged into XLR OUT 15 and 16. What do those outputs carry?", "On the X32 each output carries what it's assigned: main display → ROUTING → PATCH POINTS → OUT.", "On PATCH POINTS → OUT, select Output 15, CATEGORY Main (LRC), OUT SIGNAL Main L, and press ASSIGN. Then Output 16 with Main R."],
     complete: "A digital desk's jacks carry nothing until they're routed. When the mix meters fine but a speaker is silent, check ROUTING.",
   },
   {
@@ -3151,7 +3151,7 @@ const X32F = [
       { id: "listen", kind: "goal", type: "listenedTo", dest: "mix1", label: "You listened to it" },
       { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
     ],
-    hints: ["The wedge's mix is MIX 1. Which output carries MIX 1, and which output is the wedge on now?", "Open ROUTING on the main display.", "Set XLR OUT 9 to MIX 1."],
+    hints: ["The wedge's mix is MIX 1. Which output carries MIX 1, and which output is the wedge on now?", "Main display → ROUTING → PATCH POINTS → OUT: what does Output 9 carry?", "Select Output 9, CATEGORY Mix Bus, OUT SIGNAL MixBus 1, and press ASSIGN."],
     complete: "Moving a cable on a digital desk means moving the routing with it. The mix itself didn't change at all.",
   },
   {
@@ -4034,7 +4034,7 @@ const BOXES = {
         goal("band", "All seven band channels are in the house", bandInHouse),
         keep("room", "The room pair (local inputs 17 and 18) stays on", (ctx) => house(ctx, "room-l") >= AUDIBLE),
       ],
-      hints: [STAGE_BOX_HINT + " The cables are all fine.", "The console still listens to its own rear-panel jacks (LOCAL). Which page chooses where inputs come from?", "Main display → ROUTING: set CH 1-8 to AES50 A1-8. Leave 17–24 on Local: the room pair is plugged in at FOH."],
+      hints: [STAGE_BOX_HINT + " The cables are all fine.", "The console still listens to its own rear-panel jacks (LOCAL). Which page chooses where inputs come from?", "Main display → ROUTING → INPUT: in the 1-8 column pick AES50 A1-8 and press CONNECT under it. Leave 17-24 on Local: the room pair is plugged in at FOH."],
       complete: "A digital stage box puts the preamps on stage and replaces 32 mic lines with one network cable. The console still has to be told to listen to it: input routing, per block of 8.",
     },
     {
@@ -4071,7 +4071,7 @@ const BOXES = {
         { id: "chain", kind: "goal", type: "validChain", output: "mix2", device: "pwedge", label: "The drummer's wedge is fed by MIX 2" },
         { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house mix stays the same" },
       ],
-      hints: ["S32 OUT n carries whatever the console's XLR OUT n carries.", "The amp is in S32 OUT 3. ROUTING says what OUT 3 carries: MIX 3, an empty mix. The drummer's mix is MIX 2.", "Move the amp's cable to S32 OUT 2, or set ROUTING OUT 3 to MIX 2."],
+      hints: ["S32 OUT n carries whatever the console's XLR OUT n carries.", "The amp is in S32 OUT 3. ROUTING says what OUT 3 carries: MIX 3, an empty mix. The drummer's mix is MIX 2.", "Move the amp's cable to S32 OUT 2, or on ROUTING → PATCH POINTS → OUT assign Output 3 to MixBus 2."],
       complete: "A stage box's outputs are the console's outputs, moved to the stage: the wedges plug in next to the performers, and the routing still decides what each one carries.",
     },
   ],
@@ -4089,7 +4089,7 @@ const BOXES = {
         goal("band", "All seven band channels are in the house", bandInHouse),
         goal("wedge", "The singer hears the vocal in the wedge", (ctx) => wedge(ctx, "mix1", "lead-vocal") >= AUDIBLE),
       ],
-      hints: [STAGE_BOX_HINT, "The SD8's OUT 1 already works (it carries the console's first XLR OUT, MIX 1). It's the inputs the console isn't listening to.", "Main display → ROUTING: set CH 1-8 to AES50 A1-8."],
+      hints: [STAGE_BOX_HINT, "The SD8's OUT 1 already works (it carries the console's first XLR OUT, MIX 1). It's the inputs the console isn't listening to.", "Main display → ROUTING → INPUT: in the 1-8 column pick AES50 A1-8 and press CONNECT under it."],
       complete: "Eight inputs and eight outputs on one Cat5 cable. Input routing decides which channels listen to the stage box; the SD8's outputs follow the console's own XLR outs.",
     },
   ],
@@ -4168,7 +4168,7 @@ const COB = [
       goal("routing", "ROUTING: CH 1-8 and CH 9-16 come from LOCAL", (ctx) => mixerDev(ctx).inSource.every((v) => v === 0)),
       goal("cast", "All eleven headsets are in the house", castInHouse),
     ],
-    hints: ["The receivers light up, so the packs work. Is the console listening to the jacks the receivers plug into?", "The main display's ROUTING page decides where each block of 8 channels listens: LOCAL (the rear-panel jacks), AES50-A (a stage box) or CARD (USB from a computer).", "ROUTING: set CH 1-8 and CH 9-16 to LOCAL."],
+    hints: ["The receivers light up, so the packs work. Is the console listening to the jacks the receivers plug into?", "The main display's ROUTING → INPUT page decides where each block of 8 channels listens: LOCAL (the rear-panel jacks), AES50-A (a stage box) or CARD (USB from a computer).", "ROUTING → INPUT: pick Local 1-8 in the 1-8 column and Local 9-16 in the 9-16 column, pressing CONNECT under each."],
     complete: "CARD is the USB card: a computer playing a recording back in. The receivers plug into the console's own jacks, so the inputs listen to LOCAL. AES50-A wouldn't help either: at COB the SD8 only carries outputs. Check ROUTING first on any X32 that's been somewhere else.",
   },
   {
@@ -4424,7 +4424,7 @@ const VJS = [
       goal("singers", "All eleven mics are in the house and the wedges", (ctx) => singersInHouse(ctx) && singersInWedges(ctx)),
       keep("sb", "CH 25-32 stay on AES50-A (the stage box)", (ctx) => mixerDev(ctx).inSource[3] === 1),
     ],
-    hints: ["The receivers show signal, so the mics work. Where do the receivers plug in, and is the console listening there?", "The receivers plug into the X32's own rear panel: LOCAL. The ROUTING page says where each block of 8 channels listens.", "Main display → ROUTING → INPUT: set 1-8 to Local 1-8, 9-16 to Local 9-16 and 17-24 to Local 17-24. Leave 25-32 on AES50 A25-32."],
+    hints: ["The receivers show signal, so the mics work. Where do the receivers plug in, and is the console listening there?", "The receivers plug into the X32's own rear panel: LOCAL. The ROUTING page says where each block of 8 channels listens.", "Main display → ROUTING → INPUT: in each column pick its Local block (1-8 ← Local 1-8, 9-16 ← Local 9-16, 17-24 ← Local 17-24) and press CONNECT under it. Leave 25-32 on AES50 A25-32."],
     complete: "That's the first line of the Vocal Jazz Reset. The wireless receivers are plugged into the X32 itself, so the mics have to come in on LOCAL. The S32 only feeds 25-32. If a block is left on AES50 from the last event, the mics never arrive.",
   },
   {
@@ -4645,7 +4645,7 @@ const EAS = [
       goal("far", "The flower pots and the MalletKAT are in the house", (ctx) => inHouse(ctx, EA_SD8)),
       keep("s32", "CH 25-32 stay on AES50 A25-32 (the S32)", (ctx) => aesBlockOf(mixerDev(ctx).inSource, 3) === 3 && inHouse(ctx, EA_S32)),
     ],
-    hints: ["The wedge works, so the link is fine. The SD8's inputs reach the console: is the console listening for them?", "The S32 takes AES50 A1-32. The SD8 is chained behind it, so its inputs come after: AES50 A33-40. Which channels listen there?", "Main display → ROUTING → INPUT: set CH 17-24 to AES50 A33-40. Leave 25-32 on AES50 A25-32."],
+    hints: ["The wedge works, so the link is fine. The SD8's inputs reach the console: is the console listening for them?", "The S32 takes AES50 A1-32. The SD8 is chained behind it, so its inputs come after: AES50 A33-40. Which channels listen there?", "Main display → ROUTING → INPUT: in the 17-24 column pick AES50 A33-40 and press CONNECT under it. Leave 25-32 on AES50 A25-32."],
     complete: "Behind a 32-input S32, an SD8's inputs arrive as AES50 A33-40, past the end of the console's 32 channels. A block of 8 channels has to be routed to them, which is why CH 17-24 aren't LOCAL tonight.",
   },
   {
@@ -4738,7 +4738,7 @@ const EAS = [
       keep("far", "The flower pots and the MalletKAT stay in the house (the SD8's inputs still work)", (ctx) => inHouse(ctx, EA_SD8)),
       { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The house stays the same" },
     ],
-    hints: ["MIX 3's meter moves and the SD8's inputs work, so the link is up. Its outputs have died. You can't fix the box in the middle of a piece.", "XLR OUT 3 on the X32's own rear panel carries the same thing as SD8 OUT 3. " + EA_ROOM, "Move the wedge's cable from SD8 OUT 3 to the X32's XLR OUT 3 (it carries MIX 3). Any free local output works too, once ROUTING sends MIX 3 to it."],
+    hints: ["MIX 3's meter moves and the SD8's inputs work, so the link is up. Its outputs have died. You can't fix the box in the middle of a piece.", "XLR OUT 3 on the X32's own rear panel carries the same thing as SD8 OUT 3. " + EA_ROOM, "Move the wedge's cable from SD8 OUT 3 to the X32's XLR OUT 3 (it carries MIX 3). Any free local output works too, once ROUTING → PATCH POINTS → OUT assigns MixBus 3 to it."],
     complete: "That's what happened at the showcase: the SD8's outputs died during the piece and its inputs kept working. The fix took a minute: the cable out of the stage box, into a local output on the console with the same mix. Know which local outputs are free, and keep a long XLR at FOH.",
   },
 ];

@@ -3,8 +3,9 @@
 //   - the channel strip on the left edits the one selected strip (SEL):
 //     a channel, a MIX bus, MAIN LR, a MATRIX or M/C;
 //   - the input section: a bank of faders on layers (def.surface.inputLayers);
-//   - the main display in the middle: HOME, and on the full X32 the ROUTING
-//     and SCENES pages;
+//   - the main display in the middle: HOME, ROUTING (laid out as the X32's
+//     own: BLOCK → INPUT, AES A, AES B, CARD, XLR, and PATCH POINTS → OUT,
+//     AUX, P16, USER) and, on the full X32, SCENES;
 //   - the group section: 8 faders on layers (DCA, BUS 1-8, BUS 9-16, MATRIX),
 //     the MAIN LR fader and the 6 mute group buttons;
 //   - SENDS ON FADERS turns the input faders into sends to the selected MIX,
@@ -14,7 +15,7 @@
 // channels' SEL buttons. The page state is the view's own (view.x32).
 
 import { LAWS, levelLaw, matrixSources } from "../compact.js";
-import { AES50_BLOCKS } from "../connection-model.js";
+import { AES50_BLOCKS, BLOCK_SOURCES, AES_OUT_START, CARD_OUT_START, DEVICE_TYPES, aesOffset } from "../connection-model.js";
 import { formatDb, formatPan } from "../levels.js";
 import { button, buildSelPanel, el, fader, knob, meterBar, row } from "./mixer-digital-view.js";
 import { compGraph, eqGraph } from "./viz.js";
@@ -138,8 +139,8 @@ export function renderX32(view, def) {
       ),
     );
   if (ui.page === "routing" && (def.routing || def.aes50)) {
-    if (def.aes50) display.appendChild(inputRoutingPage(view, def));
-    if (def.routing) display.appendChild(routingPage(view, def));
+    display.classList.add("x32-display-wide");
+    display.appendChild(routingScreen(view, def, ui, rerender));
   }
   else if (ui.page === "scenes" && def.scenes) display.appendChild(scenesPage(view, def));
   else {
@@ -491,37 +492,299 @@ export function matrixPanel(view, def, m) {
 
 const SOURCE_NAMES = (src, T) => (src === "off" ? "OFF" : src === "main-l" ? T.mainL : src === "main-r" ? T.mainR : src === "mc" ? "M/C" : src.startsWith("mtx") ? `MATRIX ${src.slice(3)}` : `MIX ${src.slice(3)}`);
 
-// ROUTING › inputs: each block of 8 channels listens to the rear panel's LOCAL
-// jacks, to AES50-A (a stage box on the AES50 A port) or to the CARD (USB).
-// Rig device `inSource`.
-// Option names as the X32's ROUTING → INPUT page prints them (Local 1-8, AES50 A1-8).
-export function inputRoutingPage(view, def) {
-  const store = view.store;
-  const box = el("div", "x32-routing x32-inrouting");
-  box.appendChild(el("p", "dg-note", "Inputs: each block of 8 channels takes the LOCAL jacks on the rear panel, a block of 8 AES50-A channels (a stage box, S32 or SD8, on the AES50 A port: its input n is AES50 A n, and a second box chained off the first box's AES50 B comes after it, so an SD8 behind an S32 is AES50 A33-40), or the CARD: the USB card, for playing back a recording from a computer."));
-  const mono = def.channels.filter((c) => c.jacks.includes("mic")).length;
-  for (let b = 0; b * 8 < mono; b++) {
-    const range = `${b * 8 + 1}-${Math.min(mono, b * 8 + 8)}`;
-    const lab = el("label", "x32-route");
-    lab.append(el("span", "", `CH ${range}`));
-    const sel = el("select");
-    sel.setAttribute("aria-label", `Channels ${range} input source`);
-    // Any AES50-A block can feed any channel block: CH 17-24 ← AES50 A33-40 is an SD8 daisy-chained behind an S32.
-    const aes = Array.from({ length: AES50_BLOCKS }, (_, k) => [k === b ? 1 : 3 + k, `AES50 A${k * 8 + 1}-${k * 8 + 8}`]);
-    for (const [v, text] of [[0, `Local ${range}`], ...aes, [2, `Card ${range} (USB)`]]) {
-      const opt = el("option", "", text);
-      opt.value = String(v);
-      sel.appendChild(opt);
-    }
-    sel.addEventListener("change", () => store.setDevice("mixer", `inSource.${b}`, Number(sel.value)));
-    view.bindings.push({ kind: "fn", run: (s) => {
-      const v = String(s.rig.devices.find((d) => d.id === "mixer").inSource?.[b] ?? 0);
-      if (sel.value !== v) sel.value = v;
-    } });
-    lab.appendChild(sel);
-    box.appendChild(lab);
+// ---------- ROUTING, as the X32's own screen ----------
+// Firmware 4 (photos of Salmon's X32, 2026-10-20 and 2026-11): a BLOCK row
+// (INPUT · AES A · AES B · CARD · XLR) and PATCH POINTS (OUT · AUX · P16 ·
+// USER), the connected devices along the top. Each block is a column listing
+// what it can take: the filled item is what's connected; tap another to put
+// the cursor on it (the yellow box), then press CONNECT under the column, as
+// the console's knob does. Items the lab doesn't build are listed, dimmed,
+// and say so instead of pretending to work.
+const BLOCK_TABS = [["input", "INPUT"], ["aesa", "AES A"], ["aesb", "AES B"], ["card", "CARD"], ["xlr", "XLR"]];
+const PATCH_TABS = [["out", "OUT"], ["aux", "AUX"], ["p16", "P16"], ["user", "USER"]];
+const span = (n, size = 8) => `${n * size + 1}-${n * size + size}`;
+const mixerOfState = (s) => s.rig.devices.find((d) => d.id === "mixer");
+
+export function routingScreen(view, def, ui, rerender) {
+  ui.rmode ||= "block";
+  ui.rtab ||= "input";
+  ui.rcur ||= {};
+  const box = el("div", "x32-rscreen");
+  box.appendChild(connectedBar(view));
+  const tabs = ui.rmode === "block" ? BLOCK_TABS : PATCH_TABS;
+  const bar = el("div", "x32-rtabs");
+  bar.setAttribute("role", "tablist");
+  bar.appendChild(el("span", "x32-rmode", ui.rmode === "block" ? "BLOCK" : "PATCH"));
+  for (const [id, label] of tabs) {
+    const t = el("button", `x32-rtab${ui.rtab === id ? " on" : ""}`, label);
+    t.type = "button";
+    t.setAttribute("role", "tab");
+    t.setAttribute("aria-selected", String(ui.rtab === id));
+    t.addEventListener("click", () => {
+      ui.rtab = id;
+      rerender();
+    });
+    bar.appendChild(t);
   }
+  const flip = el("button", "x32-rflip", ui.rmode === "block" ? "PATCH POINTS" : "BLOCK ROUTING");
+  flip.type = "button";
+  flip.addEventListener("click", () => {
+    ui.rmode = ui.rmode === "block" ? "patch" : "block";
+    ui.rtab = ui.rmode === "block" ? "input" : "out";
+    rerender();
+  });
+  bar.appendChild(flip);
+  box.appendChild(bar);
+  const page = { input: inputBlocks, aesa: aesOutBlocks, aesb: aesBPage, card: cardBlocks, xlr: xlrPage, out: outPatch, aux: notBuilt, p16: notBuilt, user: notBuilt }[ui.rtab] || inputBlocks;
+  box.appendChild(page(view, def, ui));
   return box;
+}
+
+// Along the top of the screen: what's on AES50 A and B, and the card.
+function connectedBar(view) {
+  const line = el("p", "x32-rconnected");
+  view.bindings.push({ kind: "fn", run: (s) => {
+    const mixer = mixerOfState(s);
+    const onA = s.rig.devices.find((d) => DEVICE_TYPES[d.type]?.network === "aes50" && aesOffset(s.rig, d, mixer) === 0);
+    const text = `CONNECTED DEVICES · A: ${onA ? DEVICE_TYPES[onA.type].name.replace(/^Behringer /, "") : "NO DEVICE"} · B: NO DEVICE · C: USB card`;
+    if (line.textContent !== text) line.textContent = text;
+  } });
+  return line;
+}
+
+// Columns of choices, one per block. `items(c)`: [{ id, label, ok }]; `current(s, c)`: the
+// connected id; `connect(c, id)`. `note` shows what CONNECT did, or why it didn't.
+function blockColumns(view, ui, { key, title, heads, items, current, connect }) {
+  const wrap = el("div", "x32-rpage");
+  wrap.appendChild(el("h5", "x32-rtitle", title));
+  const cols = el("div", "x32-rcols");
+  const note = el("p", "x32-rnote");
+  note.setAttribute("aria-live", "polite");
+  heads.forEach((head, c) => {
+    const col = el("div", "x32-rcol");
+    col.appendChild(el("h6", "", head));
+    const list = el("ul", "x32-rlist");
+    list.setAttribute("role", "listbox");
+    list.setAttribute("aria-label", `${title}: ${head}`);
+    const opts = items(c);
+    const cursorKey = `${key}${c}`;
+    const lis = opts.map((o) => {
+      const li = el("li", `x32-ritem${o.ok ? "" : " off"}`, o.label);
+      li.setAttribute("role", "option");
+      li.tabIndex = 0;
+      li.dataset.id = o.id;
+      if (!o.ok) li.title = "Listed as on the X32: not built in the lab";
+      const pick = () => {
+        ui.rcur[cursorKey] = o.id;
+        mark(view.store.state);
+      };
+      li.addEventListener("click", pick);
+      li.addEventListener("keydown", (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), pick()));
+      return li;
+    });
+    const mark = (s) => {
+      const now = current(s, c);
+      const cur = ui.rcur[cursorKey] ?? now;
+      for (const li of lis) {
+        li.classList.toggle("on", li.dataset.id === now);
+        li.classList.toggle("cur", li.dataset.id === cur);
+        li.setAttribute("aria-selected", String(li.dataset.id === now));
+      }
+    };
+    view.bindings.push({ kind: "fn", run: mark });
+    list.append(...lis);
+    const go = el("button", "x32-rconnect", "CONNECT");
+    go.type = "button";
+    go.setAttribute("aria-label", `Connect the selected source to ${head}`);
+    go.addEventListener("click", () => {
+      const id = ui.rcur[cursorKey] ?? current(view.store.state, c);
+      const o = opts.find((x) => x.id === id);
+      delete ui.rcur[cursorKey];
+      if (!o?.ok) note.textContent = `${o?.label || "That"} isn't built in the lab yet: ${head} stays as it was.`;
+      else {
+        connect(c, id);
+        note.textContent = `${head} ← ${o.label}`;
+      }
+      mark(view.store.state);
+    });
+    col.append(list, go);
+    cols.appendChild(col);
+  });
+  wrap.append(cols, note);
+  return wrap;
+}
+
+// BLOCK → INPUT, the channel processing block patch: what each block of 8
+// channels listens to, and AUX IN (only Aux Ins, its own jacks, is built).
+function inputBlocks(view, def, ui) {
+  const store = view.store;
+  // One column per block of 8 mono channels; the console has as many LOCAL blocks.
+  const blocks = Math.ceil(def.channels.filter((c) => c.jacks.includes("mic")).length / 8);
+  const local = blocks;
+  const options = (b) => [
+    ...Array.from({ length: local }, (_, k) => ({ id: k === b ? 0 : 10 + k, label: `Local ${span(k)}`, ok: true })),
+    ...Array.from({ length: AES50_BLOCKS }, (_, k) => ({ id: k === b ? 1 : 3 + k, label: `AES50 A${span(k)}`, ok: true })),
+    ...Array.from({ length: AES50_BLOCKS }, (_, k) => ({ id: 20 + k, label: `AES50 B${span(k)}`, ok: true })),
+    ...Array.from({ length: 4 }, (_, k) => ({ id: k === b ? 2 : 30 + k, label: `Card ${span(k)}`, ok: true })),
+  ].map((o) => ({ ...o, id: String(o.id) }));
+  const page = blockColumns(view, ui, {
+    key: "in",
+    title: "CHANNEL PROCESSING BLOCK PATCH",
+    heads: [...Array.from({ length: blocks }, (_, b) => span(b)), "AUX IN"],
+    items: (c) => (c < blocks ? options(c) : [{ id: "auxins", label: "Aux Ins", ok: true }, ...["Local 1-2", "Local 1-4", "Local 1-6", "AES50 A1-2", "AES50 A1-4", "AES50 A1-6", "AES50 B1-2", "AES50 B1-4", "AES50 B1-6", "Card 1-2", "Card 1-4"].map((l) => ({ id: l, label: l, ok: false }))]),
+    current: (s, c) => (c < blocks ? String(mixerOfState(s).inSource?.[c] ?? 0) : "auxins"),
+    connect: (c, id) => c < blocks && store.setDevice("mixer", `inSource.${c}`, Number(id)),
+  });
+  page.appendChild(el("p", "x32-rhelp", "Each block of 8 channels listens to one block of 8 inputs: the rear panel's LOCAL jacks, a stage box on AES50 A (its input n arrives as AES50 A n; a box chained off the first box's AES50 B comes after it, so an SD8 behind an S32 is AES50 A33-40), AES50 B, or the card. Nothing is connected to AES50 B here, and the lab's USB card plays nothing: those blocks go silent."));
+  return page;
+}
+
+// BLOCK → AES A: what each block of 8 AES50 A output channels carries, so a
+// stage box's OUT n. Output 1-8 and 9-16 are the console's XLR OUT 1-16 (set on PATCH POINTS → OUT).
+function aesOutBlocks(view, def, ui) {
+  const store = view.store;
+  const page = blockColumns(view, ui, {
+    key: "aesa",
+    title: "AES50 A OUTPUTS",
+    heads: Array.from({ length: AES50_BLOCKS }, (_, k) => span(k)),
+    items: () => BLOCK_SOURCES.map((o) => ({ id: o.id, label: o.label, ok: o.out !== undefined })),
+    current: (s, c) => (mixerOfState(s).aesOut || AES_OUT_START)[c],
+    connect: (c, id) => store.setDevice("mixer", `aesOut.${c}`, id),
+  });
+  page.appendChild(el("p", "x32-rhelp", "A stage box's OUT n carries AES50 A output n. Output 1-8 and Output 9-16 are the console's outputs 1-16 (what each one carries is set on PATCH POINTS → OUT), so S32 OUT 9 carries Output 9. Salmon's X32 sends P16 on 33-48. In the lab only Output 1-8 and 9-16 reach a stage box."));
+  return page;
+}
+
+function aesBPage(view, def, ui) {
+  const page = el("div", "x32-rpage");
+  page.append(el("h5", "x32-rtitle", "AES50 B OUTPUTS"), el("p", "x32-rhelp", "NO DEVICE: nothing is plugged into the X32's AES50 B port in this rig. (A second stage box chains off the first box's own AES50 B instead: see AES A.) On the console this page sets what AES50 B's 48 output channels carry, block by block, like AES A."));
+  return page;
+}
+
+// BLOCK → CARD: what the card's 32 outputs carry (Salmon's X-DANTE sends Local 1-32 to a recording).
+function cardBlocks(view, def, ui) {
+  const store = view.store;
+  const page = blockColumns(view, ui, {
+    key: "card",
+    title: "EXPANSION CARD OUTPUTS",
+    heads: Array.from({ length: 4 }, (_, k) => span(k)),
+    items: () => BLOCK_SOURCES.map((o) => ({ id: o.id, label: o.label, ok: !!o.card })),
+    current: (s, c) => (mixerOfState(s).cardOut || CARD_OUT_START)[c],
+    connect: (c, id) => store.setDevice("mixer", `cardOut.${c}`, id),
+  });
+  page.appendChild(el("p", "x32-rhelp", "CONNECTED DEVICE: the lab's X32 has a USB card; Salmon's has an X-DANTE (32 in / 32 out Dante card). Local 1-8 … 25-32 on the card's outputs are direct outs of the inputs, for a multitrack recording: card out 1 is input 1. The lab stores this page but records nothing yet."));
+  return page;
+}
+
+function xlrPage(view, def) {
+  const page = el("div", "x32-rpage");
+  page.append(el("h5", "x32-rtitle", "XLR OUTPUTS"), el("p", "x32-rhelp", `The rear panel's XLR OUT 1-${def.routing ? 16 : 8} carry the console's outputs: what each one carries is set on PATCH POINTS → OUT. This page's own block choices aren't built in the lab yet.`));
+  return page;
+}
+
+const NOT_BUILT = {
+  aux: ["AUX OUTPUTS", "The rear panel's AUX OUT 1-6 (1/4\"). Not built in the lab yet."],
+  p16: ["P16 OUTPUTS", "The P16 (Ultranet) port: sixteen channels for personal monitor mixers. Not built in the lab yet."],
+  user: ["USER IN / OUT", "The user patch: hand-picked single channels for the AES50 and card blocks. Not built in the lab yet."],
+};
+function notBuilt(view, def, ui) {
+  const [title, text] = NOT_BUILT[ui.rtab];
+  const page = el("div", "x32-rpage");
+  page.append(el("h5", "x32-rtitle", title), el("p", "x32-rhelp", text));
+  return page;
+}
+
+// PATCH POINTS → OUT: pick an output, its CATEGORY and OUT SIGNAL, then ASSIGN
+// (the TAP is shown, fixed at Post Fader in the lab).
+const CATEGORIES = [
+  { id: "off", label: "OFF", signals: [["off", "OFF"]] },
+  { id: "main", label: "Main (LRC)", signals: [["main-l", "Main L"], ["main-r", "Main R"], ["mc", "Main C (M/C)"]] },
+  { id: "mix", label: "Mix Bus", signals: Array.from({ length: 16 }, (_, k) => [`mix${k + 1}`, `MixBus ${k + 1}`]) },
+  { id: "mtx", label: "Matrix", signals: Array.from({ length: 6 }, (_, k) => [`mtx${k + 1}`, `Matrix ${k + 1}`]) },
+  { id: "direct", label: "Direct Out", signals: [] },
+  { id: "mon", label: "Monitor/TB", signals: [] },
+];
+const TAPS = ["IN/LC", "IN/LC +M", "PreEQ", "PreEQ +M", "PostEQ", "PostEQ +M", "PreFdr", "PreFdr +M", "Post Fader"];
+const categoryOf = (src) => CATEGORIES.find((c) => c.signals.some(([id]) => id === src))?.id || "off";
+const signalName = (src) => CATEGORIES.flatMap((c) => c.signals).find(([id]) => id === src)?.[1] || "OFF";
+
+function outPatch(view, def, ui) {
+  const page = el("div", "x32-rpage");
+  if (!def.routing) {
+    page.append(el("h5", "x32-rtitle", "EDIT OUTPUT ASSIGNMENT"), el("p", "x32-rhelp", "On this X32 Compact the lab's outputs are fixed: XLR OUT 1-6 carry MIX 1-6, 7/8 MAIN L/R. Choosing them here isn't built yet."));
+    return page;
+  }
+  const store = view.store;
+  const outs = def.routing.outputs;
+  ui.rout ||= { o: outs[0] };
+  const st = store.state;
+  const cur = st.routing[ui.rout.o];
+  const cat = ui.rout.cat || categoryOf(cur);
+  const sig = ui.rout.sig ?? cur;
+  const ok = (src) => def.routing.sources.includes(src);
+  const list = (title, items, onPick, cls = "") => {
+    const col = el("div", `x32-rcol ${cls}`);
+    col.appendChild(el("h6", "", title));
+    const ul = el("ul", "x32-rlist");
+    ul.setAttribute("role", "listbox");
+    ul.setAttribute("aria-label", title);
+    for (const it of items) {
+      const li = el("li", `x32-ritem${it.on ? " on" : ""}${it.cur ? " cur" : ""}${it.ok === false ? " off" : ""}`, it.label);
+      li.setAttribute("role", "option");
+      li.setAttribute("aria-selected", String(!!it.on));
+      li.tabIndex = 0;
+      if (it.ok === false) li.title = "Listed as on the X32: not built in the lab";
+      const pick = () => onPick(it);
+      li.addEventListener("click", pick);
+      li.addEventListener("keydown", (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), pick()));
+      ul.appendChild(li);
+    }
+    col.appendChild(ul);
+    return col;
+  };
+  const redraw = () => view.render();
+  const outName = (o) => `Output ${o.slice(3)}`;
+  const setting = el("div", "x32-rsetting");
+  setting.append(el("h6", "", "SETTING"), el("p", "", signalName(cur)), el("p", "", "Post Fader"));
+  const assign = el("button", "x32-rconnect", "ASSIGN");
+  assign.type = "button";
+  const note = el("p", "x32-rnote");
+  note.setAttribute("aria-live", "polite");
+  assign.addEventListener("click", () => {
+    const src = ui.rout.sig ?? cur;
+    if (!ok(src)) {
+      note.textContent = `${signalName(src)} isn't built in the lab yet: ${outName(ui.rout.o)} stays on ${signalName(cur)}.`;
+      return;
+    }
+    store.setBus("routing", ui.rout.o, src);
+    ui.rout = { o: ui.rout.o };
+    redraw();
+  });
+  const catDef = CATEGORIES.find((c) => c.id === cat);
+  page.append(
+    el("h5", "x32-rtitle", "EDIT OUTPUT ASSIGNMENT"),
+    row(
+      "x32-rcols x32-outpatch",
+      list("ANALOG OUTPUT", outs.map((o) => ({ id: o, label: outName(o), on: o === ui.rout.o })), (it) => {
+        ui.rout = { o: it.id };
+        redraw();
+      }),
+      setting,
+      list("CATEGORY", CATEGORIES.map((c) => ({ id: c.id, label: c.label, on: c.id === categoryOf(cur), cur: c.id === cat, ok: c.signals.length > 0 })), (it) => {
+        ui.rout = { ...ui.rout, cat: it.id, sig: it.id === "off" ? "off" : undefined };
+        redraw();
+      }),
+      list("OUT SIGNAL", catDef.signals.map(([id, label]) => ({ id, label, on: id === cur, cur: id === sig, ok: ok(id) })), (it) => {
+        ui.rout = { ...ui.rout, cat, sig: it.id };
+        redraw();
+      }),
+      list("TAP", TAPS.map((t) => ({ id: t, label: t, on: t === "Post Fader", ok: t === "Post Fader" })), () => {}),
+    ),
+    assign,
+    note,
+    el("p", "x32-rhelp", `Pick an output, then its CATEGORY and OUT SIGNAL, and press ASSIGN. ${outName(ui.rout.o)} is the rear panel's XLR OUT ${ui.rout.o.slice(3)}, and AES50 A output ${ui.rout.o.slice(3)} (a stage box's OUT ${ui.rout.o.slice(3)}) when AES A sends Output ${Number(ui.rout.o.slice(3)) <= 8 ? "1-8" : "9-16"} there. The lab taps every output Post Fader.`),
+  );
+  return page;
 }
 
 export function routingPage(view, def, note = "Analog out: what each rear-panel XLR OUT carries.") {

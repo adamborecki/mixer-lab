@@ -6880,3 +6880,154 @@ dialog::backdrop {
 .sjack .tail-knot {
   fill: #3b3f4d;
 }
+
+/* ---------- X32 main display: ROUTING, laid out as the console's own screen ---------- */
+
+.x32-display.x32-display-wide {
+  flex-basis: 100%;
+  max-width: none;
+  order: -1;
+}
+.x32-rscreen {
+  display: grid;
+  gap: 0.45rem;
+  color: #e7eef6;
+}
+.x32-rconnected {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: #9fd38a;
+}
+.x32-rtabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+.x32-rmode {
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  background: #2e4a63;
+  border-radius: 4px;
+}
+.x32-rtab,
+.x32-rflip,
+.x32-rconnect {
+  font: inherit;
+  font-size: 0.72rem;
+  color: #c9d6e3;
+  background: #1a2a3a;
+  border: 1px solid #2e4a63;
+  border-radius: 4px;
+  padding: 0.2rem 0.55rem;
+  cursor: pointer;
+}
+.x32-rtab.on {
+  color: #ffd84d;
+  border-color: #ffd84d;
+  font-weight: 700;
+}
+.x32-rflip {
+  margin-left: auto;
+  background: #26394c;
+}
+.x32-rconnect {
+  width: 100%;
+  margin-top: 0.3rem;
+  background: #26394c;
+  font-weight: 700;
+}
+.x32-rpage {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.x32-rtitle {
+  margin: 0;
+  text-align: center;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  background: #22364a;
+  padding: 0.2rem;
+  border-radius: 3px;
+}
+.x32-rcols {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(118px, 1fr);
+  gap: 0.35rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 0.2rem;
+}
+.x32-rcol h6 {
+  margin: 0 0 0.2rem;
+  text-align: center;
+  font-size: 0.66rem;
+  color: #9fb4c8;
+}
+.x32-rlist {
+  list-style: none;
+  margin: 0;
+  padding: 2px;
+  max-height: 15.5rem;
+  overflow-y: auto;
+  background: #e9eef3;
+  border-radius: 3px;
+  scrollbar-width: thin;
+}
+.x32-ritem {
+  font-size: 0.68rem;
+  line-height: 1.25;
+  padding: 0.12rem 0.3rem;
+  margin: 1px 0;
+  color: #fff;
+  background: #1f2a44;
+  border: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.x32-ritem.off {
+  color: #8b97ad;
+}
+/* What's connected (filled), and the cursor (the yellow box). */
+.x32-ritem.on {
+  background: #7a4a12;
+  color: #ffd84d;
+  font-weight: 700;
+}
+.x32-ritem.cur {
+  border-color: #ffd84d;
+}
+.x32-ritem:focus-visible {
+  outline: 2px solid #8fd3ff;
+}
+.x32-rsetting {
+  align-self: start;
+  background: #1a2a3a;
+  border: 1px solid #2e4a63;
+  border-radius: 4px;
+  padding: 0.3rem;
+  font-size: 0.7rem;
+}
+.x32-rsetting h6 {
+  margin: 0;
+  font-size: 0.62rem;
+  color: #9fb4c8;
+}
+.x32-rsetting p {
+  margin: 0.2rem 0 0;
+}
+.x32-rnote {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #ffd84d;
+  min-height: 1em;
+}
+.x32-rhelp {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #9fb4c8;
+}

@@ -609,22 +609,69 @@ DEVICE_TYPES.subsnake = {
 };
 
 // What a console's input block listens to (rig device `inSource`, per block of
-// 8 channels): 0 LOCAL, 1 AES50-A with the block's own numbers (CH 25-32 ←
-// AES50 A25-32), 2 CARD, 3 + k AES50-A block k (A1-8 … A41-48), for a block
-// routed to another block's numbers (CH 17-24 ← AES50 A33-40: an SD8 behind
-// an S32). Returns the AES50-A block, or null when the block isn't on AES50.
+// 8 channels), as the X32's ROUTING → BLOCK → INPUT page offers it:
+//   0       LOCAL, the block's own jacks (CH 9-16 ← Local 9-16)
+//   10 + k  LOCAL block k (CH 9-16 ← Local 1-8: those jacks feed these channels too)
+//   1       AES50-A with the block's own numbers (CH 25-32 ← AES50 A25-32)
+//   3 + k   AES50-A block k (CH 17-24 ← AES50 A33-40: an SD8 behind an S32)
+//   20 + k  AES50-B block k: nothing on the X32's AES50 B in the lab, so silence
+//   2       CARD with the block's own numbers; 30 + k CARD block k: the lab's
+//           USB card plays nothing, so silence
+// The UI always writes the shortest form (a block's own numbers as 0, 1 or 2).
 export const AES50_BLOCKS = 6;
 // A block's source as the X32's ROUTING → INPUT page prints it: "Local 1-8",
-// "AES50 A33-40", "Card 1-8".
+// "AES50 A33-40", "AES50 B1-8", "Card 1-8".
 export function inSourceName(inSource, block) {
   const v = inSource?.[block] ?? 0;
-  const k = aesBlockOf(inSource, block);
   const range = (n) => `${n * 8 + 1}-${n * 8 + 8}`;
-  return k !== null ? `AES50 A${range(k)}` : v === 2 ? `Card ${range(block)}` : `Local ${range(block)}`;
+  const a = aesBlockOf(inSource, block);
+  const l = localBlockOf(inSource, block);
+  return a !== null ? `AES50 A${range(a)}` : l !== null ? `Local ${range(l)}` : v >= 20 && v < 30 ? `AES50 B${range(v - 20)}` : `Card ${range(v === 2 ? block : v - 30)}`;
 }
+// The AES50-A block a channel block listens to, or null when it isn't on AES50-A.
 export function aesBlockOf(inSource, block) {
   const v = inSource?.[block];
-  return v === 1 ? block : v >= 3 ? v - 3 : null;
+  return v === 1 ? block : v >= 3 && v < 10 ? v - 3 : null;
+}
+// The LOCAL block a channel block listens to, or null.
+export function localBlockOf(inSource, block) {
+  const v = inSource?.[block] ?? 0;
+  return v === 0 ? block : v >= 10 && v < 20 ? v - 10 : null;
+}
+// Every value `inSource` can hold (the X32 has up to 4 local blocks and 6 AES50 blocks per port).
+export const IN_SOURCE_VALUES = [0, 1, 2, ...[0, 1, 2, 3, 4, 5].map((k) => 3 + k), ...[0, 1, 2, 3].map((k) => 10 + k), ...[0, 1, 2, 3, 4, 5].map((k) => 20 + k), ...[0, 1, 2, 3].map((k) => 30 + k)];
+
+// What each block of 8 AES50-A output channels carries (rig device `aesOut`,
+// the X32's ROUTING → BLOCK → AES A page). In the lab only "Output 1-8" and
+// "Output 9-16" (the console's XLR OUT 1-16) reach a stage box's outputs;
+// anything else leaves that block silent. Salmon's X32 (photo, 2026-10-20):
+// Output 1-8, Output 9-16, Output 1-8, Output 9-16, P16 1-8, P16 9-16.
+export const AES_OUT_START = ["out0", "out1", "out0", "out1", "p16-0", "p16-1"];
+// What the card's 4 output blocks carry (`cardOut`, ROUTING → BLOCK → CARD).
+// Salmon's: Local 1-8 … Local 25-32 (photo). Stored only: the lab's USB card records nothing.
+export const CARD_OUT_START = ["local0", "local1", "local2", "local3"];
+// The sources a block of outputs can take, in the X32's order, with what the
+// lab does with each (`out`: a block of the console's outputs; `built: false`:
+// listed as on the console, not built in the lab).
+const span = (n, size = 8) => `${n * size + 1}-${n * size + size}`;
+export const BLOCK_SOURCES = [
+  ...[0, 1, 2, 3].map((k) => ({ id: `local${k}`, label: `Local ${span(k)}`, card: true })),
+  ...[0, 1, 2, 3, 4, 5].map((k) => ({ id: `aesa${k}`, label: `AES50 A${span(k)}`, card: true })),
+  ...[0, 1, 2, 3, 4, 5].map((k) => ({ id: `aesb${k}`, label: `AES50 B${span(k)}` })),
+  ...[0, 1, 2, 3].map((k) => ({ id: `card${k}`, label: `Card ${span(k)}` })),
+  { id: "out0", label: "Output 1-8", out: 0, card: true },
+  { id: "out1", label: "Output 9-16", out: 1, card: true },
+  { id: "p16-0", label: "P16 1-8" },
+  { id: "p16-1", label: "P16 9-16" },
+  { id: "aux", label: "Aux 1-6/Mon" },
+  { id: "auxin", label: "AuxIn 1-6/TB" },
+  ...[0, 1, 2, 3].map((k) => ({ id: `user${k}`, label: `User Out ${span(k)}` })),
+];
+export const BLOCK_SOURCE_BY_ID = Object.fromEntries(BLOCK_SOURCES.map((x) => [x.id, x]));
+// The console's output block an AES50-A output block carries (0 = Output 1-8, 1 = Output 9-16), or null.
+export function aesOutBlock(mixer, block) {
+  const v = (Array.isArray(mixer?.aesOut) ? mixer.aesOut : AES_OUT_START)[block];
+  return BLOCK_SOURCE_BY_ID[v]?.out ?? null;
 }
 
 // The compact mixers' rear panels come from their definitions.
@@ -691,10 +738,27 @@ export function throughLinks(rig) {
       // A box whose outputs have failed (`outsDead`) still passes its inputs.
       if (p.role === "sb-out" && !d.outsDead) {
         const outOf = byFrom.get(portRef(d.id, p.id));
-        const src = consoleOuts[((type.bank ? d.outBank || 0 : 0) * 8 + p.index) % 16];
+        // The AES50 output channel this jack carries, and what ROUTING → AES A puts on its block of 8.
+        const n = (type.bank ? d.outBank || 0 : 0) * 8 + p.index;
+        const blk = aesOutBlock(mixer, Math.floor(n / 8));
+        const src = blk === null ? null : consoleOuts[blk * 8 + (n % 8)];
         if (outOf && src) links.push({ id: `${net.network}-${outOf.id}`, from: portRef(mixer.id, src.id), to: outOf.to, cable: outOf.cable, via: d.id });
       }
     }
+  }
+  // A LOCAL block routed from another block's jacks (CH 9-16 ← Local 1-8):
+  // whatever is plugged into those jacks reaches these channels too.
+  if (mixer && Array.isArray(mixer.inSource)) {
+    const local = DEVICE_TYPES[mixer.type].ports.filter((q) => q.role === "channel-input" && !q.stereo && q.jack !== "aes50" && q.jack !== "dante");
+    mixer.inSource.forEach((v, b) => {
+      const k = localBlockOf(mixer.inSource, b);
+      if (k === null || k === b) return;
+      for (const q of local.filter((x) => Math.floor(x.channel / 8) === b)) {
+        const jack = local.find((x) => x.channel === k * 8 + (q.channel % 8) && x.jack === q.jack && x.path === q.path);
+        const into = jack && byTo.get(portRef(mixer.id, jack.id));
+        if (into) links.push({ id: `local-${into.id}-${q.channel}`, from: into.from, to: portRef(mixer.id, q.id), cable: into.cable, plug: plugAtInput(rig, into), via: mixer.id, remap: true });
+      }
+    });
   }
   // THRU (a speaker passing its input on): whatever feeds the speaker also feeds
   // the next one in the chain, however long the chain is.
@@ -944,13 +1008,18 @@ export function analyzeRig(rig, channels = [], sources = {}) {
     }
     // Input routing (X32): each block of 8 channels takes its local jacks, AES50-A
     // (a stage box) or the CARD (USB from a computer: nothing plays here, so silence).
-    const block = Array.isArray(mixer.inSource) ? mixer.inSource[Math.floor(port.channel / 8)] : undefined;
-    if (block !== undefined && (block === 2 || (port.jack === "aes50") !== (aesBlockOf(mixer.inSource, Math.floor(port.channel / 8)) !== null))) {
+    const blockNo = Math.floor(port.channel / 8);
+    const block = Array.isArray(mixer.inSource) ? mixer.inSource[blockNo] : undefined;
+    // AES50 B and the card play nothing here: neither kind of jack is listened to.
+    const listens = block === undefined || (port.jack === "aes50" ? aesBlockOf(mixer.inSource, blockNo) !== null : localBlockOf(mixer.inSource, blockNo) !== null);
+    if (!listens) {
       channelInfo[port.channel] ||= { connected: false, signal: false, status: "empty", messages: [] };
       continue;
     }
     const ref = portRef(mixer.id, port.id);
-    const cable = byTo.get(ref);
+    let cable = byTo.get(ref);
+    // A LOCAL block patched from another block's jacks hears those (a `remap` link), not its own.
+    if (block !== undefined && port.jack !== "aes50" && localBlockOf(mixer.inSource, blockNo) !== blockNo && !cable?.remap) cable = undefined;
     if (!cable && channelInfo[port.channel]) continue; // a channel with two jacks: the one in use wins
     const ch = channels[port.channel] || {};
     channelInfo[port.channel] = analyzeChannelInput(rig, cable, ch, sources, port);

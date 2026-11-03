@@ -4,7 +4,7 @@
 // offers, so js/mixer-state.js can dispatch to either. See docs/COMPACT_MIXERS.md.
 
 import { COMPACT, EQ } from "./compact-defs.js";
-import { analyzeRig } from "./connection-model.js";
+import { AES_OUT_START, CARD_OUT_START, analyzeRig } from "./connection-model.js";
 
 // Blocks of 8 mic channels for input routing (X32: LOCAL or AES50-A per block).
 export const inputBlocks = (def) => Math.ceil(def.channels.filter((c) => c.jacks.includes("mic")).length / 8);
@@ -114,7 +114,7 @@ export function createState(id) {
     main: { level: def.main.law === "master" ? 0.5 : 0.75 },
     listen: "main",
     // The 442's OUTPUT LEVEL switch lives on the mixer device: what the XLR outs carry decides what they can feed.
-    rig: { devices: [{ id: "mixer", type: id, label: def.name, ...(def.outLevel ? { outLevel: 2 } : {}), ...Object.fromEntries((def.outSwitches || []).map((w) => [w.key, w.start ?? 0])), ...(def.dante ? { danteRx: Array(def.dante.rx).fill(0), inPatch: Array(def.dante.rx).fill(0) } : {}), ...(def.aes50 ? { inSource: Array(inputBlocks(def)).fill(0) } : {}) }], cables: [] },
+    rig: { devices: [{ id: "mixer", type: id, label: def.name, ...(def.outLevel ? { outLevel: 2 } : {}), ...Object.fromEntries((def.outSwitches || []).map((w) => [w.key, w.start ?? 0])), ...(def.dante ? { danteRx: Array(def.dante.rx).fill(0), inPatch: Array(def.dante.rx).fill(0) } : {}), ...(def.aes50 ? { inSource: Array(inputBlocks(def)).fill(0), aesOut: [...AES_OUT_START], cardOut: [...CARD_OUT_START] } : {}) }], cables: [] },
   };
   if (def.tape) state.channels.push({ index: def.channels.length, label: def.tape.level || def.tape.label || "TAPE", stereo: true, tape: true, gainDb: 0, level: 0.5, toMain: false, toCr: false, enabled: true, pan: 0, phantom: false, auxSends: {}, sends: {}, eq: {} });
   // Masters start at unity (U), whatever their law.
