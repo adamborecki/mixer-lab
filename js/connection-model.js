@@ -600,8 +600,7 @@ DEVICE_TYPES.subsnake = {
   name: "Hosa sub snake (8 channels)",
   stagebox: true,
   passthrough: true,
-  fanColumn: "sub",
-  fanTitle: "Sub snake tails (at the S32)",
+  tailsAsCables: true, // drawn as a multicore splitting into tails, not a box at the far end
   ports: [
     ...Array.from({ length: SUB_CH }, (_, i) => ({ id: `in${i + 1}`, dir: "in", jack: "xlr", level: "any", role: "snake-in", end: "stage", through: `tail${i + 1}`, name: `Sub snake MIC IN ${i + 1}` })),
     ...Array.from({ length: SUB_CH }, (_, i) => ({ id: `tail${i + 1}`, dir: "out", jack: "xlr", level: "any", role: "snake-out", end: "foh", through: `in${i + 1}`, name: `Sub snake tail ${i + 1}` })),

@@ -182,7 +182,11 @@ export class StageView {
     const cables = [];
     for (const f of fixed) cables.push(`<g class="cable cable-network fixed"><path class="cable-shadow" d="${cablePath(f.a, f.b)}"/><path class="cable-core" d="${cablePath(f.a, f.b)}"/></g>`);
     // A snake's multicore: one thick jacket from the stage box to its fan-out at FOH.
-    for (const m of L.links || []) cables.push(`<g class="cable cable-multicore fixed"><title>Multicore: every snake channel and return in one cable, stage ↔ FOH</title><path class="cable-shadow" d="${cablePath(m.a, m.b)}"/><path class="cable-core" d="${cablePath(m.a, m.b)}"/></g>`);
+    // A sub snake's tails: thin cables off the end of its multicore, each ending in a plug.
+    for (const m of L.links || []) {
+      if (m.kind === "tail") cables.push(`<g class="cable cable-tail fixed"><path class="cable-shadow" d="${cablePath(m.a, m.b)}"/><path class="cable-core" d="${cablePath(m.a, m.b)}"/></g>`);
+      else cables.push(`<g class="cable cable-multicore fixed"><title>${esc(m.title || "Multicore: every snake channel and return in one cable, stage ↔ FOH")}</title><path class="cable-shadow" d="${cablePath(m.a, m.b)}"/><path class="cable-core" d="${cablePath(m.a, m.b)}"/></g>`);
+    }
 
     const plugs = [];
     for (const c of rig.cables) {
@@ -197,7 +201,8 @@ export class StageView {
       cables.push(`<g class="cable cable-${kind} st-${st}" data-cable="${esc(c.id)}" style="--hue:${hue}">
         <title>${esc(def.name || c.cable)}: ${esc(portLabel(rig, c.from))} → ${esc(portLabel(rig, c.to))}</title>
         <path class="cable-hit" d="${d}"/><path class="cable-shadow" d="${d}"/><path class="cable-core" d="${d}"/>${kind === "speaker" ? `<path class="cable-pair" d="${d}"/>` : ""}<path class="cable-flow" d="${d}"/></g>`);
-      plugs.push(`<g data-cable="${esc(c.id)}" class="plugs st-${st}">${plugShape(a, plugKind(c.cable, a.port.jack), hue)}${plugShape(b, plugKind(c.cable, b.port.jack), hue)}${st === "warn" || st === "bad" ? this.badge(b, st) : ""}</g>`);
+      // A sub snake's tail is the cable itself: no plug-in-a-socket drawn at its end.
+      plugs.push(`<g data-cable="${esc(c.id)}" class="plugs st-${st}">${a.tail ? "" : plugShape(a, plugKind(c.cable, a.port.jack), hue)}${plugShape(b, plugKind(c.cable, b.port.jack), hue)}${st === "warn" || st === "bad" ? this.badge(b, st) : ""}</g>`);
     }
     const jacks = [...L.jacks.values()].map((j) => this.jackSvg(j, rig));
     const nets = L.net.map((n) => this.netPortSvg(n));
@@ -347,10 +352,13 @@ export class StageView {
     const lvl = SIGNAL_LEVELS[p.level];
     const desc = `${portLabel(rig, j.ref)} (${JACKS[p.jack]?.name || p.jack}${lvl ? `, ${lvl.name.toLowerCase()}` : ""}): ${other ? `connected to ${portLabel(rig, other)}` : "empty"}`;
     const size = p.jack === "mini" ? 16 : p.jack === "rca" ? 18 : 23;
-    const art = name ? `<g transform="translate(${j.x - size / 2} ${j.y - size / 2})">${icon(name, { size })}</g>` : `<rect class="jack-ethercon" x="${j.x - 10}" y="${j.y - 9}" width="20" height="18" rx="3"/><rect x="${j.x - 5}" y="${j.y - 4}" width="10" height="7" class="jack-rj"/>`;
+    // A sub snake's tail: a loose XLR plug while it's unplugged, just the cable once it's in.
+    const art = j.tail
+      ? cable ? `<circle class="tail-knot" cx="${j.x}" cy="${j.y}" r="3"/>` : `<g transform="translate(${j.x - 9} ${j.y - 9})">${icon("xlr-m", { size: 18 })}</g>`
+      : name ? `<g transform="translate(${j.x - size / 2} ${j.y - size / 2})">${icon(name, { size })}</g>` : `<rect class="jack-ethercon" x="${j.x - 10}" y="${j.y - 9}" width="20" height="18" rx="3"/><rect x="${j.x - 5}" y="${j.y - 4}" width="10" height="7" class="jack-rj"/>`;
     const head = j.head ? `<text class="jack-head" x="${j.x}" y="${j.y - JACK / 2 - 3}" text-anchor="middle">${esc(j.head)}</text>` : "";
     const word = j.word ? `<text class="jack-word" x="${j.wordSide === "right" ? j.x + 16 : j.wordSide === "left" ? j.x - 16 : j.x}" y="${j.wordSide ? j.y + 3 : j.y + JACK / 2 + 3}" text-anchor="${j.wordSide === "right" ? "start" : j.wordSide === "left" ? "end" : "middle"}">${esc(j.word)}</text>` : "";
-    return `<g class="sjack ${cable ? "is-on" : ""} jack-${p.dir}" data-port="${esc(j.ref)}" ${cable ? `data-cable="${esc(cable.id)}"` : ""} tabindex="0" role="button" aria-label="${esc(desc)}">
+    return `<g class="sjack ${cable ? "is-on" : ""} jack-${p.dir}${j.tail ? " jack-tail" : ""}" data-port="${esc(j.ref)}" ${cable ? `data-cable="${esc(cable.id)}"` : ""} tabindex="0" role="button" aria-label="${esc(desc)}">
       <title>${esc(desc)}</title>${head}<circle class="jack-hit" cx="${j.x}" cy="${j.y}" r="14"/>${art}${word}</g>`;
   }
 

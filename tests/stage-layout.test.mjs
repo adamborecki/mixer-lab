@@ -49,6 +49,12 @@ describe("stage diagram layout", () => {
             continue;
           }
           assert.ok(j, `${name}: ${d.id}/${p.id} has no place`);
+          // A sub snake's tail is a cable end, not a jack on a box: it hangs off a tail of the multicore, inside the diagram.
+          if (j.tail) {
+            assert.ok(j.x > 0 && j.x < L.width && j.y > 0 && j.y < L.height, `${name}: ${d.id}/${p.id} is outside the diagram`);
+            assert.ok(L.links.some((l) => l.kind === "tail" && Math.abs(l.b.y - j.y) < 1), `${name}: ${d.id}/${p.id} has no tail`);
+            continue;
+          }
           assert.ok(inside(j, boxes.get(j.boxId)), `${name}: ${d.id}/${p.id} is outside its box`);
         }
       }

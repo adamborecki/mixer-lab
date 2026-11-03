@@ -6869,3 +6869,14 @@ dialog::backdrop {
   font-size: 0.8rem;
   color: var(--text-dim);
 }
+/* A sub snake's tails: thinner than the multicore they split from. */
+.cable-tail .cable-shadow {
+  stroke-width: 6;
+}
+.cable-tail .cable-core {
+  stroke: #3b3f4d;
+  stroke-width: 3.5;
+}
+.sjack .tail-knot {
+  fill: #3b3f4d;
+}

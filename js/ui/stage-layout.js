@@ -8,7 +8,9 @@
 //                   S32, SD8)        rear panel
 //
 // A sub snake on stage that feeds a stage box gets a column of its own
-// between the sources and the stage box. Gear in the same rack (a device's
+// between the sources and the stage box: its box of inputs, then its
+// multicore splitting into tails, each tail an XLR plug that goes straight
+// into a stage box input (`tailsAsCables`). Gear in the same rack (a device's
 // `rack`) is drawn inside one frame: the amp rack, the hall's mains rack.
 //
 // Every physical jack in the model gets a position and the side its cable
@@ -24,6 +26,7 @@ const COL_GAP = 78; // between columns: room for the cables to bend
 const TOP = 46; // below the column headings
 const HEAD = 30; // a box's title bar
 const RACK_HEAD = 26; // a rack frame's name, above its first box
+const TAIL_GAP = 24; // between a sub snake's tails where they fan out
 const RACK_TITLES = { amp: "Amp rack", hall: "Hall's mains rack · permanent" };
 
 // Ports that are a socket you can plug a cable into.
@@ -118,12 +121,16 @@ export function layoutStage(rig, { order = () => 0, channelLabels = [], mixerNam
   if (mixer) measured.foh.push(consoleBox(mixer, channelLabels, mixerName));
   // A snake is two boxes: its stage end, and the fan of tails at FOH (under the console).
   const multicores = [];
+  const breakouts = [];
   for (const d of cols.box) {
     const type = DEVICE_TYPES[d.type];
-    if (type.passthrough) {
-      measured[type.fanColumn || "box"].push(stageBoxBox(d, (p) => p.end === "stage", [["INPUTS", (p) => p.dir === "in"], ["RETURNS", (p) => p.dir === "out"]]));
-      // A sub snake (`fanColumn`): its stage end and its tails share a column of their own.
-      measured[type.fanColumn || "foh"].push(stageBoxBox(d, (p) => p.end === "foh", [[type.fanColumn ? "TAILS" : "TAILS (to the console)", (p) => p.dir === "out"], ["RETURN SENDS", (p) => p.dir === "in"]], { id: `${d.id}-fan`, title: type.fanTitle || "Snake fan-out at FOH" }));
+    if (type.tailsAsCables) {
+      // A sub snake: the box on stage only. Its tails are cables, placed once the stage box is.
+      measured.sub.push(stageBoxBox(d, (p) => p.end === "stage", [["INPUTS", (p) => p.dir === "in"]]));
+      breakouts.push(d);
+    } else if (type.passthrough) {
+      measured.box.push(stageBoxBox(d, (p) => p.end === "stage", [["INPUTS", (p) => p.dir === "in"], ["RETURNS", (p) => p.dir === "out"]]));
+      measured.foh.push(stageBoxBox(d, (p) => p.end === "foh", [["TAILS (to the console)", (p) => p.dir === "out"], ["RETURN SENDS", (p) => p.dir === "in"]], { id: `${d.id}-fan`, title: "Snake fan-out at FOH" }));
       multicores.push([d.id, `${d.id}-fan`]);
     } else measured.box.push(stageBoxBox(d));
   }
@@ -160,6 +167,26 @@ export function layoutStage(rig, { order = () => 0, channelLabels = [], mixerNam
     const B = boxes.find((x) => x.id === b);
     return { kind: "multicore", a: { x: A.x + A.w / 2, y: A.y + A.h, side: "down" }, b: { x: B.x, y: B.y + 40, side: "left" } };
   });
+  // A sub snake's multicore runs from its box to a breakout beside the stage
+  // box, where it splits into tails; each tail ends in an XLR plug (a jack in
+  // the model, `tail`), level with the stage box inputs it's plugged into.
+  for (const d of breakouts) {
+    const A = boxes.find((x) => x.id === d.id);
+    const col = columns.find((c) => c.id === "sub");
+    const tails = DEVICE_TYPES[d.type].ports.filter((p) => p.end === "foh" && p.dir === "out");
+    const into = tails.map((p) => rig.cables.find((c) => c.from === `${d.id}/${p.id}`)).map((c) => c && jacks.get(c.to)).filter(Boolean);
+    const mid = into.length ? into.reduce((a, j) => a + j.y, 0) / into.length : A.y + A.h + 120;
+    const top = Math.max(A.y + A.h + 40, mid - ((tails.length - 1) * TAIL_GAP) / 2);
+    const x = col.x + col.w + 26;
+    const fan = { x: x - 40, y: top + ((tails.length - 1) * TAIL_GAP) / 2 };
+    links.push({ kind: "multicore", title: "Sub snake: eight mic lines in one cable, splitting into tails", a: { x: A.x + A.w / 2, y: A.y + A.h, side: "down" }, b: { ...fan, side: "left" } });
+    tails.forEach((p, i) => {
+      const y = top + i * TAIL_GAP;
+      jacks.set(`${d.id}/${p.id}`, { ref: `${d.id}/${p.id}`, x, y, side: "right", port: p, word: String(i + 1), wordSide: "left", tail: true, column: "sub", boxId: d.id });
+      links.push({ kind: "tail", a: { ...fan, side: "right" }, b: { x: x - 6, y, side: "left" } });
+      height = Math.max(height, y + 24);
+    });
+  }
   // A frame around each rack's gear, its name in the top edge.
   const racks = [...new Set(boxes.map((b) => b.group).filter(Boolean))].map((g) => {
     const list = boxes.filter((b) => b.group === g);
