@@ -1224,6 +1224,7 @@ const cmeBand = (a, { phantom = true, order = { "cme-nord": 1, "cme-pno-l": 3, "
   if (phantom) for (const ch of [26, 27]) a.st.setChannel(ch, "phantom", true);
 };
 Object.assign(SOLVE, {
+  "x32-cme-tour": (a) => ["main", "mix9", "mix10", "mix11"].forEach((d) => a.st.setListen(d)),
   "x32-cme-mains": (a) => cmeMains(a),
   "x32-cme-house": (a) => a.st.setDevice("cme-mix5", "lvl45", 0),
   "x32-cme-wedges": (a) => cmeWedges(a),
@@ -1249,6 +1250,10 @@ Object.assign(SOLVE, {
   "x32-cme-end": (a) => a.st.setDevice("cme-mix5", "lvl45", 7.5),
 });
 Object.assign(WRONG, {
+  "x32-cme-tour": [["only the house", (a) => a.st.setListen("main")], ["the hall's speakers turned back on", (a) => {
+    ["main", "mix9", "mix10", "mix11"].forEach((d) => a.st.setListen(d));
+    a.st.setDevice("cme-mix5", "lvl45", 7.5);
+  }]],
   "x32-cme-mains": [["instrument cable to the Yamahas", (a) => cmeMains(a, "ts")], ["left and right swapped at the amp", (a) => cmeMains(a, "speaker", ["in-b", "in-a"])]],
   "x32-cme-house": [["MAIN MIX down instead", (a) => a.st.setDevice("cme-mix5", "main", 0)], ["the rack unplugged", (a) => {
     a.unplugAt("cme-mix5/in-l");

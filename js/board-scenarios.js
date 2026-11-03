@@ -4776,6 +4776,34 @@ const cmeOnChannel = (ctx, s, ch) => mc(ctx, s)?.index === ch - 1 && goodBand(ct
 const HOUSE_SAME = { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, masterFree: true, label: "The house balance stays the same (muting MAIN LR to hear only the wedges is fine)" };
 
 const CMES = [
+  // First, the whole rig with nothing wrong: one picture of what "working" is,
+  // before every scenario after it breaks one piece.
+  {
+    id: "x32-cme-tour",
+    short: "Everything working",
+    title: "Everything working",
+    who: "Crew chief",
+    prompt: "“This is CME the way it should be, five minutes before downbeat. Nothing is broken. Walk the signal from the band to every speaker, and listen to each place it ends up: the house, then each of the three wedges.”",
+    goal: "Listen to the house (MAIN) and to each wedge (MIX 9, 10 and 11). Change nothing: it all works.",
+    music: "excerpt",
+    setup: { listen: "pfl" },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "main", kind: "goal", type: "listenedTo", dest: "main", label: "You listened to the house (MAIN): the two Yamaha speakers downstage" },
+      { id: "l9", kind: "goal", type: "listenedTo", dest: "mix9", label: "You listened to wedge 1, house left (MIX 9)" },
+      { id: "l10", kind: "goal", type: "listenedTo", dest: "mix10", label: "You listened to wedge 2, center (MIX 10)" },
+      { id: "l11", kind: "goal", type: "listenedTo", dest: "mix11", label: "You listened to wedge 3, house right (MIX 11)" },
+      keep("all", "Every speaker that should play still plays: both Yamaha speakers and all three wedges", (ctx) => cmeMainsOk(ctx) && cmeWedgesOk(ctx)),
+      keep("hall", "The hall's own speakers stay off (the Mix5's 4/5 LEVEL down)", (ctx) => !Object.keys(CME_HALL).some((id) => plays(ctx, id))),
+      HOUSE_SAME,
+    ],
+    hints: [
+      "Use the listening bar at the bottom: MAIN is the audience, and each wedge has its own spot. Try them one at a time.",
+      CME_ROOM + " Follow one singer: handheld → receiver → the X32's LOCAL 18 → CH 18 → MAIN and MIX 9-11 → the S32's outputs over the Cat5e → the amps → the speakers. Then one player: the SM57 → the sub snake → its tail into S32 IN 30 → CH 30.",
+      "Open Console: Mix5 too. Its 4/5 LEVEL is down on purpose: the hall's own speakers stay off, so the mics only have the Yamaha speakers in front of them.",
+    ],
+    complete: "That's the whole rig working. The singers come in on wireless (CH 17-21), the band on the sub snake into the S32 (CH 25-32). MAIN leaves on S32 OUT 13/14 to the Crown in the amp rack and the Yamaha speakers downstage, and on OUT 15/16 to the hall's rack, where the Mix5 keeps the hall's own speakers off. MIX 9, 10 and 11 leave on S32 OUT 9-11: two wedges through the KM750, one active. Every scenario after this breaks one piece of it: come back here when you need to remember what right looks like.",
+  },
   {
     id: "x32-cme-mains",
     short: "Downstage mains",
@@ -5355,7 +5383,7 @@ const ORDER = {
   l20: ["doors", "gain", "pad", "lowcut", "mud", "eq-on", "keys-wedge", "less-guitar", "out-of-house", "wedge-quiet", "switch", "reverb", "efx-mon"],
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
   yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "mud", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
-  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9", "vj-mains", "vj-monitors", "vj-local", "vj-gain", "vj-lowcut", "vj-muted", "vj-send", "vj-amp", "vj-chain", "vj-link", "vj-patch", "ea-chain", "ea-route", "ea-bank", "ea-48v", "ea-collision", "ea-click", "ea-dead", "cme-mains", "cme-house", "cme-wedges", "cme-wedge-test", "cme-amp-knob", "cme-mics", "cme-vox", "cme-band", "cme-gtr", "cme-cable", "cme-gains", "cme-end"],
+  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9", "vj-mains", "vj-monitors", "vj-local", "vj-gain", "vj-lowcut", "vj-muted", "vj-send", "vj-amp", "vj-chain", "vj-link", "vj-patch", "ea-chain", "ea-route", "ea-bank", "ea-48v", "ea-collision", "ea-click", "ea-dead", "cme-tour", "cme-mains", "cme-house", "cme-wedges", "cme-wedge-test", "cme-amp-knob", "cme-mics", "cme-vox", "cme-band", "cme-gtr", "cme-cable", "cme-gains", "cme-end"],
   f8n: ["track", "trim", "room", "hpf", "pfl", "balance", "link", "camera", "dslr", "iso-safety"],
   dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
   cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "dante-back", "dante-fix", "scene-recall", "scene-store"],

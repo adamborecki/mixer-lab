@@ -304,10 +304,11 @@ export class StageView {
       const routed = this.store.state.routing?.[ep.output];
       const out = routed && routed !== "off" ? routed : ep.output;
       const busName = ({ "main-l": "Main L", "main-r": "Main R" })[out] || terms[out] || (routed ? out.toUpperCase().replace(/^([A-Z]+)(\d+)$/, "$1 $2") : mixerPorts.find((p) => p.id === out)?.name) || out;
-      const text = ep.valid ? `${ep.status === "hot" ? "⚠ Hot" : ep.status === "weak" ? "⚠ Weak" : "✓"} ${busName}` : ep.status === "unpatched" ? "Silent" : ep.status === "danger" ? "✕ Danger" : "✕ No sound";
-      devices.set(ep.deviceId, { tone: ep.valid ? (ep.status === "ok" ? "ok" : "warn") : tone(ep.status), text });
+      // `off`: a working chain with a knob turned all the way down on purpose (the hall's speakers at CME).
+      const text = ep.status === "off" ? `○ Off · ${busName}` : ep.valid ? `${ep.status === "hot" ? "⚠ Hot" : ep.status === "weak" ? "⚠ Weak" : "✓"} ${busName}` : ep.status === "unpatched" ? "Silent" : ep.status === "danger" ? "✕ Danger" : "✕ No sound";
+      devices.set(ep.deviceId, { tone: ep.status === "off" ? "idle" : ep.valid ? (ep.status === "ok" ? "ok" : "warn") : tone(ep.status), text });
       const into = rig.cables.find((c) => c.to.startsWith(`${ep.deviceId}/`));
-      if (into) cables.set(into.id, ep.valid ? (ep.status === "ok" ? "ok" : "warn") : ep.status === "danger" ? "bad" : "warn");
+      if (into) cables.set(into.id, ep.status === "off" ? "ok" : ep.valid ? (ep.status === "ok" ? "ok" : "warn") : ep.status === "danger" ? "bad" : "warn");
     }
     return { devices, cables };
   }

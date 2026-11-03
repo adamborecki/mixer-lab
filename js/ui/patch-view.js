@@ -418,8 +418,8 @@ export class PatchView {
       .map((d) => {
         const type = DEVICE_TYPES[d.type];
         const ep = endpoints.get(d.id);
-        const status = ep.valid ? (ep.status === "ok" ? "ok" : "warn") : ep.status === "unpatched" ? "idle" : ep.status === "danger" ? "bad" : "warn";
-        const statusText = ep.valid ? `${ep.status === "hot" ? "⚠ Distorting" : ep.status === "weak" ? "⚠ Too quiet" : "✓ Sound"}: ${busName(ep.output)}${ep.viaAmp ? " via amp" : ""}` : ep.status === "unpatched" ? "Silent" : ep.status === "danger" ? "✕ Danger" : "✕ No sound";
+        const status = ep.status === "off" ? "idle" : ep.valid ? (ep.status === "ok" ? "ok" : "warn") : ep.status === "unpatched" ? "idle" : ep.status === "danger" ? "bad" : "warn";
+        const statusText = ep.status === "off" ? `○ Turned down: ${busName(ep.output)}` : ep.valid ? `${ep.status === "hot" ? "⚠ Distorting" : ep.status === "weak" ? "⚠ Too quiet" : "✓ Sound"}: ${busName(ep.output)}${ep.viaAmp ? " via amp" : ""}` : ep.status === "unpatched" ? "Silent" : ep.status === "danger" ? "✕ Danger" : "✕ No sound";
         const amp = type.camera ? "Records what it's fed" : type.amp === "internal" ? "Amp: built in (powered)" : "Amp: none inside (passive)";
         const settings = type.camera && d.type === "camera-input"
           ? `<div class="dev-settings"><label>INPUT <output data-readout="inputLevel">${d.inputLevel === 1 ? "LINE" : "MIC"}</output>

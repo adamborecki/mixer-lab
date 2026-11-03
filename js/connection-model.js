@@ -1111,9 +1111,10 @@ function quietIf(result, parts) {
   result.gainDb = knobs.reduce((db, x) => db + x.db, 0);
   if (!knobs.length || result.gainDb > -18) return;
   const low = knobs.sort((a, b) => a.db - b.db)[0];
-  result.status = "weak";
+  // All the way down is a setting, not a fault (CME turns the hall's speakers off at the Mix5): `off`.
+  result.status = result.gainDb === -Infinity ? "off" : "weak";
   const name = `${low.d.label || DEVICE_TYPES[low.d.type].name}: ${low.k.label}`;
-  result.messages.push(result.gainDb === -Infinity ? `Silent: ${name} is all the way down.` : `Very quiet: ${name} is at ${knobPos(low.d, low.k)} (${Math.round(result.gainDb)} dB).`);
+  result.messages.push(result.gainDb === -Infinity ? `Turned down: ${name} is all the way down, so this speaker plays nothing. The chain to it works.` : `Very quiet: ${name} is at ${knobPos(low.d, low.k)} (${Math.round(result.gainDb)} dB).`);
 }
 
 // Walks upstream from a speaker to the mixer output that feeds it.
