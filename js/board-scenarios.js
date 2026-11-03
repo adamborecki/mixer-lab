@@ -4746,7 +4746,7 @@ const EAS = [
 // ---------- CME in Salmon: a real MUS 248 gig on the full X32 (Essentials) ----------
 // The CME Gig Checklist's rig (js/scenarios.js CME_GIGS): wireless handhelds
 // on LOCAL 17-21, the band on a Hosa sub snake into S32 IN 25-32, three wedges
-// on MIX 9-11 (two passive on the KM750, one active), MAIN L/R to the Yamahas
+// on MIX 9-11 (two passive on the KM750, one active), MAIN L/R to the Yamaha speakers
 // downstage through the amp rack's Crown and to the hall's mains rack, its
 // Mix5 4/5 LEVEL down. Essentials follow a gig as the crew runs it: the
 // speakers first (mains, the hall's turned down, the wedges, a music test),
@@ -4754,7 +4754,7 @@ const EAS = [
 // The faults are the ones from the dress rehearsal and the instructor's notes
 // (2026-11-02). CME: Advanced, with the harder troubleshooting, comes later.
 
-const CME_ROOM = "Turn around to Stage & patch (T): the band and the Hosa sub snake on stage, the S32 in the stage-side rack, the KM750 and the Crown in the amp rack, the hall's mains rack (the Mix5 into the Crown at its bottom), and the speakers: three wedges, the two Yamahas on stands, the hall's installed pair.";
+const CME_ROOM = "Turn around to Stage & patch (T): the band, then the Hosa sub snake, the S32 in the stage-side rack, the X32, two racks (the amp rack: an NX3000, two KM750s and a Crown; the hall's mains rack: the Mix5, its power and a Crown, wired for good), and the speakers: three wedges, the two Yamaha speakers on stands, the hall's installed pair.";
 const CME_VOX = ["cme-red", "cme-orange", "cme-yellow", "cme-green"];
 const CME_HANDHELDS = [...CME_VOX, "cme-blue"];
 const CME_WEDGES = { "cme-w1": "out9", "cme-w2": "out10", "cme-w3": "out11" };
@@ -4781,8 +4781,8 @@ const CMES = [
     short: "Downstage mains",
     title: "Put the mains downstage",
     who: "Crew chief",
-    prompt: "“The two Yamahas are on their stands downstage of the band, and the Crown in the amp rack is on. Nothing's patched yet. MAIN L/R already leave the S32 on OUT 13 and 14, and the test music is up on AUX IN 1/2. Get it out of both Yamahas.”",
-    goal: "S32 OUT 13 and 14 into the Crown's 1/4\" inputs, the Crown's outputs into the two Yamahas on speaker cable: the test music out of both.",
+    prompt: "“The two Yamaha speakers are on their stands downstage of the band, and the Crown in the amp rack is on. Nothing's patched yet. MAIN L/R already leave the S32 on OUT 13 and 14, and the test music is up on AUX IN 1/2. Get it out of both Yamaha speakers.”",
+    goal: "S32 OUT 13 and 14 into the Crown's 1/4\" inputs, the Crown's outputs into the two Yamaha speakers on speaker cable: the test music out of both.",
     music: "excerpt",
     stage: { silent: true, note: "The band isn't on stage yet: only the test music is playing." },
     setup: {
@@ -4793,45 +4793,45 @@ const CMES = [
       listen: "main",
     },
     conditions: [
-      goal("left", "The left Yamaha plays MAIN L (S32 OUT 13, Crown CH 1)", (ctx) => plays(ctx, "cme-main-l", "out13")),
-      goal("right", "The right Yamaha plays MAIN R (S32 OUT 14, Crown CH 2)", (ctx) => plays(ctx, "cme-main-r", "out14")),
-      goal("cable", "Both Yamahas are on 1/4\" speaker cable, not instrument cable", (ctx) => ["cme-main-l/in", "cme-main-r/in"].every((r) => onSpeakerCable(ctx, r))),
+      goal("left", "The left Yamaha speaker plays MAIN L (S32 OUT 13, Crown CH 1)", (ctx) => plays(ctx, "cme-main-l", "out13")),
+      goal("right", "The right Yamaha speaker plays MAIN R (S32 OUT 14, Crown CH 2)", (ctx) => plays(ctx, "cme-main-r", "out14")),
+      goal("cable", "Both Yamaha speakers are on 1/4\" speaker cable, not instrument cable", (ctx) => ["cme-main-l/in", "cme-main-r/in"].every((r) => onSpeakerCable(ctx, r))),
       { id: "music", kind: "goal", type: "sourceHeardInMain", source: "preshow", stereo: true, label: "The test music comes out of both, left and right" },
     ],
     hints: [
       CME_ROOM + " MAIN L/R are already on S32 OUT 13/14. What does a passive speaker need between it and a line-level output?",
       "A power amp: the Crown in the amp rack. Its inputs are 1/4\": an XLR-to-1/4\" cable from S32 OUT 13 into CH 1, and from OUT 14 into CH 2.",
-      "Then speaker level out: a 1/4\" speaker cable (the thick one, not an instrument cable) from CH 1's output to the left Yamaha, and the long one from CH 2's output across the stage to the right Yamaha.",
+      "Then speaker level out: a 1/4\" speaker cable (the thick one, not an instrument cable) from CH 1's output to the left Yamaha speaker, and the long one from CH 2's output across the stage to the right Yamaha speaker.",
     ],
-    complete: "That's CME's own mains, downstage of the band, so every open mic is behind them: what the speakers play doesn't go straight back into the mics, and feedback is much less likely. Most concerts in Salmon just use the hall's installed speakers; CME is loud enough that the extra setup is worth it. The right Yamaha's cable is the very long one with its own box in BH 102.",
+    complete: "That's CME's own mains, downstage of the band, so every open mic is behind them: what the speakers play doesn't go straight back into the mics, and feedback is much less likely. Most concerts in Salmon just use the hall's installed speakers; CME is loud enough that the extra setup is worth it. The right Yamaha speaker's cable is the very long one with its own box in BH 102.",
   },
   {
     id: "x32-cme-house",
     short: "Hall speakers down",
     title: "The hall's speakers are on too",
     who: "Crew chief",
-    prompt: "“The Yamahas sound great. But the hall's own speakers are playing the same thing from up by the ceiling, right over the mics. Turn them down in the hall's mains rack, the right way: the next group still needs that rack.”",
-    goal: "The Mix5's 4/5 LEVEL (S32 OUT 15/16) all the way down: the hall's speakers silent, the Yamahas still playing, the Mix5's MAIN MIX where it was.",
+    prompt: "“The Yamaha speakers sound great. But the hall's own speakers are playing the same thing from up by the ceiling, right over the mics. Turn them down at the Mix5 on top of the hall's mains rack, the right way: the next group still needs it.”",
+    goal: "The Mix5's 4/5 LEVEL (S32 OUT 15/16) all the way down: the hall's speakers silent, the Yamaha speakers still playing, the Mix5's MAIN MIX where it was.",
     music: "excerpt",
     stage: { silent: true, note: "The band isn't on stage yet: only the test music is playing." },
     setup: {
       tweak: (st, h) => {
         h.faderDb("preshow", 0);
-        h.dev("cme-house", "lvl45", 7.5); // as Vocal Jazz left it
+        h.dev("cme-mix5", "lvl45", 7.5); // as Vocal Jazz left it
       },
       listen: "main",
     },
     conditions: [
-      goal("knob", "The Mix5's 4/5 LEVEL, the knob for S32 OUT 15/16, is all the way down", (ctx) => knob(ctx, "cme-house", "lvl45", 7.5) <= 0.5),
+      goal("knob", "The Mix5's 4/5 LEVEL, the knob for S32 OUT 15/16, is all the way down", (ctx) => knob(ctx, "cme-mix5", "lvl45", 7.5) <= 0.5),
       goal("hall", "The hall's installed speakers are silent", (ctx) => !Object.keys(CME_HALL).some((id) => plays(ctx, id))),
-      keep("main", "The Mix5's MAIN MIX stays where it is (a phone in its 3.5 mm input still works)", (ctx) => knob(ctx, "cme-house", "main", 7.5) === 7.5),
-      keep("yamahas", "Both Yamahas keep playing MAIN", cmeMainsOk),
+      keep("main", "The Mix5's MAIN MIX stays where it is (a phone in its 3.5 mm input still works)", (ctx) => knob(ctx, "cme-mix5", "main", 7.5) === 7.5),
+      keep("yamahas", "Both Yamaha speakers keep playing MAIN", cmeMainsOk),
       keep("rack", "The hall's mains rack stays patched", hallPatched),
     ],
     hints: [
-      "The hall's speakers get MAIN L/R from S32 OUT 15/16, through the mains rack. Don't change anything on the X32: the Yamahas need MAIN too.",
-      CME_ROOM + " Tap the hall's mains rack. The Mix5 in it has two knobs that matter: 4/5 LEVEL (S32 OUT 15/16 come in on its LINE IN 4/5) and MAIN MIX.",
-      "Turn the Mix5's 4/5 LEVEL all the way down. Leave MAIN MIX alone: then someone who plugs a phone into the rack's 3.5 mm input still gets sound.",
+      "The hall's speakers get MAIN L/R from S32 OUT 15/16, through the mains rack. Don't change anything on the X32: the Yamaha speakers need MAIN too.",
+      "Open Console: Mix5, next to Console: X32 above the console. Its MAIN OUT feeds the Crown in the hall's mains rack. Two of its knobs are on that path: 4/5 LEVEL (S32 OUT 15/16 come in on its LINE IN 4/5) and MAIN MIX.",
+      "On Console: Mix5, turn 4/5 LEVEL all the way down. Leave MAIN MIX alone: then someone who plugs a phone into the Mix5's 3.5 mm input still gets sound.",
     ],
     complete: "4/5 LEVEL, not MAIN MIX: the hall's speakers stop playing the X32, and the rack still works for a phone or a laptop on its 3.5 mm input. It's also the one thing that's easy to forget at the end of the night: the next group (Vocal Jazz, say) uses the hall's speakers and won't think to look in a rack.",
   },
@@ -5085,16 +5085,16 @@ const CMES = [
     stage: { silent: true, note: "The band has gone: only the test music is playing." },
     setup: { tweak: (st, h) => h.faderDb("preshow", 0), listen: "main" },
     conditions: [
-      goal("knob", "The Mix5's 4/5 LEVEL is back at U (7.5 on the knob)", (ctx) => Math.abs(knob(ctx, "cme-house", "lvl45", 7.5) - 7.5) <= 0.5),
+      goal("knob", "The Mix5's 4/5 LEVEL is back at U (7.5 on the knob)", (ctx) => Math.abs(knob(ctx, "cme-mix5", "lvl45", 7.5) - 7.5) <= 0.5),
       goal("hall", "Both of the hall's installed speakers play MAIN", (ctx) => plays(ctx, "cme-hall-l", "out15") && plays(ctx, "cme-hall-r", "out16")),
-      keep("main", "The Mix5's MAIN MIX stays where it is", (ctx) => knob(ctx, "cme-house", "main", 7.5) === 7.5),
+      keep("main", "The Mix5's MAIN MIX stays where it is", (ctx) => knob(ctx, "cme-mix5", "main", 7.5) === 7.5),
     ],
     hints: [
-      "During the gig, the hall's own speakers were turned down so CME's Yamahas could do the job. Who uses those speakers next?",
-      CME_ROOM + " Tap the hall's mains rack: the Mix5's 4/5 LEVEL takes S32 OUT 15/16.",
-      "Turn the Mix5's 4/5 LEVEL back up to U (7.5 on this knob). Then strike: amps off first, everything else after.",
+      "During the gig, the hall's own speakers were turned down so CME's Yamaha speakers could do the job. Who uses those speakers next?",
+      "Open Console: Mix5, next to Console: X32: its 4/5 LEVEL takes S32 OUT 15/16.",
+      "On Console: Mix5, turn 4/5 LEVEL back up to U (7.5 on this knob). Then strike: amps off first, everything else after.",
     ],
-    complete: "Do the easy-to-forget thing first: the hall's speakers back on, before anyone starts coiling cables. Then strike: amps off before anything is unplugged; wedges, Yamahas and stands back to BH 102; IEC cables in their labeled box (or with the amp that needs one), AC cords in the black milk crates, the long speaker cable in its own box. Leave the closet cleaner than you found it.",
+    complete: "Do the easy-to-forget thing first: the hall's speakers back on, before anyone starts coiling cables. Then strike: amps off before anything is unplugged; wedges, Yamaha speakers and stands back to BH 102; IEC cables in their labeled box (or with the amp that needs one), AC cords in the black milk crates, the long speaker cable in its own box. Leave the closet cleaner than you found it.",
   },
 ];
 

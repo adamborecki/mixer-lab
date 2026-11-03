@@ -1225,7 +1225,7 @@ const cmeBand = (a, { phantom = true, order = { "cme-nord": 1, "cme-pno-l": 3, "
 };
 Object.assign(SOLVE, {
   "x32-cme-mains": (a) => cmeMains(a),
-  "x32-cme-house": (a) => a.st.setDevice("cme-house", "lvl45", 0),
+  "x32-cme-house": (a) => a.st.setDevice("cme-mix5", "lvl45", 0),
   "x32-cme-wedges": (a) => cmeWedges(a),
   "x32-cme-wedge-test": (a) => cmeMusicTest(a),
   "x32-cme-amp-knob": (a) => a.st.setDevice("cme-km750", "volB", 7),
@@ -1246,14 +1246,14 @@ Object.assign(SOLVE, {
     a.set("cme-bass", "gainDb", 32);
     a.set("cme-gtr1", "gainDb", 36);
   },
-  "x32-cme-end": (a) => a.st.setDevice("cme-house", "lvl45", 7.5),
+  "x32-cme-end": (a) => a.st.setDevice("cme-mix5", "lvl45", 7.5),
 });
 Object.assign(WRONG, {
   "x32-cme-mains": [["instrument cable to the Yamahas", (a) => cmeMains(a, "ts")], ["left and right swapped at the amp", (a) => cmeMains(a, "speaker", ["in-b", "in-a"])]],
-  "x32-cme-house": [["MAIN MIX down instead", (a) => a.st.setDevice("cme-house", "main", 0)], ["the rack unplugged", (a) => {
-    a.unplugAt("cme-house/in-a");
-    a.unplugAt("cme-house/in-b");
-  }], ["4/5 LEVEL only halfway down", (a) => a.st.setDevice("cme-house", "lvl45", 4)]],
+  "x32-cme-house": [["MAIN MIX down instead", (a) => a.st.setDevice("cme-mix5", "main", 0)], ["the rack unplugged", (a) => {
+    a.unplugAt("cme-mix5/in-l");
+    a.unplugAt("cme-mix5/in-r");
+  }], ["4/5 LEVEL only halfway down", (a) => a.st.setDevice("cme-mix5", "lvl45", 4)]],
   "x32-cme-wedges": [["the active wedge left unplugged from power", (a) => cmeWedges(a, { power: false })], ["instrument cable to the passive wedges", (a) => cmeWedges(a, { cable: "ts" })]],
   "x32-cme-wedge-test": [["fixed without listening", (a) => cmeMusicTest(a, { listen: false })], ["MIX 11 up instead of the wedge's VOLUME", (a) => {
     cmeMusicTest(a, { volume: false });
@@ -1283,7 +1283,7 @@ Object.assign(WRONG, {
     a.nudge("cme-orange", 10);
     a.nudge("cme-bass", -10);
   }], ["only the vocals", (a) => a.set("cme-orange", "gainDb", 30)]],
-  "x32-cme-end": [["MAIN MIX up instead", (a) => a.st.setDevice("cme-house", "main", 10)]],
+  "x32-cme-end": [["MAIN MIX up instead", (a) => a.st.setDevice("cme-mix5", "main", 10)]],
 });
 
 // The generic digital mixer is the X32 Compact's model with no brand on it: the same fixes (and mistakes) apply.

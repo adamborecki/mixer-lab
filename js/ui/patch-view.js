@@ -50,8 +50,9 @@ export function portLabel(rig, ref, { short = false } = {}) {
 }
 
 export class PatchView {
-  constructor({ sourcesRoot, outputsRoot, store, manifest, toast, getTerms, onOpenRecorder = () => {}, getRecorder = () => null, onOpenDante = () => {}, onSettle = () => {} }) {
+  constructor({ sourcesRoot, outputsRoot, store, manifest, toast, getTerms, onOpenRecorder = () => {}, getRecorder = () => null, onOpenDante = () => {}, onSettle = () => {}, onOpenConsole = () => {} }) {
     this.onOpenRecorder = onOpenRecorder;
+    this.onOpenConsole = onOpenConsole;
     this.onSettle = onSettle;
     this.onOpenDante = onOpenDante;
     this.getRecorder = getRecorder;
@@ -77,6 +78,8 @@ export class PatchView {
         if (rec) this.onOpenRecorder(rec.dataset.openRecorder);
         const dante = e.target.closest("[data-open-dante]");
         if (dante) this.onOpenDante(dante.dataset.openDante);
+        const desk = e.target.closest("[data-open-console]");
+        if (desk) this.onOpenConsole(desk.dataset.openConsole);
         // A wireless handheld's one button: a tap mutes or unmutes it, press and hold switches it on or off.
         const press = e.target.closest("[data-mic-press]");
         if (press) {
@@ -396,6 +399,19 @@ export class PatchView {
       )
       .join("");
 
+    // A small mixer with a console of its own (the hall's Mix5), and a rack's power.
+    const gear = rig.devices.filter((d) => DEVICE_TYPES[d.type].console || DEVICE_TYPES[d.type].decor);
+    const gearHtml = gear
+      .map((d) => {
+        const type = DEVICE_TYPES[d.type];
+        return this.card(d.id, `<li class="device-card" data-device-card="${esc(d.id)}">
+        <div class="device-top"><span class="dev-ico">${icon(deviceIconName(d), { size: 44 })}</span><div class="source-names"><strong>${esc(d.label || type.name)}</strong><span>${esc(type.blurb)}</span></div></div>
+        ${listPorts(rig, d).map((p) => this.portButton(p.ref, p.dir)).join("")}
+        ${type.console ? `<button type="button" class="btn btn-start" data-open-console="${esc(d.id)}">Open Console: ${esc(type.name.replace(/^Mackie /, ""))}</button>` : ""}
+      </li>`);
+      })
+      .join("");
+
     const speakers = rig.devices.filter((d) => DEVICE_TYPES[d.type].endpoint);
     const zoneName = { foh: "House (audience)", stage: "Stage (performers)" };
     const spkHtml = speakers
@@ -432,6 +448,7 @@ export class PatchView {
       ${reverbs.length ? `<h3 class="group-title">Effects</h3><ul class="device-list">${reverbHtml}</ul>` : ""}
       ${recorders.length ? `<h3 class="group-title">Recorder</h3><ul class="device-list">${recHtml}</ul>` : ""}
       ${amps.length ? `<h3 class="group-title">Amplifier</h3><ul class="device-list">${ampHtml}</ul>` : ""}
+      ${gear.length ? `<h3 class="group-title">Rack gear</h3><ul class="device-list">${gearHtml}</ul>` : ""}
       <h3 class="group-title">${icon("role-destination", { size: 22 })}${speakers.every((d) => DEVICE_TYPES[d.type].camera) ? "Camera — does the level match?" : "Speakers — where is the amplifier?"}</h3>
       <ul class="device-list">${spkHtml}</ul>`;
   }
@@ -630,12 +647,13 @@ class PatchDialog {
       ${this.header("Connected")}
       <p class="patch-current"><span class="cable-dot" style="--hue:${cableHue(cable.id)}" aria-hidden="true"></span>
         ${esc(CABLES[cable.cable].name)} to <strong>${esc(portLabel(this.rig, other))}</strong></p>
+      ${cable.fixed ? `<p class="port-msg">Wired into a permanent rack: this cable stays where it is.</p>` : ""}
       <div class="patch-actions">
-        <button type="button" class="btn btn-stop" data-act="unplug" data-cable="${esc(cable.id)}">Unplug</button>
-        <button type="button" class="btn btn-start" data-act="close">Keep it</button>
+        ${cable.fixed ? "" : `<button type="button" class="btn btn-stop" data-act="unplug" data-cable="${esc(cable.id)}">Unplug</button>`}
+        <button type="button" class="btn btn-start" data-act="close">${cable.fixed ? "OK" : "Keep it"}</button>
       </div>
     </div>`;
-    this.el.querySelector('[data-act="unplug"]').focus();
+    this.el.querySelector('[data-act="unplug"], [data-act="close"]').focus();
   }
 
   showCables() {

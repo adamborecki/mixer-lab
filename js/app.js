@@ -17,6 +17,7 @@ import { renderFlow } from "./ui/flow.js";
 import { ListenBar } from "./ui/listen-bar.js";
 import { MixerView } from "./ui/mixer-view.js";
 import { PatchView } from "./ui/patch-view.js";
+import { Mix5View } from "./ui/mix5-view.js";
 import { MissionView, StartScreen, ThemeDrawer } from "./ui/mission-view.js";
 import { SCENARIO_BY_ID, THEMES_BY_ID, consoleOf, gigOf, mixerEntry, nextInTheme, nextOnMixer, skinOf } from "./themes.js";
 import { BugLog } from "./bugs.js";
@@ -85,6 +86,7 @@ const patchView = new PatchView({
   getRecorder: (id) => engine.recorder(id),
   // A knob let go or a button pressed on the gear: the cards' status follows.
   onSettle: () => (pending.any = pending.patch = true),
+  onOpenConsole: () => setView("mix5"),
 });
 
 // The field recorder's own panel (opened from its card in Outputs).
@@ -201,6 +203,7 @@ function refresh() {
   const mix = computeMix(state, M.SOURCES_BY_ID, M.STEMS);
   lastMix = mix;
   mixerView.sync(mix);
+  syncConsoles(mix);
   listenBar.update(mix, { playing: engine.playing, ready, loadingText, buffering });
   // The diagram's figure follows where you're listening.
   if (pending.patch || store.state.listen !== lastListen) {
@@ -475,7 +478,20 @@ function setView(view, { focus = false } = {}) {
   }
   if (focus) document.querySelector(`[data-view-btn="${view}"]`).focus();
 }
-const turnAround = () => setView(main.dataset.view === "console" ? "patch" : "console");
+// "Console: X32" names the console in front of you; a rig with a small mixer of its
+// own (the hall's Mix5) adds its console next to it.
+const mix5View = new Mix5View($("#mix5"), { store });
+function syncConsoles(mix) {
+  const name = `Console: ${skin.name.replace(/^(Behringer|Mackie|Yamaha|Soundcraft|Zoom|Sound Devices)\s+/, "")}`;
+  for (const el of document.querySelectorAll("[data-console-name]")) if (el.textContent !== name) el.textContent = name;
+  const has = store.state.rig.devices.some((d) => DEVICE_TYPES[d.type]?.console);
+  for (const b of document.querySelectorAll('[data-view-btn="mix5"], [data-tab-btn="mix5"]')) b.hidden = !has;
+  if (!has && main.dataset.view === "mix5") setView("console");
+  if (has) mix5View.sync(mix);
+}
+const turnAround = () => setView(main.dataset.view === "patch" ? "console" : "patch");
+// The views on offer: the console, a small mixer's own console when the rig has one (the hall's Mix5), the stage.
+const views = () => [...document.querySelectorAll("[data-view-btn]")].filter((b) => !b.hidden).map((b) => b.dataset.viewBtn);
 document.querySelector(".tabs").addEventListener("click", (e) => {
   const b = e.target.closest("[data-tab-btn]");
   if (b) setView(b.dataset.tabBtn);
@@ -496,7 +512,9 @@ document.addEventListener("keydown", (e) => {
     turnAround();
   } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && t.closest?.(".view-switch")) {
     e.preventDefault();
-    setView(main.dataset.view === "console" ? "patch" : "console", { focus: true });
+    const list = views();
+    const k = list.indexOf(main.dataset.view);
+    setView(list[(k + (e.key === "ArrowLeft" ? list.length - 1 : 1)) % list.length], { focus: true });
   }
 });
 

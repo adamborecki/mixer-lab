@@ -310,6 +310,8 @@ export class MixerStore {
   }
 
   disconnect(cableId) {
+    // A cable wired into a permanent rack (`fixed`) stays where it is.
+    if (this.state.rig.cables.find((c) => c.id === cableId)?.fixed) return;
     const before = this.state.rig.cables.length;
     this.state.rig.cables = this.state.rig.cables.filter((c) => c.id !== cableId);
     if (this.state.rig.cables.length === before) return;

@@ -83,19 +83,26 @@ export const PLAYBACK_DEVICES = {
   "hall-l": { type: "passive-speaker", label: "Hall main L", short: "hall left", zone: "foh", pan: -1 },
   "hall-r": { type: "passive-speaker", label: "Hall main R", short: "hall right", zone: "foh", pan: 1 },
   // CME in Salmon: a Hosa sub snake on stage into S32 IN 25-32; three wedges,
-  // each its own mix (two passive on the KM750's two channels, one active);
+  // each its own mix (two passive on a KM750's two channels, one active);
   // downstage mains on stands from the Crown in the amp rack, so the open mics
-  // sit behind them (feedback); and the hall's own mains rack (the Mix5 and
-  // the Crown at its bottom), its 4/5 LEVEL turned down while CME's mains are up.
+  // sit behind them (feedback); and the hall's own mains rack (the Mix5 on top,
+  // rack power, a Crown inside), its 4/5 LEVEL turned down while CME's mains
+  // are up. `rack` groups a rack's gear in the diagram.
   "cme-hosa": { type: "subsnake", label: "Hosa sub snake · by the piano" },
-  "cme-km750": { type: "km750", label: "KM750 · monitor amp rack" },
-  "cme-crown": { type: "crown-amp", label: "Crown · amp rack (downstage mains)" },
-  "cme-house": { type: "mix5-rack", label: "Hall mains rack · Mix5 → Crown" },
+  // The amp rack (it rolls): an NX3000, two KM750s and a Crown, one above the other.
+  "cme-nx3000": { type: "nx3000", label: "NX3000 · amp rack", rack: "amp" },
+  "cme-km750": { type: "km750", label: "KM750 #1 · amp rack", rack: "amp" },
+  "cme-km750-2": { type: "km750", label: "KM750 #2 · amp rack", rack: "amp" },
+  "cme-crown": { type: "crown-amp", label: "Crown · amp rack (downstage mains)", rack: "amp" },
+  // The hall's mains rack (permanent): the Mix5 on top, rack power, the Crown inside.
+  "cme-mix5": { type: "mix5", label: "Mackie Mix5 · hall's mains rack", rack: "hall" },
+  "cme-hall-power": { type: "rack-power", label: "Rack power · hall's mains rack", rack: "hall" },
+  "cme-hall-crown": { type: "hall-crown", label: "Crown · hall's mains rack", rack: "hall" },
   "cme-w1": { type: "passive-speaker", label: "Wedge 1 · house left (passive, 1/4\")", short: "wedge 1 (left)", zone: "stage", pan: -0.6 },
   "cme-w2": { type: "passive-speaker", label: "Wedge 2 · center (passive, 1/4\")", short: "wedge 2 (center)", zone: "stage", pan: 0 },
   "cme-w3": { type: "active-wedge", label: "Wedge 3 · house right (active)", short: "wedge 3 (right)", zone: "stage", pan: 0.6 },
-  "cme-main-l": { type: "passive-speaker", label: "Yamaha on a stand · downstage left", short: "downstage left", zone: "foh", pan: -1 },
-  "cme-main-r": { type: "passive-speaker", label: "Yamaha on a stand · downstage right", short: "downstage right", zone: "foh", pan: 1 },
+  "cme-main-l": { type: "passive-speaker", label: "Yamaha speaker on a stand · downstage left", short: "downstage Yamaha speaker left", zone: "foh", pan: -1 },
+  "cme-main-r": { type: "passive-speaker", label: "Yamaha speaker on a stand · downstage right", short: "downstage Yamaha speaker right", zone: "foh", pan: 1 },
   "cme-hall-l": { type: "passive-speaker", label: "Hall's installed speaker · left", short: "hall speaker left", zone: "foh", pan: -0.8 },
   "cme-hall-r": { type: "passive-speaker", label: "Hall's installed speaker · right", short: "hall speaker right", zone: "foh", pan: 0.8 },
   // BH 109, the choir room: the room's rack (AUX AUDIO INPUT → the Ashly LX-308B's Ch.1 → a Crown XLi 2500) and its two passive wall speakers.
@@ -724,7 +731,7 @@ export function boardHelpers(state, model, sourcesById = SOURCES_BY_ID) {
     addGear: (kind) => state.rig.devices.push(STAGE_GEAR[kind]()),
     addDevice: (id) => {
       const d = PLAYBACK_DEVICES[id];
-      state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan, ...(d.init ? d.init() : {}) });
+      state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan, ...(d.rack ? { rack: d.rack } : {}), ...(d.init ? d.init() : {}) });
     },
     // Put the band on a stage box: every source on a console channel moves to the
     // box's input of the same number. A digital box (S32, SD8) gets its Cat5 to the
@@ -1539,19 +1546,19 @@ const EA_GIGS = {
 // (so the buses Vocal Jazz and the a cappella groups use stay free), out of
 // S32 OUT 9-11: two passive wedges on the KM750's two channels, the third an
 // active wedge on its own XLR. MAIN L/R on XLR OUT 13/14 and 15/16: 13/14 to
-// the Crown in the amp rack and the Yamahas on stands downstage, 15/16 to the
+// the Crown in the amp rack and the Yamaha speakers on stands downstage, 15/16 to the
 // hall's mains rack, its Mix5 4/5 LEVEL turned down while CME's mains are up.
 const CME_MICS = ["cme-red", "cme-orange", "cme-yellow", "cme-green", "cme-blue"];
 export const CME_SNAKE = { "cme-nord": 1, "cme-pno-l": 3, "cme-pno-r": 4, "cme-bass": 5, "cme-gtr1": 6, "cme-gtr2": 7, "cme-oh": 8 };
 const CME_GIGS = {
   x32: {
-    prompt: "The Commercial Music Ensemble (CME) in Salmon Recital Hall, on the hall's full-size X32. Everyone is on one layer, CH 17-32. The wireless handhelds come in on LOCAL 17-21, left to right across the stage: red is the mic over the piano, orange the lead singer, yellow and green the backing singers, blue the horn. The band is on a Hosa sub snake by the piano whose tails fill the S32's IN 25-32: Nord DI on 25, the piano's two pencil condensers on 27-28, bass DI 29, the guitar amps' SM57s 30 and 31, a drum overhead 32. Three wedges, three mixes: MIX 9, 10 and 11 leave on XLR OUT 9-11 and come out of S32 OUT 9-11: wedge 1 (left) and wedge 2 (center) are passive, on the KM750's CH A and B; wedge 3 (right) is active, with its own VOLUME and an IEC power cable. MAIN L/R leave on OUT 13/14 and 15/16: 13/14 into the Crown in the amp rack and the two Yamahas on stands downstage of the band (the open mics are behind them, against feedback), 15/16 into the hall's mains rack, whose Mix5 4/5 LEVEL is turned down while CME's own mains are up. The test music, a laptop at FOH, is on AUX IN 1/2. Persephone's stems stand in for the band.",
+    prompt: "The Commercial Music Ensemble (CME) in Salmon Recital Hall, on the hall's full-size X32. Everyone is on one layer, CH 17-32. The wireless handhelds come in on LOCAL 17-21, left to right across the stage: red is the mic over the piano, orange the lead singer, yellow and green the backing singers, blue the horn. The band is on a Hosa sub snake by the piano whose tails fill the S32's IN 25-32: Nord DI on 25, the piano's two pencil condensers on 27-28, bass DI 29, the guitar amps' SM57s 30 and 31, a drum overhead 32. Three wedges, three mixes: MIX 9, 10 and 11 leave on XLR OUT 9-11 and come out of S32 OUT 9-11: wedge 1 (left) and wedge 2 (center) are passive, on a KM750's CH A and B; wedge 3 (right) is active, with its own VOLUME and an IEC power cable. The amp rack also holds an NX3000 and a second KM750. MAIN L/R leave on OUT 13/14 and 15/16: 13/14 into the Crown in the amp rack and the two Yamaha speakers on stands downstage of the band (the open mics are behind them, against feedback), 15/16 into the Mackie Mix5 on top of the hall's mains rack (Console: Mix5), whose 4/5 LEVEL is turned down while CME's own mains are up; the Mix5's MAIN OUT feeds the Crown inside that rack, on cables that stay put. The test music, a laptop at FOH, is on AUX IN 1/2. Persephone's stems stand in for the band.",
     patch: { ...Object.fromEntries(CME_MICS.map((id, i) => [id, [16 + i, "mic"]])), preshow: [32, "lr"] },
     // Sources on a stage box: [box, its input number, the console channel that hears it].
     boxPatch: Object.fromEntries(Object.entries(CME_SNAKE).map(([id, n]) => [id, ["cme-hosa", n, 23 + n]])),
     cableFor: {},
     inSource: [0, 0, 0, 1],
-    devices: ["s32", "cme-hosa", "cme-km750", "cme-w1", "cme-w2", "cme-w3", "cme-crown", "cme-main-l", "cme-main-r", "cme-house", "cme-hall-l", "cme-hall-r"],
+    devices: ["s32", "cme-hosa", "cme-nx3000", "cme-km750", "cme-km750-2", "cme-crown", "cme-mix5", "cme-hall-power", "cme-hall-crown", "cme-w1", "cme-w2", "cme-w3", "cme-main-l", "cme-main-r", "cme-hall-l", "cme-hall-r"],
     cables: [
       { from: "s32/aes50a", to: "mixer/aes50a", cable: "cat5" },
       ...Array.from({ length: 8 }, (_, i) => ({ from: `cme-hosa/tail${i + 1}`, to: `s32/in${25 + i}`, cable: "xlr" })),
@@ -1564,10 +1571,13 @@ const CME_GIGS = {
       { from: "s32/out14", to: "cme-crown/in-b", cable: "xlr-trs" },
       { from: "cme-crown/out-a", to: "cme-main-l/in", cable: "speaker" },
       { from: "cme-crown/out-b", to: "cme-main-r/in", cable: "speaker" },
-      { from: "s32/out15", to: "cme-house/in-a", cable: "xlr-trs" },
-      { from: "s32/out16", to: "cme-house/in-b", cable: "xlr-trs" },
-      { from: "cme-house/out-a", to: "cme-hall-l/in", cable: "speaker" },
-      { from: "cme-house/out-b", to: "cme-hall-r/in", cable: "speaker" },
+      { from: "s32/out15", to: "cme-mix5/in-l", cable: "xlr-trs" },
+      { from: "s32/out16", to: "cme-mix5/in-r", cable: "xlr-trs" },
+      // Inside the hall's mains rack: these stay where they are (`fixed`).
+      { from: "cme-mix5/out-l", to: "cme-hall-crown/in-a", cable: "trs", fixed: true },
+      { from: "cme-mix5/out-r", to: "cme-hall-crown/in-b", cable: "trs", fixed: true },
+      { from: "cme-hall-crown/out-a", to: "cme-hall-l/in", cable: "speaker", fixed: true },
+      { from: "cme-hall-crown/out-b", to: "cme-hall-r/in", cable: "speaker", fixed: true },
     ],
     // The vocals first: every handheld in every wedge (wedge 2, the singers', a little louder).
     sends: { mix9: each(CME_MICS, -6), mix10: each(CME_MICS, -3), mix11: each(CME_MICS, -6) },
@@ -1576,7 +1586,7 @@ const CME_GIGS = {
     dyn: {},
     tweak: (state) => {
       Object.assign(state.routing, { out9: "mix9", out10: "mix10", out11: "mix11", out13: "main-l", out14: "main-r", out15: "main-l", out16: "main-r" });
-      state.rig.devices.find((d) => d.id === "cme-house").lvl45 = 0;
+      state.rig.devices.find((d) => d.id === "cme-mix5").lvl45 = 0;
     },
   },
 };
@@ -1639,7 +1649,7 @@ function buildCompactState(model, sourcesById) {
   for (const s of sources) state.rig.devices.push({ id: sourceDeviceId(s.id), type: s.deviceType, sourceId: s.id, label: s.device });
   for (const id of gig.devices) {
     const d = PLAYBACK_DEVICES[id];
-    state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan, ...(d.inputLevel !== undefined ? { inputLevel: d.inputLevel } : {}) });
+    state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan, ...(d.rack ? { rack: d.rack } : {}), ...(d.inputLevel !== undefined ? { inputLevel: d.inputLevel } : {}) });
   }
   if (gig.reverb) state.rig.devices.push(STAGE_GEAR.reverb());
   // The room pair's two mics are sources too (442).

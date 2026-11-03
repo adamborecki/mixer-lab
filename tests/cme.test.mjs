@@ -89,11 +89,52 @@ describe("CME in Salmon: the rig", () => {
       assert.match(ep(id).messages.join(" "), /4\/5 LEVEL is all the way down/);
     }
     assert.ok(!mix().rig.buses.out15.length, "a speaker turned right down reaches nobody");
-    st.setDevice("cme-house", "lvl45", 7.5);
+    st.setDevice("cme-mix5", "lvl45", 7.5);
     assert.equal(ep("cme-hall-l").gainDb, 0);
     assert.deepEqual(mix().rig.buses.out15, ["cme-hall-l"]);
-    st.setDevice("cme-house", "main", 0);
+    st.setDevice("cme-mix5", "main", 0);
     assert.equal(ep("cme-hall-r").gainDb, -Infinity, "MAIN MIX turns both sides down too");
+    done();
+  });
+});
+
+describe("CME in Salmon: two racks", () => {
+  it("draws the amp rack and the hall's mains rack as separate racks", () => {
+    const { st } = gig();
+    const rack = (r) => st.state.rig.devices.filter((d) => d.rack === r).map((d) => d.type);
+    assert.deepEqual(rack("amp"), ["nx3000", "km750", "km750", "crown-amp"]);
+    assert.deepEqual(rack("hall"), ["mix5", "rack-power", "hall-crown"], "the Mix5 on top, power, the Crown inside");
+    done();
+  });
+
+  it("keeps the hall rack's own cables where they are: they can't be unplugged", () => {
+    const { st, ep, cableTo } = gig();
+    for (const ref of ["cme-hall-crown/in-a", "cme-hall-crown/in-b", "cme-hall-l/in", "cme-hall-r/in"]) {
+      const c = cableTo(ref);
+      assert.equal(c.fixed, true, ref);
+      st.disconnect(c.id);
+      assert.ok(cableTo(ref), `${ref} is still there`);
+    }
+    st.disconnect(cableTo("cme-mix5/in-l").id);
+    assert.equal(cableTo("cme-mix5/in-l"), undefined, "the S32's cables into the Mix5 aren't fixed");
+    st.setDevice("cme-mix5", "lvl45", 7.5);
+    assert.equal(ep("cme-hall-l").valid, false, "nothing into LINE IN 4: the left hall speaker is silent");
+    assert.equal(ep("cme-hall-r").valid, true);
+    done();
+  });
+
+  it("turns one side down with the Mix5's 4/5 BAL, and ignores the knobs nothing is plugged into", () => {
+    const { st, ep } = gig();
+    st.setDevice("cme-mix5", "lvl45", 7.5);
+    st.setDevice("cme-mix5", "bal45", 10);
+    assert.equal(ep("cme-hall-l").gainDb, -Infinity, "hard right: no left");
+    assert.equal(ep("cme-hall-r").gainDb, 0);
+    st.setDevice("cme-mix5", "bal45", 5);
+    for (const k of ["ch1Gain", "lvl23", "phones", "tapeMain"]) assert.ok(st.setDevice("cme-mix5", k, 1) === undefined);
+    assert.equal(ep("cme-hall-l").gainDb, 0, "CH 1, 2/3, PHONES and TAPE aren't on the path");
+    st.setDevice("cme-mix5", "main", 0);
+    assert.equal(ep("cme-hall-l").gainDb, -Infinity);
+    assert.match(ep("cme-hall-l").messages.join(" "), /MAIN MIX is all the way down/);
     done();
   });
 });

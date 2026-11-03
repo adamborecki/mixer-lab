@@ -173,6 +173,8 @@ export class StageView {
       parts.push(`<g class="col col-${c.id}"><rect class="col-band" x="${c.x - 10}" y="4" width="${c.w + 20}" height="${L.height - 4}" rx="14"/>
         <text class="col-label" x="${c.x}" y="22">${esc(c.label.toUpperCase())}</text>${c.sub ? `<text class="col-sub" x="${c.x}" y="36">${esc(c.sub)}</text>` : ""}</g>`);
     }
+    // Racks: one frame around each rack's gear (the amp rack, the hall's mains rack).
+    for (const r of L.racks || []) parts.push(`<g class="rack-frame"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="10"/><text x="${r.x + 10}" y="${r.y + 17}">${esc(r.title.toUpperCase())}</text></g>`);
     for (const b of L.boxes) parts.push(this.boxSvg(b, rig, status));
 
     // Network links (Dante, AES50) that aren't cables in the model: drawn, not patchable.
@@ -456,6 +458,7 @@ export class StageView {
     if (!target) return;
     const to = target.dataset.port;
     if (!d.cable) return this.patchView.openBetween(d.ref, to);
+    if (d.cable.fixed) return this.patchView.toast("That cable is wired into a permanent rack: it stays where it is.", "bad");
     // Move a plugged cable's end: same cable, new jack. Put it back if it doesn't go.
     const keep = d.cable.from === d.ref ? d.cable.to : d.cable.from;
     const keepPort = getPort(this.store.state.rig, keep);

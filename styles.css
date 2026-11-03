@@ -255,7 +255,10 @@ button {
   gap: 0.75rem;
 }
 .lab[data-view="console"] .region-patch,
-.lab[data-view="patch"] .region-mixer {
+.lab[data-view="patch"] .region-mixer,
+.lab:not([data-view="mix5"]) .region-mix5,
+.lab[data-view="mix5"] .region-mixer,
+.lab[data-view="mix5"] .region-patch {
   display: none;
 }
 
@@ -5057,6 +5060,20 @@ dialog::backdrop {
   font-size: 10px;
   fill: var(--text-dim);
 }
+/* A rack (the amp rack, the hall's mains rack): one frame around its gear. */
+.rack-frame rect {
+  fill: rgba(255, 255, 255, 0.025);
+  stroke: var(--line);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+.rack-frame text {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  fill: var(--text-dim);
+}
 
 /* Boxes: gear on stage, panels with screws, rack units. */
 .sbox {
@@ -6709,3 +6726,146 @@ dialog::backdrop {
 /* Chapman gigs: a planned gig shows but can't be opened yet. */
 .gig-card.gig-soon { opacity: 0.6; cursor: default; }
 .drawer-theme.gig-soon { opacity: 0.7; }
+
+/* ---------- Console: Mix5 (the hall's mains rack) ---------- */
+
+.m5-face {
+  display: grid;
+  gap: 0.9rem;
+  max-width: 900px;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #2b2e33, #1f2125);
+  border: 1px solid var(--line);
+}
+.m5-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.m5-brand strong {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  letter-spacing: 0.08em;
+}
+.m5-brand span {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.m5-jacks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.5rem;
+}
+.m5-jack {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 0.75rem;
+}
+.m5-jack small {
+  color: var(--text-dim);
+}
+.m5-jack.is-plugged {
+  border-color: var(--accent);
+}
+.m5-strips {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.6rem;
+  align-items: start;
+}
+.m5-strip {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.6rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.m5-strip h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  text-align: center;
+}
+.m5-knob,
+.m5-switch {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 0.4rem;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+.m5-knob input {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: var(--text-dim);
+}
+.m5-knob output {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+/* The knobs on the way to the hall's speakers: 4/5 BAL and LEVEL, MAIN MIX. */
+.m5-knob.m5-live {
+  color: var(--text);
+  font-weight: 600;
+}
+.m5-knob.m5-live input {
+  accent-color: var(--accent);
+}
+.m5-power {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+.m5-meter {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  gap: 0.4rem;
+  justify-content: center;
+  align-items: end;
+}
+.m5-meter-col,
+.m5-meter-scale {
+  display: grid;
+  gap: 0.3rem;
+  justify-items: center;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+}
+.m5-meter-scale {
+  grid-column: 3;
+  grid-row: 1;
+  padding-bottom: 1rem;
+}
+.m5-led {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #3a3d42;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.m5-meter-col .m5-led.m5-on:nth-child(1) {
+  background: #ff4d4d;
+}
+.m5-meter-col .m5-led.m5-on:nth-child(2) {
+  background: #ffc94d;
+}
+.m5-led.m5-on {
+  background: #5ddc6a;
+  box-shadow: 0 0 6px currentColor;
+}
+.m5-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}

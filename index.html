@@ -38,7 +38,8 @@
   <section id="mission" class="mission" aria-label="Scenario"></section>
 
   <nav class="tabs" role="tablist" aria-label="Which side of the rig">
-    <button type="button" role="tab" data-tab-btn="console" aria-controls="region-mixer">Console</button>
+    <button type="button" role="tab" data-tab-btn="console" aria-controls="region-mixer" data-console-name>Console</button>
+    <button type="button" role="tab" data-tab-btn="mix5" aria-controls="region-mix5" hidden>Console: Mix5</button>
     <button type="button" role="tab" data-tab-btn="patch" aria-controls="region-patch">Stage &amp; patch</button>
   </nav>
 
@@ -47,7 +48,10 @@
       <div class="view-bar">
         <div class="view-switch" role="tablist" aria-label="Which side of the rig">
           <button type="button" role="tab" class="view-btn" data-view-btn="console" aria-controls="region-mixer">
-            <strong>Console</strong><small>the front: faders &amp; knobs</small>
+            <strong data-console-name>Console</strong><small>the front: faders &amp; knobs</small>
+          </button>
+          <button type="button" role="tab" class="view-btn" data-view-btn="mix5" aria-controls="region-mix5" hidden>
+            <strong>Console: Mix5</strong><small>the hall's mains rack</small>
           </button>
           <button type="button" role="tab" class="view-btn" data-view-btn="patch" aria-controls="region-patch">
             <strong>Stage &amp; patch</strong><small>the back: inputs, cables, outputs</small>
@@ -69,6 +73,11 @@
         <div id="flow"></div>
         <div id="console-tip" class="console-tip" role="note" hidden></div>
         <div id="mixer"></div>
+      </section>
+
+      <section id="region-mix5" class="region region-mix5" aria-labelledby="mix5-title">
+        <h2 class="region-title" id="mix5-title">Console: Mix5 <small>the small Mackie on top of the hall's mains rack</small></h2>
+        <div id="mix5"></div>
       </section>
 
       <section id="region-patch" class="region region-patch" aria-labelledby="patch-title-main">

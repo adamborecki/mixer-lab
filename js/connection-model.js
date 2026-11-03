@@ -463,7 +463,23 @@ export function knobDb(pos, unity = 10) {
 export const knobPos = (device, k) => device?.[k.key] ?? k.start;
 export function knobsDb(device, pair) {
   const knobs = DEVICE_TYPES[device?.type]?.knobs || [];
-  return knobs.filter((k) => !k.select && (!k.pair || k.pair === pair)).reduce((db, k) => db + knobDb(knobPos(device, k), k.unity), 0);
+  return knobs.filter((k) => !k.select && k.path !== false && (!k.pair || k.pair === pair)).reduce((db, k) => db + knobPartDb(device, k, pair), 0);
+}
+// One knob's part: a BAL knob (`balance`, centered at its unity) turns the
+// other side down as it moves toward one side; `pair` "a" is left, "b" right.
+function knobPartDb(device, k, pair) {
+  const pos = knobPos(device, k);
+  if (!k.balance) return knobDb(pos, k.unity);
+  const away = pair === "a" ? pos - k.unity : k.unity - pos;
+  return away > 0 ? knobDb(k.unity - away, k.unity) : 0;
+}
+// Every knob on the way from a mixer output to one speaker: the amp channel's, and a
+// small mixer's that the signal passes through on the way (the Mix5, on its L or R side).
+export function chainKnobs(rig, ampDevice, pair, link) {
+  const parts = [[ampDevice, pair]];
+  const via = link?.via && getDevice(rig, link.via);
+  if (via && DEVICE_TYPES[via.type].knobs && link.viaPort) parts.push([via, DEVICE_TYPES[via.type].ports.find((p) => p.id === link.viaPort)?.side]);
+  return parts;
 }
 
 // What a source's own gear does to it before the mixer (rig device settings):
@@ -511,26 +527,56 @@ DEVICE_TYPES["crown-amp"] = {
   ],
   blurb: "Line level in on 1/4\" jacks, speaker level out on 1/4\" jacks, a level knob on each channel.",
 };
-// Salmon's hall mains rack as one box: S32 OUT 15/16 (MAIN L/R) on 1/4"
-// cables into the Mackie Mix5's LINE IN 4/5, its MAIN OUT into the Crown at
-// the bottom of the rack, which drives the hall's installed speakers. Only the
-// two knobs that matter are here: 4/5 LEVEL (turned down when a gig brings
-// its own mains, so the 3.5 mm input for a phone still works) and MAIN MIX.
-DEVICE_TYPES["mix5-rack"] = {
-  name: "Hall mains rack · Mackie Mix5 → Crown",
+// Salmon's hall mains rack (permanent): the Mackie Mix5 sits on top, rack
+// power below it, and a Crown inside that drives the hall's installed
+// speakers. S32 OUT 15/16 (MAIN L/R) come in on the Mix5's LINE IN 4/5 (1/4"
+// cables); its MAIN OUT feeds the Crown on cables that stay put (`fixed`).
+// It's a console of its own in the lab (`console`: the Console: Mix5 view):
+// 4/5 BAL and LEVEL and MAIN MIX change what the hall's speakers play
+// (`path`); the other knobs are there to see and turn, with nothing plugged
+// into them. Turning 4/5 LEVEL down, not MAIN MIX, takes the X32 off the hall's
+// speakers and leaves the 3.5 mm input working for a phone.
+const MIX5_KNOBS = [
+  { key: "ch1Gain", label: "CH 1 GAIN", unity: 5, start: 5, path: false, unit: "gain" },
+  { key: "ch1High", label: "CH 1 HIGH 12kHz", unity: 5, start: 5, path: false, unit: "eq" },
+  { key: "ch1Low", label: "CH 1 LOW 80Hz", unity: 5, start: 5, path: false, unit: "eq" },
+  { key: "ch1Pan", label: "CH 1 PAN", unity: 5, start: 5, path: false, unit: "pan" },
+  { key: "ch1Level", label: "CH 1 LEVEL", unity: 7.5, start: 0, path: false },
+  { key: "bal23", label: "2/3 BAL", unity: 5, start: 5, path: false, unit: "pan" },
+  { key: "lvl23", label: "2/3 LEVEL", unity: 7.5, start: 7.5, path: false },
+  { key: "bal45", label: "4/5 BAL", unity: 5, start: 5, balance: true },
+  { key: "lvl45", label: "4/5 LEVEL", unity: 7.5, start: 7.5 },
+  { key: "tapePhones", label: "TAPE TO PHONES", select: ["Up", "Down"], start: 0, path: false },
+  { key: "tapeMain", label: "TAPE TO MAIN", select: ["Up", "Down"], start: 0, path: false },
+  { key: "phones", label: "PHONES", unity: 7.5, start: 3, path: false },
+  { key: "main", label: "MAIN MIX", unity: 7.5, start: 7.5 },
+];
+DEVICE_TYPES.mix5 = {
+  name: "Mackie Mix5",
+  console: true,
+  ports: [
+    { id: "in-l", dir: "in", jack: "quarter", level: "line", side: "a", short: "LINE IN 4", name: "LINE IN 4/5 · L (4)" },
+    { id: "in-r", dir: "in", jack: "quarter", level: "line", side: "b", short: "LINE IN 5", name: "LINE IN 4/5 · R (5)" },
+    { id: "out-l", dir: "out", jack: "quarter", level: "line", role: "thru", through: "in-l", side: "a", short: "MAIN OUT L", name: "MAIN OUT L" },
+    { id: "out-r", dir: "out", jack: "quarter", level: "line", role: "thru", through: "in-r", side: "b", short: "MAIN OUT R", name: "MAIN OUT R" },
+  ],
+  knobs: MIX5_KNOBS,
+  blurb: "A five-channel Mackie on top of the hall's mains rack. S32 OUT 15/16 come in on LINE IN 4/5; MAIN OUT feeds the Crown in the rack.",
+};
+// The rack's power, between the Mix5 and the Crown. Nothing to patch.
+DEVICE_TYPES["rack-power"] = { name: "Rack power", decor: true, ports: [], blurb: "The rack's power: always on in Salmon." };
+// The Crown inside the hall's mains rack: wired to the Mix5 and, through the
+// wall, to the installed speakers. Its knobs aren't touched.
+DEVICE_TYPES["hall-crown"] = {
+  name: "Crown amp (the hall's mains rack)",
   poweramp: true,
   ports: [
-    { id: "in-a", dir: "in", jack: "quarter", level: "line", role: "amp-in", pair: "a", name: "Mix5 LINE IN 4 (L)", short: "LINE IN 4" },
-    { id: "in-b", dir: "in", jack: "quarter", level: "line", role: "amp-in", pair: "b", name: "Mix5 LINE IN 5 (R)", short: "LINE IN 5" },
-    { id: "out-a", dir: "out", jack: "quarter", level: "speaker", role: "amp-out", pair: "a", name: "Crown CH 1 (hall speaker L)", short: "CROWN 1" },
-    { id: "out-b", dir: "out", jack: "quarter", level: "speaker", role: "amp-out", pair: "b", name: "Crown CH 2 (hall speaker R)", short: "CROWN 2" },
+    { id: "in-a", dir: "in", jack: "quarter", level: "line", role: "amp-in", pair: "a", name: "CH 1 input", short: "CH 1 IN" },
+    { id: "in-b", dir: "in", jack: "quarter", level: "line", role: "amp-in", pair: "b", name: "CH 2 input", short: "CH 2 IN" },
+    { id: "out-a", dir: "out", jack: "quarter", level: "speaker", role: "amp-out", pair: "a", name: "CH 1 output (hall speaker L)", short: "CH 1 OUT" },
+    { id: "out-b", dir: "out", jack: "quarter", level: "speaker", role: "amp-out", pair: "b", name: "CH 2 output (hall speaker R)", short: "CH 2 OUT" },
   ],
-  knobs: [
-    { key: "lvl45", label: "Mix5 4/5 LEVEL", unity: 7.5, start: 7.5 },
-    { key: "main", label: "Mix5 MAIN MIX", unity: 7.5, start: 7.5 },
-  ],
-  where: "S32 OUT 15/16 → Mix5 LINE IN 4/5 → MAIN OUT → Crown → the hall's installed speakers",
-  blurb: "The hall's own mains: the Mix5 in the rack feeds the Crown at its bottom, which drives the installed speakers.",
+  blurb: "Inside the hall's mains rack: the Mix5's MAIN OUT in, the hall's installed speakers out. Its cables stay where they are.",
 };
 // A powered wedge with its own volume knob and an IEC power cable (`iec`:
 // 0 unplugged, 1 plugged in). No power, no sound, however good the signal.
@@ -554,7 +600,7 @@ DEVICE_TYPES.subsnake = {
   name: "Hosa sub snake (8 channels)",
   stagebox: true,
   passthrough: true,
-  fanColumn: "box",
+  fanColumn: "sub",
   fanTitle: "Sub snake tails (at the S32)",
   ports: [
     ...Array.from({ length: SUB_CH }, (_, i) => ({ id: `in${i + 1}`, dir: "in", jack: "xlr", level: "any", role: "snake-in", end: "stage", through: `tail${i + 1}`, name: `Sub snake MIC IN ${i + 1}` })),
@@ -664,7 +710,7 @@ export function throughLinks(rig) {
         if (!into || !outOf || getPort(rig, into.from)?.role === "thru") continue; // wait until the chain above resolves
         const id = `thru-${outOf.id}`;
         if (links.some((l) => l.id === id)) continue;
-        const link = { id, from: into.from, to: outOf.to, cable: outOf.cable, via: d.id };
+        const link = { id, from: into.from, to: outOf.to, cable: outOf.cable, via: d.id, viaPort: p.id };
         links.push(link);
         feeding.set(outOf.to, link);
         added = true;
@@ -1057,17 +1103,18 @@ function analyzeCamera(result, device, up) {
   return result;
 }
 
-// The knobs between the mixer and a speaker (an amp's level, a rack mixer's
-// knobs, an active wedge's VOLUME): `gainDb` is what they do to the level
-// (the engine applies it), and a speaker turned right down says which knob.
-function quietIf(result, device, pair) {
-  const knobs = (DEVICE_TYPES[device.type].knobs || []).filter((k) => !k.select && (!k.pair || k.pair === pair));
-  result.gainDb = knobsDb(device, pair);
-  const low = knobs.map((k) => ({ k, db: knobDb(knobPos(device, k), k.unity) })).sort((a, b) => a.db - b.db)[0];
-  if (!low || result.gainDb > -18) return;
+// The knobs between the mixer and a speaker (an amp's level, a small mixer
+// on the way, an active wedge's VOLUME): `gainDb` is what they do to the
+// level (the engine applies it), and a speaker turned right down says which
+// knob. `parts`: [device, pair or side] for each piece of gear on the way.
+function quietIf(result, parts) {
+  const knobs = parts.flatMap(([d, pair]) => (DEVICE_TYPES[d.type].knobs || []).filter((k) => !k.select && k.path !== false && (!k.pair || k.pair === pair)).map((k) => ({ d, k, db: knobPartDb(d, k, pair) })));
+  result.gainDb = knobs.reduce((db, x) => db + x.db, 0);
+  if (!knobs.length || result.gainDb > -18) return;
+  const low = knobs.sort((a, b) => a.db - b.db)[0];
   result.status = "weak";
-  const name = `${device.label || DEVICE_TYPES[device.type].name}: ${low.k.label}`;
-  result.messages.push(result.gainDb === -Infinity ? `Silent: ${name} is all the way down.` : `Very quiet: ${name} is at ${knobPos(device, low.k)} (${Math.round(result.gainDb)} dB).`);
+  const name = `${low.d.label || DEVICE_TYPES[low.d.type].name}: ${low.k.label}`;
+  result.messages.push(result.gainDb === -Infinity ? `Silent: ${name} is all the way down.` : `Very quiet: ${name} is at ${knobPos(low.d, low.k)} (${Math.round(result.gainDb)} dB).`);
 }
 
 // Walks upstream from a speaker to the mixer output that feeds it.
@@ -1132,7 +1179,7 @@ function analyzeEndpoint(rig, device, byTo) {
       result.output = up.id;
       result.valid = true;
       result.status = "ok";
-      if (type.knobs) quietIf(result, device);
+      if (type.knobs) quietIf(result, [[device]]);
       return result;
     }
     result.status = "invalid";
@@ -1173,7 +1220,8 @@ function analyzeEndpoint(rig, device, byTo) {
       result.valid = true;
       result.status = "ok";
       // The amp's level knobs (and a rack's mixer knobs in front of it).
-      if (DEVICE_TYPES[up.device.type].knobs) quietIf(result, up.device, up.pair);
+      const parts = chainKnobs(rig, up.device, up.pair, ampCable);
+      if (parts.some(([d]) => DEVICE_TYPES[d.type].knobs)) quietIf(result, parts);
       // A line mixer in front of the amp (BH 109's Ashly) with its MIC button in.
       const sw = DEVICE_TYPES[up.device.type].micSwitch;
       if (sw) {
