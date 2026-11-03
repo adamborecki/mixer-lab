@@ -26,6 +26,9 @@ import {
   knobDb,
   knobPos,
   receiverChannel,
+  powerSpec,
+  powerState,
+  powerWhy,
 } from "../connection-model.js";
 import { modelOf } from "../mixer-state.js";
 import { F8, PAIR, REVERB, TECHNIQUES, cardStats, techniqueOf } from "../devices.js";
@@ -186,6 +189,7 @@ export class PatchView {
         <div class="tags">${tags}</div>
         ${rf ? rfLine(rig, d) : this.portButton(ref, "out")}
         ${sourceGearHtml(d, src)}
+        ${powerHtml(rig, d)}
         ${msgs.map((m) => `<p class="port-msg">${esc(m)}</p>`).join("")}
         ${note ? `<p class="source-note">${esc(note)}</p>` : ""}
       </li>`);
@@ -284,6 +288,7 @@ export class PatchView {
       </div>
       <p class="source-note">${esc(note)}</p>
       ${bank}
+      ${powerHtml(rig, d)}
       ${nets.map((p) => this.portButton(p.ref, p.dir)).join("")}
       ${plugged.map((p) => this.portButton(p.ref, p.dir)).join("")}
     </li>`);
@@ -397,6 +402,7 @@ export class PatchView {
         </div>
         ${micSwitchHtml(d)}
         ${knobsHtml(d)}
+        ${powerHtml(rig, d)}
         ${DEVICE_TYPES[d.type].where ? `<p class="source-note">${esc(DEVICE_TYPES[d.type].where)}</p>` : ""}
       </li>`),
       )
@@ -411,6 +417,7 @@ export class PatchView {
         <div class="device-top"><span class="dev-ico">${icon(deviceIconName(d), { size: 44 })}</span><div class="source-names"><strong>${esc(d.label || type.name)}</strong><span>${esc(type.blurb)}</span></div></div>
         ${type.receiver ? receiverHtml(rig, d, this.manifest.SOURCES_BY_ID) : ""}
         ${type.console ? "" : knobsHtml(d)}
+        ${powerHtml(rig, d)}
         ${listPorts(rig, d).map((p) => this.portButton(p.ref, p.dir)).join("")}
         ${type.console ? `<button type="button" class="btn btn-start" data-open-console="${esc(d.id)}">Open Console: ${esc(type.name.replace(/^Mackie /, ""))}</button>` : ""}
       </li>`);
@@ -441,6 +448,7 @@ export class PatchView {
             .join("")}
           ${settings}
           ${knobsHtml(d)}
+          ${powerHtml(rig, d)}
           ${ep.messages.map((m) => `<p class="port-msg">${esc(m)}</p>`).join("")}
         </li>`);
       })
@@ -478,6 +486,22 @@ function knobsHtml(d) {
         : knobInput(d, k.key, k.label, knobPos(d, k), k.unity),
     )
     .join("")}</div>`;
+}
+
+// Its power: the cable and the switch, separately, and whether it has power
+// (the same two controls as the tab on its box in the diagram).
+export const POWER_TEXT = { on: "On", off: "Switched off", unplugged: "Unplugged", "no-power": "No power reaching it" };
+function powerHtml(rig, d) {
+  const spec = powerSpec(d);
+  if (!spec) return "";
+  const st = powerState(rig, d);
+  const name = esc(d.label || DEVICE_TYPES[d.type].name);
+  const sel = (key, label, opts) => `<label>${esc(label)} <select data-device="${esc(d.id)}" data-device-key="${key}" aria-label="${name}: ${esc(label)}">${opts.map((t, i) => `<option value="${i}"${(d[key] ?? 1) === i ? " selected" : ""}>${t}</option>`).join("")}</select></label>`;
+  return `<div class="dev-settings power-row pwr-${st}" data-device-card="${esc(d.id)}">
+    ${sel("plugged", spec.gear ? `${spec.gear}: power cable` : spec.plug ? spec.plug[0].toUpperCase() + spec.plug.slice(1) : "Power cable", ["Unplugged", "Plugged in"])}
+    ${spec.noSwitch ? "" : sel("on", "Power switch", ["Off", "On"])}
+    <p class="power-state"><span class="pwr-dot" aria-hidden="true"></span>${st === "on" ? "Power: on" : esc(powerWhy(rig, d))}</p>
+  </div>`;
 }
 
 // A radio handheld's way in: no cable, its receiver channel at FOH and the input that one plugs into.

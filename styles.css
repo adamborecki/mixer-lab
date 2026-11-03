@@ -311,6 +311,11 @@ button {
   cursor: pointer;
   text-align: left;
 }
+/* A view the rig doesn't have (Console: Mix5 outside CME): hidden, whatever display says. */
+.view-btn[hidden],
+[data-tab-btn][hidden] {
+  display: none;
+}
 .view-btn strong {
   font-family: var(--font-display);
   font-size: 0.98rem;
@@ -5109,6 +5114,102 @@ dialog::backdrop {
 .sbox.tone-bad .box-bg {
   stroke: var(--bad);
   stroke-width: 2;
+}
+/* A box with no power: its name and icon dim (the power tab on its top edge says why). */
+.sbox.dark .box-ico,
+.sbox.dark .box-name,
+.sbox.dark .box-title {
+  opacity: 0.5;
+}
+/* The power tab: plug and switch, on a box's top edge. */
+.pwr-bg {
+  fill: var(--bg-sunken);
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+.pwr-on .pwr-bg {
+  stroke: color-mix(in srgb, var(--ok) 55%, transparent);
+}
+.pwr-unplugged .pwr-bg,
+.pwr-off .pwr-bg,
+.pwr-no-power .pwr-bg {
+  stroke: color-mix(in srgb, var(--warn) 70%, transparent);
+}
+.pwr-btn {
+  cursor: pointer;
+}
+.pwr-hit {
+  fill: transparent;
+}
+.pwr-btn:hover .pwr-hit,
+.pwr-btn:focus-visible .pwr-hit {
+  fill: rgba(255, 255, 255, 0.12);
+}
+.pwr-btn:focus-visible {
+  outline: none;
+}
+.pwr-btn:focus-visible .pwr-hit {
+  stroke: var(--accent);
+}
+.pwr-cord,
+.pwr-prong,
+.pwr-gap,
+.pwr-glyph {
+  fill: none;
+  stroke: var(--text-dim);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.pwr-body {
+  fill: var(--text-dim);
+}
+.pwr-plug.is-out .pwr-body {
+  fill: var(--warn);
+}
+.pwr-plug.is-out .pwr-cord,
+.pwr-plug.is-out .pwr-prong {
+  stroke: var(--warn);
+}
+.pwr-gap {
+  stroke: var(--text-dim);
+  stroke-width: 2;
+}
+/* The switch: green and glowing only with power; on but dark is plain white. */
+.pwr-sw.is-off .pwr-glyph {
+  stroke: rgba(255, 255, 255, 0.28);
+}
+.pwr-no-power .pwr-sw.is-on .pwr-glyph,
+.pwr-unplugged .pwr-sw.is-on .pwr-glyph {
+  stroke: var(--text);
+}
+.pwr-on .pwr-sw .pwr-glyph {
+  stroke: var(--ok);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 3px var(--ok));
+}
+/* The same, on a box's card. */
+.power-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  flex-basis: 100%;
+}
+.pwr-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  flex: none;
+}
+.power-row.pwr-on .pwr-dot {
+  background: var(--ok);
+  box-shadow: 0 0 6px var(--ok);
+}
+.power-row:not(.pwr-on) .power-state {
+  color: var(--warn);
 }
 .box-title {
   font-family: var(--font-display);

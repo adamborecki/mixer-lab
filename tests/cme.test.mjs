@@ -160,11 +160,11 @@ describe("CME in Salmon: knobs on the gear", () => {
 
   it("silences an active wedge with no IEC power or its VOLUME at 0", () => {
     const { st, ep, mix } = gig();
-    st.setDevice("cme-w3", "iec", 0);
+    st.setDevice("cme-w3", "plugged", 0);
     assert.equal(ep("cme-w3").valid, false);
     assert.equal(ep("cme-w3").status, "no-power");
     assert.ok(!mix().rig.buses.out11.length);
-    st.setDevice("cme-w3", "iec", 1);
+    st.setDevice("cme-w3", "plugged", 1);
     st.setDevice("cme-w3", "vol", 0);
     assert.equal(ep("cme-w3").gainDb, -Infinity);
     assert.ok(!mix().rig.buses.out11.length);
@@ -208,8 +208,11 @@ describe("CME in Salmon: knobs on the gear", () => {
     assert.ok(setDeviceValue(mic, "mic", 2));
     assert.equal(setDeviceValue({ id: "d", type: "dynamic-mic", sourceId: "x" }, "mic", 1), false);
     assert.ok(setDeviceValue({ id: "d", type: "dynamic-mic", sourceId: "cme-gtr1" }, "vol", 4));
-    assert.equal(setDeviceValue({ id: "w", type: "active-wedge" }, "iec", 3), true, "clamped to plugged in");
-    assert.deepEqual(DEVICE_TYPES["active-wedge"].knobs.find((k) => k.key === "iec").select, ["Unplugged", "Plugged in"]);
+    const w = { id: "w", type: "active-wedge" };
+    assert.equal(setDeviceValue(w, "plugged", 3), true, "clamped to plugged in");
+    assert.equal(w.plugged, 1);
+    assert.ok(setDeviceValue(w, "on", 0));
+    assert.equal(setDeviceValue({ id: "s", type: "passive-speaker" }, "on", 0), false, "a passive speaker has no power");
   });
 });
 
@@ -263,10 +266,10 @@ describe("CME in Salmon: the wireless rack at FOH", () => {
 
   it("goes dark with the Furman off, and comes back with it on", () => {
     const { st, ch } = gig();
-    st.setDevice("cme-wl-power", "power", 0);
+    st.setDevice("cme-wl-power", "on", 0);
     for (const s of VOX) assert.equal(ch(s).band, "none", s);
     assert.equal(ch("cme-nord").band, "good", "the band isn't in the wireless rack");
-    st.setDevice("cme-wl-power", "power", 1);
+    st.setDevice("cme-wl-power", "on", 1);
     for (const s of VOX) assert.ok(["good", "hot"].includes(ch(s).band), s);
     done();
   });
@@ -277,10 +280,10 @@ describe("CME in Salmon: the wireless rack at FOH", () => {
     assert.equal(ch("cme-orange").band, "good", "one antenna is still enough (diversity)");
     st.disconnect(cableTo("cme-pas-x/ant-b").id);
     assert.equal(ch("cme-orange").band, "none", "no antenna, no mics on receiver 3");
-    st.setDevice("cme-pas", "power", 0);
+    st.setDevice("cme-pas", "on", 0);
     assert.ok(st.connect("cme-pas/out4a", "cme-pas-x/ant-a", "bnc").ok);
     assert.equal(ch("cme-orange").band, "none", "the PAS-225 off passes nothing on");
-    st.setDevice("cme-pas", "power", 1);
+    st.setDevice("cme-pas", "on", 1);
     assert.equal(ch("cme-orange").band, "good");
     done();
   });

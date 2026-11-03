@@ -1204,7 +1204,7 @@ const cmeWedges = (a, { cable = "speaker", power = true } = {}) => {
   assert.ok(a.st.connect("s32/out10", "cme-km750/in-b", "xlr").ok);
   assert.ok(a.st.connect("cme-km750/out-b", "cme-w2/in", cable).ok);
   assert.ok(a.st.connect("s32/out11", "cme-w3/in", "xlr").ok);
-  if (power) a.st.setDevice("cme-w3", "iec", 1);
+  if (power) a.st.setDevice("cme-w3", "plugged", 1);
 };
 const cmeMusicTest = (a, { listen = true, volume = true } = {}) => {
   for (const b of ["mix9", "mix10", "mix11"]) {
@@ -1225,7 +1225,7 @@ const cmeBand = (a, { phantom = true, order = { "cme-nord": 1, "cme-pno-l": 3, "
 };
 Object.assign(SOLVE, {
   "x32-cme-tour": (a) => ["main", "mix9", "mix10", "mix11"].forEach((d) => a.st.setListen(d)),
-  "x32-cme-rack": (a) => a.st.setDevice("cme-wl-power", "power", 1),
+  "x32-cme-rack": (a) => a.st.setDevice("cme-wl-power", "on", 1),
   "x32-cme-mains": (a) => cmeMains(a),
   "x32-cme-house": (a) => a.st.setDevice("cme-mix5", "lvl45", 0),
   "x32-cme-wedges": (a) => cmeWedges(a),
@@ -1256,8 +1256,8 @@ Object.assign(WRONG, {
     a.st.setDevice("cme-mix5", "lvl45", 7.5);
   }]],
   "x32-cme-rack": [["GAIN up on CH 17-21 instead", (a) => CME_VOX.forEach((s) => a.set(s, "gainDb", 60))], ["only the antenna distribution switched off and on", (a) => {
-    a.st.setDevice("cme-pas", "power", 0);
-    a.st.setDevice("cme-pas", "power", 1);
+    a.st.setDevice("cme-pas", "on", 0);
+    a.st.setDevice("cme-pas", "on", 1);
   }]],
   "x32-cme-mains": [["instrument cable to the Yamahas", (a) => cmeMains(a, "ts")], ["left and right swapped at the amp", (a) => cmeMains(a, "speaker", ["in-b", "in-a"])]],
   "x32-cme-house": [["MAIN MIX down instead", (a) => a.st.setDevice("cme-mix5", "main", 0)], ["the rack unplugged", (a) => {

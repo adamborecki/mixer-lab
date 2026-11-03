@@ -600,7 +600,7 @@ export function buildScenarioState(def, sourcesById = SOURCES_BY_ID, model = "ge
   const sources = sourcesForScenario(def.id).filter((s) => sourcesById[s.id]);
 
   for (const s of sources) {
-    state.rig.devices.push({ id: sourceDeviceId(s.id), type: s.deviceType, sourceId: s.id, label: s.device });
+    state.rig.devices.push({ id: sourceDeviceId(s.id), type: s.deviceType, sourceId: s.id, label: s.device, ...(s.gearPower ? { gearPower: s.gearPower } : {}) });
   }
   for (const id of setup.devices) {
     const d = PLAYBACK_DEVICES[id];
@@ -649,7 +649,7 @@ function buildCr1604State(def, sourcesById) {
   const state = CR1604.createState();
   const setup = def.setup;
   const sources = sourcesForScenario(def.id).filter((s) => sourcesById[s.id]);
-  for (const s of sources) state.rig.devices.push({ id: sourceDeviceId(s.id), type: s.deviceType, sourceId: s.id, label: s.device });
+  for (const s of sources) state.rig.devices.push({ id: sourceDeviceId(s.id), type: s.deviceType, sourceId: s.id, label: s.device, ...(s.gearPower ? { gearPower: s.gearPower } : {}) });
   for (const id of setup.devices) {
     const d = PLAYBACK_DEVICES[id];
     state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan });
@@ -1679,7 +1679,7 @@ function buildCompactState(model, sourcesById) {
   const gig = gigFor(model);
   const state = compactModel(model).createState();
   const sources = sourcesForScenario("free-play").filter((s) => sourcesById[s.id]);
-  for (const s of sources) state.rig.devices.push({ id: sourceDeviceId(s.id), type: s.deviceType, sourceId: s.id, label: s.device });
+  for (const s of sources) state.rig.devices.push({ id: sourceDeviceId(s.id), type: s.deviceType, sourceId: s.id, label: s.device, ...(s.gearPower ? { gearPower: s.gearPower } : {}) });
   for (const id of gig.devices) {
     const d = PLAYBACK_DEVICES[id];
     state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan, ...(d.rack ? { rack: d.rack } : {}), ...(d.pairs ? { pairs: { ...d.pairs } } : {}), ...(d.inputLevel !== undefined ? { inputLevel: d.inputLevel } : {}) });

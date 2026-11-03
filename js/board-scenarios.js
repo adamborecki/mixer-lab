@@ -4812,17 +4812,17 @@ const CMES = [
     prompt: "“Batteries are in, all five handhelds are on, and the band's channels are fine. But CH 17-21 are dead, every one of them, and the receivers' displays are dark.”",
     goal: "The wireless rack powered: all five handhelds in the house again, nothing on the X32 changed.",
     music: "bars-53",
-    setup: { tweak: (st, h) => h.dev("cme-wl-power", "power", 0) },
+    setup: { tweak: (st, h) => h.dev("cme-wl-power", "on", 0) },
     baseline: { main: { metric: "mainDbByChannel" } },
     conditions: [
-      goal("rack", "The wireless rack's Furman is on", (ctx) => knob(ctx, "cme-wl-power", "power", 1) === 1),
+      goal("rack", "The wireless rack's Furman is on", (ctx) => knob(ctx, "cme-wl-power", "on", 1) === 1),
       goal("mics", "All five handhelds are in the house", (ctx) => CME_HANDHELDS.every((s) => house(ctx, s) >= AUDIBLE)),
       { id: "x32", kind: "keep", type: "mainUnchanged", baseline: "main", except: CME_HANDHELDS, toleranceDb: 1, label: "Everything else in the house stays the same" },
     ],
     hints: [
       "Five mics dead at once, and the receivers dark: what do they all share before the X32?",
       "Turn around to Stage & patch (T): the wireless rack is at FOH, beside the X32. Everything in it runs off the Furman at its top.",
-      "Tap the Furman at the top of the wireless rack and switch its POWER on. (The checklist: it goes on at the start of the gig and off at the end.)",
+      "The Furman at the top of the wireless rack: tap the ⏻ switch on its box's top edge to switch it on. (The checklist: it goes on at the start of the gig and off at the end.)",
     ],
     complete: "The wireless rack's Furman powers everything in it: three receivers, the PTU-7000, both antenna distribution units. Off, every handheld is dead however good its battery. It's the first thing on at the start of the gig, and the last thing off at the end, after the mics.",
   },
@@ -4896,7 +4896,7 @@ const CMES = [
     setup: {
       tweak: (st, h) => {
         ["s32/out9", "s32/out10", "s32/out11", "cme-km750/out-a", "cme-km750/out-b"].forEach((ref) => h.cut(ref));
-        h.dev("cme-w3", "iec", 0);
+        h.dev("cme-w3", "plugged", 0);
       },
       listen: "main",
     },
@@ -4911,7 +4911,7 @@ const CMES = [
     hints: [
       CME_ROOM + " Three wedges on three mixes: no daisy chain this time. Which of them need an amp?",
       "The passive ones. An XLR from S32 OUT 9 into the KM750's CH A input, and OUT 10 into CH B. From each channel's output, a 1/4\" speaker cable to its wedge. The active wedge takes its line-level XLR straight from OUT 11.",
-      "An active wedge has its amp inside, so it needs mains power too: tap wedge 3 and plug in its IEC power cable.",
+      "An active wedge has its amp inside, so it needs mains power too: on wedge 3's box, tap the plug on its top edge to plug in its IEC power cable.",
     ],
     complete: "Three mixes, three separate paths: each passive wedge on its own amp channel (two different mixes never share one), and the active wedge on its own output. The active one has the amp built in: line level in on an XLR, mains power on an IEC cable, and its own VOLUME knob.",
   },

@@ -194,6 +194,8 @@ store.subscribe((state, change) => {
   // a camera's MIC/LINE switch and the 442's OUTPUT LEVEL change what the camera cards say.
   if (change.type === "device" && (["zoom-f8", "camera-input", "daw-dvs"].includes(state.rig.devices.find((d) => d.id === change.id)?.type) || change.key?.startsWith("danteRx") || change.key?.startsWith("inPatch") || change.key?.startsWith("inSource") || change.key?.endsWith("Level"))) pending.patch = true;
   if (change.type === "device" && change.id === "mixer") pending.patch = true;
+  // Power (a plug or a switch, from a box's tab or its card): the diagram and the cards follow.
+  if (change.type === "device" && (change.key === "on" || change.key === "plugged")) pending.patch = true;
 });
 
 function refresh() {

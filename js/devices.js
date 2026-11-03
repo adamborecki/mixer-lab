@@ -4,7 +4,7 @@
 // ({ id, type, label, ...settings }) and change through MixerStore.setDevice.
 // Pure JS: the audio side is js/outboard-audio.js. See docs/CR1604.md.
 
-import { BLOCK_SOURCE_BY_ID, DEVICE_TYPES, IN_SOURCE_VALUES } from "./connection-model.js";
+import { BLOCK_SOURCE_BY_ID, DEVICE_TYPES, IN_SOURCE_VALUES, powerSpec } from "./connection-model.js";
 
 const bool = (v) => !!v;
 // One of a fixed list (a number from a <select> arrives as a string, and is matched as a number).
@@ -137,6 +137,8 @@ function gearKey(dev, field) {
   if (k) return k.select ? range(0, k.select.length - 1, 1) : range(0, 10, 0.5);
   if (field === "mic" && (dev.type === "wireless-handheld" || dev.type === "rf-handheld")) return range(0, 2, 1);
   if (field === "vol" && dev.sourceId) return range(0, 10, 0.5);
+  // Its power: the cable (`plugged`) and the switch (`on`), 0 or 1.
+  if ((field === "plugged" || (field === "on" && !powerSpec(dev)?.noSwitch)) && powerSpec(dev)) return range(0, 1, 1);
   return null;
 }
 

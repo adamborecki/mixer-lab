@@ -501,6 +501,13 @@ export function sourceTrimDb(device, source) {
   const k = source?.volumeKnob;
   return k ? knobDb(device?.vol ?? k.start, k.unity) : 0;
 }
+// Everything a source's own gear does to it, with the rig: its button or
+// knob, its power (a guitar amp switched off), and a radio handheld's
+// receiver channel (the rack's power, the antennas, the channel's VOL).
+export function sourceGearDb(rig, device, source) {
+  if (!powered(rig, device)) return -Infinity;
+  return sourceTrimDb(device, source) + (DEVICE_TYPES[device?.type]?.rf ? wirelessDb(rig, device.sourceId) : 0);
+}
 
 // Behringer KM750 (two in Salmon's monitor amp rack): one channel per wedge,
 // each with its own level knob. The wedges at CME take a 1/4" speaker cable.
@@ -587,8 +594,8 @@ DEVICE_TYPES["hall-crown"] = {
   ],
   blurb: "Inside the hall's mains rack: the Mix5's MAIN OUT in, the hall's installed speakers out. Its cables stay where they are.",
 };
-// A powered wedge with its own volume knob and an IEC power cable (`iec`:
-// 0 unplugged, 1 plugged in). No power, no sound, however good the signal.
+// A powered wedge with its own volume knob and an IEC power cable (its power:
+// `plugged`, `on`). No power, no sound, however good the signal.
 DEVICE_TYPES["active-wedge"] = {
   name: "Active wedge (powered)",
   endpoint: true,
@@ -596,7 +603,6 @@ DEVICE_TYPES["active-wedge"] = {
   ports: [{ id: "in", dir: "in", jack: "combo", level: "line", name: "INPUT (XLR / 1/4\")" }],
   knobs: [
     { key: "vol", label: "VOLUME", unity: 7.5, start: 7.5 },
-    { key: "iec", label: "IEC power cable", select: ["Unplugged", "Plugged in"], start: 1 },
   ],
   blurb: "The amp is inside: line level in, its own VOLUME knob, and an IEC power cable to plug in.",
 };
@@ -617,7 +623,7 @@ DEVICE_TYPES["rack-furman"] = {
   name: "Furman (rack power)",
   rackPower: true,
   ports: [],
-  knobs: [{ key: "power", label: "POWER", select: ["Off", "On"], start: 1 }],
+  power: { plug: "power cord" },
   blurb: "The rack's power switch. Off, and everything in the rack is dark.",
 };
 DEVICE_TYPES.antenna = {
@@ -636,7 +642,6 @@ const pas = (name) => ({
     { id: "ant-b", dir: "in", jack: "bnc", level: "rf", side: "b", name: "ANT B input", short: "ANT B IN" },
     ...[1, 2, 3, 4].flatMap((n) => ["a", "b"].map((x) => ({ id: `out${n}${x}`, dir: "out", jack: "bnc", level: "rf", side: x, name: `OUT ${n} ${x.toUpperCase()}`, short: `${n}${x.toUpperCase()}` }))),
   ],
-  knobs: [{ key: "power", label: "POWER", select: ["Off", "On"], start: 1 }],
   blurb: "Splits two antennas (A and B) to several receivers, and on to the next distribution unit.",
 });
 DEVICE_TYPES.pas225 = pas("Phenyx Pro PAS-225 (antenna distribution)");
@@ -688,13 +693,54 @@ DEVICE_TYPES["foh-mac"] = {
   blurb: "The FOH computer: test music through its SSL 2+, and the Dante multitrack from the X32's card into Logic.",
 };
 
-// Is this device switched on? Its own POWER (if it has one), and its rack's Furman.
-export function powered(rig, d) {
-  const own = DEVICE_TYPES[d.type]?.knobs?.find((k) => k.key === "power");
-  if (own && !knobPos(d, own)) return false;
-  const strip = d.rack && rig.devices.find((x) => x.rack === d.rack && DEVICE_TYPES[x.type]?.rackPower);
-  return !strip || strip === d || !!knobPos(strip, DEVICE_TYPES[strip.type].knobs[0]);
+// ---------- power ----------
+
+// Everything that plugs into the wall has a power cable and (almost always) a
+// switch, and the two are different faults: `plugged` (0 unplugged) and `on`
+// (0 switched off) on the rig device, both 1 unless a scenario says otherwise.
+// A device type's `power`: { plug: what the cable is called, noSwitch,
+// passiveThru (its THRU jack is wired straight through, so it passes the
+// signal on with the box off) }. A source's own gear (the guitar amp in front
+// of an SM57, the Nord behind a DI) is the rig device's `gearPower`: its name.
+// Gear in a rack with a Furman (`rackPower`) is plugged into the Furman.
+export function powerSpec(d) {
+  const t = DEVICE_TYPES[d?.type];
+  if (t?.power) return t.power;
+  return d?.gearPower ? { plug: "power cable", gear: d.gearPower } : null;
 }
+// "on", "off" (its switch), "unplugged", "no-power" (switched on and plugged
+// in, but what it's plugged into is off), or null for gear without power.
+export function powerState(rig, d) {
+  const spec = powerSpec(d);
+  if (!spec) return null;
+  if ((d.plugged ?? 1) === 0) return "unplugged";
+  if (!spec.noSwitch && (d.on ?? 1) === 0) return "off";
+  const strip = d.rack && rig.devices.find((x) => x !== d && x.rack === d.rack && DEVICE_TYPES[x.type]?.rackPower);
+  return strip && !powered(rig, strip) ? "no-power" : "on";
+}
+// Is this device getting power? Gear without a power cable always is.
+export function powered(rig, d) {
+  const st = powerState(rig, d);
+  return st === null || st === "on";
+}
+// Why a box is dark, in a sentence ("" when it isn't).
+export function powerWhy(rig, d) {
+  const st = powerState(rig, d);
+  if (!st || st === "on") return "";
+  const spec = powerSpec(d);
+  const name = spec.gear || d.label || DEVICE_TYPES[d.type].name;
+  if (st === "unplugged") return `${name}: its ${spec.plug || "power cable"} isn't plugged in.`;
+  if (st === "off") return `${name} is switched off.`;
+  const strip = rig.devices.find((x) => x !== d && x.rack === d.rack && DEVICE_TYPES[x.type]?.rackPower);
+  return `${name} is switched on, but ${strip?.label || "its rack's power"} is off.`;
+}
+// A device the signal goes through that needs power to pass it (a stage box,
+// the Mix5), and doesn't have it. A powered speaker's THRU is wired straight through.
+function deadVia(rig, link) {
+  const d = link?.via && getDevice(rig, link.via);
+  return d && !powerSpec(d)?.passiveThru && !powered(rig, d) ? d : null;
+}
+
 // Does radio reach this antenna input? Back along the coax: an antenna, or a
 // powered distribution unit whose own input of the same letter has radio.
 export function rfAt(rig, ref, depth = 0) {
@@ -806,6 +852,23 @@ export function aesOutBlock(mixer, block) {
 // The compact mixers' rear panels come from their definitions.
 // `panels`: jacks that physically live in another box (the CL3's Rio stage box); ports name theirs with `panel`.
 for (const def of Object.values(COMPACT)) DEVICE_TYPES[def.id] = { name: def.name, mixer: true, compact: true, ports: compactPorts(def), ...(def.rio ? { panels: { rio: def.rio } } : {}), ...(def.builtInSpeaker ? { builtInSpeaker: def.builtInSpeaker } : {}) };
+
+// What plugs into the wall: every mixer (not the battery field mixers), amp,
+// powered speaker, digital stage box, and the racks' gear (powerSpec). A
+// powered speaker's THRU is a straight wire, so it passes its input on even
+// with the speaker off. The plug's name is what the lab is sure of; the rest
+// is "power cable".
+{
+  const iec = { plug: "IEC power cable" };
+  const battery = new Set(["f8n", "sd442"]);
+  for (const [id, t] of Object.entries(DEVICE_TYPES)) {
+    if (t.power) continue;
+    if ((t.mixer && !battery.has(id)) || t.poweramp || ["s32", "sd8", "active-wedge"].includes(id)) t.power = iec;
+    else if (t.endpoint && t.amp === "internal") t.power = { ...iec, passiveThru: true };
+    else if (["mix5", "line-passthru", "pas225", "pas225x", "ptu6000", "ptu7000", "iem-tx", "foh-mac"].includes(id)) t.power = { plug: "power cable" };
+  }
+  DEVICE_TYPES["active-wedge"].power = iec; // no THRU jack
+}
 
 // ---------- links through stage boxes ----------
 
@@ -1171,6 +1234,13 @@ export function analyzeRig(rig, channels = [], sources = {}) {
     endpoints.push({ deviceId: mixer.id, zone: mixer.zone || builtIn.zone || "foh", pan: 0, output: port.id, valid: true, status: "ok", messages: [], chain: [portRef(mixer.id, port.id)], viaAmp: null, builtIn: true });
   }
 
+  // A console that's off passes nothing: no channel hears its input, no output carries anything.
+  if (mixer && !powered(rig, mixer)) {
+    const why = `No power: ${powerWhy(rig, mixer)}`;
+    for (const info of channelInfo) if (info?.connected) Object.assign(info, { signal: false, status: "no-power", messages: [why] });
+    for (const e of endpoints) if (e.output && (e.valid || e.status === "off")) Object.assign(e, { valid: false, status: "no-power", messages: [why] });
+  }
+
   const buses = {};
   for (const p of mixerPorts.filter((p) => p.role === "bus-out")) {
     // A speaker turned all the way down (a knob at 0) doesn't count as reaching anyone.
@@ -1224,9 +1294,18 @@ function analyzeChannelInput(rig, cable, ch, sources, port) {
     signal: true,
     status: "ok",
     messages: [],
-    // The source's own button or volume knob (a muted handheld, a guitar amp turned down).
-    trimDb: sourceTrimDb(txDevice, source) + (rxChannel ? rxChannel.db : 0),
+    // The source's own gear: its button, volume knob or power (a muted handheld, a guitar amp
+    // turned down or off), and a handheld's receiver channel.
+    trimDb: sourceGearDb(rig, txDevice, source) + (rxChannel && !DEVICE_TYPES[txDevice?.type]?.rf ? rxChannel.db : 0),
   };
+  if (txDevice && !powered(rig, txDevice)) info.messages.push(`No sound: ${powerWhy(rig, txDevice)}`);
+  // A box on the way with no power (a stage box), or a receiver that's off: nothing comes out of it.
+  const dark = deadVia(rig, cable) || (!from.type.source && !powered(rig, from.device) ? from.device : null);
+  if (dark) {
+    Object.assign(info, { signal: false, status: "no-power" });
+    info.messages.push(`No power: ${powerWhy(rig, dark)}`);
+    return info;
+  }
   const deviceType = DEVICE_TYPES[from.device.type];
   // Playback over Dante is already audio: no mic, so no phantom power to need.
   const needsPhantom = !from.digital && (deviceType.needsPhantom || (source && source.phantom === "required"));
@@ -1358,6 +1437,13 @@ function analyzeEndpoint(rig, device, byTo) {
     return true;
   };
   if (broken(cable)) return result;
+  // Gear that needs power to pass the signal on (a stage box, the Mix5), or the amp itself.
+  const noPower = (d) => {
+    result.status = "no-power";
+    result.messages.push(`No power: ${powerWhy(rig, d)}`);
+    return result;
+  };
+  if (deadVia(rig, cable)) return noPower(deadVia(rig, cable));
   const warnCable = (c, level) => {
     const def = CABLES[c.cable];
     if (level === "speaker" && def.kind !== "speaker") result.messages.push(`${def.name} carrying speaker level: use real speaker cable (thin shielded wire can overheat).`);
@@ -1374,13 +1460,8 @@ function analyzeEndpoint(rig, device, byTo) {
       return result;
     }
     if (up.role === "bus-out") {
-      // Its own IEC power cable and VOLUME knob (CME's active wedge).
-      const power = (type.knobs || []).find((k) => k.key === "iec");
-      if (power && !knobPos(device, power)) {
-        result.status = "no-power";
-        result.messages.push("No power: its IEC cable isn't plugged in. A powered speaker needs mains power for its amp.");
-        return result;
-      }
+      // Its own power: the amp is inside (CME's active wedge: an IEC cable and a switch).
+      if (!powered(rig, device)) return noPower(device);
       result.output = up.id;
       result.valid = true;
       result.status = "ok";
@@ -1417,6 +1498,8 @@ function analyzeEndpoint(rig, device, byTo) {
       return result;
     }
     if (broken(ampCable)) return result;
+    if (!powered(rig, up.device)) return noPower(up.device);
+    if (deadVia(rig, ampCable)) return noPower(deadVia(rig, ampCable));
     const src = getPort(rig, ampCable.from);
     result.chain.unshift(ampCable.from);
     warnCable(ampCable, src.level);
