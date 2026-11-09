@@ -5230,7 +5230,7 @@ const CME_ADV = [
     hints: [
       "The PTU-7000's outputs are plugged into the X32's LOCAL 25-28. Which channels listen to LOCAL 25-32 tonight?",
       "None: CH 25-32 listen to AES50 A25-32, the S32 and the sub snake. Moving that block would lose the band. Is there a block of 8 channels CME isn't using? CH 9-16 listen to receiver 2 (the gray windscreens), and CME doesn't use those.",
-      "Main display → ROUTING → INPUT: in the 9-16 column pick Local 25-32 and press CONNECT. The guest is on CH 9: GAIN into the good range, fader up on the CH 1-16 layer, and a send to MIX 10. Put the routing back at the end of the gig.",
+      "Main display → ROUTING → INPUT: in the 9-16 column pick Local 25-32 and press CONNECT. The guest is on CH 9 (its GAIN and fader are ready on the CH 1-16 layer): check her meter, then add a send to MIX 10. Put the routing back at the end of the gig.",
     ],
     complete: "A block of 8 channels can listen to any block of 8 jacks. LOCAL 25-32 has nothing to do with CH 25-32 unless the routing says so: tonight CH 25-32 belong to the sub snake, so the headsets borrow CH 9-16, which CME wasn't using. That's the lab's workaround, not a confirmed Salmon procedure: ask before trying it in the room, and put the routing back afterwards.",
   },
@@ -5320,11 +5320,11 @@ const CME_ADV = [
     goal: "Wedge 3 back on its own mix (MIX 11), without changing any sends or the house.",
     music: "bars-25",
     setup: { tweak: (st) => (st.routing.out11 = "main-l"), listen: "main" },
-    baseline: { main: { metric: "mainDbByChannel" }, w11: { metric: "monitorByChannel", bus: "mix11" } },
+    baseline: { main: { metric: "mainDbByChannel" }, w11: { metric: "sendDbByChannel", bus: "mix11" } },
     conditions: [
       { id: "listen", kind: "goal", type: "listenedTo", dest: "mix11", label: "You listened to wedge 3 (MIX 11)" },
       W11,
-      { id: "mix", kind: "keep", type: "monitorMixUnchanged", bus: "mix11", baseline: "w11", toleranceDb: 1, label: "MIX 11 itself stays as it is: it was right all along" },
+      keep("mix", "MIX 11's sends stay as they are: the mix was right all along", (ctx) => ctx.mix.channels.every((c, i) => !c.sourceId || Math.abs((c.aux.mix11.sendDb - ctx.baseline.w11[i]) || 0) < 1)),
       HOUSE_SAME,
     ],
     hints: [
@@ -5412,7 +5412,7 @@ const CME_ADV = [
     title: "The hall's speakers won't come back",
     who: "Crew chief",
     prompt: "“End of the night. I turned the Mix5's knob back up like the checklist says, and the hall's speakers are still dead. Someone was coiling cables behind that rack.”",
-    goal: "The hall's installed speakers playing MAIN again, left on left and right on right, with the Mix5's 4/5 LEVEL at U.",
+    goal: "The hall's installed speakers playing MAIN again, left on left and right on right, with the Mix5's 4/5 LEVEL left at U.",
     music: "excerpt",
     stage: { silent: true, note: "The band has gone: only the test music is playing." },
     setup: {
@@ -5426,7 +5426,7 @@ const CME_ADV = [
     },
     conditions: [
       goal("hall", "Both of the hall's installed speakers play MAIN: S32 OUT 15 on the left, OUT 16 on the right", (ctx) => plays(ctx, "cme-hall-l", "out15") && plays(ctx, "cme-hall-r", "out16")),
-      goal("knob", "The Mix5's 4/5 LEVEL is at U (7.5 on the knob)", (ctx) => Math.abs(knob(ctx, "cme-mix5", "lvl45", 7.5) - 7.5) <= 0.5),
+      keep("knob", "The Mix5's 4/5 LEVEL stays at U (7.5 on the knob)", (ctx) => Math.abs(knob(ctx, "cme-mix5", "lvl45", 7.5) - 7.5) <= 0.5),
       keep("main", "The Mix5's MAIN MIX stays where it is", (ctx) => knob(ctx, "cme-mix5", "main", 7.5) === 7.5),
       keep("yamahas", "Both Yamaha speakers keep playing MAIN", cmeMainsOk),
     ],
