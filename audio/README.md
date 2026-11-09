@@ -224,6 +224,58 @@ Regenerate with `SONG=almost-like tools/make-excerpts.sh` and `SONG=love-me tool
 
 **Where they play.** Both pieces are in Free play on every console. Where a console has fewer mic inputs than singers, it takes the two soloists (Abbey, mic 4, and Silas, mic 11), a quartet (mics 1, 4, 9, 11) or six of them on the F8n, and the rest stay on stage, unplugged (`JAZZ_GIGS` in `js/scenarios.js`; on Mixer A and B, mics 1–8). The Vocal Jazz in Salmon gig puts both on its eleven handhelds, taking turns scenario by scenario (`vj` is “Almost Like Being in Love”, `vj-love` “Love Me or Leave Me”), with the preshow “Bossa Nova” as the crew's test music on AUX IN 1/2. The COB gig (`cob`) puts “Love Me or Leave Me” on its eleven headsets, A–K; its backing-track laptop plays silence (`audio/love-me/cob-track-silent.mp3` and its segments, mono 22.05 kHz at 8 kb/s, about 300 kB, from `tools/make-silent-track.sh`), because the ensemble's recording has no accompaniment track.
 
+## The mariachi multitrack (encoded, not yet in the app)
+
+Eight songs from a live mariachi multitrack (Logic project "261106 Mariachi Dress", 2026-11-06), encoded in `audio/mariachi-1/` … `audio/mariachi-8/` but **not in `source-manifest.js` yet**: nothing loads them. This section has what a manifest entry needs. Ensemble name, song titles, credits and permission are still to be confirmed with the course owner.
+
+**Masters.** On the external drive, read only: `/Volumes/Mus128_1018/261106 Mariachi Dress/Audio Files/261106 Mariachi Dress_<track>#<take>.aif`, mono 44.1 kHz 24-bit, ten tracks per take. Take 1 (`#01`, 7:48) holds song 1; take 2 (`#02`, 18:27) holds songs 2–8, with talk before, between and after them. Track 3 is dead in both takes and was skipped. Regenerate a song with `SONG=mariachi-N tools/make-excerpts.sh` (drive mounted).
+
+**Treatment.** Every track of every song gets the same +7.5 dB (the hottest songs peak near −1 dBFS); no limiting, no per-stem normalizing, `trimDb: 0`. Mono MP3s, excerpt `-V4`, full-song segments `-V5`. Same layout as the Vocal Jazz pieces: the excerpt has 0.5 s pre-roll and 1 s post-roll, so the loop is `0.5` → `0.5 + length`; segments are 20 s with 0.5 s overlap, song time 0 = the song's start on the original.
+
+**Stems.** File names are `mariachi-N-<track>-<stem>.mp3` (and `full/mariachi-N-<track>-<stem>-NN.mp3`). The instruments are best guesses from spectra and onsets, not confirmed by ear; if they turn out wrong, only the labels change, not the files.
+
+| Track | Stem id | Guess | Confidence |
+|---|---|---|---|
+| 01 | `vocal-lead` | lead singer's wireless (switched on and off by song) | medium |
+| 02 | `mc` | talk mic, also live during songs (maybe a second vocal) | medium |
+| 04, 05 | `violin-1`, `violin-2` | violins (correlate 0.94 with each other) | low |
+| 06, 07 | `trumpet-1`, `trumpet-2` | trumpets, or a second violin pair | low |
+| 08 | `guitarron` | guitarrón | medium–high |
+| 09 | `vihuela` | vihuela (strummed, brightest) | medium |
+| 10 | `guitarra` | guitarra (or harp) | low–medium |
+
+**Songs.** Times in seconds. "Original" is on the take's own timeline; everything else is song time, as the manifest wants it (`excerpt.originalStart` is song time, like `almost-like`'s).
+
+| Song | Take | Song on original | `full.duration` | `segments` | `excerpt.originalStart` | `excerpt.duration` | `loop` | Tempo, key | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| mariachi-1 | 1 | 209.12–372.20 | 163.08 | 9 | 64.13 | 37.591 | 0.5–36.591 | ~172 bpm, A minor | seam within ±12 ms |
+| mariachi-2 | 2 | 172.10–301.80 | 129.70 | 7 | 90.53 | 29.358 | 0.5–28.358 | ~129 bpm, E major | lead vocal only from song time 82 s; seam drifts up to ~36 ms, listen |
+| mariachi-3 | 2 | 311.45–399.00 | 87.55 | 5 | 42.61 | 37.364 | 0.5–36.364 | ~175 bpm, 2/4, A major | weakest onset match at the seam |
+| mariachi-4 | 2 | 421.42–573.00 | 151.58 | 8 | 13.00 | 40.379 | 0.5–39.379 | ~202 bpm, A minor | seam within ±13 ms |
+| mariachi-5 | 2 | 632.12–783.00 | 150.88 | 8 | 91.89 | 28.898 | 0.5–27.898 | ~150 bpm, 3/4, A major | full stop inside the song at song time 29.4–31.4 s (vocal alone just before) |
+| mariachi-6 | 2 | 793.80–853.00 | 59.20 | 3 | 24.84 | 29.242 | 0.5–28.242 | ~85 bpm, A major | seam drifts up to ~35 ms, listen |
+| mariachi-7 | 2 | 864.25–979.00 | 114.75 | 6 | 5.24 | 34.520 | 0.5–33.520 | ~87 bpm, E minor | lead vocal only at song time ~55–97 s, so not in the loop; near-silent drops at ~22.8–24.2 s and ~76 s |
+| mariachi-8 | 2 | 992.82–1035.00 | 42.18 | 3 | 9.07 | 28.318 | 0.5–27.318 | ~89 bpm, G major | lead vocal silent the whole song (its stem is near-silence) |
+
+Every loop has the instrument tracks (04–10) playing for at least 96% of it. Tempos and meters are estimates from onsets.
+
+**Levels for the manifest** (`monoPeakDb`, `monoRmsDb`, measured over the whole song after the +7.5 dB; `normalizeDb: 7.5`), in track order 01, 02, 04, 05, 06, 07, 08, 09, 10:
+
+```js
+const MARIACHI_LEVELS = {
+  "mariachi-1": [[-13.92, -34.12], [-2.23, -22.92], [-18.08, -38.29], [-22.17, -39.26], [-14.97, -35.35], [-14.37, -35.64], [-10.64, -28.62], [-5.19, -25.31], [-7.58, -28.57]],
+  "mariachi-2": [[-5.29, -41.6], [-7.22, -25.7], [-26.04, -42.01], [-25.39, -40.9], [-17.09, -37.96], [-23.37, -40.97], [-14.94, -32.81], [-6.69, -29.84], [-15.28, -37.26]],
+  "mariachi-3": [[-1.11, -37.0], [-8.16, -28.88], [-22.74, -39.37], [-22.25, -38.74], [-23.53, -41.53], [-18.87, -39.52], [-14.34, -31.21], [-6.35, -27.69], [-11.44, -28.9]],
+  "mariachi-4": [[-3.65, -39.86], [-3.44, -25.72], [-21.39, -40.63], [-23.36, -41.66], [-17.53, -39.04], [-21.09, -40.57], [-13.21, -31.57], [-7.01, -28.75], [-13.73, -34.54]],
+  "mariachi-5": [[-4.21, -25.71], [-20.68, -40.21], [-23.47, -42.61], [-23.46, -42.43], [-13.56, -37.74], [-21.23, -40.38], [-13.97, -32.59], [-6.39, -31.1], [-7.2, -27.85]],
+  "mariachi-6": [[-8.58, -31.91], [-1.0, -37.36], [-28.48, -45.15], [-25.96, -45.77], [-18.16, -39.62], [-24.82, -43.13], [-16.95, -35.08], [-9.08, -35.79], [-13.34, -36.14]],
+  "mariachi-7": [[-1.32, -42.55], [-12.01, -30.87], [-22.05, -42.71], [-25.19, -44.26], [-16.64, -37.59], [-21.12, -40.82], [-15.86, -35.95], [-6.73, -35.0], [-14.83, -35.89]],
+  "mariachi-8": [[-66.41, -87.07], [-10.64, -33.91], [-24.49, -42.96], [-25.78, -43.78], [-16.97, -37.1], [-20.49, -40.53], [-14.81, -34.2], [-5.47, -31.97], [-16.15, -35.83]],
+};
+```
+
+The `mc` track's numbers include crowd and talk spill near song edges; the vocal-lead peaks in songs 3 and 7 are single transients (their RMS is low). Sizes: about 76 MB for all eight songs (excerpts 2–3 MB per song, the rest is `full/`).
+
 ## The electroacoustic showcase (stand-ins and a click)
 
 The `ea` song (`SONGS.ea` in `source-manifest.js`) has no recordings of its own: it puts FTW's stems on stage as stand-ins for the showcase's sources, and adds one generated file, a click track on FTW's own timeline, so it stays sample-locked with them: `ftw/ftw-click.mp3` (the excerpt) and `ftw/full/ftw-click-00.mp3` … `-12.mp3` (the segments, cut like the stems). `tools/make-click-track.sh` makes them with ffmpeg: 70 bpm, 1600 Hz on each downbeat and 1000 Hz on the other beats, 40 ms each, from a downbeat measured in FTW's drums at song time 134.846 s (0.03 s after the excerpt's loop start). No permissions needed: it's a synthesized metronome.

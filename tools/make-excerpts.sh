@@ -11,6 +11,7 @@
 #   SONG=ftw tools/make-excerpts.sh                 # FTW (same options)
 #   SONG=almost-like tools/make-excerpts.sh         # the Vocal Jazz Ensemble's two pieces
 #   SONG=love-me tools/make-excerpts.sh
+#   SONG=mariachi-1 tools/make-excerpts.sh          # the mariachi multitrack, songs 1-8
 #
 # Requires ffmpeg (with libmp3lame) on PATH. Prints a measurement table whose
 # numbers belong in audio/source-manifest.js (STEMS[…].normalizeDb /
@@ -142,7 +143,38 @@ case "$SONG" in
       STEMS+=("261023 MAN vocal jazz_$((n + 1))#02.$PIECE.wav|$SONG-$(printf %02d $((n + 1)))-${SINGERS[$n]}")
     done
     ;;
-  *) echo "Unknown SONG '$SONG' (persephone, nostradamus, ftw, almost-like or love-me)." >&2; exit 1 ;;
+  mariachi-[1-8])
+    # A live mariachi multitrack (Logic project "261106 Mariachi Dress",
+    # 2026-11-06): ten mono 44.1 kHz 24-bit AIFF tracks per take, track 3 dead.
+    # Take 1 (#01) holds one song (mariachi-1); take 2 (#02) holds seven
+    # (mariachi-2 … mariachi-8), with talk before and between them. Instrument
+    # labels are best guesses from spectra, not confirmed by ear. Masters stay
+    # on the external drive (SRC_DIR overrides). Recorded low, so every track of
+    # every song gets the same +7.5 dB (the hottest songs then peak near
+    # -1 dBFS); no limiting. Loops were picked by onset cross-correlation at
+    # the seam (residual under 15 ms, except mariachi-2 and -6, up to ~35 ms).
+    MASTERS="/Volumes/Mus128_1018/261106 Mariachi Dress/Audio Files"
+    NORM_SPAN=song
+    SHARED_GAIN_DB=7.5
+    FULL_TRIM_DB=0
+    #       take start    end      loop start loop length   (seconds on the original)
+    case "$SONG" in
+      mariachi-1) TAKE=01; SONG_START=209.12; SONG_END=372.20;  LOOP_START=273.75;  LOOP_LENGTH=36.091 ;; # ~172 bpm, A minor
+      mariachi-2) TAKE=02; SONG_START=172.10; SONG_END=301.80;  LOOP_START=263.13;  LOOP_LENGTH=27.858 ;; # ~129 bpm, E major
+      mariachi-3) TAKE=02; SONG_START=311.45; SONG_END=399.00;  LOOP_START=354.56;  LOOP_LENGTH=35.864 ;; # ~175 bpm, 2/4, A major
+      mariachi-4) TAKE=02; SONG_START=421.42; SONG_END=573.00;  LOOP_START=434.92;  LOOP_LENGTH=38.879 ;; # ~202 bpm, A minor
+      mariachi-5) TAKE=02; SONG_START=632.12; SONG_END=783.00;  LOOP_START=724.51;  LOOP_LENGTH=27.398 ;; # ~150 bpm, 3/4, A major
+      mariachi-6) TAKE=02; SONG_START=793.80; SONG_END=853.00;  LOOP_START=819.14;  LOOP_LENGTH=27.742 ;; # ~85 bpm, A major
+      mariachi-7) TAKE=02; SONG_START=864.25; SONG_END=979.00;  LOOP_START=869.99;  LOOP_LENGTH=33.020 ;; # ~87 bpm, E minor; no lead vocal in loop
+      mariachi-8) TAKE=02; SONG_START=992.82; SONG_END=1035.00; LOOP_START=1002.39; LOOP_LENGTH=26.818 ;; # ~89 bpm, G major; no lead vocal
+    esac
+    TRACKS=("1|vocal-lead" "2|mc" "4|violin-1" "5|violin-2" "6|trumpet-1" "7|trumpet-2" "8|guitarron" "9|vihuela" "10|guitarra")
+    STEMS=()
+    for t in "${TRACKS[@]}"; do
+      STEMS+=("261106 Mariachi Dress_${t%%|*}#$TAKE.aif|$SONG-$(printf %02d "${t%%|*}")-${t##*|}")
+    done
+    ;;
+  *) echo "Unknown SONG '$SONG' (persephone, nostradamus, ftw, almost-like, love-me or mariachi-1 … mariachi-8)." >&2; exit 1 ;;
 esac
 
 SRC_DIR="${SRC_DIR:-$MASTERS}"
