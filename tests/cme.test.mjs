@@ -31,9 +31,10 @@ describe("CME in Salmon: the rig", () => {
   it("plays on the full X32 only, as a Chapman gig with Essentials open and Advanced still to come", () => {
     assert.deepEqual(MODELS.filter((m) => songFits("cme", m)), ["x32"]);
     const ess = GIGS.find((g) => g.id === "cme");
-    assert.deepEqual(ess.ids, BOARD_SCENARIOS.x32.filter((s) => s.id.startsWith("x32-cme-")).map((s) => s.id));
+    assert.deepEqual(ess.ids, BOARD_SCENARIOS.x32.filter((s) => s.id.startsWith("x32-cme-") && !s.id.startsWith("x32-cme-adv-")).map((s) => s.id));
+    assert.deepEqual(GIGS.find((g) => g.id === "cme-advanced").ids, BOARD_SCENARIOS.x32.filter((s) => s.id.startsWith("x32-cme-adv-")).map((s) => s.id));
     assert.ok(BOARD_SCENARIOS.x32.filter((s) => s.id.startsWith("x32-cme-")).every((s) => s.song === "cme"));
-    assert.equal(GIGS.find((g) => g.id === "cme-advanced").soon, true);
+    assert.ok(!GIGS.find((g) => g.id === "cme-advanced").soon);
   });
 
   it("puts everyone on one layer: handhelds on LOCAL 17-21, the band through the sub snake and the S32 on 25-32", () => {

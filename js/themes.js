@@ -159,10 +159,9 @@ export const GIGS = [
     title: "CME in Salmon: Advanced",
     venue: "Salmon Recital Hall",
     question: "Can you keep CME's gig running when things go wrong?",
-    concept: "The same rig, with the harder troubleshooting: more inputs than the sub snake has (CH 9-16 on AES50), the pianist singing lead, instrument cable on a wedge, a powered wedge on an amp's speaker output, the Mix5's cables gone, and faults stacked together.",
+    concept: "The same rig a week later, when things go wrong: the wireless rack's antenna chain and VOL knobs, a guest on the headset receiver nobody can hear, the stage box and a guitar amp without power, the wrong cable and the wrong output on the wedges, more inputs than the sub snake has, the pianist singing lead, the Mix5's cables pulled at the end of the night, and finally four faults at once.",
     checklist: `${SITE}/cme-gig-checklist/`,
-    soon: true,
-    ids: [],
+    ids: ["x32-cme-adv-antenna", "x32-cme-adv-vol", "x32-cme-adv-headset", "x32-cme-adv-s32", "x32-cme-adv-inst", "x32-cme-adv-active-amp", "x32-cme-adv-route", "x32-cme-adv-katana", "x32-cme-adv-inputs", "x32-cme-adv-lead", "x32-cme-adv-mix5", "x32-cme-adv-stack"],
   },
   {
     id: "cob",

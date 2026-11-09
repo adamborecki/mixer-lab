@@ -1296,6 +1296,95 @@ Object.assign(WRONG, {
   "x32-cme-end": [["MAIN MIX up instead", (a) => a.st.setDevice("cme-mix5", "main", 10)]],
 });
 
+// CME in Salmon: Advanced. GUEST_GAIN / DRUM_GAIN: what puts the new inputs in the good range once routed.
+const GUEST_GAIN = 30;
+const DRUM_GAIN = { "cme-kick": 30, "cme-snare": 30 };
+const cmeGuest = (a, { block = 1, send = true } = {}) => {
+  a.st.setDevice("mixer", `inSource.${block}`, 13);
+  a.st.setChannel(block * 8, "gainDb", GUEST_GAIN);
+  a.faderDb("cme-guest", 0);
+  if (send) a.sendDb("cme-guest", "mix10", -5);
+};
+const cmeDrums = (a, inSource = 1) => {
+  a.st.setDevice("mixer", "inSource.1", inSource);
+  for (const [s, g] of Object.entries(DRUM_GAIN)) if (a.idx(s) >= 0) a.set(s, "gainDb", g);
+};
+const cmeLead = (a, buses = ["mix9", "mix10", "mix11"]) => {
+  a.faderDb("cme-red", 0);
+  for (const b of buses) a.sendDb("cme-red", b, -5);
+};
+const cmeStack = (a, { route = true, gtr = true } = {}) => {
+  a.st.setDevice("cme-pas-x", "on", 1);
+  a.st.setDevice("cme-km750", "on", 1);
+  if (route) a.st.setBus("routing", "out11", "mix11");
+  if (gtr) a.st.setDevice("src-cme-gtr1", "plugged", 1);
+};
+Object.assign(SOLVE, {
+  "x32-cme-adv-antenna": (a) => a.st.setDevice("cme-pas-x", "on", 1),
+  "x32-cme-adv-vol": (a) => a.st.setDevice("cme-rx3", "vol2", 2),
+  "x32-cme-adv-headset": (a) => cmeGuest(a),
+  "x32-cme-adv-s32": (a) => a.st.setDevice("s32", "plugged", 1),
+  "x32-cme-adv-inst": (a) => {
+    a.unplugAt("cme-w2/in");
+    assert.ok(a.st.connect("cme-km750/out-b", "cme-w2/in", "speaker").ok);
+  },
+  "x32-cme-adv-active-amp": (a) => {
+    a.unplugAt("cme-w3/in");
+    a.unplugAt("s32/out11");
+    assert.ok(a.st.connect("s32/out11", "cme-w3/in", "xlr").ok);
+  },
+  "x32-cme-adv-route": (a) => {
+    a.st.setBus("routing", "out11", "mix11");
+    a.st.setListen("mix11");
+  },
+  "x32-cme-adv-katana": (a) => a.st.setDevice("src-cme-gtr1", "plugged", 1),
+  "x32-cme-adv-inputs": (a) => cmeDrums(a),
+  "x32-cme-adv-lead": (a) => cmeLead(a),
+  "x32-cme-adv-mix5": (a) => {
+    assert.ok(a.st.connect("s32/out15", "cme-mix5/in-l", "xlr-trs").ok);
+    assert.ok(a.st.connect("s32/out16", "cme-mix5/in-r", "xlr-trs").ok);
+  },
+  "x32-cme-adv-stack": (a) => cmeStack(a),
+});
+Object.assign(WRONG, {
+  "x32-cme-adv-antenna": [["the Furman switched off and on", (a) => {
+    a.st.setDevice("cme-wl-power", "on", 0);
+    a.st.setDevice("cme-wl-power", "on", 1);
+  }], ["GAIN up on CH 17-21", (a) => CME_VOX.forEach((s) => a.set(s, "gainDb", 60))]],
+  "x32-cme-adv-vol": [["GAIN down instead", (a) => a.set("cme-orange", "gainDb", 0)], ["the receiver's VOL all the way down", (a) => a.st.setDevice("cme-rx3", "vol2", 0)]],
+  "x32-cme-adv-headset": [["CH 25-32 moved to Local 25-32", (a) => cmeGuest(a, { block: 3 })], ["in the house but not the wedge", (a) => cmeGuest(a, { send: false })]],
+  "x32-cme-adv-s32": [["switched off and on, still unplugged", (a) => {
+    a.st.setDevice("s32", "on", 0);
+    a.st.setDevice("s32", "on", 1);
+  }], ["GAIN up on the band", (a) => ["cme-nord", "cme-bass", "cme-gtr1"].forEach((s) => a.set(s, "gainDb", 60))]],
+  "x32-cme-adv-inst": [["a TRS patch cable instead", (a) => {
+    a.unplugAt("cme-w2/in");
+    assert.ok(a.st.connect("cme-km750/out-b", "cme-w2/in", "trs").ok);
+  }]],
+  "x32-cme-adv-active-amp": [["the KM750 turned down", (a) => a.st.setDevice("cme-km750-2", "volA", 0)], ["S32 OUT 12 into the wedge", (a) => {
+    a.unplugAt("cme-w3/in");
+    assert.ok(a.st.connect("s32/out12", "cme-w3/in", "xlr").ok);
+  }]],
+  "x32-cme-adv-route": [["MIX 11's master up", (a) => {
+    a.st.setBus("mix11", "level", 1);
+    a.st.setListen("mix11");
+  }], ["Output 11 on MixBus 10", (a) => {
+    a.st.setBus("routing", "out11", "mix10");
+    a.st.setListen("mix11");
+  }]],
+  "x32-cme-adv-katana": [["GAIN all the way up", (a) => a.set("cme-gtr1", "gainDb", 60)], ["switched off and on, still unplugged", (a) => {
+    a.st.setDevice("src-cme-gtr1", "on", 0);
+    a.st.setDevice("src-cme-gtr1", "on", 1);
+  }]],
+  "x32-cme-adv-inputs": [["CH 9-16 on Local 25-32", (a) => cmeDrums(a, 13)], ["CH 25-32 moved to AES50 A9-16", (a) => a.st.setDevice("mixer", "inSource.3", 3 + 1)]],
+  "x32-cme-adv-lead": [["only the house", (a) => a.faderDb("cme-red", 0)], ["only wedge 1", (a) => cmeLead(a, ["mix9"])]],
+  "x32-cme-adv-mix5": [["left and right swapped", (a) => {
+    assert.ok(a.st.connect("s32/out15", "cme-mix5/in-r", "xlr-trs").ok);
+    assert.ok(a.st.connect("s32/out16", "cme-mix5/in-l", "xlr-trs").ok);
+  }], ["MAIN MIX up instead", (a) => a.st.setDevice("cme-mix5", "main", 10)]],
+  "x32-cme-adv-stack": [["all but the routing", (a) => cmeStack(a, { route: false })], ["all but the guitar amp", (a) => cmeStack(a, { gtr: false })]],
+});
+
 // The generic digital mixer is the X32 Compact's model with no brand on it: the same fixes (and mistakes) apply.
 for (const k of ["doors", "gain", "48v", "lowcut", "lr", "mud", "eq-on", "comp-on", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "new-mix"]) {
   SOLVE[`gdig-${k}`] = SOLVE[`x32c-${k}`];
