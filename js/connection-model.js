@@ -1446,7 +1446,11 @@ function analyzeEndpoint(rig, device, byTo) {
   if (deadVia(rig, cable)) return noPower(deadVia(rig, cable));
   const warnCable = (c, level) => {
     const def = CABLES[c.cable];
-    if (level === "speaker" && def.kind !== "speaker") result.messages.push(`${def.name} carrying speaker level: use real speaker cable (thin shielded wire can overheat).`);
+    // Still plays, but it's the wrong cable: `cableWarn` flags it on the speaker's box and card.
+    if (level === "speaker" && def.kind !== "speaker") {
+      result.cableWarn = true;
+      result.messages.push(`${def.name} carrying speaker level: use real speaker cable (thin shielded wire can overheat).`);
+    }
     if (level !== "speaker" && def.kind === "speaker") result.messages.push("Speaker cable carrying line level: unshielded, may hum.");
   };
   warnCable(cable, up.level);

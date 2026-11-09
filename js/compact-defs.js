@@ -748,6 +748,8 @@ export const COMPACT = {
         label: String(i + 1).padStart(2, "0"),
         kind: "mono",
         jacks: ["mic"],
+        // The rear panel's XLR jacks, as ROUTING names them: LOCAL 25 isn't CH 25 unless the routing says so.
+        portName: `LOCAL ${i + 1}`,
         gain: { min: -12, max: 60 },
         hpf: { min: 20, max: 400 },
         peq: true,

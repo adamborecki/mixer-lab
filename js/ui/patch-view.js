@@ -159,7 +159,13 @@ export class PatchView {
       const rf = DEVICE_TYPES[d.type].rf;
       const chInfo = mix.channels.find((c) => (rf ? c.sourceId === d.sourceId : c.input.sourceDeviceId === d.id));
       const input = chInfo ? chInfo.input : null;
-      const status = !input ? "idle" : input.status === "ok" ? "ok" : input.status === "danger" ? "bad" : "warn";
+      // The same verdict as its box in Stage & patch: its own power first, then (by radio) whether
+      // any audio reaches its channel, then what the channel's input says.
+      const pst = powerState(rig, d);
+      const dark = pst && pst !== "on";
+      const silentRf = rf && (!chInfo || chInfo.band === "none");
+      const status = dark || silentRf ? "warn" : !input ? "idle" : input.status === "ok" ? "ok" : input.status === "danger" ? "bad" : "warn";
+      const pill = dark ? { unplugged: "! Unplugged", off: "! Switched off" }[pst] || "! No power" : silentRf ? (chInfo ? "! No audio" : "! No channel") : status === "ok" ? "✓ Signal" : status === "idle" ? "Unpatched" : status === "bad" ? "✕ Danger" : input?.status === "no-power" ? "! No power" : "! Check";
       const msgs = input ? input.messages : [];
       const tags = [
         `<span class="tag tag-level" data-level="${src.signalLevel}">${icon(levelIconName(src.signalLevel), { size: 22, cls: "tag-ico" })}${SIGNAL_LEVELS[src.signalLevel].name}</span>`,
@@ -184,11 +190,11 @@ export class PatchView {
           <span class="source-order" aria-label="Input list number">${esc(listNo)}</span>
           <span class="dev-ico">${icon(deviceIconName(d), { size: 40 })}</span>
           <div class="source-names"><strong>${esc(sourceName(src))}</strong><span>${nameMode() === "musicians" && src.musician ? `${esc(src.name)} · ` : ""}${esc(src.device)}</span></div>
-          <span class="status-pill status-${status}">${status === "ok" ? "✓ Signal" : status === "idle" ? "Unpatched" : status === "bad" ? "✕ Danger" : "! Check"}</span>
+          <span class="status-pill status-${status}">${pill}</span>
         </div>
         <div class="tags">${tags}</div>
         ${rf ? rfLine(rig, d) : this.portButton(ref, "out")}
-        ${sourceGearHtml(d, src)}
+        ${sourceGearHtml(d, src, rig)}
         ${powerHtml(rig, d)}
         ${msgs.map((m) => `<p class="port-msg">${esc(m)}</p>`).join("")}
         ${note ? `<p class="source-note">${esc(note)}</p>` : ""}
@@ -430,8 +436,8 @@ export class PatchView {
       .map((d) => {
         const type = DEVICE_TYPES[d.type];
         const ep = endpoints.get(d.id);
-        const status = ep.status === "off" ? "idle" : ep.valid ? (ep.status === "ok" ? "ok" : "warn") : ep.status === "unpatched" ? "idle" : ep.status === "danger" ? "bad" : "warn";
-        const statusText = ep.status === "off" ? `○ Turned down: ${busName(ep.output)}` : ep.valid ? `${ep.status === "hot" ? "⚠ Distorting" : ep.status === "weak" ? "⚠ Too quiet" : "✓ Sound"}: ${busName(ep.output)}${ep.viaAmp ? " via amp" : ""}` : ep.status === "unpatched" ? "Silent" : ep.status === "danger" ? "✕ Danger" : "✕ No sound";
+        const status = ep.status === "off" ? "idle" : ep.valid ? (ep.status === "ok" && !ep.cableWarn ? "ok" : "warn") : ep.status === "unpatched" ? "idle" : ep.status === "danger" ? "bad" : "warn";
+        const statusText = ep.status === "off" ? `○ Turned down: ${busName(ep.output)}` : ep.valid ? `${ep.cableWarn ? "⚠ Wrong cable" : ep.status === "hot" ? "⚠ Distorting" : ep.status === "weak" ? "⚠ Too quiet" : "✓ Sound"}: ${busName(ep.output)}${ep.viaAmp ? " via amp" : ""}` : ep.status === "unpatched" ? "Silent" : ep.status === "danger" ? "✕ Danger" : "✕ No sound";
         const amp = type.camera ? "Records what it's fed" : type.amp === "internal" ? "Amp: built in (powered)" : "Amp: none inside (passive)";
         const settings = type.camera && d.type === "camera-input"
           ? `<div class="dev-settings"><label>INPUT <output data-readout="inputLevel">${d.inputLevel === 1 ? "LINE" : "MIC"}</output>
@@ -527,10 +533,14 @@ function receiverHtml(rig, d, sources) {
 
 // What a source's own gear lets you do: a wireless handheld's one button, or
 // the volume knob on the amp or instrument in front of its mic or DI.
-function sourceGearHtml(d, src) {
+function sourceGearHtml(d, src, rig) {
   if (d.type === "wireless-handheld" || d.type === "rf-handheld") {
     const st = d.mic || 0;
-    const rx = ["Receiver: signal ✓ · audio ✓", "Receiver: signal ✓ · audio —", "Receiver: no signal"][st];
+    // A radio handheld's receiver channel says what it really gets: power, antennas, then the mic.
+    const rxDev = d.type === "rf-handheld" && rig?.devices.find((x) => DEVICE_TYPES[x.type].receiver && Object.values(x.pairs || {}).includes(d.sourceId));
+    const port = rxDev && Object.keys(rxDev.pairs).find((k) => rxDev.pairs[k] === d.sourceId);
+    const ch = port && receiverChannel(rig, rxDev, Number(port.slice(3)));
+    const rx = ch && !ch.on ? "Receiver: off (no power)" : ch && !(ch.a || ch.b) ? "Receiver: no antenna signal" : ["Receiver: signal ✓ · audio ✓", "Receiver: signal ✓ · audio —", "Receiver: no signal"][st];
     return `<div class="dev-settings mic-button" data-device-card="${esc(d.id)}">
       <p class="mic-display"><strong>Mic: ${MIC_STATES[st]}</strong> · ${rx}</p>
       <div class="mic-press"><button type="button" class="btn" data-device="${esc(d.id)}" data-mic-press="tap">Tap the button</button><button type="button" class="btn" data-device="${esc(d.id)}" data-mic-press="hold">Press and hold</button></div>

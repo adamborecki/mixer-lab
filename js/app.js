@@ -210,8 +210,13 @@ function refresh() {
   // The diagram's figure follows where you're listening.
   if (pending.patch || store.state.listen !== lastListen) {
     lastListen = store.state.listen;
+    // A redraw replaces the cards: keep keyboard focus on the same control (a knob moved with the arrow keys).
+    const el = document.activeElement;
+    const keep = el?.dataset?.deviceKey ? `[data-device="${CSS.escape(el.dataset.device)}"][data-device-key="${CSS.escape(el.dataset.deviceKey)}"]` : el?.dataset?.power ? `[data-power="${CSS.escape(el.dataset.power)}"][data-power-key="${CSS.escape(el.dataset.powerKey)}"]` : null;
+    const inside = keep && el.closest(".stage-inspector") ? ".stage-inspector " : "";
     if (pending.patch) patchView.render(mix);
     stageView.render(mix);
+    if (keep && !document.activeElement?.matches?.(keep)) document.querySelector(inside + keep)?.focus({ preventScroll: true });
   }
   if (recorderView.isOpen) recorderView.sync();
   if (danteView.isOpen) danteView.sync();

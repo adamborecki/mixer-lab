@@ -5121,6 +5121,11 @@ dialog::backdrop {
 .sbox.dark .box-title {
   opacity: 0.5;
 }
+/* A box's title row, drawn above the cables so a tap there reaches the box. */
+.box-hit {
+  fill: transparent;
+  cursor: pointer;
+}
 /* The power tab: plug and switch, on a box's top edge. */
 .pwr-bg {
   fill: var(--bg-sunken);

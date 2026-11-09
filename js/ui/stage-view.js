@@ -191,6 +191,12 @@ export class StageView {
     // Racks: one frame around each rack's gear (the amp rack, the hall's mains rack).
     for (const r of L.racks || []) parts.push(`<g class="rack-frame"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="10"/><text x="${r.x + 10}" y="${r.y + 17}">${esc(r.title.toUpperCase())}</text></g>`);
     for (const b of L.boxes) parts.push(this.boxSvg(b, rig, status));
+    // Above the cables: each box's title row (a tap there opens the box, not a cable crossing it) and its power tab.
+    const tops = L.boxes.map((b) => {
+      const d = rig.devices.find((x) => x.id === b.deviceId);
+      const pst = d && b.id === d.id ? powerState(rig, d) : null;
+      return `<rect class="box-hit" data-box="${esc(b.id)}" x="${b.x}" y="${b.y}" width="${b.w}" height="28" aria-hidden="true"/>${pst ? this.powerTab(b, d, pst, rig) : ""}`;
+    });
 
     // Network links (Dante, AES50) that aren't cables in the model: drawn, not patchable.
     const fixed = this.fixedLinks(L);
@@ -231,6 +237,7 @@ export class StageView {
       </defs>
       ${parts.join("")}
       <g class="layer-cables">${cables.join("")}</g>
+      <g class="layer-tops">${tops.join("")}</g>
       <g class="layer-jacks">${jacks.join("")}${nets.join("")}</g>
       <g class="layer-plugs">${plugs.join("")}</g>
       <g class="layer-ears">${this.earsSvg(L, rig)}</g>
@@ -333,10 +340,10 @@ export class StageView {
       const out = routed && routed !== "off" ? routed : ep.output;
       const busName = ({ "main-l": "Main L", "main-r": "Main R" })[out] || terms[out] || (routed ? out.toUpperCase().replace(/^([A-Z]+)(\d+)$/, "$1 $2") : mixerPorts.find((p) => p.id === out)?.name) || out;
       // `off`: a working chain with a knob turned all the way down on purpose (the hall's speakers at CME).
-      const text = ep.status === "off" ? `○ Off · ${busName}` : ep.valid ? `${ep.status === "hot" ? "⚠ Hot" : ep.status === "weak" ? "⚠ Weak" : "✓"} ${busName}` : ep.status === "unpatched" ? "Silent" : ep.status === "danger" ? "✕ Danger" : ep.status === "no-power" ? "✕ No power" : "✕ No sound";
-      devices.set(ep.deviceId, { tone: ep.status === "off" ? "idle" : ep.valid ? (ep.status === "ok" ? "ok" : "warn") : tone(ep.status), text });
+      const text = ep.status === "off" ? `○ Off · ${busName}` : ep.valid ? `${ep.cableWarn ? "⚠ Wrong cable ·" : ep.status === "hot" ? "⚠ Hot" : ep.status === "weak" ? "⚠ Weak" : "✓"} ${busName}` : ep.status === "unpatched" ? "Silent" : ep.status === "danger" ? "✕ Danger" : ep.status === "no-power" ? "✕ No power" : "✕ No sound";
+      devices.set(ep.deviceId, { tone: ep.status === "off" ? "idle" : ep.valid ? (ep.status === "ok" && !ep.cableWarn ? "ok" : "warn") : tone(ep.status), text });
       const into = rig.cables.find((c) => c.to.startsWith(`${ep.deviceId}/`));
-      if (into) cables.set(into.id, ep.status === "off" ? "ok" : ep.valid ? (ep.status === "ok" ? "ok" : "warn") : ep.status === "danger" ? "bad" : "warn");
+      if (into) cables.set(into.id, ep.status === "off" ? "ok" : ep.valid ? (ep.status === "ok" && !ep.cableWarn ? "ok" : "warn") : ep.status === "danger" ? "bad" : "warn");
     }
     return { devices, cables };
   }
@@ -371,7 +378,7 @@ export class StageView {
       if (type.dante) parts.push(`<text class="box-sub" x="${tx}" y="${b.y + b.h - 10}">Tracks go out over Dante</text>`);
     }
     const pst = b.id === d.id ? powerState(rig, d) : null;
-    return `<g class="sbox kind-${b.kind} ${st ? `tone-${st.tone}` : ""}${pst && pst !== "on" ? " dark" : ""}" data-box="${esc(b.id)}" tabindex="0" role="button" aria-label="${esc(label)}: show details">${parts.join("")}</g>${pst ? this.powerTab(b, d, pst, rig) : ""}`;
+    return `<g class="sbox kind-${b.kind} ${st ? `tone-${st.tone}` : ""}${pst && pst !== "on" ? " dark" : ""}" data-box="${esc(b.id)}" tabindex="0" role="button" aria-label="${esc(label)}: show details">${parts.join("")}</g>`;
   }
 
   // Power, on the box's top edge: its plug and its switch, each tappable. The

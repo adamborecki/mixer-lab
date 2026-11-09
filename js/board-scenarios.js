@@ -5177,8 +5177,7 @@ const CME_ADV = [
     setup: { tweak: (st, h) => h.dev("cme-pas-x", "on", 0) },
     baseline: { main: { metric: "mainDbByChannel" } },
     conditions: [
-      goal("pas", "The PAS-225X is switched on", (ctx) => knob(ctx, "cme-pas-x", "on", 1) === 1),
-      goal("mics", "All five handhelds are in the house", handheldsIn),
+      goal("mics", "All five handhelds are in the house again", handheldsIn),
       { id: "x32", kind: "keep", type: "mainUnchanged", baseline: "main", except: CME_HANDHELDS, toleranceDb: 1, label: "Everything else in the house stays the same" },
     ],
     hints: [
@@ -5198,7 +5197,7 @@ const CME_ADV = [
     music: "bars-53",
     setup: { tweak: (st, h) => h.dev("cme-rx3", "vol2", 10) },
     conditions: [
-      goal("vol", "Receiver 3's CH 2 VOL is back at 9 o'clock (2 on the knob)", (ctx) => Math.abs(knob(ctx, "cme-rx3", "vol2", 2) - 2) <= 0.25),
+      goal("vol", "The orange handheld arrives from the wireless rack at the same level as the other handhelds", (ctx) => Math.abs(knob(ctx, "cme-rx3", "vol2", 2) - 2) <= 0.25),
       goal("clean", "The orange handheld (CH 18) is in the good range", (ctx) => mc(ctx, "cme-orange")?.band === "good"),
       keep("gain", "CH 18's GAIN stays near the level sheet's 30 dB", (ctx) => Math.abs(ctx.state.channels[17].gainDb - 30) <= 3),
     ],
@@ -5270,7 +5269,7 @@ const CME_ADV = [
     },
     baseline: { main: { metric: "mainDbByChannel" } },
     conditions: [
-      goal("cable", "Wedge 2 is on a 1/4\" speaker cable from the KM750's CH B", (ctx) => onSpeakerCable(ctx, "cme-w2/in") && plays(ctx, "cme-w2", "out10")),
+      goal("cable", "Wedge 2 plays MIX 10 on a cable made for speaker level", (ctx) => onSpeakerCable(ctx, "cme-w2/in") && plays(ctx, "cme-w2", "out10")),
       keep("others", "Wedges 1 and 3 keep playing", (ctx) => cmeWedgesOk(ctx, ["cme-w1", "cme-w3"])),
       HOUSE_SAME,
     ],
@@ -5286,7 +5285,7 @@ const CME_ADV = [
     short: "Active wedge on an amp",
     title: "The active wedge on an amp",
     who: "Stage hand",
-    prompt: "“I patched wedge 3 like the other two, through the second KM750. It's the house-right one, the active one. It's not making any sound, and the amp's clip light flickered.”",
+    prompt: "“I patched wedge 3 like the other two, through the second KM750. It's the house-right one, the active one. It's not making any sound.”",
     goal: "Wedge 3 fed MIX 11 at line level straight from the S32, with nothing on it from an amp.",
     music: "bars-25",
     setup: {
@@ -5300,7 +5299,7 @@ const CME_ADV = [
     },
     baseline: { main: { metric: "mainDbByChannel" } },
     conditions: [
-      goal("w3", "Wedge 3 plays MIX 11 from S32 OUT 11, on XLR", (ctx) => plays(ctx, "cme-w3", "out11") && ctx.state.rig.cables.some((c) => c.to === "cme-w3/in" && c.from === "s32/out11")),
+      goal("w3", "Wedge 3 plays MIX 11, fed the level its input is made for", (ctx) => plays(ctx, "cme-w3", "out11") && ctx.state.rig.cables.some((c) => c.to === "cme-w3/in" && c.from === "s32/out11")),
       keep("others", "Wedges 1 and 2 keep playing", (ctx) => cmeWedgesOk(ctx, ["cme-w1", "cme-w2"])),
       HOUSE_SAME,
     ],
@@ -5345,7 +5344,7 @@ const CME_ADV = [
     setup: { tweak: (st, h) => h.dev("src-cme-gtr1", "plugged", 0) },
     baseline: { faders: { metric: "channelLevels" }, gains: { metric: "channelGains" } },
     conditions: [
-      goal("gtr", "The Katana-50 has power and the guitar is heard in the house", (ctx) => goodBand(ctx, "cme-gtr1") && house(ctx, "cme-gtr1") >= AUDIBLE),
+      goal("gtr", "The guitar is heard in the house again", (ctx) => goodBand(ctx, "cme-gtr1") && house(ctx, "cme-gtr1") >= AUDIBLE),
       keep("gain", "CH 30's GAIN stays where it was", (ctx) => ctx.state.channels[29].gainDb === ctx.baseline.gains[29]),
       FADERS_SAME,
     ],
