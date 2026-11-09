@@ -100,7 +100,8 @@ export const PLAYBACK_DEVICES = {
   "cme-rx1": { type: "ptu6000", label: "PTU-6000 #1 · CH 1-8 (black windscreens)", rack: "wireless" },
   "cme-rx2": { type: "ptu6000", label: "PTU-6000 #2 · CH 9-16 (gray windscreens)", rack: "wireless" },
   "cme-rx3": { type: "ptu6000", label: "PTU-6000 #3 · CH 17-24 (no windscreen)", rack: "wireless", pairs: { out1: "cme-red", out2: "cme-orange", out3: "cme-yellow", out4: "cme-green", out5: "cme-blue" } },
-  "cme-rx-lav": { type: "ptu7000", label: "PTU-7000 · lav and headset packs", rack: "wireless" },
+  // Its CH 1 pairs with a guest's headset pack (`cme-guest`, one Advanced scenario only).
+  "cme-rx-lav": { type: "ptu7000", label: "PTU-7000 · lav and headset packs", rack: "wireless", pairs: { out1: "cme-guest" } },
   "cme-pas": { type: "pas225", label: "PAS-225 · antenna distribution", rack: "wireless" },
   "cme-pas-x": { type: "pas225x", label: "PAS-225X · antenna distribution (daisy-chained)", rack: "wireless" },
   "cme-iem": { type: "iem-tx", label: "IEM transmitters · rack drawer", rack: "wireless" },
@@ -703,7 +704,7 @@ function buildCr1604State(def, sourcesById) {
 // `tweak(state, h)` makes the problem (unplugs something, mutes a channel,
 // moves a fader), using the helpers below. js/board-scenarios.js.
 function buildBoardState(def, sourcesById, model) {
-  const state = model === "cr1604" ? buildCr1604State(SCENARIOS_BY_ID["free-play"], sourcesById) : buildCompactState(model, sourcesById);
+  const state = model === "cr1604" ? buildCr1604State(SCENARIOS_BY_ID["free-play"], sourcesById) : buildCompactState(model, sourcesById, def.id);
   if (def.setup.tweak) def.setup.tweak(state, boardHelpers(state, model, sourcesById));
   if (def.setup.listen) state.listen = def.setup.listen;
   return state;
@@ -1572,7 +1573,11 @@ const CME_GIGS = {
     // The handhelds by radio to receiver 3, its AF OUT n into LOCAL 16 + n: [receiver, channel, console channel].
     rxPatch: Object.fromEntries(CME_MICS.map((id, i) => [id, ["cme-rx3", i + 1, 16 + i]])),
     // Sources on a stage box: [box, its input number, the console channel that hears it].
-    boxPatch: Object.fromEntries(Object.entries(CME_SNAKE).map(([id, n]) => [id, ["cme-hosa", n, 23 + n]])),
+    // The kick and snare (one Advanced scenario only) go straight into S32 IN 9 and 10: CH 9-10 once CH 9-16 ← AES50 A9-16.
+    boxPatch: { ...Object.fromEntries(Object.entries(CME_SNAKE).map(([id, n]) => [id, ["cme-hosa", n, 23 + n]])), "cme-kick": ["s32", 9, 8], "cme-snare": ["s32", 10, 9] },
+    // Gain-staged on a channel its cable doesn't reach yet: the guest's headset (PTU-7000 CH 1,
+    // LOCAL 25) is CH 9 once CH 9-16 ← Local 25-32 (one Advanced scenario only).
+    stageOn: { "cme-guest": 8 },
     cableFor: { preshow: "pair-trs" },
     inSource: [0, 0, 0, 1],
     devices: ["cme-ant-a", "cme-ant-b", "cme-wl-power", "cme-rx1", "cme-rx2", "cme-rx3", "cme-rx-lav", "cme-pas", "cme-pas-x", "cme-iem", "s32", "cme-hosa", "cme-nx3000", "cme-km750", "cme-km750-2", "cme-crown", "cme-mix5", "cme-hall-power", "cme-hall-crown", "cme-w1", "cme-w2", "cme-w3", "cme-main-l", "cme-main-r", "cme-hall-l", "cme-hall-r"],
@@ -1615,7 +1620,7 @@ const CME_GIGS = {
     // The vocals first: every handheld in every wedge (wedge 2, the singers', a little louder).
     sends: { mix9: each(CME_MICS, -6), mix10: each(CME_MICS, -3), mix11: each(CME_MICS, -6) },
     preFor: ["mix9", "mix10", "mix11"],
-    hpf: { ...each(CME_MICS, 0.2), "cme-pno-l": 0.1, "cme-pno-r": 0.1, "cme-nord": 0.1, "cme-gtr1": 0.15, "cme-gtr2": 0.15 },
+    hpf: { ...each(CME_MICS, 0.2), "cme-guest": 0.2, "cme-snare": 0.15, "cme-pno-l": 0.1, "cme-pno-r": 0.1, "cme-nord": 0.1, "cme-gtr1": 0.15, "cme-gtr2": 0.15 },
     dyn: {},
     tweak: (state) => {
       Object.assign(state.routing, { out9: "mix9", out10: "mix10", out11: "mix11", out13: "main-l", out14: "main-r", out15: "main-l", out16: "main-r" });
@@ -1674,15 +1679,19 @@ export function scenarioFor(def, model = "generic") {
   return { ...def, prompt: gigFor(model).prompt, goal: "No objective — try a monitor mix, the reverb, or plugging in what has no channel yet." };
 }
 
-function buildCompactState(model, sourcesById) {
+// `scenarioId`: a board scenario's own sources join Free play's (a source listed for that scenario only).
+function buildCompactState(model, sourcesById, scenarioId = "free-play") {
   const def = COMPACT[model];
   const gig = gigFor(model);
   const state = compactModel(model).createState();
-  const sources = sourcesForScenario("free-play").filter((s) => sourcesById[s.id]);
+  const free = sourcesForScenario("free-play");
+  const sources = [...free, ...sourcesForScenario(scenarioId).filter((s) => !free.includes(s))].sort((a, b) => a.order - b.order).filter((s) => sourcesById[s.id]);
+  // A receiver channel is paired only with a mic that's on stage.
+  const pairsHere = (pairs) => Object.fromEntries(Object.entries(pairs).filter(([, id]) => sources.some((s) => s.id === id)));
   for (const s of sources) state.rig.devices.push({ id: sourceDeviceId(s.id), type: s.deviceType, sourceId: s.id, label: s.device, ...(s.gearPower ? { gearPower: s.gearPower } : {}) });
   for (const id of gig.devices) {
     const d = PLAYBACK_DEVICES[id];
-    state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan, ...(d.rack ? { rack: d.rack } : {}), ...(d.pairs ? { pairs: { ...d.pairs } } : {}), ...(d.inputLevel !== undefined ? { inputLevel: d.inputLevel } : {}) });
+    state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan, ...(d.rack ? { rack: d.rack } : {}), ...(d.pairs && Object.keys(pairsHere(d.pairs)).length ? { pairs: pairsHere(d.pairs) } : {}), ...(d.inputLevel !== undefined ? { inputLevel: d.inputLevel } : {}) });
   }
   if (gig.reverb) state.rig.devices.push(STAGE_GEAR.reverb());
   // The room pair's two mics are sources too (442).
@@ -1724,7 +1733,7 @@ function buildCompactState(model, sourcesById) {
   // Gain-stage and mix what is patched.
   const mix = compactModel(model).computeMix(state, sourcesById, STEMS, (src) => sourcePeakDb(src, STEMS));
   for (const s of sources) {
-    const where = gig.patch[s.id] || (gig.boxPatch?.[s.id] && [gig.boxPatch[s.id][2], "aes"]) || (gig.rxPatch?.[s.id] && [gig.rxPatch[s.id][2], "mic"]);
+    const where = gig.patch[s.id] || (gig.boxPatch?.[s.id] && [gig.boxPatch[s.id][2], "aes"]) || (gig.rxPatch?.[s.id] && [gig.rxPatch[s.id][2], "mic"]) || (gig.stageOn?.[s.id] !== undefined && [gig.stageOn[s.id], "mic"]);
     if (!where || where[0] === "tape") continue;
     const ch = state.channels[where[0]];
     const c = def.channels[where[0]];

@@ -1097,6 +1097,20 @@ const CME_SOURCES = [
   cmeHandheld("cme-yellow", 3, "yellow", "Backing vocal 1", "bv-l", { mixDb: -4, pan: -0.3 }),
   cmeHandheld("cme-green", 4, "green", "Backing vocal 2", "bv-r", { mixDb: -4, pan: 0.3 }),
   cmeHandheld("cme-blue", 5, "blue", "Horn", "trumpets", { mixDb: -6, pan: 0.2, outputDb: -34, note: "The horn player comes in on a wireless handheld too." }),
+  // CME in Salmon: Advanced. Each is on stage in one scenario only, and lands
+  // on CH 9-10 once ROUTING → INPUT points CH 9-16 at it (Salmon's default has
+  // them on LOCAL 9-16, receiver 2). The gig gain-stages those channels for them.
+  // A guest singer's headset on a body pack, paired with the PTU-7000's CH 1
+  // (`cme-rx-lav` pairs), whose AF OUT 1 is in LOCAL 25: CH 9-16 ← Local 25-32.
+  cmeSource("cme-guest", 9, "Guest vocal (headset)", "GUEST", "Headset mic on a wireless body pack → PTU-7000 CH 1 → LOCAL 25", "rf-handheld", "lead-vocals", {
+    outputDb: -30,
+    scenarios: ["x32-cme-adv-headset"],
+    note: "A guest singer on a headset: its body pack is paired with the PTU-7000 (lav and headset packs), whose AF OUT 1 plugs into LOCAL 25.",
+  }),
+  // The band's own kick and snare mics, more inputs than the sub snake has: straight into
+  // S32 IN 9 and 10, so CH 9-16 ← AES50 A9-16.
+  cmeSource("cme-kick", 9, "Kick drum (dynamic)", "KICK", "Dynamic mic in the kick drum → S32 IN 9", "dynamic-mic", "drums", { outputDb: -28, mixDb: -4, scenarios: ["x32-cme-adv-inputs"] }),
+  cmeSource("cme-snare", 10, "Snare (SM57)", "SNARE", "SM57 on the snare → S32 IN 10", "dynamic-mic", "drums", { outputDb: -32, mixDb: -6, scenarios: ["x32-cme-adv-inputs"] }),
   cmeSource("cme-nord", 25, "Nord (DI)", "NORD", "Nord Stage 4 → DI box, on sub snake 1", "di-box", "piano", {
     outputDb: -32,
     mixDb: -6,
