@@ -1151,6 +1151,94 @@ const CME_SOURCES = [
   },
 ];
 
+// ---------- Mariachi in Salmon: Mariachi Panteras' own dress rehearsal ----------
+
+// Mariachi Panteras in Salmon Recital Hall (MUS 248's Mariachi Gig Checklist),
+// from the X32's multitrack of the dress rehearsal (Logic "261106 Mariachi
+// Dress", 2026-11-06; audio/README.md has how the files were cut). Nine
+// wireless handhelds, nothing else: four on the violins, one each on the
+// guitarrón, the lead vihuela and the lead guitarra, and two up front for
+// vocal solos. The trumpets have no mic (they don't need one). Track 3 of the
+// session was dead and isn't here. Tracks 06 and 07 were first guessed to be
+// trumpets; with no trumpet mic at the gig they are violins 3 and 4 (the file
+// names keep the old guess). Song 1 of the eight; its loop is everyone playing,
+// the singer on the second vocal mic at its start and end (the first vocal mic
+// only hears the band). Mono files, every track +7.5 dB (`normalizeDb`).
+const MARIACHI_PARTS = [
+  // [stem id, file's track and name, Logic track]
+  ["vocal-1", "01-vocal-lead"],
+  ["vocal-2", "02-mc"],
+  ["violin-1", "04-violin-1"],
+  ["violin-2", "05-violin-2"],
+  ["violin-3", "06-trumpet-1"],
+  ["violin-4", "07-trumpet-2"],
+  ["guitarron", "08-guitarron"],
+  ["vihuela", "09-vihuela"],
+  ["guitarra", "10-guitarra"],
+];
+// monoPeakDb, monoRmsDb over the whole song (audio/README.md, MARIACHI_LEVELS["mariachi-1"]), in the order above.
+const MARIACHI_1_LEVELS = [[-13.92, -34.12], [-2.23, -22.92], [-18.08, -38.29], [-22.17, -39.26], [-14.97, -35.35], [-14.37, -35.64], [-10.64, -28.62], [-5.19, -25.31], [-7.58, -28.57]];
+const MARIACHI_STEMS = Object.fromEntries(MARIACHI_PARTS.map(([id, file], i) => [id, { file: `mariachi-1-${file}.mp3`, channels: 1, treatment: "sum", monoPeakDb: MARIACHI_1_LEVELS[i][0], monoRmsDb: MARIACHI_1_LEVELS[i][1], normalizeDb: 7.5 }]));
+const MARIACHI_ALL = MARIACHI_PARTS.map(([id]) => id);
+const MARIACHI_ENSEMBLE = "Mariachi Panteras";
+// ~172 bpm, A minor. The excerpt is song time 64.13 + 37.591 s; its loop 0.5 → 36.591 (the seam within ±12 ms).
+const MARIACHI_SET = {
+  id: "mariachi",
+  title: "Mariachi in Salmon",
+  artist: `${MARIACHI_ENSEMBLE}, dress rehearsal`,
+  basePath: "audio/mariachi-1/",
+  loop: { start: 0.5, end: 36.591 },
+  excerpt: { originalStart: 64.13, duration: 37.591 },
+  full: { basePath: "audio/mariachi-1/full/", segmentSeconds: 20, overlap: 0.5, duration: 163.08, segments: 9, trimDb: 0 },
+  sections: [{ id: "excerpt", bars: "loop", start: 64.63, label: "Everyone playing, a vocal solo at the start and the end", plays: MARIACHI_ALL, partly: [] }],
+};
+// Left to right across the stage in rainbow order, as the crew hands them out:
+// receiver 1 (black windscreens, CH 1-8) for the band, then receiver 2 (gray
+// windscreens, CH 9-16) for the two vocal mics. Yellow on receiver 1 isn't
+// used. A handheld clipped to a stand for the instruments. `order` is the
+// console channel: receiver channel n's AF OUT is in LOCAL n.
+const marHandheld = (id, ch, windscreen, ring, name, shortName, stem, extra) => ({
+  id,
+  order: ch,
+  name: `${name} (${windscreen}/${ring})`,
+  shortName,
+  musician: `${MARIACHI_ENSEMBLE}: ${name.toLowerCase()}`,
+  musicianShort: shortName,
+  device: `Wireless handheld, ${windscreen} windscreen, ${ring} ring → receiver ${ch > 8 ? 2 : 1} CH ${((ch - 1) % 8) + 1} (CH ${ch})`,
+  category: "Mariachi",
+  deviceType: "rf-handheld",
+  signalLevel: "mic",
+  connector: "xlr",
+  phantom: "none",
+  outputDb: -30,
+  stem,
+  mixDb: 0,
+  pan: 0,
+  scenarios: ANY_SCENARIO,
+  ...extra,
+});
+const MARIACHI_SOURCES = [
+  marHandheld("mar-vln1", 1, "black", "red", "Violin 1", "VLN 1", "violin-1", { mixDb: -14, pan: -0.6, outputDb: -34 }),
+  marHandheld("mar-vln2", 2, "black", "orange", "Violin 2", "VLN 2", "violin-2", { mixDb: -14, pan: -0.5, outputDb: -34 }),
+  marHandheld("mar-vln3", 4, "black", "green", "Violin 3", "VLN 3", "violin-3", { mixDb: -14, pan: -0.4, outputDb: -34 }),
+  marHandheld("mar-vln4", 5, "black", "blue", "Violin 4", "VLN 4", "violin-4", { mixDb: -14, pan: -0.3, outputDb: -34 }),
+  marHandheld("mar-gtrn", 6, "black", "purple", "Guitarrón", "GTRRN", "guitarron", { mixDb: -3, pan: 0, outputDb: -32, note: "The mariachi's bass: a handheld on a stand aimed at its back." }),
+  marHandheld("mar-vih", 7, "black", "black", "Vihuela (lead)", "VIHUELA", "vihuela", { mixDb: -6, pan: 0.3, outputDb: -32 }),
+  marHandheld("mar-gtra", 8, "black", "gray", "Guitarra (lead)", "GUITARRA", "guitarra", { mixDb: -5, pan: 0.4, outputDb: -32 }),
+  marHandheld("mar-vox1", 9, "gray", "red", "Vocal mic 1", "VOX 1", "vocal-1", { note: "Up front, for vocal solos. In this song the band leaks into it; the singer is on vocal mic 2." }),
+  marHandheld("mar-vox2", 10, "gray", "orange", "Vocal mic 2", "VOX 2", "vocal-2", { note: "Up front, for vocal solos and talking between songs." }),
+  // The spare a player gets when a handheld dies mid-soundcheck: receiver 2's green, on CH 12 (one scenario only).
+  marHandheld("mar-spare", 12, "gray", "green", "Spare handheld", "SPARE", "violin-1", { mixDb: -14, pan: -0.6, outputDb: -34, scenarios: ["x32-mar-swap"], note: "The spare from the wireless drawer, now on the first violin's stand." }),
+  {
+    ...VJ_LAPTOP,
+    name: "Test music (Mac mini · SSL 2+)",
+    device: "FOH Mac mini (MUS-BH100-MINI) → SSL 2+",
+    deviceType: "foh-mac",
+    connector: "trs14",
+    note: "The crew's test music, from the FOH Mac mini through its SSL 2+ into AUX IN 1/2: through the hall's speakers, then each wedge, before anyone plays.",
+  },
+];
+
 // Virtual sources: the two mics of the stereo room pair. Their sound is built
 // from the band stems by js/room-mics.js (distance, angle, delay, room reverb).
 export const ROOM_SOURCES = [
@@ -1173,6 +1261,7 @@ export const SONGS = {
   karaoke: { id: "karaoke", title: "Karaoke in BH 109", artist: "a karaoke track (NOSTRADAMUS)", set: KARAOKE_SET, stems: KARAOKE_STEMS, sources: KARAOKE_SOURCES, consoles: ["x1204usb"] },
   ea: { id: "ea", title: "Electroacoustic showcase", artist: "FTW's parts as stand-ins, and a click", set: EA_SET, stems: EA_STEMS, sources: EA_SOURCES, consoles: ["x32"] },
   cme: { id: "cme", title: "CME in Salmon", artist: "Persephone (Giovanna) as the Commercial Music Ensemble", set: CME_SET, stems: CME_STEMS, sources: CME_SOURCES, consoles: ["x32"] },
+  mariachi: { id: "mariachi", title: "Mariachi in Salmon", artist: "Mariachi Panteras, from their dress rehearsal", set: MARIACHI_SET, stems: MARIACHI_STEMS, sources: MARIACHI_SOURCES, consoles: ["x32"] },
 };
 // Can this song play on this console? A gig's song (`consoles`) only on its own.
 export const songFits = (id, model) => !SONGS[id]?.consoles || SONGS[id].consoles.includes(model);
@@ -1299,6 +1388,14 @@ export const CREDITS = [
     title: "Vocal Jazz in Salmon",
     lines: [["Music", "“Almost Like Being in Love” by the Vocal Jazz Ensemble, eleven singers on eleven handhelds"]],
     note: "Used with permission for this educational project.",
+  },
+  {
+    title: "Mariachi in Salmon",
+    lines: [
+      ["Ensemble", "Mariachi Panteras"],
+      ["Recorded", "the X32's multitrack of the dress rehearsal, Salmon Recital Hall, November 6, 2026"],
+    ],
+    note: "Shared by the course for this educational project; song titles and credits to come.",
   },
   {
     title: "Announcements",

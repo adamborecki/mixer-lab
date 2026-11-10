@@ -164,6 +164,15 @@ export const GIGS = [
     ids: ["x32-cme-adv-antenna", "x32-cme-adv-vol", "x32-cme-adv-headset", "x32-cme-adv-s32", "x32-cme-adv-inst", "x32-cme-adv-active-amp", "x32-cme-adv-route", "x32-cme-adv-katana", "x32-cme-adv-inputs", "x32-cme-adv-lead", "x32-cme-adv-mix5", "x32-cme-adv-stack"],
   },
   {
+    id: "mariachi",
+    title: "Mariachi in Salmon",
+    venue: "Salmon Recital Hall",
+    question: "Can you give six wedges six mixes, and keep them working?",
+    concept: "Mariachi Panteras on Salmon's full-size X32, from their own dress rehearsal: nine wireless handhelds on receivers 1 and 2 (four violins, guitarrón, vihuela, guitarra, two vocal mics up front; the trumpets need no mic), six wedges across the back on six mixes (MIX 3-8: one active, three on the KM750s by speakON, two that take only 1/4\" on the Crown), and the hall's own speakers as the house. It opens with the whole rig working; then the hall left off after CME, wedges to patch and test, a wedge that only takes 1/4\", a wedge on the wrong mix, a handheld that dies at soundcheck, vocals in every wedge, gains, feedback and a bad cable.",
+    checklist: `${SITE}/mariachi-gig-checklist/`,
+    ids: ["x32-mar-tour", "x32-mar-house", "x32-mar-wedges", "x32-mar-quarter", "x32-mar-wedge-test", "x32-mar-route", "x32-mar-swap", "x32-mar-vox", "x32-mar-gains", "x32-mar-feedback", "x32-mar-cable"],
+  },
+  {
     id: "cob",
     title: "COB in Irvine",
     venue: "Chapman on Broadway, Irvine",

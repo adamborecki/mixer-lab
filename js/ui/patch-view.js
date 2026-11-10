@@ -523,8 +523,8 @@ function receiverHtml(rig, d, sources) {
   const rows = Array.from({ length: DEVICE_TYPES[d.type].channels }, (_, i) => {
     const ch = receiverChannel(rig, d, i + 1);
     const tx = ch.sourceId && rig.devices.find((x) => x.sourceId === ch.sourceId);
-    const txOn = !!tx && (tx.mic || 0) !== 2;
-    const status = !ch.on ? "off" : !(ch.a || ch.b) ? "no antenna" : !ch.sourceId ? "no mic paired" : !txOn ? "no signal (the mic is off)" : tx.mic ? "signal ✓ · audio — (muted at the mic)" : "signal ✓ · audio ✓";
+    const txOn = !!tx && (tx.mic || 0) !== 2 && !tx.dead;
+    const status = !ch.on ? "off" : !(ch.a || ch.b) ? "no antenna" : !ch.sourceId ? "no mic paired" : tx?.dead ? "no signal (the mic is dead)" : !txOn ? "no signal (the mic is off)" : tx.mic ? "signal ✓ · audio — (muted at the mic)" : "signal ✓ · audio ✓";
     const one = ch.on && ch.sourceId && ch.a !== ch.b ? " · one antenna only" : "";
     return `<li><strong>CH ${i + 1}</strong> ${esc(ch.sourceId ? sources[ch.sourceId]?.name || ch.sourceId : "—")} · ${status}${one}</li>`;
   });
@@ -535,6 +535,13 @@ function receiverHtml(rig, d, sources) {
 // the volume knob on the amp or instrument in front of its mic or DI.
 function sourceGearHtml(d, src, rig) {
   if (d.type === "wireless-handheld" || d.type === "rf-handheld") {
+    // A dead handheld (`dead`: it won't switch on, whatever its button does): set it aside.
+    if (d.dead) {
+      return `<div class="dev-settings mic-button" data-device-card="${esc(d.id)}">
+      <p class="mic-display"><strong>Mic: DEAD</strong> · Receiver: no signal</p>
+      <p class="source-note">It won't switch on, with a fresh battery or without. Set it aside, tag it, and give the player a spare.</p>
+    </div>`;
+    }
     const st = d.mic || 0;
     // A radio handheld's receiver channel says what it really gets: power, antennas, then the mic.
     const rxDev = d.type === "rf-handheld" && rig?.devices.find((x) => DEVICE_TYPES[x.type].receiver && Object.values(x.pairs || {}).includes(d.sourceId));
