@@ -1386,6 +1386,108 @@ Object.assign(WRONG, {
 });
 
 // The generic digital mixer is the X32 Compact's model with no brand on it: the same fixes (and mistakes) apply.
+// Mariachi in Salmon (js/scenarios.js MARIACHI_GIGS).
+const MAR_VLN = ["mar-vln1", "mar-vln2", "mar-vln3", "mar-vln4"];
+const MAR_BUSES = ["mix3", "mix4", "mix5", "mix6", "mix7", "mix8"];
+const marWedges = (a, { power = true, swap = false } = {}) => {
+  assert.ok(a.st.connect("s32/out3", "mar-w1/in", "xlr").ok);
+  assert.ok(a.st.connect(swap ? "s32/out5" : "s32/out4", "mar-km750-1/in-a", "xlr").ok);
+  assert.ok(a.st.connect("mar-km750-1/out-a", "mar-w2/in", "speakon").ok);
+  assert.ok(a.st.connect(swap ? "s32/out4" : "s32/out5", "mar-km750-1/in-b", "xlr").ok);
+  assert.ok(a.st.connect("mar-km750-1/out-b", "mar-w3/in", "speakon").ok);
+  assert.ok(a.st.connect("s32/out6", "mar-km750-2/in-a", "xlr").ok);
+  assert.ok(a.st.connect("mar-km750-2/out-a", "mar-w4/in", "speakon").ok);
+  if (power) a.st.setDevice("mar-w1", "plugged", 1);
+};
+const marQuarter = (a, cable = "speaker") => {
+  a.unplugAt("s32/out6");
+  a.unplugAt("mar-w4/in");
+  assert.ok(a.st.connect("s32/out6", "mar-km750-2/in-a", "xlr").ok);
+  assert.ok(a.st.connect("mar-km750-2/out-a", "mar-w4/in", "speakon").ok);
+  assert.ok(a.st.connect("s32/out7", "mar-crown/in-a", "xlr-trs").ok);
+  assert.ok(a.st.connect("mar-crown/out-a", "mar-w5/in", cable).ok);
+};
+const marMusic = (a, { listen = true, knob = true } = {}) => {
+  for (const b of MAR_BUSES) a.sendDb("preshow", b, 0);
+  if (listen) MAR_BUSES.forEach((b) => a.st.setListen(b));
+  if (knob) a.st.setDevice("mar-crown", "volB", 8);
+};
+const marSpare = (a, { wedges = true } = {}) => {
+  a.set("mar-spare", "gainDb", 44);
+  a.set("mar-spare", "hpf", 0.25);
+  a.faderDb("mar-spare", -14);
+  if (wedges) for (const b of ["mix3", "mix4"]) {
+    a.set("mar-spare", `pres.${b}`, true);
+    a.sendDb("mar-spare", b, -16);
+  }
+};
+Object.assign(SOLVE, {
+  "x32-mar-tour": (a) => ["main", ...MAR_BUSES].forEach((d) => a.st.setListen(d)),
+  "x32-mar-house": (a) => a.st.setDevice("cme-mix5", "lvl45", 7.5),
+  "x32-mar-wedges": (a) => marWedges(a),
+  "x32-mar-quarter": (a) => marQuarter(a),
+  "x32-mar-wedge-test": (a) => marMusic(a),
+  "x32-mar-route": (a) => a.st.setBus("routing", "out6", "mix6"),
+  "x32-mar-swap": (a) => marSpare(a),
+  "x32-mar-vox": (a) => {
+    for (const b of ["mix7", "mix8"]) {
+      a.st.setListen(b);
+      for (const s of ["mar-vox1", "mar-vox2"]) a.sendDb(s, b, -6);
+    }
+  },
+  "x32-mar-gains": (a) => {
+    for (const s of MAR_VLN) a.set(s, "gainDb", 44);
+    a.set("mar-vih", "gainDb", 32);
+  },
+  "x32-mar-feedback": (a) => MAR_VLN.forEach((s) => a.sendDb(s, "mix3", -16)),
+  "x32-mar-cable": (a) => {
+    a.unplugAt("mar-w3/in");
+    assert.ok(a.st.connect("mar-km750-1/out-b", "mar-w3/in", "speakon").ok);
+  },
+});
+Object.assign(WRONG, {
+  "x32-mar-tour": [["only the house", (a) => a.st.setListen("main")], ["the hall's speakers turned down", (a) => {
+    ["main", ...MAR_BUSES].forEach((d) => a.st.setListen(d));
+    a.st.setDevice("cme-mix5", "lvl45", 0);
+  }]],
+  "x32-mar-house": [["MAIN MIX up instead", (a) => a.st.setDevice("cme-mix5", "main", 10)], ["the X32's MAIN up instead", (a) => a.st.setBus("main", "level", 1)]],
+  "x32-mar-wedges": [["the active wedge left unplugged from power", (a) => marWedges(a, { power: false })], ["wedges 2 and 3 on each other's mix", (a) => marWedges(a, { swap: true })]],
+  "x32-mar-quarter": [["an instrument cable to wedge 5", (a) => marQuarter(a, "ts")], ["wedge 4's cable moved to wedge 5", (a) => {
+    a.unplugAt("mar-w4/in");
+    assert.ok(a.st.connect("mar-crown/out-a", "mar-w5/in", "speaker").ok);
+  }]],
+  "x32-mar-wedge-test": [["fixed without listening", (a) => marMusic(a, { listen: false })], ["MIX 8 up instead of the Crown's knob", (a) => {
+    marMusic(a, { knob: false });
+    a.st.setBus("mix8", "level", 1);
+  }], ["the music up in the house too", (a) => {
+    marMusic(a);
+    a.faderDb("preshow", 0);
+  }]],
+  "x32-mar-route": [["the guitarra added to MIX 5 instead", (a) => a.sendDb("mar-gtra", "mix5", -8)], ["output 6 on MAIN", (a) => a.st.setBus("routing", "out6", "main-l")], ["MIX 6 rebuilt with MIX 5's sends", (a) => {
+    a.st.setBus("routing", "out6", "mix6");
+    a.sendDb("mar-gtrn", "mix6", -8);
+  }]],
+  "x32-mar-swap": [["the XLRs swapped at the receivers", (a) => {
+    a.unplugAt("cme-rx1/out1");
+    a.unplugAt("cme-rx2/out4");
+    assert.ok(a.st.connect("cme-rx2/out4", "mixer/ch1-mic", "xlr").ok);
+    assert.ok(a.st.connect("cme-rx1/out1", "mixer/ch12-mic", "xlr").ok);
+  }], ["the house only, no wedges", (a) => marSpare(a, { wedges: false })]],
+  "x32-mar-vox": [["only wedge 5", (a) => {
+    a.st.setListen("mix7");
+    a.st.setListen("mix8");
+    for (const s of ["mar-vox1", "mar-vox2"]) a.sendDb(s, "mix7", -6);
+  }], ["the masters up instead", (a) => {
+    a.st.setListen("mix7");
+    a.st.setListen("mix8");
+    a.st.setBus("mix7", "level", 1);
+    a.st.setBus("mix8", "level", 1);
+  }]],
+  "x32-mar-gains": [["faders instead of GAIN", (a) => MAR_VLN.forEach((s) => a.nudge(s, 12))], ["only the violins", (a) => MAR_VLN.forEach((s) => a.set(s, "gainDb", 44))]],
+  "x32-mar-feedback": [["MIX 3's master pulled down", (a) => a.st.setBus("mix3", "level", 0)], ["every mic pulled out of MIX 3", (a) => ["mar-vox1", "mar-vox2", "mar-vih", ...MAR_VLN].forEach((s) => a.sendDb(s, "mix3", -Infinity))]],
+  "x32-mar-cable": [["KM750 #1's CH B level up", (a) => a.st.setDevice("mar-km750-1", "volB", 10)]],
+});
+
 for (const k of ["doors", "gain", "48v", "lowcut", "lr", "mud", "eq-on", "comp-on", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "new-mix"]) {
   SOLVE[`gdig-${k}`] = SOLVE[`x32c-${k}`];
   if (WRONG[`x32c-${k}`]) WRONG[`gdig-${k}`] = WRONG[`x32c-${k}`];

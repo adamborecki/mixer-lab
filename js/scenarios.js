@@ -97,8 +97,9 @@ export const PLAYBACK_DEVICES = {
   "cme-ant-a": { type: "antenna", label: "Antenna A · on the wireless rack", rack: "wireless" },
   "cme-ant-b": { type: "antenna", label: "Antenna B · on the wireless rack", rack: "wireless" },
   "cme-wl-power": { type: "rack-furman", label: "Furman · wireless rack power", rack: "wireless" },
-  "cme-rx1": { type: "ptu6000", label: "PTU-6000 #1 · CH 1-8 (black windscreens)", rack: "wireless" },
-  "cme-rx2": { type: "ptu6000", label: "PTU-6000 #2 · CH 9-16 (gray windscreens)", rack: "wireless" },
+  // Receivers 1 and 2 carry the mariachi's nine handhelds (a receiver's `pairs` keep only mics on stage, so CME sees none).
+  "cme-rx1": { type: "ptu6000", label: "PTU-6000 #1 · CH 1-8 (black windscreens)", rack: "wireless", pairs: { out1: "mar-vln1", out2: "mar-vln2", out4: "mar-vln3", out5: "mar-vln4", out6: "mar-gtrn", out7: "mar-vih", out8: "mar-gtra" } },
+  "cme-rx2": { type: "ptu6000", label: "PTU-6000 #2 · CH 9-16 (gray windscreens)", rack: "wireless", pairs: { out1: "mar-vox1", out2: "mar-vox2", out4: "mar-spare" } },
   "cme-rx3": { type: "ptu6000", label: "PTU-6000 #3 · CH 17-24 (no windscreen)", rack: "wireless", pairs: { out1: "cme-red", out2: "cme-orange", out3: "cme-yellow", out4: "cme-green", out5: "cme-blue" } },
   // Its CH 1 pairs with a guest's headset pack (`cme-guest`, one Advanced scenario only).
   "cme-rx-lav": { type: "ptu7000", label: "PTU-7000 · lav and headset packs", rack: "wireless", pairs: { out1: "cme-guest" } },
@@ -121,6 +122,19 @@ export const PLAYBACK_DEVICES = {
   "cme-main-r": { type: "passive-speaker", label: "Yamaha speaker on a stand · downstage right", short: "downstage Yamaha speaker right", zone: "foh", pan: 1 },
   "cme-hall-l": { type: "passive-speaker", label: "Hall's installed speaker · left", short: "hall speaker left", zone: "foh", pan: -0.8 },
   "cme-hall-r": { type: "passive-speaker", label: "Hall's installed speaker · right", short: "hall speaker right", zone: "foh", pan: 0.8 },
+  // Mariachi in Salmon: six wedges on six mixes across the back of the stage, left to right. Wedge 1
+  // (house left) is active, on its own XLR; wedges 2-4 take speakON or 1/4" and run off the two KM750s
+  // (speakON outputs, as photographed); wedges 5 and 6 take 1/4" only, so they run off the amp rack's
+  // Crown (1/4" speaker outputs, through its INPUT / SPEAKER box). The NX3000 isn't used.
+  "mar-km750-1": { type: "km750-nl4", label: "KM750 #1 · amp rack", rack: "amp" },
+  "mar-km750-2": { type: "km750-nl4", label: "KM750 #2 · amp rack", rack: "amp" },
+  "mar-crown": { type: "crown-amp", label: "Crown · amp rack (INPUT / SPEAKER box)", rack: "amp" },
+  "mar-w1": { type: "active-wedge", label: "Wedge 1 · house left (active)", short: "wedge 1 (house left)", zone: "stage", pan: -0.85 },
+  "mar-w2": { type: "passive-wedge-combo", label: "Wedge 2 · passive (speakON or 1/4\")", short: "wedge 2", zone: "stage", pan: -0.5 },
+  "mar-w3": { type: "passive-wedge-combo", label: "Wedge 3 · passive (speakON or 1/4\")", short: "wedge 3", zone: "stage", pan: -0.15 },
+  "mar-w4": { type: "passive-wedge-combo", label: "Wedge 4 · passive (speakON or 1/4\")", short: "wedge 4", zone: "stage", pan: 0.2 },
+  "mar-w5": { type: "passive-speaker", label: "Wedge 5 · passive (1/4\" only)", short: "wedge 5", zone: "stage", pan: 0.55 },
+  "mar-w6": { type: "passive-speaker", label: "Wedge 6 · house right, passive (1/4\" only)", short: "wedge 6 (house right)", zone: "stage", pan: 0.85 },
   // BH 109, the choir room: the room's rack (AUX AUDIO INPUT → the Ashly LX-308B's Ch.1 → a Crown XLi 2500) and its two passive wall speakers.
   "bh109-rack": { type: "bh109-rack", label: "BH 109 rack · Ashly Ch.1 → Crown amp" },
   "bh109-l": { type: "wall-speaker", label: "Wall speaker · left", short: "left wall speaker", zone: "foh", pan: -1 },
@@ -1629,6 +1643,88 @@ const CME_GIGS = {
   },
 };
 
+// Mariachi in Salmon (MUS 248's Mariachi Gig Checklist): Mariachi Panteras on
+// the hall's full-size X32, from the dress rehearsal of 2026-11-06 and the
+// instructor's photos and answers. Everything is wireless: nine handhelds on
+// receivers 1 and 2 (black windscreens CH 1-8, gray CH 9-16), handed out left
+// to right in rainbow order (red, orange, green, blue, purple, black, gray on
+// receiver 1, yellow skipped; red and orange on receiver 2 for the two vocal
+// mics up front). The trumpets aren't mic'd. Salmon's default ROUTING. Six
+// wedges on six mixes, MIX n on XLR OUT n out of S32 OUT n (MIX 3-8, the
+// instructor's "mix 1 through 8"): the active wedge on OUT 3 (the purple 25 ft
+// XLR), wedges 2-4 on the KM750s (speakON), wedges 5-6 on the Crown (1/4").
+// MAIN L/R to the hall's own speakers through the Mix5 (S32 OUT 15/16), its
+// 4/5 LEVEL up at U: no extra mains. Which wedge is on which amp channel, and
+// the starting monitor mixes, are the lab's plan, not the gig's.
+export const MAR_MICS = ["mar-vln1", "mar-vln2", "mar-vln3", "mar-vln4", "mar-gtrn", "mar-vih", "mar-gtra", "mar-vox1", "mar-vox2"];
+const MAR_VLN = MAR_MICS.slice(0, 4);
+const MAR_VOX = ["mar-vox1", "mar-vox2"];
+// [receiver, receiver channel, console channel index]
+const MAR_RX = { "mar-vln1": ["cme-rx1", 1], "mar-vln2": ["cme-rx1", 2], "mar-vln3": ["cme-rx1", 4], "mar-vln4": ["cme-rx1", 5], "mar-gtrn": ["cme-rx1", 6], "mar-vih": ["cme-rx1", 7], "mar-gtra": ["cme-rx1", 8], "mar-vox1": ["cme-rx2", 1], "mar-vox2": ["cme-rx2", 2] };
+// The violins come in 10 dB hotter (`gainPlus`: they're quiet), so their sends and faders sit 10 dB lower.
+const marMix = (vln, extra = {}) => ({ ...each(MAR_VOX, -6), ...each(MAR_VLN, vln - 10), ...extra });
+const MARIACHI_GIGS = {
+  x32: {
+    prompt: "Mariachi Panteras in Salmon Recital Hall, on the hall's full-size X32. Everything is wireless: nine handhelds reach the wireless rack at FOH by radio, handed out left to right across the stage in rainbow order. Receiver 1 (black windscreens, CH 1-8): violins 1-4 on red, orange, green and blue (yellow isn't used, so CH 3 is empty), the guitarrón on purple (CH 6), the lead vihuela on black (CH 7), the lead guitarra on gray (CH 8). Receiver 2 (gray windscreens): the two vocal mics up front for solos, red on CH 9 and orange on CH 10. The trumpets have no mic: they don't need one. Six wedges across the back, left to right, each on its own mix: MIX n leaves on XLR OUT n and comes out of S32 OUT n. Wedge 1 (house left) is active, on S32 OUT 3 (the purple 25 ft XLR), with its own VOLUME and IEC cable. Wedges 2-4 take speakON or 1/4\": S32 OUT 4 and 5 into KM750 #1's CH A and B, OUT 6 into KM750 #2's CH A, speakON cables to the wedges. Wedges 5 and 6 take 1/4\" only, so they run off the Crown in the amp rack: S32 OUT 7 and 8 into its INPUT / SPEAKER box, 1/4\" speaker cables out. The NX3000 isn't used. The house is the hall's own speakers: MAIN L/R on S32 OUT 15/16 into the Mix5 on top of the hall's mains rack, its 4/5 LEVEL up at U. The test music comes from the FOH Mac mini through its SSL 2+ into AUX IN 1/2.",
+    patch: { preshow: [32, "lr"] },
+    rxPatch: Object.fromEntries(Object.entries(MAR_RX).map(([id, [rx, n]]) => [id, [rx, n, (rx === "cme-rx2" ? 8 : 0) + n - 1]])),
+    cableFor: { preshow: "pair-trs" },
+    inSource: [0, 0, 0, 1],
+    devices: ["cme-ant-a", "cme-ant-b", "cme-wl-power", "cme-rx1", "cme-rx2", "cme-rx3", "cme-rx-lav", "cme-pas", "cme-pas-x", "cme-iem", "s32", "cme-nx3000", "mar-km750-1", "mar-km750-2", "mar-crown", "cme-mix5", "cme-hall-power", "cme-hall-crown", "mar-w1", "mar-w2", "mar-w3", "mar-w4", "mar-w5", "mar-w6", "cme-hall-l", "cme-hall-r"],
+    cables: [
+      // The wireless rack, as at CME.
+      { from: "cme-ant-a/out", to: "cme-pas/ant-a", cable: "bnc" },
+      { from: "cme-ant-b/out", to: "cme-pas/ant-b", cable: "bnc" },
+      ...[["out1", "cme-rx1"], ["out2", "cme-rx2"], ["out3", "cme-rx-lav"], ["out4", "cme-pas-x"]].flatMap(([o, to]) => ["a", "b"].map((x) => ({ from: `cme-pas/${o}${x}`, to: `${to}/ant-${x}`, cable: "bnc" }))),
+      ...["a", "b"].map((x) => ({ from: `cme-pas-x/out1${x}`, to: `cme-rx3/ant-${x}`, cable: "bnc" })),
+      // Every receiver channel the mics don't use, into its LOCAL input (the mics' come from rxPatch).
+      { from: "cme-rx1/out3", to: "mixer/ch3-mic", cable: "xlr" },
+      ...[3, 4, 5, 6, 7, 8].map((n) => ({ from: `cme-rx2/out${n}`, to: `mixer/ch${n + 8}-mic`, cable: "xlr" })),
+      ...Array.from({ length: 8 }, (_, i) => ({ from: `cme-rx3/out${i + 1}`, to: `mixer/ch${i + 17}-mic`, cable: "xlr" })),
+      ...Array.from({ length: 4 }, (_, i) => ({ from: `cme-rx-lav/out${i + 1}`, to: `mixer/ch${i + 25}-mic`, cable: "xlr" })),
+      ...Array.from({ length: 4 }, (_, i) => ({ from: `mixer/out${i + 9}`, to: `cme-iem/in${i + 1}`, cable: "xlr" })),
+      { from: "mixer/card-dante", to: "src-preshow/dante", cable: "cat5" },
+      { from: "s32/aes50a", to: "mixer/aes50a", cable: "cat5" },
+      // The wedges.
+      { from: "s32/out3", to: "mar-w1/in", cable: "xlr" },
+      { from: "s32/out4", to: "mar-km750-1/in-a", cable: "xlr" },
+      { from: "mar-km750-1/out-a", to: "mar-w2/in", cable: "speakon" },
+      { from: "s32/out5", to: "mar-km750-1/in-b", cable: "xlr" },
+      { from: "mar-km750-1/out-b", to: "mar-w3/in", cable: "speakon" },
+      { from: "s32/out6", to: "mar-km750-2/in-a", cable: "xlr" },
+      { from: "mar-km750-2/out-a", to: "mar-w4/in", cable: "speakon" },
+      { from: "s32/out7", to: "mar-crown/in-a", cable: "xlr-trs" },
+      { from: "mar-crown/out-a", to: "mar-w5/in", cable: "speaker" },
+      { from: "s32/out8", to: "mar-crown/in-b", cable: "xlr-trs" },
+      { from: "mar-crown/out-b", to: "mar-w6/in", cable: "speaker" },
+      // The house: the hall's own speakers.
+      { from: "s32/out15", to: "cme-mix5/in-l", cable: "xlr-trs" },
+      { from: "s32/out16", to: "cme-mix5/in-r", cable: "xlr-trs" },
+      { from: "cme-mix5/out-l", to: "cme-hall-crown/in-a", cable: "trs", fixed: true },
+      { from: "cme-mix5/out-r", to: "cme-hall-crown/in-b", cable: "trs", fixed: true },
+      { from: "cme-hall-crown/out-a", to: "cme-hall-l/in", cable: "speaker", fixed: true },
+      { from: "cme-hall-crown/out-b", to: "cme-hall-r/in", cable: "speaker", fixed: true },
+    ],
+    // A starting point for six monitor mixes (the lab's, not the gig's): the vocal mics in every wedge,
+    // the violins loudest in the two wedges in front of them, the rhythm section where the others stand.
+    sends: {
+      mix3: marMix(-6, { "mar-vih": -12 }),
+      mix4: marMix(-6, { "mar-vih": -12 }),
+      mix5: marMix(-12, { "mar-gtrn": -8, "mar-vih": -6 }),
+      mix6: marMix(-12, { "mar-vih": -6, "mar-gtra": -8 }),
+      mix7: marMix(-12, { "mar-gtrn": -6, "mar-gtra": -8 }),
+      mix8: marMix(-12, { "mar-gtrn": -6, "mar-vih": -6 }),
+    },
+    preFor: ["mix3", "mix4", "mix5", "mix6", "mix7", "mix8"],
+    gainPlus: each(MAR_VLN, 10),
+    hpf: { ...each(MAR_VLN, 0.25), ...each(MAR_VOX, 0.2), "mar-vih": 0.15, "mar-gtra": 0.15, "mar-spare": 0.25 },
+    dyn: {},
+    tweak: (state) => {
+      Object.assign(state.routing, { out3: "mix3", out4: "mix4", out5: "mix5", out6: "mix6", out7: "mix7", out8: "mix8", out15: "main-l", out16: "main-r" });
+    },
+  },
+};
+
 // Karaoke in BH 109, the choir room (MUS 248's BH 109 Karaoke Gig Checklist),
 // on a Behringer Xenyx: two SM58s on CH 1 and 2 (LOW CUT on, COMP about
 // 3 o'clock), the karaoke laptop on LINE IN 5/6, an SM58 through a Zoom V3 on
@@ -1663,7 +1759,7 @@ const KARAOKE_GIGS = {
 };
 
 // Each band's version of the gigs, over Persephone's.
-const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS, "almost-like": JAZZ_GIGS, "love-me": JAZZ_GIGS, cob: COB_GIGS, vj: VJ_GIGS, "vj-love": VJ_GIGS, ea: EA_GIGS, karaoke: KARAOKE_GIGS, cme: CME_GIGS };
+const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS, "almost-like": JAZZ_GIGS, "love-me": JAZZ_GIGS, cob: COB_GIGS, vj: VJ_GIGS, "vj-love": VJ_GIGS, ea: EA_GIGS, karaoke: KARAOKE_GIGS, cme: CME_GIGS, mariachi: MARIACHI_GIGS };
 
 // A mixer's Free play gig for the band on stage.
 export function gigFor(model) {
@@ -1751,7 +1847,8 @@ function buildCompactState(model, sourcesById, scenarioId = "free-play") {
     if (def.phantom.perChannel && s.phantom === "required") ch.phantom = true;
     if (c.gain.switch) ch.micLine = s.signalLevel === "line" ? "line" : "mic";
     // `gainDb`: one GAIN for every mic (Vocal Jazz); line sources are still gain-staged.
-    else if (c.gain.min !== undefined) ch.gainDb = clamp(gig.gainDb !== undefined && s.signalLevel === "mic" ? gig.gainDb : -s.outputDb - channelGainDb(def, { ...ch, gainDb: 0 }, input), c.gain.min, c.gain.max);
+    // `gainPlus`: more GAIN than the source's nominal level asks for (a quiet player: the mariachi's violins).
+    else if (c.gain.min !== undefined) ch.gainDb = clamp((gig.gainDb !== undefined && s.signalLevel === "mic" ? gig.gainDb : -s.outputDb - channelGainDb(def, { ...ch, gainDb: 0 }, input)) + (gig.gainPlus?.[s.id] || 0), c.gain.min, c.gain.max);
     // A LEVEL that is also the gain (B207MP3) has to make up the source's level as well.
     ch.level = levelLaw(def).toPos(def.levelIsGain ? s.mixDb - s.outputDb - channelGainDb(def, ch, input) : s.mixDb);
     if (!ch.stereo && !def.mono) ch.pan = gig.pans?.[s.id] ?? s.pan;

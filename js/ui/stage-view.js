@@ -307,7 +307,7 @@ export class StageView {
       // A radio handheld: by its receiver's channel, which goes silent if the rack, the antennas or the mic are off.
       if (DEVICE_TYPES[d.type].rf) {
         const ch = mix.channels.find((c) => c.sourceId === d.sourceId);
-        devices.set(d.id, !ch ? { tone: "warn", text: "! No channel" } : ch.band === "none" ? { tone: "warn", text: "! No audio" } : { tone: "ok", text: `✓ Radio · CH ${ch.index + 1}` });
+        devices.set(d.id, d.dead ? { tone: "warn", text: "! Dead mic" } : !ch ? { tone: "warn", text: "! No channel" } : ch.band === "none" ? { tone: "warn", text: "! No audio" } : { tone: "ok", text: `✓ Radio · CH ${ch.index + 1}` });
         continue;
       }
       // Its own gear switched off or unplugged (a guitar amp, the Nord, the Mac mini).

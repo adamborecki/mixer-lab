@@ -179,6 +179,7 @@ const TYPE_ICONS = {
   "stagepas-amp": "power-amp",
   nx3000: "power-amp",
   km750: "power-amp",
+  "km750-nl4": "power-amp",
   "crown-amp": "power-amp",
   mix5: "mixer",
   "hall-crown": "power-amp",
@@ -221,7 +222,7 @@ export function plugIconName(plugId, intoDir = "in") {
 
 // A port's jack (the socket on the gear). XLR on an output is male, on an input female.
 export function jackIconName(jackId, dir = "in") {
-  return { xlr: dir === "out" ? "xlr-m" : "xlr-f", combo: "jack-combo", quarter: "jack-quarter", rca: "jack-rca", mini: "jack-mini", linepair: "jack-pair", rcapair: "jack-rca", ethercon: "jack-ethercon", speakon: "speakon", bnc: "jack-bnc" }[jackId] || null;
+  return { xlr: dir === "out" ? "xlr-m" : "xlr-f", combo: "jack-combo", quarter: "jack-quarter", rca: "jack-rca", mini: "jack-mini", linepair: "jack-pair", rcapair: "jack-rca", ethercon: "jack-ethercon", speakon: "speakon", "speakon-quarter": "speakon", bnc: "jack-bnc" }[jackId] || null;
 }
 
 export const levelIconName = (level) => (level === "speaker" ? "level-speaker" : "level-line");

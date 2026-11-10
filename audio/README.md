@@ -224,9 +224,11 @@ Regenerate with `SONG=almost-like tools/make-excerpts.sh` and `SONG=love-me tool
 
 **Where they play.** Both pieces are in Free play on every console. Where a console has fewer mic inputs than singers, it takes the two soloists (Abbey, mic 4, and Silas, mic 11), a quartet (mics 1, 4, 9, 11) or six of them on the F8n, and the rest stay on stage, unplugged (`JAZZ_GIGS` in `js/scenarios.js`; on Mixer A and B, mics 1–8). The Vocal Jazz in Salmon gig puts both on its eleven handhelds, taking turns scenario by scenario (`vj` is “Almost Like Being in Love”, `vj-love` “Love Me or Leave Me”), with the preshow “Bossa Nova” as the crew's test music on AUX IN 1/2. The COB gig (`cob`) puts “Love Me or Leave Me” on its eleven headsets, A–K; its backing-track laptop plays silence (`audio/love-me/cob-track-silent.mp3` and its segments, mono 22.05 kHz at 8 kb/s, about 300 kB, from `tools/make-silent-track.sh`), because the ensemble's recording has no accompaniment track.
 
-## The mariachi multitrack (encoded, not yet in the app)
+## The mariachi multitrack
 
-Eight songs from a live mariachi multitrack (Logic project "261106 Mariachi Dress", 2026-11-06), encoded in `audio/mariachi-1/` … `audio/mariachi-8/` but **not in `source-manifest.js` yet**: nothing loads them. This section has what a manifest entry needs. Ensemble name, song titles, credits and permission are still to be confirmed with the course owner.
+Eight songs from a live mariachi multitrack (Logic project "261106 Mariachi Dress", 2026-11-06): Mariachi Panteras' dress rehearsal in Salmon. Encoded in `audio/mariachi-1/` … `audio/mariachi-8/`. **Song 1 is in the app** as the `mariachi` song (`SONGS.mariachi`, the Mariachi in Salmon gig); songs 2-8 aren't loaded yet. Song titles and credits are still to come, and permission is to be confirmed with the course owner (shipped on the owner's say-so, 2026-11-10).
+
+**Labels confirmed by the instructor (2026-11-10):** the gig had nine wireless handhelds and no trumpet mics: four on violins, one each on the guitarrón, lead vihuela and lead guitarra, two up front for vocal solos. So tracks 06 and 07 are **violins 3 and 4**, not trumpets (the files keep the old names; the manifest's stem ids are `violin-3` and `violin-4`), 10 is the guitarra (no harp this semester), and 01 and 02 are the two vocal mics (`vocal-1`, `vocal-2`).
 
 **Masters.** On the external drive, read only: `/Volumes/Mus128_1018/261106 Mariachi Dress/Audio Files/261106 Mariachi Dress_<track>#<take>.aif`, mono 44.1 kHz 24-bit, ten tracks per take. Take 1 (`#01`, 7:48) holds song 1; take 2 (`#02`, 18:27) holds songs 2–8, with talk before, between and after them. Track 3 is dead in both takes and was skipped. Regenerate a song with `SONG=mariachi-N tools/make-excerpts.sh` (drive mounted).
 
@@ -239,7 +241,7 @@ Eight songs from a live mariachi multitrack (Logic project "261106 Mariachi Dres
 | 01 | `vocal-lead` | lead singer's wireless (switched on and off by song) | medium |
 | 02 | `mc` | talk mic, also live during songs (maybe a second vocal) | medium |
 | 04, 05 | `violin-1`, `violin-2` | violins (correlate 0.94 with each other) | low |
-| 06, 07 | `trumpet-1`, `trumpet-2` | trumpets, or a second violin pair | low |
+| 06, 07 | `trumpet-1`, `trumpet-2` | violins 3 and 4 (confirmed: no trumpet mics); manifest ids `violin-3`, `violin-4` | confirmed |
 | 08 | `guitarron` | guitarrón | medium–high |
 | 09 | `vihuela` | vihuela (strummed, brightest) | medium |
 | 10 | `guitarra` | guitarra (or harp) | low–medium |

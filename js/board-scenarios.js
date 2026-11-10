@@ -5714,6 +5714,325 @@ const KY = [
   },
 ];
 
+// ---------- Mariachi in Salmon: a real MUS 248 gig on the full X32 ----------
+// The Mariachi Gig Checklist's rig (js/scenarios.js MARIACHI_GIGS): Mariachi
+// Panteras' dress rehearsal (2026-11-06), the instructor's photos and answers.
+// Nine wireless handhelds on receivers 1 and 2 (CH 1-10), no trumpet mics, six
+// wedges on six mixes (MIX 3-8: one active, three speakON/1/4" wedges on the
+// KM750s, two 1/4"-only wedges on the Crown), and the hall's own speakers
+// through the Mix5. It opens with everything working; the faults after it are
+// the ones the instructor named: the hall left off after CME, wedges that only
+// take 1/4", wedges with no signal, a handheld that died (swap it, and set up
+// the spare's channel), feedback in a wedge, and a bad cable.
+
+const MAR_ROOM = "Turn around to Stage & patch (T): the players' handhelds on stage, the S32 in the stage-side rack, the wireless rack and the X32 at FOH, the amp rack (an NX3000 nobody uses tonight, two KM750s and a Crown with its INPUT / SPEAKER box), the hall's mains rack (the Mix5, its power and a Crown, wired for good), and the speakers: six wedges across the back and the hall's installed pair.";
+const MAR_VLN = ["mar-vln1", "mar-vln2", "mar-vln3", "mar-vln4"];
+const MAR_VOX = ["mar-vox1", "mar-vox2"];
+const MAR_ALL = [...MAR_VLN, "mar-gtrn", "mar-vih", "mar-gtra", ...MAR_VOX];
+const MAR_WEDGES = { "mar-w1": "out3", "mar-w2": "out4", "mar-w3": "out5", "mar-w4": "out6", "mar-w5": "out7", "mar-w6": "out8" };
+const MAR_BUSES = ["mix3", "mix4", "mix5", "mix6", "mix7", "mix8"];
+const marWedgesOk = (ctx, ids = Object.keys(MAR_WEDGES)) => ids.every((id) => plays(ctx, id, MAR_WEDGES[id]));
+const marHallOk = (ctx) => plays(ctx, "cme-hall-l", "out15") && plays(ctx, "cme-hall-r", "out16");
+const onCable = (ctx, ref, kind) => ctx.state.rig.cables.some((c) => (c.to === ref || c.from === ref) && c.cable === kind && !c.broken);
+const marMixSame = (buses) => buses.map((b) => ({ id: `same-${b}`, kind: "keep", type: "monitorMixUnchanged", bus: b, baseline: b, toleranceDb: 1, label: `Wedge ${Number(b.slice(3)) - 2} (${b.toUpperCase().replace("MIX", "MIX ")}) stays as it is` }));
+const marMixBaselines = (buses) => Object.fromEntries(buses.map((b) => [b, { metric: "monitorByChannel", bus: b }]));
+
+const MARIACHI = [
+  {
+    id: "x32-mar-tour",
+    short: "Everything working",
+    title: "Everything working",
+    who: "Crew chief",
+    prompt: "“This is the mariachi gig the way it should be, five minutes before downbeat. Nothing is broken. Walk the signal from the players to every speaker, and listen to each place it ends up: the house, then each of the six wedges.”",
+    goal: "Listen to the house (MAIN) and to each wedge (MIX 3 to MIX 8). Change nothing: it all works.",
+    music: "excerpt",
+    setup: { listen: "pfl" },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "main", kind: "goal", type: "listenedTo", dest: "main", label: "You listened to the house (MAIN): the hall's own speakers" },
+      ...MAR_BUSES.map((b, i) => ({ id: `l${i + 1}`, kind: "goal", type: "listenedTo", dest: b, label: `You listened to wedge ${i + 1}${i === 0 ? ", house left, active" : i === 5 ? ", house right" : ""} (MIX ${i + 3})` })),
+      keep("all", "Every speaker still plays: the hall's pair and all six wedges", (ctx) => marHallOk(ctx) && marWedgesOk(ctx)),
+      HOUSE_SAME,
+    ],
+    hints: [
+      "Use the listening bar at the bottom: MAIN is the audience, and each wedge has its own spot. Try them one at a time.",
+      MAR_ROOM + " Follow one violin: the red handheld → by radio to the antennas on the wireless rack → the PAS-225 → receiver 1's CH 1 → its AF OUT 1 → the X32's LOCAL 1 → CH 1 → MAIN and the wedge mixes → the S32's outputs over the Cat5e → the amps → the wedges.",
+      "Six wedges, six paths: wedge 1 is active (S32 OUT 3 straight in, its amp inside), wedges 2-4 are on the two KM750s (speakON), wedges 5 and 6 on the Crown (1/4\"). The house is MAIN on S32 OUT 15/16, through the Mix5 to the hall's speakers.",
+    ],
+    complete: "That's the whole rig working: nine handhelds on CH 1-10 (CH 3 is the yellow nobody uses), the trumpets on no mic at all, six wedges each on their own mix, and the hall's own speakers as the house. Every scenario after this breaks one piece of it: come back here when you need to remember what right looks like.",
+  },
+  {
+    id: "x32-mar-house",
+    short: "The house is silent",
+    title: "The house is silent",
+    who: "Crew chief",
+    prompt: "“CME had the hall last night. The wedges work, and the X32's MAIN meters move, but there's nothing out of the hall's speakers.”",
+    goal: "The hall's speakers playing MAIN again, fixed where it was turned off, with the X32 left alone.",
+    music: "excerpt",
+    setup: { tweak: (st, h) => h.dev("cme-mix5", "lvl45", 0), listen: "main" },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("knob", "The Mix5's 4/5 LEVEL (S32 OUT 15/16) is back at U (7.5 on the knob)", (ctx) => Math.abs(knob(ctx, "cme-mix5", "lvl45", 7.5) - 7.5) <= 0.5),
+      goal("hall", "Both of the hall's speakers play MAIN", marHallOk),
+      keep("mainmix", "The Mix5's MAIN MIX stays where it is", (ctx) => knob(ctx, "cme-mix5", "main", 7.5) === 7.5),
+      { id: "x32", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, label: "The X32's house mix stays the same" },
+    ],
+    hints: [
+      "MAIN moves on the X32, so the console is sending. Follow MAIN out: S32 OUT 15/16 → the hall's mains rack → its Crown → the hall's speakers.",
+      "Open Console: Mix5, next to Console: X32 above the console. CME turns the hall's speakers down there for their own mains, and turns them back up at the end of the night. Someone forgot.",
+      "On Console: Mix5, turn 4/5 LEVEL back up to U (7.5 on this knob). Leave MAIN MIX alone.",
+    ],
+    complete: "The X32 was fine the whole time: the hall's speakers were off at the Mix5's 4/5 LEVEL, where CME leaves them during their gig. When the console's meters move and a speaker is silent, the problem is after the console. And at the end of your own gig, put back whatever you changed: the next group won't think to look in a rack.",
+  },
+  {
+    id: "x32-mar-wedges",
+    short: "Wedges 1-4",
+    title: "Four wedges, four mixes",
+    who: "Monitor engineer",
+    prompt: "“Wedges 5 and 6 are done on the Crown. Now the other four: wedge 1 (house left) is the active one, on S32 OUT 3, the purple 25-foot XLR. Wedges 2, 3 and 4 go on the KM750s: OUT 4 and 5 into KM750 #1, OUT 6 into KM750 #2. Nothing's plugged in.”",
+    goal: "Wedge 1 on S32 OUT 3 with its power in, wedges 2-4 on the KM750s from OUT 4, 5 and 6: each one playing its own mix.",
+    music: "excerpt",
+    setup: {
+      tweak: (st, h) => {
+        ["s32/out3", "s32/out4", "s32/out5", "s32/out6", "mar-km750-1/out-a", "mar-km750-1/out-b", "mar-km750-2/out-a"].forEach((ref) => h.cut(ref));
+        h.dev("mar-w1", "plugged", 0);
+      },
+      listen: "main",
+    },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("w1", "Wedge 1 (house left, active) plays MIX 3 from S32 OUT 3, powered", (ctx) => plays(ctx, "mar-w1", "out3")),
+      goal("w2", "Wedge 2 plays MIX 4: S32 OUT 4 → a KM750", (ctx) => plays(ctx, "mar-w2", "out4")),
+      goal("w3", "Wedge 3 plays MIX 5: S32 OUT 5 → a KM750", (ctx) => plays(ctx, "mar-w3", "out5")),
+      goal("w4", "Wedge 4 plays MIX 6: S32 OUT 6 → a KM750", (ctx) => plays(ctx, "mar-w4", "out6")),
+      keep("crown", "Wedges 5 and 6 keep playing", (ctx) => marWedgesOk(ctx, ["mar-w5", "mar-w6"])),
+      HOUSE_SAME,
+    ],
+    hints: [
+      MAR_ROOM + " Six wedges on six mixes: no daisy chain. Which of these four need an amp?",
+      "Wedges 2-4 are passive. An XLR from S32 OUT 4 into KM750 #1's CH A, OUT 5 into its CH B, OUT 6 into KM750 #2's CH A. The KM750's outputs are speakON: a speakON cable from each channel to its wedge.",
+      "Wedge 1 is active: its amp is inside, so it takes S32 OUT 3's XLR straight in. It needs mains power too: on its box, tap the plug on its top edge to plug in its IEC cable.",
+    ],
+    complete: "Four mixes, four paths: each passive wedge on its own amp channel, and the active wedge on its own output with mains power. Number the wedges left to right across the back and keep MIX n on S32 OUT n: then wedge 1 is MIX 3, wedge 6 is MIX 8, and nobody has to guess which knob is whose.",
+  },
+  {
+    id: "x32-mar-quarter",
+    short: "1/4\"-only wedges",
+    title: "Wedge 5 only takes 1/4\"",
+    who: "Monitor engineer",
+    prompt: "“Last wedge. Wedge 5 has a 1/4\" jack and nothing else. Somebody already put wedge 4 on the Crown with a 1/4\" speaker cable, wedge 6 is on the Crown's other channel, and the only amp channels left are on KM750 #2: speakON only. S32 OUT 7 isn't plugged in yet.”",
+    goal: "Every wedge on its own mix: wedge 4 on MIX 6 and wedge 5 on MIX 7, wedge 5 on a 1/4\" speaker cable.",
+    music: "excerpt",
+    setup: {
+      tweak: (st, h) => {
+        ["s32/out6", "s32/out7", "mar-crown/in-a", "mar-crown/out-a", "mar-km750-2/out-a", "mar-km750-2/in-a"].forEach((ref) => h.cut(ref));
+        h.cable("s32/out6", "mar-crown/in-a", "xlr-trs");
+        h.cable("mar-crown/out-a", "mar-w4/in", "speaker");
+      },
+      listen: "mix7",
+    },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("w4", "Wedge 4 plays MIX 6 (S32 OUT 6) from a KM750, leaving the Crown for the 1/4\"-only wedges", (ctx) => plays(ctx, "mar-w4", "out6") && /^mar-km750/.test(endpoint(ctx, "mar-w4").viaAmp || "")),
+      goal("w5", "Wedge 5 plays MIX 7 (S32 OUT 7)", (ctx) => plays(ctx, "mar-w5", "out7")),
+      goal("cable", "Wedge 5 is on a 1/4\" speaker cable, not an instrument cable", (ctx) => onSpeakerCable(ctx, "mar-w5/in")),
+      keep("others", "Wedges 1, 2, 3 and 6 keep playing", (ctx) => marWedgesOk(ctx, ["mar-w1", "mar-w2", "mar-w3", "mar-w6"])),
+      HOUSE_SAME,
+    ],
+    hints: [
+      "Look at the jacks, not the cables. Tap each wedge: which ones take speakON, and which take only 1/4\"? Then tap each amp: which outputs are speakON, and which are 1/4\"?",
+      "Wedge 5 can only go on the Crown (1/4\" outputs), and both of the Crown's channels are taken. Wedge 4 takes speakON or 1/4\", so it doesn't need the Crown: it can go on KM750 #2.",
+      "Move wedge 4: S32 OUT 6 into KM750 #2's CH A, a speakON cable from its CH A output to wedge 4. That frees the Crown's CH 1: S32 OUT 7 into it, and a 1/4\" speaker cable from its CH 1 output to wedge 5.",
+    ],
+    complete: "Two kinds of jack, two kinds of amp output: three of the wedges take speakON or 1/4\", two take 1/4\" only, the KM750s put out speakON and the Crown puts out 1/4\". So the 1/4\"-only wedges get the Crown, always, and anything else that took a Crown channel has to move. Sometimes the fix for a new wedge is unplugging one that already worked.",
+  },
+  {
+    id: "x32-mar-wedge-test",
+    short: "Music through every wedge",
+    title: "Test every wedge with music",
+    who: "Crew chief",
+    prompt: "“Before anyone plays a note: put the test music into each wedge's mix and listen to all six, one at a time. Keep it out of the house.”",
+    goal: "The test music in MIX 3 to MIX 8, heard from all six wedges, and still out of the house.",
+    music: "excerpt",
+    setup: { tweak: (st, h) => h.dev("mar-crown", "volB", 0), listen: "main" },
+    conditions: [
+      ...MAR_BUSES.map((b, i) => ({ id: `l${i + 1}`, kind: "goal", type: "listenedTo", dest: b, label: `You listened to wedge ${i + 1} (MIX ${i + 3})` })),
+      goal("music", "The test music plays in all six wedges", (ctx) => MAR_BUSES.every((b) => wedge(ctx, b, "preshow") >= AUDIBLE) && marWedgesOk(ctx)),
+      keep("house", "The test music stays out of the house", (ctx) => house(ctx, "preshow") < AUDIBLE),
+    ],
+    hints: [
+      "The music needs a send to each wedge's mix. SEL MIX 3 and press SENDS ON FADERS: the faders now send to MIX 3, AUX IN 1/2 on the AUX IN / USB layer too. Then MIX 4, and so on to MIX 8.",
+      "Listen to each wedge in the listening bar. One of them stays silent with the music in its mix: follow that wedge's path out from the S32.",
+      "Wedge 6 is on the Crown's CH 2, and the Crown has a level knob on each channel. Tap the Crown in Stage & patch and bring CH 2's level back up to match CH 1 (about 8).",
+    ],
+    complete: "That's the checklist's music test: music you know, through each wedge on its own, before a single mic. It proves the mix, the output, the cable, the amp and the speaker. With six wedges it takes a few minutes, and it's the reason the crew arrives early: the mariachi rehearsal lost time checking monitors one by one.",
+  },
+  {
+    id: "x32-mar-route",
+    short: "Wrong mix on a wedge",
+    title: "Two wedges, one mix",
+    who: "Lead guitarra",
+    prompt: "“There's no guitarra in my wedge, wedge 4. And the vihuela player next to me says her wedge sounds exactly like mine.”",
+    goal: "Wedge 4 playing its own mix (MIX 6), the guitarra in it, every mix's sends unchanged.",
+    music: "excerpt",
+    setup: { tweak: (st) => (st.routing.out6 = "mix5"), listen: "mix6" },
+    baseline: { main: { metric: "mainDbByChannel" }, sends6: { metric: "sendDbByChannel", bus: "mix6" }, ...marMixBaselines(["mix5"]) },
+    conditions: [
+      goal("route", "XLR OUT 6 (S32 OUT 6, wedge 4) carries MIX 6 again", (ctx) => ctx.state.routing.out6 === "mix6"),
+      goal("gtra", "The guitarra is in wedge 4", (ctx) => plays(ctx, "mar-w4", "out6") && wedge(ctx, "mix6", "mar-gtra") >= AUDIBLE),
+      ...marMixSame(["mix5"]),
+      keep("sends6", "MIX 6's sends stay as they are (the mix was right all along)", (ctx) => ctx.mix.channels.every((c, i) => (c.sourceId ? c.aux.mix6.sendDb : -Infinity) === ctx.baseline.sends6[i] || Math.abs((c.sourceId ? c.aux.mix6.sendDb : -Infinity) - ctx.baseline.sends6[i]) < 0.5)),
+      HOUSE_SAME,
+    ],
+    hints: [
+      "Wedges 3 and 4 sound the same. Are they on the same mix? Listen to MIX 5 and MIX 6: MIX 6 has the guitarra in it, so the mix is right. Something between the mix and wedge 4 isn't.",
+      "Wedge 4's cable comes from S32 OUT 6, which plays whatever the X32's output 6 carries. On the X32 an output carries whatever ROUTING says.",
+      "On the X32's screen: ROUTING → PATCH POINTS → OUT. Output 6 says MixBus 5. Point it at MixBus 6 and ASSIGN.",
+    ],
+    complete: "On a digital desk the jacks don't decide what comes out of them: the routing does. Two wedges playing the same thing is a routing problem, not a mix problem, so adding the guitarra to MIX 5 would have broken wedge 3 too. In Salmon, MIX n on output n keeps it readable.",
+  },
+  {
+    id: "x32-mar-swap",
+    short: "A handheld died",
+    title: "The red mic died",
+    who: "Mic engineer",
+    prompt: "“The red handheld on violin 1 died at soundcheck: it won't switch on, new batteries or not. She's playing into the spare now, the green one with the gray windscreen: receiver 2, CH 12. Don't re-patch anything at the receivers. Make CH 12 do what CH 1 did.”",
+    goal: "The spare on CH 12 set up like violin 1 was: GAIN in the good range, in the house, and in wedges 1 and 2 (MIX 3 and 4).",
+    music: "excerpt",
+    setup: {
+      tweak: (st, h) => {
+        h.dev("src-mar-vln1", "dead", 1);
+        const c = h.ch("mar-spare");
+        Object.assign(c, { gainDb: 0, hpf: 0, level: 0 });
+        for (const b of Object.keys(c.sends)) c.sends[b] = 0;
+      },
+      listen: "main",
+    },
+    baseline: { main: { metric: "mainDbByChannel" }, ...marMixBaselines(["mix5", "mix6", "mix7", "mix8"]) },
+    conditions: [
+      goal("gain", "The spare's GAIN (CH 12) puts it in the good range", (ctx) => ["good", "hot"].includes(mc(ctx, "mar-spare")?.band)),
+      goal("house", "Violin 1 (the spare, CH 12) is in the house", (ctx) => house(ctx, "mar-spare") >= AUDIBLE),
+      goal("wedges", "Violin 1 is in wedges 1 and 2 (MIX 3 and MIX 4), like the red mic was", (ctx) => ["mix3", "mix4"].every((b) => wedge(ctx, b, "mar-spare") >= AUDIBLE)),
+      keep("patch", "The receivers' cables stay where they are: receiver 1 CH 1 in LOCAL 1, receiver 2 CH 4 in LOCAL 12", (ctx) => ctx.state.rig.cables.some((c) => c.from === "cme-rx1/out1" && c.to === "mixer/ch1-mic") && ctx.state.rig.cables.some((c) => c.from === "cme-rx2/out4" && c.to === "mixer/ch12-mic")),
+      { id: "x32", kind: "keep", type: "mainUnchanged", baseline: "main", except: ["mar-spare", "mar-vln1"], toleranceDb: 1, label: "Everyone else in the house stays the same" },
+      ...marMixSame(["mix5", "mix6", "mix7", "mix8"]).map((k) => ({ ...k, except: "mar-spare", label: k.label.replace("stays as it is", "stays as it is, apart from violin 1") })),
+    ],
+    hints: [
+      "The spare's radio goes to a different receiver channel, so it lands on a different X32 channel: CH 12, which nobody set up. Whatever CH 1 had (GAIN, low cut, fader, the wedge sends), CH 12 needs too.",
+      "SEL CH 1 and look at its settings, then SEL CH 12. GAIN first, until the meter sits in the good range while she plays. Then the fader up for the house, and the low cut on, like the other violins.",
+      "Then the wedges: in CH 12's strip, set its sends to MIX 3 and MIX 4 to PRE, like the other violins' (so the house fader doesn't move the wedges). Then SEL MIX 3, SENDS ON FADERS, bring CH 12 up to about where CH 2 is; the same for MIX 4. (Name CH 12 \"VLN 1\" too, so nobody hunts for it.)",
+    ],
+    complete: "Swapping the mic is the easy part. Swapping the XLRs behind the receivers would have put her back on CH 1, but behind a rack, mid-soundcheck, that's how the wrong cable gets moved, and the dead mic's channel would still be live for whoever picks it up next. So the cables stay, and the spare's channel gets everything the dead one had: gain, low cut, fader, and a send in every mix. Tag the dead mic so it doesn't go back in the drawer.",
+  },
+  {
+    id: "x32-mar-vox",
+    short: "Vocals in every wedge",
+    title: "No singer in wedges 5 and 6",
+    who: "Guitarrón player",
+    prompt: "“When the soloist steps up to the front mic, I can't hear a thing from back here. Wedges 5 and 6 have no vocal mics in them.”",
+    goal: "Both vocal mics in MIX 7 and MIX 8, the other wedges and the house unchanged.",
+    music: "excerpt",
+    setup: {
+      tweak: (st, h) => {
+        for (const s of MAR_VOX) for (const b of ["mix7", "mix8"]) h.set(s, `sends.${b}`, 0);
+      },
+      listen: "main",
+    },
+    baseline: { main: { metric: "mainDbByChannel" }, ...marMixBaselines(["mix3", "mix4", "mix5", "mix6"]) },
+    conditions: [
+      { id: "l7", kind: "goal", type: "listenedTo", dest: "mix7", label: "You listened to wedge 5 (MIX 7)" },
+      { id: "l8", kind: "goal", type: "listenedTo", dest: "mix8", label: "You listened to wedge 6 (MIX 8)" },
+      goal("w5", "Both vocal mics are in wedge 5 (MIX 7)", (ctx) => MAR_VOX.every((s) => wedge(ctx, "mix7", s) >= AUDIBLE)),
+      goal("w6", "Both vocal mics are in wedge 6 (MIX 8)", (ctx) => MAR_VOX.every((s) => wedge(ctx, "mix8", s) >= AUDIBLE)),
+      ...marMixSame(["mix3", "mix4", "mix5", "mix6"]),
+      HOUSE_SAME,
+    ],
+    hints: [
+      "Each wedge is its own mix. A singer needs a send into each one, and two of them don't have one.",
+      "SEL MIX 7 and press SENDS ON FADERS: on the CH 1-16 layer, the faders for CH 9 and 10 (the two vocal mics) are now their sends to MIX 7.",
+      "With SENDS ON FADERS on, push CH 9 and 10 up to about −6 dB for MIX 7, then select MIX 8 and do the same. Switch SENDS ON FADERS off when you're done.",
+    ],
+    complete: "The vocal mics go in every wedge: a solo can come from anywhere in the song, and the players at the far end of the line are the ones who lose it first. Two front mics for solos, nine handhelds in all, six mixes: write down who needs what at soundcheck, then set every mix the same way.",
+  },
+  {
+    id: "x32-mar-gains",
+    short: "Gains",
+    title: "Set the gains",
+    who: "Crew chief",
+    prompt: "“Line check. The violins are barely on the meters and the vihuela is clipping. Get every handheld into the good range.”",
+    goal: "Every mic channel's input in the good range, set with GAIN, not the faders.",
+    music: "excerpt",
+    setup: {
+      tweak: (st, h) => {
+        for (const s of MAR_VLN) h.set(s, "gainDb", 28);
+        h.set("mar-vih", "gainDb", 50);
+      },
+    },
+    baseline: { faders: { metric: "channelLevels" } },
+    conditions: [
+      goal("vln", "Every violin's input is in the good range", (ctx) => MAR_VLN.every((s) => mc(ctx, s)?.band === "good")),
+      goal("all", "Every other handheld's input is in the good range", (ctx) => ["mar-gtrn", "mar-vih", "mar-gtra", ...MAR_VOX].every((s) => mc(ctx, s)?.band === "good")),
+      keep("faders", "Every fader stays where it is: gain first", (ctx) => ctx.state.channels.every((c, i) => Math.abs(c.level - ctx.baseline.faders[i]) < 0.02)),
+    ],
+    hints: [
+      "Watch each channel's meter while that player plays. Too low sits down around −40; clipping is red.",
+      "Fix it with GAIN, not the fader: SEL the channel and turn GAIN until its peaks sit in the good range, around −18 to −6.",
+      "The violins (CH 1, 2, 4, 5) need a lot more GAIN: they're quiet, and a handheld on a stand is a little way from the instrument. The vihuela (CH 7) needs less. Don't touch the receivers' VOL knobs: they stay at 9 o'clock.",
+    ],
+    complete: "GAIN sets how hot each signal comes into the console; the faders are for the mix. Violins are quiet next to a vihuela, a guitarra and two trumpets, so their channels run a lot more GAIN than the rest. That's normal: gain is about the input, not about how important the player is.",
+  },
+  {
+    id: "x32-mar-feedback",
+    short: "Feedback in a wedge",
+    title: "Wedge 1 rings",
+    who: "Violin 2",
+    prompt: "“Wedge 1 keeps ringing when we dig in, a high squeal right where we're standing. Somebody pushed all four violins way up in it.” (The lab can't make feedback: find what's too hot in that wedge and pull it back.)",
+    goal: "The violins in wedge 1 (MIX 3) back down to a normal level, still in it, the singer still clear, the other wedges and the house unchanged.",
+    music: "excerpt",
+    setup: {
+      tweak: (st, h) => {
+        for (const s of MAR_VLN) h.sendDb(s, "mix3", 6);
+      },
+      listen: "mix3",
+    },
+    baseline: { main: { metric: "mainDbByChannel" }, ...marMixBaselines(["mix4", "mix5", "mix6", "mix7", "mix8"]) },
+    conditions: [
+      goal("vln", "Each violin in wedge 1 (MIX 3) is back down, no louder than −24 dB, and still in it: they can hear themselves", (ctx) => MAR_VLN.every((s) => wedge(ctx, "mix3", s) <= -24 && wedge(ctx, "mix3", s) >= AUDIBLE)),
+      keep("vox", "The singer (vocal mic 2) stays clear in wedge 1", (ctx) => wedge(ctx, "mix3", "mar-vox2") >= -22 && plays(ctx, "mar-w1", "out3")),
+      ...marMixSame(["mix4", "mix5", "mix6", "mix7", "mix8"]),
+      HOUSE_SAME,
+    ],
+    hints: [
+      "Feedback is a loop: a wedge plays into a mic, which sends it back to the same wedge, louder each time. Which mics are hottest in wedge 1, and how close are they to it?",
+      "Muting the wedge or pulling its master stops the ring, and the singer's gone too. The problem is four violin mics, a foot from wedge 1, pushed up in its own mix.",
+      "SEL MIX 3, SENDS ON FADERS, and bring the four violins (CH 1, 2, 4, 5) down to about where they are in MIX 4. Leave the vocal mics alone.",
+    ],
+    complete: "A mic that's loud in the wedge it's standing in front of is the classic feedback loop. Pull that mic down in that wedge before you touch anything else: the singer and the other wedges don't need to change. If it still rings, aim the wedge away from the mic, or ask the players to step back from it. In Salmon the hall's speakers are well in front of the players; the wedges are the danger.",
+  },
+  {
+    id: "x32-mar-cable",
+    short: "Bad cable",
+    title: "Wedge 3 died",
+    who: "Trumpet player",
+    prompt: "“My wedge was fine at the music test. Now it's dead, and everything looks plugged in.”",
+    goal: "Wedge 3 playing MIX 5 again on a good speaker cable, the other wedges and the house unchanged.",
+    music: "excerpt",
+    setup: { tweak: (st) => (st.rig.cables.find((c) => c.to === "mar-w3/in").broken = true), listen: "mix5" },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("w3", "Wedge 3 plays MIX 5 again, on a speakON speaker cable", (ctx) => plays(ctx, "mar-w3", "out5") && onCable(ctx, "mar-w3/in", "speakon")),
+      keep("others", "The other five wedges keep playing", (ctx) => marWedgesOk(ctx, ["mar-w1", "mar-w2", "mar-w4", "mar-w5", "mar-w6"])),
+      HOUSE_SAME,
+    ],
+    hints: [
+      "MIX 5's meter moves and S32 OUT 5 is patched. Follow the path: OUT 5 → KM750 #1's CH B → speaker cable → wedge 3.",
+      MAR_ROOM + " Every jack on the way is the right one. When everything is right and nothing gets through, suspect the cable itself.",
+      "Unplug the speakON cable between KM750 #1's CH B output and wedge 3, and patch a fresh speakON cable in its place. Tag the bad one with gaff tape and tell your supervisor.",
+    ],
+    complete: "Speaker cables fail inside, where you can't see it, especially ones that get stepped on and coiled tight. A twist-lock speakON can't fall out, but the wire behind it can still break. Swap it, tag it, and keep going: the music test catches most of these before the players arrive, which is why it comes first.",
+  },
+];
+
 const ORDER = {
   b207mp3: ["doors", "amp", "quiet-singer", "phantom", "wedge", "wedge-quiet", "small-room", "speech"],
   mix8: ["doors", "phones", "ol", "boomy", "pan", "keys-wedge", "wedge-loud", "speech", "ballad", "overhead", "guest"],
@@ -5726,7 +6045,7 @@ const ORDER = {
   l20: ["doors", "gain", "pad", "lowcut", "mud", "eq-on", "keys-wedge", "less-guitar", "out-of-house", "wedge-quiet", "switch", "reverb", "efx-mon"],
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
   yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "mud", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
-  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9", "vj-mains", "vj-monitors", "vj-local", "vj-gain", "vj-lowcut", "vj-muted", "vj-send", "vj-amp", "vj-chain", "vj-link", "vj-patch", "ea-chain", "ea-route", "ea-bank", "ea-48v", "ea-collision", "ea-click", "ea-dead", "cme-tour", "cme-rack", "cme-mains", "cme-house", "cme-wedges", "cme-wedge-test", "cme-amp-knob", "cme-mics", "cme-vox", "cme-band", "cme-gtr", "cme-cable", "cme-gains", "cme-end", "cme-adv-antenna", "cme-adv-vol", "cme-adv-headset", "cme-adv-s32", "cme-adv-inst", "cme-adv-active-amp", "cme-adv-route", "cme-adv-katana", "cme-adv-inputs", "cme-adv-lead", "cme-adv-mix5", "cme-adv-stack"],
+  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9", "vj-mains", "vj-monitors", "vj-local", "vj-gain", "vj-lowcut", "vj-muted", "vj-send", "vj-amp", "vj-chain", "vj-link", "vj-patch", "ea-chain", "ea-route", "ea-bank", "ea-48v", "ea-collision", "ea-click", "ea-dead", "cme-tour", "cme-rack", "cme-mains", "cme-house", "cme-wedges", "cme-wedge-test", "cme-amp-knob", "cme-mics", "cme-vox", "cme-band", "cme-gtr", "cme-cable", "cme-gains", "cme-end", "cme-adv-antenna", "cme-adv-vol", "cme-adv-headset", "cme-adv-s32", "cme-adv-inst", "cme-adv-active-amp", "cme-adv-route", "cme-adv-katana", "cme-adv-inputs", "cme-adv-lead", "cme-adv-mix5", "cme-adv-stack", "mar-tour", "mar-house", "mar-wedges", "mar-quarter", "mar-wedge-test", "mar-route", "mar-swap", "mar-vox", "mar-gains", "mar-feedback", "mar-cable"],
   f8n: ["track", "trim", "room", "hpf", "pfl", "balance", "link", "camera", "dslr", "iso-safety"],
   dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
   cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "dante-back", "dante-fix", "scene-recall", "scene-store"],
@@ -5734,7 +6053,7 @@ const ORDER = {
   x32c: ["doors", "gain", "48v", "sections-48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "orchestra", "mute-group", "new-mix", "stagebox", "cob-usb", "cob-gain", "cob-tracks", "cob-link", "cob-one-side", "cob-speaker-cable", "cob-thru", "cob-prefader", "cob-tracks-wedge", "cob-scene"],
 };
 
-const LISTS = { gdig: GDIG, l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: [...XEN, ...KY], sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c, ...COB], yam01v96: Y96, x32: [...X32F, ...BOXES.x32, ...VJS, ...EAS, ...CMES, ...CME_ADV] };
+const LISTS = { gdig: GDIG, l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: [...XEN, ...KY], sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c, ...COB], yam01v96: Y96, x32: [...X32F, ...BOXES.x32, ...VJS, ...EAS, ...CMES, ...CME_ADV, ...MARIACHI] };
 
 // Who is on stage (js/music.js stageFor). Every scenario's story was read for
 // this; anything not listed has the whole band playing (the 8-bar section it
@@ -5765,6 +6084,8 @@ const STAGE = {
   "mix8-overhead": { out: ["backing-vocals"] },
   "mix8-guest": { out: ["backing-vocals"] },
   "x1204usb-overhead": { out: ["backing-vocals"] },
+  // Mariachi: the music test comes before anyone plays.
+  "x32-mar-wedge-test": { silent: true, note: "Nobody is playing yet: only the test music." },
 };
 const stageOf = (id) => STAGE[id] || (id.endsWith("-doors") ? SILENT : null);
 
@@ -5809,10 +6130,10 @@ const FTW = {
 // Vocal Jazz takes turns with the ensemble's two pieces: the first scenario
 // plays "Almost Like Being in Love", the second "Love Me or Leave Me", and so on.
 const vjSong = (board, k) => (ORDER[board].filter((x) => x.startsWith("vj-")).indexOf(k) % 2 ? "vj-love" : "vj");
-// A gig is its own song (its cast, its tracks, its rig): COB, Vocal Jazz, the showcase, karaoke, CME.
+// A gig is its own song (its cast, its tracks, its rig): COB, Vocal Jazz, the showcase, karaoke, CME, mariachi.
 const songOf = (board, id) => {
   const k = id.slice(board.length + 1);
-  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? vjSong(board, k) : k.startsWith("ea-") ? "ea" : k.startsWith("ky-") ? "karaoke" : k.startsWith("cme-") ? "cme" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
+  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? vjSong(board, k) : k.startsWith("ea-") ? "ea" : k.startsWith("ky-") ? "karaoke" : k.startsWith("cme-") ? "cme" : k.startsWith("mar-") ? "mariachi" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
 };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.

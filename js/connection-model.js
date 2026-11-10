@@ -55,6 +55,8 @@ export const JACKS = {
   rcapair: { id: "rcapair", name: "RCA L/R pair", accepts: ["rca"] },
   ethercon: { id: "ethercon", name: "etherCON", accepts: ["ethercon"] },
   speakon: { id: "speakon", name: "speakON", accepts: ["speakon"] },
+  // Neutrik's speakON/1/4" combo jack (on most of Salmon's passive wedges): a speakON plug or a 1/4" plug.
+  "speakon-quarter": { id: "speakon-quarter", name: 'speakON / 1/4" combo', accepts: ["speakon", "quarter"] },
   bnc: { id: "bnc", name: "BNC", accepts: ["bnc"] },
 };
 
@@ -497,7 +499,7 @@ export function chainKnobs(rig, ampDevice, pair, link) {
 // front of the mic or DI (`source.volumeKnob`, value `vol`).
 export const MIC_STATES = ["ON", "MUTED", "OFF"];
 export function sourceTrimDb(device, source) {
-  if (device?.mic) return -Infinity;
+  if (device?.mic || device?.dead) return -Infinity;
   const k = source?.volumeKnob;
   return k ? knobDb(device?.vol ?? k.start, k.unity) : 0;
 }
@@ -525,6 +527,28 @@ DEVICE_TYPES.km750 = {
     { key: "volB", label: "CH B level", pair: "b", unity: 10, start: 7 },
   ],
   blurb: "Line level in, speaker level out, a level knob on each channel. Channel A in drives channel A out.",
+};
+// The KM750 as photographed at the mariachi gig (2026-11-06): speakON outputs
+// (and binding posts, not modelled), the wedges on speakON cables. The `km750`
+// above, from CME's notes, has 1/4" outputs instead; which is right for CME
+// isn't checked yet (open item in docs/HANDOFF.md).
+DEVICE_TYPES["km750-nl4"] = {
+  ...DEVICE_TYPES.km750,
+  ports: [
+    ...DEVICE_TYPES.km750.ports.filter((p) => p.dir === "in"),
+    { id: "out-a", dir: "out", jack: "speakon", level: "speaker", role: "amp-out", pair: "a", name: "CH A speakON output", short: "CH A OUT" },
+    { id: "out-b", dir: "out", jack: "speakon", level: "speaker", role: "amp-out", pair: "b", name: "CH B speakON output", short: "CH B OUT" },
+  ],
+  blurb: "Line level in, speaker level out on speakON, a level knob on each channel. Channel A in drives channel A out.",
+};
+// Salmon's Behringer passive wedges come in two kinds (the instructor, 2026-11-10):
+// three take a speakON or a 1/4" speaker cable in one combo jack, two take 1/4" only.
+DEVICE_TYPES["passive-wedge-combo"] = {
+  name: "Passive wedge (speakON or 1/4\")",
+  endpoint: true,
+  amp: "none",
+  ports: [{ id: "in", dir: "in", jack: "speakon-quarter", level: "speaker", name: 'Speaker in (speakON / 1/4" combo)' }],
+  blurb: "No amp inside. Its one jack takes a speakON plug or a 1/4\" speaker plug: either kind of speaker cable.",
 };
 // The Crown in the separate amp rack: 1/4" in and 1/4" out on each channel,
 // and the long 1/4" speaker cable to the far side of the stage.
