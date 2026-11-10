@@ -1031,6 +1031,70 @@ const EA_SOURCES = [
   eaSource("ea-track", 33, "synths", "Electronics (Mac mini, SSL 2+ OUT 1/2)", "TRACK", "Mac mini · SSL 2+ OUT 1/2: the electronics", "stereo-laptop", { outputDb: -10, stereo: true, mixDb: -4, note: "The fixed electronics for the bass clarinet pieces, from the Mac mini at FOH into AUX IN 1/2. Stand-in audio: FTW's synths." }),
 ];
 
+// ---------- the Film Recording Workshop: FTW's orchestra as stand-ins ----------
+
+// A multitrack session on a Zoom LiveTrak L-20 (MUS 248's L-20 Multitrack
+// Recording Checklist, from the Film Recording Workshop of 2026-11-02): one
+// small-diaphragm condenser per player, every input recorded to its own track
+// in Logic over USB, and Logic's click back on USB 1-2 into channel 17/18 for
+// the players' headphones. The session's own stems aren't here yet, so FTW's
+// parts stand in for the five spot mics the lab has stems for, on the real
+// session's input numbers (4 cello, 7 trumpet/horn, 10 vibes, 13 clarinet,
+// 14 vocal). The Decca (inputs 1–3) and the other spots aren't modelled.
+// Same timeline as FTW, so the same loops, segments and click.
+const FILM_STEM_IDS = ["strings", "winds", "brass", "percussion", "vocals", "click"];
+const FILM_SET = { ...FTW_SET, id: "film", title: "Film Recording Workshop", artist: "FTW's orchestra as stand-ins, and a click" };
+FILM_SET.sections = FTW_SET.sections.map((sec) => ({ ...sec, plays: [...sec.plays.filter((st) => FILM_STEM_IDS.includes(st)), "click"], partly: sec.partly.filter((st) => FILM_STEM_IDS.includes(st)) }));
+const FILM_STEMS = { ...Object.fromEntries(FILM_STEM_IDS.filter((id) => id !== "click").map((id) => [id, FTW_STEMS[id]])), click: EA_STEMS.click };
+const filmMic = (id, order, stem, name, shortName, outputDb, mixDb, pan, note) => ({
+  id,
+  order,
+  name,
+  shortName,
+  musician: FTW_BY_STEM[stem].musician,
+  musicianShort: FTW_BY_STEM[stem].musicianShort,
+  device: "Small-diaphragm condenser on a stand",
+  category: "Film session",
+  deviceType: "condenser-mic",
+  signalLevel: "mic",
+  connector: "xlr",
+  phantom: "required",
+  outputDb,
+  stem,
+  mixDb,
+  pan,
+  scenarios: ANY_SCENARIO,
+  note: `${note} Stand-in audio: FTW's ${stem}.`,
+});
+const FILM_SOURCES = [
+  filmMic("film-cello", 4, "strings", "Cello (input 4)", "CELLO", -40, -6, -0.4, "The cello's spot mic."),
+  filmMic("film-horn", 7, "brass", "Trumpet/Horn (input 7)", "TPT/HN", -38, -10, 0.4, "The trumpet/horn spot mic. (The stand-in only plays in bars 16–17.)"),
+  filmMic("film-vibes", 10, "percussion", "Vibes (input 10)", "VIBES", -36, -8, 0.2, "One of the two vibes mics (Vibes Hi)."),
+  filmMic("film-clarinet", 13, "winds", "Clarinet (input 13)", "CLAR", -42, -8, 0.3, "The clarinet's spot mic: a soft instrument, so plenty of gain."),
+  filmMic("film-vocal", 14, "vocals", "Vocal 1 (input 14)", "VOCAL 1", -42, -6, 0, "The singer's mic."),
+  {
+    id: "film-click",
+    order: 17,
+    name: "Click (Logic, USB 1-2)",
+    shortName: "CLICK",
+    musician: "A click",
+    musicianShort: "CLICK",
+    device: "MacBook Pro · Logic's Stereo Out: the metronome",
+    category: "Playback",
+    deviceType: "stereo-laptop",
+    signalLevel: "line",
+    connector: "trs35",
+    phantom: "none",
+    outputDb: -10,
+    stereo: true,
+    stem: "click",
+    mixDb: 0,
+    pan: 0,
+    scenarios: ANY_SCENARIO,
+    note: "Logic's metronome, out of its Stereo Out. On the real L-20 it arrives over the USB cable: channel 17/18's USB button picks USB 1-2 instead of its jacks. The lab draws it as a cable into 17/18.",
+  },
+];
+
 // ---------- CME in Salmon: Persephone as the Commercial Music Ensemble ----------
 
 // The Commercial Music Ensemble (CME) in Salmon Recital Hall (MUS 248's CME
@@ -1260,6 +1324,7 @@ export const SONGS = {
   "vj-love": { id: "vj-love", title: "Vocal Jazz in Salmon", artist: "the Vocal Jazz Ensemble (“Love Me or Leave Me”)", set: VJ_LOVE_SET, stems: LOVE_ME_STEMS, sources: VJ_SOURCES, consoles: ["x32"] },
   karaoke: { id: "karaoke", title: "Karaoke in BH 109", artist: "a karaoke track (NOSTRADAMUS)", set: KARAOKE_SET, stems: KARAOKE_STEMS, sources: KARAOKE_SOURCES, consoles: ["x1204usb"] },
   ea: { id: "ea", title: "Electroacoustic showcase", artist: "FTW's parts as stand-ins, and a click", set: EA_SET, stems: EA_STEMS, sources: EA_SOURCES, consoles: ["x32"] },
+  film: { id: "film", title: "Film Recording Workshop", artist: "FTW's orchestra as stand-ins, and a click", set: FILM_SET, stems: FILM_STEMS, sources: FILM_SOURCES, consoles: ["l20"] },
   cme: { id: "cme", title: "CME in Salmon", artist: "Persephone (Giovanna) as the Commercial Music Ensemble", set: CME_SET, stems: CME_STEMS, sources: CME_SOURCES, consoles: ["x32"] },
   mariachi: { id: "mariachi", title: "Mariachi in Salmon", artist: "Mariachi Panteras, from their dress rehearsal", set: MARIACHI_SET, stems: MARIACHI_STEMS, sources: MARIACHI_SOURCES, consoles: ["x32"] },
 };

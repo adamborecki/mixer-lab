@@ -1703,6 +1703,34 @@ Object.assign(WRONG, {
   "b207mp3-speech": [["MAIN LEVEL down", (a) => a.st.setBus("main", "level", LAWS.master.toPos(-6))]],
 });
 
+// The Film Recording Workshop on the L-20: the tracks are taken before MUTE and the
+// faders, so the headphones (MONITOR OUT A → the HP12U) carry only the click.
+const FILM_MICS = ["film-cello", "film-horn", "film-vibes", "film-clarinet", "film-vocal"];
+const L20_LEVEL = levelLaw(COMPACT.l20);
+Object.assign(SOLVE, {
+  "l20-rec-click": (a) => a.st.setBus("routing", "outA", "main"),
+  "l20-rec-mutes": (a) => FILM_MICS.forEach((s) => a.set(s, "enabled", false)),
+  "l20-rec-gain": (a) => a.set("film-clarinet", "gainDb", 42),
+  "l20-rec-fader-lies": (a) => a.set("film-click", "level", L20_LEVEL.toPos(0)),
+  "l20-rec-48v": (a) => [12, 13, 14, 15].forEach((i) => a.st.setChannel(i, "phantom", true)),
+});
+Object.assign(WRONG, {
+  "l20-rec-click": [
+    ["MONITOR OUT A's VOL all the way up", (a) => a.st.setBus("outA", "level", 1)],
+    ["unmute the mics instead", (a) => FILM_MICS.forEach((s) => a.set(s, "enabled", true))],
+  ],
+  "l20-rec-mutes": [
+    ["GAIN all the way down instead", (a) => FILM_MICS.forEach((s) => a.set(s, "gainDb", 16))],
+    ["MONITOR OUT A to its own mix", (a) => a.st.setBus("routing", "outA", "monA")],
+  ],
+  "l20-rec-gain": [["unmute it and push its fader", (a) => {
+    a.set("film-clarinet", "enabled", true);
+    a.set("film-clarinet", "level", L20_LEVEL.toPos(10));
+  }]],
+  "l20-rec-fader-lies": [["MONITOR OUT A's VOL up instead", (a) => a.st.setBus("outA", "level", 1)]],
+  "l20-rec-48v": [["GAIN all the way up instead", (a) => ["film-clarinet", "film-vocal"].forEach((s) => a.set(s, "gainDb", 60))]],
+});
+
 // Karaoke in BH 109: the Xenyx gig on the room's own rack (Ashly Ch.1 → Crown → wall speakers).
 const KY_FX = () => COMPACT.x1204usb.fx.presets.findIndex((p) => p.group === "COMBINATION FX");
 Object.assign(SOLVE, {

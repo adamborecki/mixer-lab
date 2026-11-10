@@ -6803,6 +6803,24 @@ dialog::backdrop {
 .l20-bank .dg-extra .lit-btn {
   white-space: nowrap;
 }
+/* The L-20's level LED beside each fader: the real level, wherever the cap is (the faders aren't motorized). */
+.l20-led {
+  position: absolute;
+  left: calc(50% + 18px);
+  bottom: calc(14px + var(--pos, 0) * (100% - 28px));
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  transform: translateY(50%);
+  background: #3ddc6a;
+  box-shadow: 0 0 4px #3ddc6a;
+  pointer-events: none;
+}
+.l20-led.is-apart {
+  width: 7px;
+  height: 7px;
+  box-shadow: 0 0 6px 2px #3ddc6a;
+}
 .l20-efx {
   border-left: 1px solid rgba(255, 255, 255, 0.12);
 }

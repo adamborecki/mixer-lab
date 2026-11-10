@@ -192,6 +192,17 @@ Twelve Xenyx scenarios (`x1204usb-ky-*`, the `KY` list in `js/board-scenarios.js
 - **Not real yet:** which COMBINATION FX preset is DLY + REV isn't confirmed, and each preset's sound is a stand-in (see the QX1204USB note under Compact mixers). The Ashly's level, pan and stereo output aren't modelled, nor its single-channel (possibly mono) path. The V3's icon is the line-source keyboard.
 - **Tests:** `tests/karaoke.test.mjs`, plus solutions and wrong fixes for each scenario.
 
+### Film Recording Workshop (L-20 multitrack)
+
+Five L-20 scenarios (`l20-rec-*`, the `L20_REC` list in `js/board-scenarios.js`), from MUS 248's L-20 Multitrack Recording Checklist: the instructor's photos and walkthrough of the Film Recording Workshop (MUS 328, 2026-11-02), a 14-mic session recorded into Logic over USB.
+
+- **Its own song**, `film`: FTW's strings, brass, percussion, winds and vocals as five spot mics on the real session's input numbers (4 cello, 7 trumpet/horn, 10 vibes, 13 clarinet, 14 vocal), all small condensers, and the electroacoustic showcase's click as Logic's click on 17/18. The Decca (1–3) and the other spots aren't modelled. When the session's own stems arrive (the instructor has them), they replace FTW. `consoles: ["l20"]`.
+- **Its own gig**, `FILM_GIGS.l20`, as photographed: 48V on all four banks, channels 1–16 MUTED with their MASTER faders down, 17/18 at unity, MONITOR OUT A switched to MASTER and PHONES into `hp12u` (the AKG HP12U headphone amp, drawn as one powered endpoint). No speakers.
+- **The recording isn't modelled as a destination.** Each track is taken before MUTE and the faders (the instructor; the manual says so for SD, user reports for USB), so "records at a healthy level" is the channel's input band (`sourceGain`, or `band === "good"`), whatever MUTE and the faders do. "In the headphones" is whatever reaches `hp12u`, by the MASTER or a monitor mix, so either fix of `l20-rec-click` counts.
+- **Non-motorized faders** (`js/ui/mixer-l20-view.js`): every L-20 channel fader now has a cap position (the mixer device's `caps`, by channel) separate from its level, and a green LED at the real level. After a FADER MODE switch the caps stay where they were; moving a cap changes nothing until it passes the LED, then it takes over (the L-20 manual: "the volume will not change until the fader is moved to the same position"). This is the view only: tests drive levels directly. `l20-rec-fader-lies` starts with 17/18's cap at U and its level at −∞.
+- **Not modelled yet:** software monitoring through Logic and its buffer delay (the doubling the checklist warns about), the HP12U's INPUT A vs LINK A OUTPUT jacks, separate monitor mixes per player (the instructor's "later").
+- **Tests:** solutions and wrong fixes in `tests/board-scenarios.test.mjs`.
+
 ## Audio transport and the sync invariant
 
 **All Persephone stems share one timeline. Nothing may restart, pause or independently advance a single stem.** Patching, unpatching, muting, switching skins or switching the listen destination must never touch playback; they only change gains and connections downstream of the stem outputs.
