@@ -13,10 +13,16 @@ PREFIXES="${PREVIEW_PREFIXES:-claude/ skin/ feature/ preview/}"
 # Every preview carries its own copy of audio/ (~105 MB since the Vocal Jazz
 # Ensemble, 2026-10-26); Pages allows 1 GB, so 15 new-audio previews would not fit.
 MAX="${MAX_PREVIEWS:-15}"
+# ...and by size: audio/ reached ~190 MB with the mariachi multitrack (2026-11-09), so 15
+# previews no longer fit. Previews are added newest first until the whole site would pass
+# MAX_BYTES (under Pages' 1 GB, with room for the HTML around them); the stalest drop.
+MAX_BYTES="${MAX_BYTES:-950000000}"
+tree_bytes() { git ls-tree -r -l "$1" | awk '{t += $4} END {print t + 0}'; }
 
 rm -rf "$OUT"
 mkdir -p "$OUT/branch"
 git archive "$ROOT_REF" | tar -x -C "$OUT"
+used="$(tree_bytes "$ROOT_REF")"
 
 # Assignment 1 as it was (the `legacy` branch), for late submissions, at legacy/.
 # Not a preview: no banner of that kind, and it shares the live site's saved progress.
@@ -24,6 +30,7 @@ LEGACY_REF="$REF_NS/legacy"
 if git rev-parse --verify --quiet "$LEGACY_REF" > /dev/null; then
   mkdir -p "$OUT/legacy"
   git archive "$LEGACY_REF" | tar -x -C "$OUT/legacy"
+  used=$((used + $(tree_bytes "$LEGACY_REF")))
   echo "legacy: $LEGACY_REF -> legacy/"
 fi
 
@@ -42,6 +49,9 @@ while IFS=$'\t' read -r branch date; do
   slug="$(slugify "$branch")"
   [[ -n "$slug" && ! -e "$OUT/branch/$slug" ]] || continue
   if (( count >= MAX )); then echo "skip (over $MAX previews): $branch"; continue; fi
+  size="$(tree_bytes "$REF_NS/$branch")"
+  if (( used + size > MAX_BYTES )); then echo "skip (site would pass $MAX_BYTES bytes): $branch"; continue; fi
+  used=$((used + size))
   mkdir -p "$OUT/branch/$slug"
   git archive "$REF_NS/$branch" | tar -x -C "$OUT/branch/$slug"
   # Previews stay out of search results.
