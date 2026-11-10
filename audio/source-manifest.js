@@ -1228,7 +1228,7 @@ const MARIACHI_SOURCES = [
   marHandheld("mar-vox1", 9, "gray", "red", "Vocal mic 1", "VOX 1", "vocal-1", { note: "Up front, for vocal solos. In this song the band leaks into it; the singer is on vocal mic 2." }),
   marHandheld("mar-vox2", 10, "gray", "orange", "Vocal mic 2", "VOX 2", "vocal-2", { note: "Up front, for vocal solos and talking between songs." }),
   // The spare a player gets when a handheld dies mid-soundcheck: receiver 2's green, on CH 12 (one scenario only).
-  marHandheld("mar-spare", 12, "gray", "green", "Spare handheld", "SPARE", "violin-1", { mixDb: -14, pan: -0.6, outputDb: -34, scenarios: ["x32-mar-swap"], note: "The spare from the wireless drawer, now on the first violin's stand." }),
+  marHandheld("mar-spare", 12, "gray", "green", "Spare handheld", "SPARE", "violin-1", { mixDb: -14, pan: -0.6, outputDb: -34, scenarios: ["x32-mariachi-swap"], note: "The spare from the wireless drawer, now on the first violin's stand." }),
   {
     ...VJ_LAPTOP,
     name: "Test music (Mac mini · SSL 2+)",

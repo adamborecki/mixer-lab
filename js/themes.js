@@ -170,7 +170,7 @@ export const GIGS = [
     question: "Can you give six wedges six mixes, and keep them working?",
     concept: "Mariachi Panteras on Salmon's full-size X32, from their own dress rehearsal: nine wireless handhelds on receivers 1 and 2 (four violins, guitarrón, vihuela, guitarra, two vocal mics up front; the trumpets need no mic), six wedges across the back on six mixes (MIX 3-8: one active, three on the KM750s by speakON, two that take only 1/4\" on the Crown), and the hall's own speakers as the house. It opens with the whole rig working; then the hall left off after CME, wedges to patch and test, a wedge that only takes 1/4\", a wedge on the wrong mix, a handheld that dies at soundcheck, vocals in every wedge, gains, feedback and a bad cable.",
     checklist: `${SITE}/mariachi-gig-checklist/`,
-    ids: ["x32-mar-tour", "x32-mar-house", "x32-mar-wedges", "x32-mar-quarter", "x32-mar-wedge-test", "x32-mar-route", "x32-mar-swap", "x32-mar-vox", "x32-mar-gains", "x32-mar-feedback", "x32-mar-cable"],
+    ids: ["x32-mariachi-tour", "x32-mariachi-house", "x32-mariachi-wedges", "x32-mariachi-quarter", "x32-mariachi-wedge-test", "x32-mariachi-route", "x32-mariachi-swap", "x32-mariachi-vox", "x32-mariachi-gains", "x32-mariachi-feedback", "x32-mariachi-cable"],
   },
   {
     id: "cob",
