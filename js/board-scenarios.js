@@ -5866,7 +5866,7 @@ const marMixBaselines = (buses) => Object.fromEntries(buses.map((b) => [b, { met
 
 const MARIACHI = [
   {
-    id: "x32-mar-tour",
+    id: "x32-mariachi-tour",
     short: "Everything working",
     title: "Everything working",
     who: "Crew chief",
@@ -5889,7 +5889,7 @@ const MARIACHI = [
     complete: "That's the whole rig working: nine handhelds on CH 1-10 (CH 3 is the yellow nobody uses), the trumpets on no mic at all, six wedges each on their own mix, and the hall's own speakers as the house. Every scenario after this breaks one piece of it: come back here when you need to remember what right looks like.",
   },
   {
-    id: "x32-mar-house",
+    id: "x32-mariachi-house",
     short: "The house is silent",
     title: "The house is silent",
     who: "Crew chief",
@@ -5912,7 +5912,7 @@ const MARIACHI = [
     complete: "The X32 was fine the whole time: the hall's speakers were off at the Mix5's 4/5 LEVEL, where CME leaves them during their gig. When the console's meters move and a speaker is silent, the problem is after the console. And at the end of your own gig, put back whatever you changed: the next group won't think to look in a rack.",
   },
   {
-    id: "x32-mar-wedges",
+    id: "x32-mariachi-wedges",
     short: "Wedges 1-4",
     title: "Four wedges, four mixes",
     who: "Monitor engineer",
@@ -5943,7 +5943,7 @@ const MARIACHI = [
     complete: "Four mixes, four paths: each passive wedge on its own amp channel, and the active wedge on its own output with mains power. Number the wedges left to right across the back and keep MIX n on S32 OUT n: then wedge 1 is MIX 3, wedge 6 is MIX 8, and nobody has to guess which knob is whose.",
   },
   {
-    id: "x32-mar-quarter",
+    id: "x32-mariachi-quarter",
     short: "1/4\"-only wedges",
     title: "Wedge 5 only takes 1/4\"",
     who: "Monitor engineer",
@@ -5974,7 +5974,7 @@ const MARIACHI = [
     complete: "Two kinds of jack, two kinds of amp output: three of the wedges take speakON or 1/4\", two take 1/4\" only, the KM750s put out speakON and the Crown puts out 1/4\". So the 1/4\"-only wedges get the Crown, always, and anything else that took a Crown channel has to move. Sometimes the fix for a new wedge is unplugging one that already worked.",
   },
   {
-    id: "x32-mar-wedge-test",
+    id: "x32-mariachi-wedge-test",
     short: "Music through every wedge",
     title: "Test every wedge with music",
     who: "Crew chief",
@@ -5995,7 +5995,7 @@ const MARIACHI = [
     complete: "That's the checklist's music test: music you know, through each wedge on its own, before a single mic. It proves the mix, the output, the cable, the amp and the speaker. With six wedges it takes a few minutes, and it's the reason the crew arrives early: the mariachi rehearsal lost time checking monitors one by one.",
   },
   {
-    id: "x32-mar-route",
+    id: "x32-mariachi-route",
     short: "Wrong mix on a wedge",
     title: "Two wedges, one mix",
     who: "Lead guitarra",
@@ -6019,7 +6019,7 @@ const MARIACHI = [
     complete: "On a digital desk the jacks don't decide what comes out of them: the routing does. Two wedges playing the same thing is a routing problem, not a mix problem, so adding the guitarra to MIX 5 would have broken wedge 3 too. In Salmon, MIX n on output n keeps it readable.",
   },
   {
-    id: "x32-mar-swap",
+    id: "x32-mariachi-swap",
     short: "A handheld died",
     title: "The red mic died",
     who: "Mic engineer",
@@ -6052,7 +6052,7 @@ const MARIACHI = [
     complete: "Swapping the mic is the easy part. Swapping the XLRs behind the receivers would have put her back on CH 1, but behind a rack, mid-soundcheck, that's how the wrong cable gets moved, and the dead mic's channel would still be live for whoever picks it up next. So the cables stay, and the spare's channel gets everything the dead one had: gain, low cut, fader, and a send in every mix. Tag the dead mic so it doesn't go back in the drawer.",
   },
   {
-    id: "x32-mar-vox",
+    id: "x32-mariachi-vox",
     short: "Vocals in every wedge",
     title: "No singer in wedges 5 and 6",
     who: "Guitarrón player",
@@ -6082,7 +6082,7 @@ const MARIACHI = [
     complete: "The vocal mics go in every wedge: a solo can come from anywhere in the song, and the players at the far end of the line are the ones who lose it first. Two front mics for solos, nine handhelds in all, six mixes: write down who needs what at soundcheck, then set every mix the same way.",
   },
   {
-    id: "x32-mar-gains",
+    id: "x32-mariachi-gains",
     short: "Gains",
     title: "Set the gains",
     who: "Crew chief",
@@ -6109,7 +6109,7 @@ const MARIACHI = [
     complete: "GAIN sets how hot each signal comes into the console; the faders are for the mix. Violins are quiet next to a vihuela, a guitarra and two trumpets, so their channels run a lot more GAIN than the rest. That's normal: gain is about the input, not about how important the player is.",
   },
   {
-    id: "x32-mar-feedback",
+    id: "x32-mariachi-feedback",
     short: "Feedback in a wedge",
     title: "Wedge 1 rings",
     who: "Violin 2",
@@ -6137,7 +6137,7 @@ const MARIACHI = [
     complete: "A mic that's loud in the wedge it's standing in front of is the classic feedback loop. Pull that mic down in that wedge before you touch anything else: the singer and the other wedges don't need to change. If it still rings, aim the wedge away from the mic, or ask the players to step back from it. In Salmon the hall's speakers are well in front of the players; the wedges are the danger.",
   },
   {
-    id: "x32-mar-cable",
+    id: "x32-mariachi-cable",
     short: "Bad cable",
     title: "Wedge 3 died",
     who: "Trumpet player",
@@ -6172,7 +6172,7 @@ const ORDER = {
   l20: ["doors", "gain", "pad", "lowcut", "mud", "eq-on", "keys-wedge", "less-guitar", "out-of-house", "wedge-quiet", "switch", "reverb", "efx-mon", "rec-click", "rec-mutes", "rec-gain", "rec-fader-lies", "rec-48v"],
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
   yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "mud", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
-  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9", "vj-mains", "vj-monitors", "vj-local", "vj-gain", "vj-lowcut", "vj-muted", "vj-send", "vj-amp", "vj-chain", "vj-link", "vj-patch", "ea-chain", "ea-route", "ea-bank", "ea-48v", "ea-collision", "ea-click", "ea-dead", "cme-tour", "cme-rack", "cme-mains", "cme-house", "cme-wedges", "cme-wedge-test", "cme-amp-knob", "cme-mics", "cme-vox", "cme-band", "cme-gtr", "cme-cable", "cme-gains", "cme-end", "cme-adv-antenna", "cme-adv-vol", "cme-adv-headset", "cme-adv-s32", "cme-adv-inst", "cme-adv-active-amp", "cme-adv-route", "cme-adv-katana", "cme-adv-inputs", "cme-adv-lead", "cme-adv-mix5", "cme-adv-stack", "mar-tour", "mar-house", "mar-wedges", "mar-quarter", "mar-wedge-test", "mar-route", "mar-swap", "mar-vox", "mar-gains", "mar-feedback", "mar-cable"],
+  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9", "vj-mains", "vj-monitors", "vj-local", "vj-gain", "vj-lowcut", "vj-muted", "vj-send", "vj-amp", "vj-chain", "vj-link", "vj-patch", "ea-chain", "ea-route", "ea-bank", "ea-48v", "ea-collision", "ea-click", "ea-dead", "cme-tour", "cme-rack", "cme-mains", "cme-house", "cme-wedges", "cme-wedge-test", "cme-amp-knob", "cme-mics", "cme-vox", "cme-band", "cme-gtr", "cme-cable", "cme-gains", "cme-end", "cme-adv-antenna", "cme-adv-vol", "cme-adv-headset", "cme-adv-s32", "cme-adv-inst", "cme-adv-active-amp", "cme-adv-route", "cme-adv-katana", "cme-adv-inputs", "cme-adv-lead", "cme-adv-mix5", "cme-adv-stack", "mariachi-tour", "mariachi-house", "mariachi-wedges", "mariachi-quarter", "mariachi-wedge-test", "mariachi-route", "mariachi-swap", "mariachi-vox", "mariachi-gains", "mariachi-feedback", "mariachi-cable"],
   f8n: ["track", "trim", "room", "hpf", "pfl", "balance", "link", "camera", "dslr", "iso-safety"],
   dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
   cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "dante-back", "dante-fix", "scene-recall", "scene-store"],
@@ -6212,7 +6212,7 @@ const STAGE = {
   "mix8-guest": { out: ["backing-vocals"] },
   "x1204usb-overhead": { out: ["backing-vocals"] },
   // Mariachi: the music test comes before anyone plays.
-  "x32-mar-wedge-test": { silent: true, note: "Nobody is playing yet: only the test music." },
+  "x32-mariachi-wedge-test": { silent: true, note: "Nobody is playing yet: only the test music." },
 };
 const stageOf = (id) => STAGE[id] || (id.endsWith("-doors") ? SILENT : null);
 
@@ -6260,7 +6260,7 @@ const vjSong = (board, k) => (ORDER[board].filter((x) => x.startsWith("vj-")).in
 // A gig is its own song (its cast, its tracks, its rig): COB, Vocal Jazz, the showcase, karaoke, CME, mariachi.
 const songOf = (board, id) => {
   const k = id.slice(board.length + 1);
-  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? vjSong(board, k) : k.startsWith("ea-") ? "ea" : k.startsWith("ky-") ? "karaoke" : k.startsWith("cme-") ? "cme" : k.startsWith("mar-") ? "mariachi" : k.startsWith("rec-") ? "film" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
+  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? vjSong(board, k) : k.startsWith("ea-") ? "ea" : k.startsWith("ky-") ? "karaoke" : k.startsWith("cme-") ? "cme" : k.startsWith("mariachi-") ? "mariachi" : k.startsWith("rec-") ? "film" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
 };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.

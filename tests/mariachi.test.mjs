@@ -26,12 +26,12 @@ const done = () => useSong(DEFAULT_SONG);
 const CHANNELS = { "mar-vln1": 1, "mar-vln2": 2, "mar-vln3": 4, "mar-vln4": 5, "mar-gtrn": 6, "mar-vih": 7, "mar-gtra": 8, "mar-vox1": 9, "mar-vox2": 10 };
 
 describe("Mariachi in Salmon: the rig", () => {
-  it("plays on the full X32 only, as a Chapman gig listing every x32-mar- scenario in order", () => {
+  it("plays on the full X32 only, as a Chapman gig listing every x32-mariachi- scenario in order", () => {
     assert.deepEqual(MODELS.filter((m) => songFits("mariachi", m)), ["x32"]);
     const g = GIGS.find((x) => x.id === "mariachi");
-    assert.deepEqual(g.ids, BOARD_SCENARIOS.x32.filter((s) => s.id.startsWith("x32-mar-")).map((s) => s.id));
-    assert.equal(g.ids[0], "x32-mar-tour", "the first scenario is the whole rig working");
-    assert.ok(BOARD_SCENARIOS.x32.filter((s) => s.id.startsWith("x32-mar-")).every((s) => s.song === "mariachi"));
+    assert.deepEqual(g.ids, BOARD_SCENARIOS.x32.filter((s) => s.id.startsWith("x32-mariachi-")).map((s) => s.id));
+    assert.equal(g.ids[0], "x32-mariachi-tour", "the first scenario is the whole rig working");
+    assert.ok(BOARD_SCENARIOS.x32.filter((s) => s.id.startsWith("x32-mariachi-")).every((s) => s.song === "mariachi"));
   });
 
   it("has the nine stems, none of them trumpets, from song 1 of the dress rehearsal", () => {
@@ -97,7 +97,7 @@ describe("Mariachi in Salmon: the gear", () => {
     assert.equal(sourceTrimDb({ dead: 1, mic: 0 }, {}), -Infinity);
     assert.equal(sourceTrimDb({ mic: 0 }, {}), 0);
     useSong("mariachi");
-    const def = BOARD_SCENARIOS.x32.find((s) => s.id === "x32-mar-swap");
+    const def = BOARD_SCENARIOS.x32.find((s) => s.id === "x32-mariachi-swap");
     const st = new MixerStore(buildScenarioState(def, SOURCES_BY_ID, "x32"));
     const mix = computeMix(st.state, SOURCES_BY_ID, STEMS);
     assert.equal(mix.channels.find((c) => c.sourceId === "mar-spare").index, 11, "the spare is on CH 12");
