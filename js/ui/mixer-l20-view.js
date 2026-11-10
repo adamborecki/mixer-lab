@@ -57,8 +57,8 @@ export function renderL20(view, def) {
     "p",
     "dg-hint",
     ui.mode === "MASTER"
-      ? "Faders: each channel's level in the MASTER mix (the MASTER OUT jacks). MUTE and the EFX sends belong to this mix."
-      : `Faders: each channel's level in MONITOR ${ui.mode}. It is its own mix: the MASTER faders don't change it, MUTE still silences the channel in it. Send it to a jack with that jack's switch (set to ${ui.mode}) below.`,
+      ? "Faders: each channel's level in the MASTER mix (the MASTER OUT jacks). MUTE and the EFX sends belong to this mix. The green LED beside a fader is its real level: the faders aren't motorized, so a cap moves nothing until it reaches its LED."
+      : `Faders: each channel's level in MONITOR ${ui.mode}. It is its own mix: the MASTER faders don't change it, MUTE still silences the channel in it. Send it to a jack with that jack's switch (set to ${ui.mode}) below. The caps stayed where they were: the green LEDs show this mix's levels.`,
   );
 
   // ---------- phantom power: four channels at a time ----------
@@ -139,18 +139,63 @@ function buildStrip(view, def, i, ui, rerender) {
     rerender();
   });
 
-  // The fader: this channel's level in the mix FADER MODE shows.
+  // The fader: this channel's level in the mix FADER MODE shows. The L-20's
+  // faders aren't motorized, so the cap (where the hand left it) and the level
+  // can differ after a FADER MODE switch: the green LED beside each fader shows
+  // the real level, and moving the cap changes nothing until it reaches the LED
+  // ("the volume will not change until the fader is moved to the same
+  // position", L-20 Operation Manual). The caps live on the mixer device
+  // (`caps`, by channel), so a scenario can start with one out of place.
   const mon = ui.mode === "MASTER" ? null : `mon${ui.mode}`;
   const law = mon ? LAWS[def.sends[mon].law] : levelLaw(def);
+  const truth = (s) => (mon ? ch(s).sends[mon] : ch(s).level);
+  const write = (v) => (mon ? store.setChannel(i, `sends.${mon}`, v) : store.setChannel(i, "level", v));
+  const dev0 = mixerDev(store.state);
+  if (dev0) {
+    dev0.caps ||= {};
+    if (dev0.caps[i] === undefined) dev0.caps[i] = truth(store.state);
+  }
+  const capOf = (s) => mixerDev(s)?.caps?.[i] ?? truth(s);
+  // Channels picked up since the last FADER MODE switch (or a new scenario).
+  const picked = () => {
+    const caps = mixerDev(store.state)?.caps;
+    if (!ui.picked || ui.picked.caps !== caps || ui.picked.mode !== ui.mode) ui.picked = { caps, mode: ui.mode, set: new Set() };
+    return ui.picked.set;
+  };
+  let led = null;
   const control = fader(view, {
     label: "",
     sheetLabel: mon ? `Ch ${n} fader, MONITOR ${ui.mode}` : `Ch ${n} fader`,
     defaultValue: mon ? 0 : 0.75,
     tone: mon ? "aux1" : undefined,
     format: lawFormat(law),
-    get: mon ? (s) => ch(s).sends[mon] : (s) => ch(s).level,
-    onInput: (v) => (mon ? store.setChannel(i, `sends.${mon}`, v) : store.setChannel(i, "level", v)),
+    get: capOf,
+    onInput: (v) => {
+      const d = mixerDev(store.state);
+      if (!d?.caps) return write(v);
+      const prev = d.caps[i] ?? truth(store.state);
+      d.caps[i] = v;
+      const t = truth(store.state);
+      const set = picked();
+      if (!set.has(i) && (Math.abs(v - t) < 0.02 || (prev - t) * (v - t) <= 0)) set.add(i);
+      if (set.has(i)) write(v);
+      led?.classList.toggle("is-apart", Math.abs(v - truth(store.state)) >= 0.02);
+    },
   });
+  const slot = control.querySelector(".fader");
+  if (slot) {
+    led = el("i", "l20-led");
+    led.setAttribute("aria-hidden", "true");
+    led.title = "The real level (the cap may differ)";
+    slot.appendChild(led);
+    view.bindings.push({
+      kind: "fn",
+      run: (s) => {
+        led.style.setProperty("--pos", String(truth(s)));
+        led.classList.toggle("is-apart", Math.abs(capOf(s) - truth(s)) >= 0.02);
+      },
+    });
+  }
   const mute = button(view, { label: "MUTE", tone: "mute", small: false, get: (s) => !ch(s).enabled, onPress: () => store.setChannel(i, "enabled", !ch(store.state).enabled), aria: (s) => `Channel ${n} MUTE: ${ch(s).enabled ? "off" : "on, out of the MASTER and every monitor mix"}` });
   const solo = button(view, { label: "SOLO", tone: "pfl", get: (s) => !!ch(s).solo, onPress: () => store.setChannel(i, "solo", !ch(store.state).solo), aria: (s) => `Channel ${n} SOLO: ${ch(s).solo ? "on, in the PHONES" : "off"}` });
   view.bindings.push({ kind: "fn", run: (s) => strip.classList.toggle("is-muted", !ch(s).enabled) });

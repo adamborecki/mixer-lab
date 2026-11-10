@@ -199,6 +199,15 @@ export const GIGS = [
     checklist: `${SITE}/bh109-karaoke-gig-checklist/`,
     ids: ["x1204usb-ky-house", "x1204usb-ky-one-side", "x1204usb-ky-cr", "x1204usb-ky-v3", "x1204usb-ky-mic-line", "x1204usb-ky-2track", "x1204usb-ky-minus10", "x1204usb-ky-comp", "x1204usb-ky-alt", "x1204usb-ky-reverb", "x1204usb-ky-program", "x1204usb-ky-lowcut"],
   },
+  {
+    id: "film",
+    title: "Film Recording Workshop",
+    venue: "wherever the session is",
+    question: "Can you record every mic on its own track while the players hear only the click?",
+    concept: "A multitrack session on a Zoom LiveTrak L-20: every input records to Logic over USB, taken before MUTE and the faders, so the L-20's own mix is just the players' headphones (MONITOR OUT A, on MASTER, into an AKG HP12U), carrying Logic's click from 17/18 and no live mics. The faders aren't motorized: the green LED is the level, not the cap. Every fault here is on the L-20 Multitrack Recording Checklist.",
+    checklist: `${SITE}/l20-multitrack-gig-checklist/`,
+    ids: ["l20-rec-click", "l20-rec-mutes", "l20-rec-gain", "l20-rec-fader-lies", "l20-rec-48v"],
+  },
 ];
 export const isGig = (t) => !!t && GIGS.includes(t);
 // The gigs that can be opened.

@@ -140,6 +140,8 @@ export const PLAYBACK_DEVICES = {
   "bh109-l": { type: "wall-speaker", label: "Wall speaker · left", short: "left wall speaker", zone: "foh", pan: -1 },
   "bh109-r": { type: "wall-speaker", label: "Wall speaker · right", short: "right wall speaker", zone: "foh", pan: 1 },
   lobby: { type: "powered-speaker", label: "Powered speaker · lobby", short: "lobby", zone: "lobby", pan: 0 },
+  // The Film Recording Workshop's headphone cart: an AKG HP12U headphone amp (line in, twelve headphones out), drawn as one powered endpoint.
+  hp12u: { type: "powered-speaker", label: "AKG HP12U · the players' headphones", short: "players' headphones", zone: "stage", pan: 0 },
   // A video camera's two XLR audio inputs (each with a MIC/LINE switch, starting at LINE).
   "cam-1": { type: "camera-input", label: "Camera · input 1 (XLR)", short: "camera ch 1", zone: "cam", pan: -1, inputLevel: 1 },
   "cam-2": { type: "camera-input", label: "Camera · input 2 (XLR)", short: "camera ch 2", zone: "cam", pan: 1, inputLevel: 1 },
@@ -1758,8 +1760,36 @@ const KARAOKE_GIGS = {
   },
 };
 
+// The Film Recording Workshop (MUS 248's L-20 Multitrack Recording Checklist):
+// a multitrack session on a Zoom LiveTrak L-20, as photographed on 2026-11-02.
+// Every input records to its own track in Logic (over USB, before MUTE and the
+// faders), so the L-20's own mix only feeds the players' headphones: channels
+// 1–16 are MUTED with their MASTER faders down, Logic's click comes back on
+// USB 1-2 into 17/18 at unity, and MONITOR OUT A (switched to MASTER, PHONES)
+// feeds the AKG HP12U headphone amp. 48V is on for all four banks. No house
+// speakers: the players hear each other in the room.
+const FILM_GIGS = {
+  l20: {
+    prompt: "A multitrack recording session on a Zoom LiveTrak L-20: the Film Recording Workshop. Every input records to its own track in Logic over USB, taken before MUTE and the faders. In the lab: the cello on input 4, trumpet/horn on 7, vibes on 10, clarinet on 13 and the vocal on 14, all small condensers (48V on for every bank); Logic's click comes back over USB 1-2 into 17/18. Channels 1–16 are MUTED with their MASTER faders down, so the players' headphones get only the click. MONITOR OUT A, switched to MASTER and PHONES, feeds the AKG HP12U headphone amp. No speakers: the players hear each other in the room. Audio stands in: FTW's orchestra, and a click.",
+    patch: { "film-cello": [3, "in"], "film-horn": [6, "in"], "film-vibes": [9, "in"], "film-clarinet": [12, "in"], "film-vocal": [13, "in"], "film-click": [16, "lr"] },
+    devices: ["hp12u"],
+    cables: [{ from: "mixer/outA", to: "hp12u/in", cable: "trs" }],
+    sends: {},
+    tweak: (state) => {
+      for (let i = 0; i < 16; i++) {
+        state.channels[i].phantom = true;
+        state.channels[i].enabled = false;
+        state.channels[i].level = 0;
+      }
+      state.routing.outA = "main";
+      const mixer = state.rig.devices.find((d) => d.id === "mixer");
+      if (mixer) mixer.phonesA = 1;
+    },
+  },
+};
+
 // Each band's version of the gigs, over Persephone's.
-const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS, "almost-like": JAZZ_GIGS, "love-me": JAZZ_GIGS, cob: COB_GIGS, vj: VJ_GIGS, "vj-love": VJ_GIGS, ea: EA_GIGS, karaoke: KARAOKE_GIGS, cme: CME_GIGS, mariachi: MARIACHI_GIGS };
+const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS, "almost-like": JAZZ_GIGS, "love-me": JAZZ_GIGS, cob: COB_GIGS, vj: VJ_GIGS, "vj-love": VJ_GIGS, ea: EA_GIGS, film: FILM_GIGS, karaoke: KARAOKE_GIGS, cme: CME_GIGS, mariachi: MARIACHI_GIGS };
 
 // A mixer's Free play gig for the band on stage.
 export function gigFor(model) {

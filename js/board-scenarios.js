@@ -8,7 +8,7 @@
 // These are practice, not the Canvas assignment: the numbered scenarios on
 // Mixer A/B are what the submission reports. See docs/SCENARIOS.md.
 
-import { COMPACT, LAWS, fxPreset, reverbSetting } from "./compact.js";
+import { COMPACT, LAWS, fxPreset, levelLaw, reverbSetting } from "./compact.js";
 import * as CR1604 from "./cr1604.js";
 import { DAW_TRACKS } from "./dante.js";
 import { aesBlockOf } from "./connection-model.js";
@@ -1423,6 +1423,133 @@ const L20 = [
     ],
     hints: ["The vocal is already sent to EFX 1 on its channel. The send doesn't care which mix it ends up in. What does?", "The EFX RTN fader has a separate position for each FADER MODE.", "Press A in FADER MODE and raise EFX 1 RTN. Leave MASTER alone."],
     complete: "Sends feed the effect once; each mix then takes as much of the return as it wants. The same hall can be dry in the house and wet in one wedge.",
+  },
+];
+
+// ---------- Zoom LiveTrak L-20: the Film Recording Workshop (multitrack) ----------
+
+// MUS 248's L-20 Multitrack Recording Checklist: every input records to Logic
+// before MUTE and the faders, so the L-20's own mix is only the players'
+// headphones (MONITOR OUT A → the AKG HP12U), and it should carry the click
+// and nothing live. "In the headphones" is whatever reaches the HP12U, by
+// MONITOR OUT A's MASTER or its own mix, so either fix counts.
+const FILM_MICS = ["film-cello", "film-horn", "film-vibes", "film-clarinet", "film-vocal"];
+const MON_BUSES = ["monA", "monB", "monC", "monD", "monE", "monF"];
+const inPhones = (ctx, src) => Math.max(house(ctx, src), ...MON_BUSES.map((b) => wedge(ctx, b, src)));
+const clickInPhones = (minDb = -30) => goal("click", "The click is clear in the players' headphones", (ctx) => inPhones(ctx, "film-click") >= minDb);
+const keepClick = keep("click", "The click stays in the players' headphones", (ctx) => inPhones(ctx, "film-click") >= -30);
+const noLiveInPhones = (kind = "keep") => ({ id: "live", kind, type: "custom", label: kind === "goal" ? "No live mic in the players' headphones" : "No live mic gets into the players' headphones", test: (ctx) => FILM_MICS.every((s) => inPhones(ctx, s) < AUDIBLE) });
+const recordingOk = (except = []) => keep("rec", "Every other mic still records at a healthy level", (ctx) => FILM_MICS.filter((s) => !except.includes(s)).every((s) => mc(ctx, s)?.band === "good"));
+const l20Level = levelLaw(COMPACT.l20);
+
+const L20_REC = [
+  {
+    id: "l20-rec-click",
+    short: "No click",
+    title: "No click in the headphones",
+    who: "Conductor",
+    prompt: "“Count us in — wait, nobody has a click. The headphones are dead quiet.”",
+    goal: "The click clear in the players' headphones (MONITOR OUT A, into the HP12U), with no live mic in them and the recording untouched.",
+    setup: { tweak: (st) => (st.routing.outA = "monA") },
+    conditions: [clickInPhones(), noLiveInPhones(), recordingOk()],
+    hints: [
+      "Logic's click arrives on 17/18 and is up in the MASTER mix. What decides which mix leaves MONITOR OUT A?",
+      "Each MONITOR OUT jack has a switch: its own mix (A) or the MASTER. Monitor mix A is empty.",
+      "In the OUTPUT section, switch MONITOR OUT A to MASTER. (Building mix A with only 17/18 up works too.)",
+    ],
+    complete: "The faders only build mixes; the jack's switch picks which one leaves. On this session MONITOR OUT A copies the MASTER, and the MASTER holds only the click.",
+  },
+  {
+    id: "l20-rec-mutes",
+    short: "Mics in the cans",
+    title: "Someone fixed the mutes",
+    who: "Cellist",
+    prompt: "“Someone ‘fixed’ the red buttons. Now I hear every mic in my headphones on top of the room, and the click is buried.”",
+    goal: "No live mic in the players' headphones, the click still in them, and every mic still recording.",
+    setup: {
+      tweak: (st, h) => {
+        for (const s of FILM_MICS) {
+          h.set(s, "enabled", true);
+          h.set(s, "level", l20Level.toPos(-4));
+        }
+      },
+    },
+    conditions: [noLiveInPhones("goal"), keepClick, recordingOk()],
+    hints: [
+      "The recording doesn't need these channels in the MASTER mix. Where do the players actually hear each other?",
+      "The L-20 sends each input to the computer before MUTE and the faders, so muting a mic doesn't touch its track.",
+      "MUTE channels 4, 7, 10, 13 and 14 again (or pull their MASTER faders down). Leave 17/18 alone.",
+    ],
+    complete: "MUTE lit on 1–16 is on purpose here: it keeps the live mics out of the headphones. The tracks in Logic come from before the mute, so nothing is lost. The players hear each other in the room, with no delay at all.",
+  },
+  {
+    id: "l20-rec-gain",
+    short: "Quiet track",
+    title: "The clarinet is tiny on its track",
+    who: "Composer, listening back",
+    prompt: "“The clarinet is barely there on its track. Can you fix it before the next take?”",
+    goal: "The clarinet recording at a healthy level, with the headphones still click only.",
+    setup: { tweak: (st, h) => h.set("film-clarinet", "gainDb", 16) },
+    conditions: [
+      { id: "gain", kind: "goal", type: "sourceGain", source: "film-clarinet", label: "The clarinet records at a healthy level" },
+      noLiveInPhones(),
+      keepClick,
+      recordingOk(["film-clarinet"]),
+    ],
+    hints: [
+      "Which controls come before the point where the L-20 sends a track to Logic?",
+      "The track is taken before MUTE and the fader. Only GAIN (and PAD) change what's recorded.",
+      "Turn channel 13's GAIN up until its meter sits around the middle. Leave its MUTE on.",
+    ],
+    complete: "On a multitrack session, GAIN is the recording level. Unmuting the channel and pushing its fader would only have put the clarinet in everyone's headphones.",
+  },
+  {
+    id: "l20-rec-fader-lies",
+    short: "The fader lies",
+    title: "The fader that lies",
+    who: "Pianist",
+    prompt: "“Someone was checking MONITOR A and came back to MASTER. Channel 17/18's fader is up where the click always sits, but the click is gone.”",
+    goal: "The click back in the players' headphones, with no live mic in them.",
+    setup: {
+      tweak: (st) => {
+        st.channels[16].level = 0;
+        // The physical fader cap, which the L-20 can't move by itself: still near unity.
+        const mixer = st.rig.devices.find((d) => d.id === "mixer");
+        if (mixer) mixer.caps = { 16: l20Level.toPos(0) };
+      },
+    },
+    conditions: [clickInPhones(), noLiveInPhones(), recordingOk()],
+    hints: [
+      "Don't trust the fader cap. Look at the green LED beside 17/18's fader: that's the real level.",
+      "The L-20's faders aren't motorized. After a FADER MODE change the cap stays put, and moving it does nothing until it reaches the LED.",
+      "Slide 17/18's fader down to its LED, where it takes over, then bring it back up to about 0.",
+    ],
+    complete: "The LED is the level; the cap is just where your hand left it. After any FADER MODE switch or scene recall, read the LEDs, and pick a fader up at its LED before you ride it.",
+  },
+  {
+    id: "l20-rec-48v",
+    short: "Two dead tracks",
+    title: "Tracks 13 and 14 are flat",
+    who: "Composer, listening back",
+    prompt: "“The clarinet and the vocal tracks are just noise. Everything else recorded fine.”",
+    goal: "The clarinet and the vocal recording at a healthy level again.",
+    setup: {
+      tweak: (st) => {
+        for (const i of [12, 13, 14, 15]) st.channels[i].phantom = false;
+      },
+    },
+    conditions: [
+      { id: "clar", kind: "goal", type: "sourceGain", source: "film-clarinet", label: "The clarinet records at a healthy level" },
+      { id: "vox", kind: "goal", type: "sourceGain", source: "film-vocal", label: "The vocal records at a healthy level" },
+      noLiveInPhones(),
+      keepClick,
+    ],
+    hints: [
+      "Both dead mics are condensers, side by side. What do condensers need that the others are getting?",
+      "48V on the L-20 switches in banks of four: 1–4, 5–8, 9–12, 13–16.",
+      "Turn on 48V for 13–16.",
+    ],
+    complete: "Phantom power comes in banks of four on the L-20, so one button feeds four inputs. Every mic on this session is a condenser: all four banks on.",
   },
 ];
 
@@ -6042,7 +6169,7 @@ const ORDER = {
   x1204usb: ["doors", "minus10", "overhead", "pfl", "comp", "fx", "slapback", "wedge", "pre", "ret-mon", "cdtape", "alt", "ky-house", "ky-one-side", "ky-cr", "ky-v3", "ky-mic-line", "ky-2track", "ky-minus10", "ky-comp", "ky-alt", "ky-reverb", "ky-program", "ky-lowcut"],
   cr1604: ["doors", "phantom", "assign", "levelset", "sweep", "lowcut", "mute-pre", "drummer-quiet", "reverb", "efx-mon", "mono", "shift", "subgroup", "direct", "room", "snake", "snake-return"],
   ui16: ["doors", "gain", "48v", "more-keys", "hpf", "mud", "harsh", "eq-on", "comp", "comp-on", "trumpet-reverb", "delay", "out-of-house", "post", "guitar-mix"],
-  l20: ["doors", "gain", "pad", "lowcut", "mud", "eq-on", "keys-wedge", "less-guitar", "out-of-house", "wedge-quiet", "switch", "reverb", "efx-mon"],
+  l20: ["doors", "gain", "pad", "lowcut", "mud", "eq-on", "keys-wedge", "less-guitar", "out-of-house", "wedge-quiet", "switch", "reverb", "efx-mon", "rec-click", "rec-mutes", "rec-gain", "rec-fader-lies", "rec-48v"],
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
   yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "mud", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
   x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9", "vj-mains", "vj-monitors", "vj-local", "vj-gain", "vj-lowcut", "vj-muted", "vj-send", "vj-amp", "vj-chain", "vj-link", "vj-patch", "ea-chain", "ea-route", "ea-bank", "ea-48v", "ea-collision", "ea-click", "ea-dead", "cme-tour", "cme-rack", "cme-mains", "cme-house", "cme-wedges", "cme-wedge-test", "cme-amp-knob", "cme-mics", "cme-vox", "cme-band", "cme-gtr", "cme-cable", "cme-gains", "cme-end", "cme-adv-antenna", "cme-adv-vol", "cme-adv-headset", "cme-adv-s32", "cme-adv-inst", "cme-adv-active-amp", "cme-adv-route", "cme-adv-katana", "cme-adv-inputs", "cme-adv-lead", "cme-adv-mix5", "cme-adv-stack", "mar-tour", "mar-house", "mar-wedges", "mar-quarter", "mar-wedge-test", "mar-route", "mar-swap", "mar-vox", "mar-gains", "mar-feedback", "mar-cable"],
@@ -6053,7 +6180,7 @@ const ORDER = {
   x32c: ["doors", "gain", "48v", "sections-48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "orchestra", "mute-group", "new-mix", "stagebox", "cob-usb", "cob-gain", "cob-tracks", "cob-link", "cob-one-side", "cob-speaker-cable", "cob-thru", "cob-prefader", "cob-tracks-wedge", "cob-scene"],
 };
 
-const LISTS = { gdig: GDIG, l20: L20, b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: [...XEN, ...KY], sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c, ...COB], yam01v96: Y96, x32: [...X32F, ...BOXES.x32, ...VJS, ...EAS, ...CMES, ...CME_ADV, ...MARIACHI] };
+const LISTS = { gdig: GDIG, l20: [...L20, ...L20_REC], b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: [...XEN, ...KY], sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c, ...COB], yam01v96: Y96, x32: [...X32F, ...BOXES.x32, ...VJS, ...EAS, ...CMES, ...CME_ADV, ...MARIACHI] };
 
 // Who is on stage (js/music.js stageFor). Every scenario's story was read for
 // this; anything not listed has the whole band playing (the 8-bar section it
@@ -6133,7 +6260,7 @@ const vjSong = (board, k) => (ORDER[board].filter((x) => x.startsWith("vj-")).in
 // A gig is its own song (its cast, its tracks, its rig): COB, Vocal Jazz, the showcase, karaoke, CME, mariachi.
 const songOf = (board, id) => {
   const k = id.slice(board.length + 1);
-  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? vjSong(board, k) : k.startsWith("ea-") ? "ea" : k.startsWith("ky-") ? "karaoke" : k.startsWith("cme-") ? "cme" : k.startsWith("mar-") ? "mariachi" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
+  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? vjSong(board, k) : k.startsWith("ea-") ? "ea" : k.startsWith("ky-") ? "karaoke" : k.startsWith("cme-") ? "cme" : k.startsWith("mar-") ? "mariachi" : k.startsWith("rec-") ? "film" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
 };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.
