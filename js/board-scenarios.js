@@ -6444,7 +6444,7 @@ const VJRS = [
       VJR_ROOM + " Follow each mic's XLR from the stereo bar to the S32. The two cables look alike, which is how it happened: one of them is marked with a colored ring.",
       "On the S32, the left mic's XLR goes into IN 25 and the right mic's into IN 26.",
     ],
-    complete: "Two XLRs that look alike are easy to swap. Mark one, with a colored ring or tape, so left and right can be told apart on the floor and at the stage box, and check it with a SOLO on each channel before you record: scratch or tap the left mic, and it should move CH 25.",
+    complete: "Two XLRs that look alike are easy to swap. Mark one, with a colored ring or tape, so left and right can be told apart on the floor and at the stage box, and check it before you record: with someone talking on the left side of the room, CH 25 should be louder than CH 26.",
   },
   {
     id: "x32-vjr-card",
