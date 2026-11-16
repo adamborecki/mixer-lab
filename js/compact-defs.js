@@ -236,9 +236,9 @@ export const COMPACT = {
     fx: {
       send: "aux2",
       ret: "ret2",
-      // 32 presets in the groups printed on the panel. Only the groups are
-      // from the board; each preset's sound here is a stand-in. BH 109 uses
-      // DLY + REV, one of the COMBINATION FX (which number isn't confirmed).
+      // 32 presets in the groups printed on the panel. The groups are from the
+      // board, and 28 is DLY + REV; the other names and every sound are stand-ins. BH 109 uses
+      // DLY + REV, 28 (the instructor confirmed it by ear, 2026-11).
       presets: [
         ...[2.2, 2.7, 3.2, 3.8].map((seconds, i) => ({ name: `LARGE HALL ${i + 1}`, group: "REVERB A", kind: "reverb", seconds })),
         ...[0.5, 0.7, 0.9, 1.2].map((seconds, i) => ({ name: `SMALL ROOM ${i + 1}`, group: "REVERB B", kind: "reverb", seconds })),
@@ -255,7 +255,7 @@ export const COMPACT = {
         { name: "DETUNE/PITCH 2", group: "DETUNE/PITCH", kind: "chorus", rate: 0.5, depth: 0.002 },
         { name: "DETUNE/PITCH 3", group: "DETUNE/PITCH", kind: "chorus", rate: 0.2, depth: 0.003 },
         { name: "COMBINATION 1", group: "COMBINATION FX", kind: "delay", seconds: 0.3, feedback: 0.25, reverb: 1 },
-        { name: "COMBINATION 2", group: "COMBINATION FX", kind: "delay", seconds: 0.375, feedback: 0.3, reverb: 1.5 },
+        { name: "DLY + REV", group: "COMBINATION FX", kind: "delay", seconds: 0.375, feedback: 0.3, reverb: 1.5 },
         { name: "COMBINATION 3", group: "COMBINATION FX", kind: "chorus", rate: 0.8, depth: 0.004, reverb: 2 },
         { name: "SPECIAL FX 1", group: "SPECIAL FX", kind: "delay", seconds: 0.06, feedback: 0.7 },
         { name: "SPECIAL FX 2", group: "SPECIAL FX", kind: "flanger", rate: 2.5, depth: 0.004 },

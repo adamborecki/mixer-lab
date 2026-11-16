@@ -57,7 +57,7 @@ The Free play gig on each one shows its limits:
 - **1202-VLZ:** Mackie MS1202-VLZ service manual (parts list and signal-flow diagram). The owner's manual wasn't reachable, so control ranges follow the CR1604-VLZ, which uses the same circuits (TRIM, LOW CUT, EQ, knob tapers).
 - **MG10/2:** Yamaha MG10/2 owner's manual (text version), including its specification tables.
 - **STAGEPAS 400BT:** Yamaha STAGEPAS 600BT/400BT owner's manual and block diagram.
-- **QX1204USB:** first built from the Behringer XENYX X1204USB/1204USB user manual (chapter 2, control elements; chapter 5, specifications); turned into the QX1204USB, the one Chapman has, from photos of BH 109's board (2026-10-22): 2-TRACK IN/OUT, USB/2-TR TO MAIN, the meter, the 32 effects presets' groups. Preset names within a group and their sounds are stand-ins.
+- **QX1204USB:** first built from the Behringer XENYX X1204USB/1204USB user manual (chapter 2, control elements; chapter 5, specifications); turned into the QX1204USB, the one Chapman has, from photos of BH 109's board (2026-10-22): 2-TRACK IN/OUT, USB/2-TR TO MAIN, the meter, the 32 effects presets' groups. 28 is DLY + REV (confirmed by ear in BH 109); the other preset names and every preset's sound are stand-ins.
 
 ## Simplifications and guesses to check against the real units
 

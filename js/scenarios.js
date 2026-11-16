@@ -1818,14 +1818,14 @@ const VJR_GIGS = {
 // on a Behringer Xenyx: two SM58s on CH 1 and 2 (LOW CUT on, COMP about
 // 3 o'clock), the karaoke laptop on LINE IN 5/6, an SM58 through a Zoom V3 on
 // 7/8 L (MONO), both stereo channels at −10. The four mics' FX sends feed the
-// built-in effects (the room's DLY + REV, a COMBINATION FX preset), back on RETURN 2 at unity
+// built-in effects (DLY + REV, preset 28), back on RETURN 2 at unity
 // into the MAIN MIX. MAIN OUTPUTS L/R → XLR-to-TRS → the rack's AUX AUDIO INPUT
 // L/R → the Ashly's Ch.1 (on LINE) → the Crown → the two passive wall speakers.
-// AUX 1 isn't used. Which COMBINATION FX preset is the room's DLY + REV isn't
-// confirmed: the gig starts on the first one.
+// AUX 1 isn't used. The V3's singer gets the same reverb as the mics; the
+// karaoke track gets none (it's a finished mix with its own).
 const KARAOKE_GIGS = {
   x1204usb: {
-    prompt: "Karaoke in BH 109, the choir room, on a Behringer Xenyx: two singers on SM58s on CH 1 and 2 (LOW CUT on, COMP about 3 o'clock), the karaoke laptop on LINE IN 5/6, and a third singer's SM58 through a Zoom V3 vocal processor, its OUTPUT L into 7/8 L (MONO). Both stereo channels are switched to −10. The singers' FX knobs feed the built-in effects (DLY + REV, a COMBINATION FX preset), which come back on RETURN 2 into the MAIN MIX. The PA is the room's own: MAIN OUTPUTS L/R on XLR-to-TRS cables into the rack's AUX AUDIO INPUT, through the Ashly line mixer's Ch.1 (on LINE) to the Crown amp and the two passive wall speakers. AUX 1 isn't used.",
+    prompt: "Karaoke in BH 109, the choir room, on a Behringer Xenyx: two singers on SM58s on CH 1 and 2 (LOW CUT on, COMP about 3 o'clock), the karaoke laptop on LINE IN 5/6, and a third singer's SM58 through a Zoom V3 vocal processor, its OUTPUT L into 7/8 L (MONO). Both stereo channels are switched to −10. The singers' FX knobs (the mics and the V3, not the karaoke track) feed the built-in effects, DLY + REV (preset 28), which come back on RETURN 2 into the MAIN MIX. The PA is the room's own: MAIN OUTPUTS L/R on XLR-to-TRS cables into the rack's AUX AUDIO INPUT, through the Ashly line mixer's Ch.1 (on LINE) to the Crown amp and the two passive wall speakers. AUX 1 isn't used.",
     patch: { "ky-mic1": [0, "mic"], "ky-mic2": [1, "mic"], "ky-track": [4, "lr"], "ky-v3": [5, "l"] },
     cableFor: { "ky-v3": "ts" },
     devices: ["bh109-rack", "bh109-l", "bh109-r"],
@@ -1835,13 +1835,13 @@ const KARAOKE_GIGS = {
       { from: "bh109-rack/out-a", to: "bh109-l/in", cable: "speaker" },
       { from: "bh109-rack/out-b", to: "bh109-r/in", cable: "speaker" },
     ],
-    sends: { fx: { "ky-mic1": -6, "ky-mic2": -6 } },
+    sends: { fx: { "ky-mic1": -6, "ky-mic2": -6, "ky-v3": -6 } },
     pre: false,
     comp: { "ky-mic1": 0.8, "ky-mic2": 0.8 },
     minus10: ["ky-track", "ky-v3"],
-    // The effects on a COMBINATION FX preset (the room's DLY + REV), RETURN 2 at unity.
+    // The effects on DLY + REV (28), RETURN 2 at unity.
     tweak: (state) => {
-      state.fx.program = COMPACT.x1204usb.fx.presets.findIndex((p) => p.group === "COMBINATION FX");
+      state.fx.program = COMPACT.x1204usb.fx.presets.findIndex((p) => p.name === "DLY + REV");
       state.ret2.level = COMPACT_LAWS.ret20.toPos(0);
     },
   },
