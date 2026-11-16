@@ -12,12 +12,23 @@ import {
   cableEndFor,
   cablesForPort,
   checkConnection,
+  orient,
   getPort,
   isMixer,
   listPorts,
   mixerOf,
   plugFitsJack,
+  SD8_BANKS,
+  aesOffset,
+  inSourceName,
   throughLinks,
+  MIC_STATES,
+  knobDb,
+  knobPos,
+  receiverChannel,
+  powerSpec,
+  powerState,
+  powerWhy,
 } from "../connection-model.js";
 import { modelOf } from "../mixer-state.js";
 import { F8, PAIR, REVERB, TECHNIQUES, cardStats, techniqueOf } from "../devices.js";
@@ -26,13 +37,14 @@ import { CONNECTOR_GUIDE, deviceIconName, icon, jackIconName, levelIconName, plu
 import { jackArt, plugArt } from "./connector-art.js";
 import { nameMode, sourceName } from "../names.js";
 import { dvsRunning } from "../dante.js";
+import { count } from "../submission.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 const CABLE_HUES = [195, 145, 45, 330, 265, 20, 170, 290];
 export const cableHue = (id) => CABLE_HUES[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % CABLE_HUES.length];
 
-const LEVEL_SHORT = { mic: "Mic level", instrument: "Instrument level", line: "Line level", speaker: "Speaker level", "mic-or-line": "Mic (XLR) or line (¼″)", any: "Passes whatever is plugged in at the other end" };
+const LEVEL_SHORT = { mic: "Mic level", instrument: "Instrument level", line: "Line level", speaker: "Speaker level", "mic-or-line": "Mic (XLR) or line (¼″)", any: "Passes whatever is plugged in at the other end", rf: "RF (antenna)" };
 
 export function portLabel(rig, ref, { short = false } = {}) {
   const p = getPort(rig, ref);
@@ -43,8 +55,10 @@ export function portLabel(rig, ref, { short = false } = {}) {
 }
 
 export class PatchView {
-  constructor({ sourcesRoot, outputsRoot, store, manifest, toast, getTerms, onOpenRecorder = () => {}, getRecorder = () => null, onOpenDante = () => {} }) {
+  constructor({ sourcesRoot, outputsRoot, store, manifest, toast, getTerms, onOpenRecorder = () => {}, getRecorder = () => null, onOpenDante = () => {}, onSettle = () => {}, onOpenConsole = () => {} }) {
     this.onOpenRecorder = onOpenRecorder;
+    this.onOpenConsole = onOpenConsole;
+    this.onSettle = onSettle;
     this.onOpenDante = onOpenDante;
     this.getRecorder = getRecorder;
     this.sourcesRoot = sourcesRoot;
@@ -69,6 +83,23 @@ export class PatchView {
         if (rec) this.onOpenRecorder(rec.dataset.openRecorder);
         const dante = e.target.closest("[data-open-dante]");
         if (dante) this.onOpenDante(dante.dataset.openDante);
+        const desk = e.target.closest("[data-open-console]");
+        if (desk) this.onOpenConsole(desk.dataset.openConsole);
+        // A wireless handheld's one button: a tap mutes or unmutes it, press and hold switches it on or off.
+        const press = e.target.closest("[data-mic-press]");
+        if (press) {
+          const d = this.store.state.rig.devices.find((x) => x.id === press.dataset.device);
+          const now = d?.mic || 0;
+          const next = press.dataset.micPress === "tap" ? (now === 2 ? 2 : 1 - now) : now === 2 ? 0 : 2;
+          if (d && next !== now) {
+            this.store.setDevice(d.id, "mic", next);
+            this.onSettle();
+          }
+        }
+      });
+      // A knob let go, or a choice made: the cards' status follows.
+      root.addEventListener("change", (e) => {
+        if (e.target.closest("[data-device-key]")) this.onSettle();
       });
       // Device settings (mic pair spacing/angle, reverb decay). The panel isn't
       // redrawn while dragging; only the readouts next to the slider change.
@@ -125,9 +156,17 @@ export class PatchView {
     const cards = sources.map((d) => {
       const src = SOURCES_BY_ID[d.sourceId];
       const ref = `${d.id}/out`;
-      const chInfo = mix.channels.find((c) => c.input.sourceDeviceId === d.id);
+      // A radio handheld has no cable: its channel is the one its receiver feeds.
+      const rf = DEVICE_TYPES[d.type].rf;
+      const chInfo = mix.channels.find((c) => (rf ? c.sourceId === d.sourceId : c.input.sourceDeviceId === d.id));
       const input = chInfo ? chInfo.input : null;
-      const status = !input ? "idle" : input.status === "ok" ? "ok" : input.status === "danger" ? "bad" : "warn";
+      // The same verdict as its box in Stage & patch: its own power first, then (by radio) whether
+      // any audio reaches its channel, then what the channel's input says.
+      const pst = powerState(rig, d);
+      const dark = pst && pst !== "on";
+      const silentRf = rf && (!chInfo || chInfo.band === "none");
+      const status = dark || silentRf ? "warn" : !input ? "idle" : input.status === "ok" ? "ok" : input.status === "danger" ? "bad" : "warn";
+      const pill = dark ? { unplugged: "! Unplugged", off: "! Switched off" }[pst] || "! No power" : silentRf ? (chInfo ? "! No audio" : "! No channel") : status === "ok" ? "✓ Signal" : status === "idle" ? "Unpatched" : status === "bad" ? "✕ Danger" : input?.status === "no-power" ? "! No power" : "! Check";
       const msgs = input ? input.messages : [];
       const tags = [
         `<span class="tag tag-level" data-level="${src.signalLevel}">${icon(levelIconName(src.signalLevel), { size: 22, cls: "tag-ico" })}${SIGNAL_LEVELS[src.signalLevel].name}</span>`,
@@ -138,7 +177,9 @@ export class PatchView {
       // Input-list number: where this source belongs (the CR1604 takes the laptop on TAPE IN).
       const model = modelOf(state);
       // Input-list number: where the source is patched (a compact mixer has fewer channels than the band).
-      const listNo = model === "generic" ? state.channels[src.order - 1].label : model === "cr1604" && src.stereo ? "TAPE" : chInfo ? state.channels[chInfo.index].label : "—";
+      // On Mixer A/B a source's own strip, if it has one of the right kind (mics 9–11 of the Vocal Jazz Ensemble don't).
+      const own = state.channels[src.order - 1];
+      const listNo = model === "generic" ? (own && !!own.stereo === !!src.stereo ? own.label : chInfo ? state.channels[chInfo.index].label : "—") : model === "cr1604" && src.stereo ? "TAPE" : chInfo ? state.channels[chInfo.index].label : "—";
       const note =
         model === "cr1604" && src.stereo
           ? "A laptop's 3.5 mm headphone jack is a stereo line output. On the 1604 it goes into the TAPE INPUT RCA pair with a 3.5 mm ↔ RCA (Y) cable, then TAPE TO MAIN MIX puts it in the house."
@@ -150,10 +191,12 @@ export class PatchView {
           <span class="source-order" aria-label="Input list number">${esc(listNo)}</span>
           <span class="dev-ico">${icon(deviceIconName(d), { size: 40 })}</span>
           <div class="source-names"><strong>${esc(sourceName(src))}</strong><span>${nameMode() === "musicians" && src.musician ? `${esc(src.name)} · ` : ""}${esc(src.device)}</span></div>
-          <span class="status-pill status-${status}">${status === "ok" ? "✓ Signal" : status === "idle" ? "Unpatched" : status === "bad" ? "✕ Danger" : "! Check"}</span>
+          <span class="status-pill status-${status}">${pill}</span>
         </div>
         <div class="tags">${tags}</div>
-        ${this.portButton(ref, "out")}
+        ${rf ? rfLine(rig, d) : this.portButton(ref, "out")}
+        ${sourceGearHtml(d, src, rig)}
+        ${powerHtml(rig, d)}
         ${msgs.map((m) => `<p class="port-msg">${esc(m)}</p>`).join("")}
         ${note ? `<p class="source-note">${esc(note)}</p>` : ""}
       </li>`);
@@ -226,15 +269,24 @@ export class PatchView {
     const links = throughLinks(rig).filter((l) => l.via === d.id);
     const live = mix.channels.filter((c) => c.input.connected && links.some((l) => l.from === c.input.fromPort));
     const plugged = listPorts(rig, d).filter((p) => cableAt(rig, p.ref) && !p.network);
-    const net = listPorts(rig, d).find((p) => p.network);
-    const up = net && cableAt(rig, net.ref);
+    const nets = listPorts(rig, d).filter((p) => p.network);
     const mixer = mixerOf(rig);
-    const blocks = mixer.inSource ? mixer.inSource.map((v, b) => `CH ${b * 8 + 1}–${b * 8 + 8}: ${v ? "AES50-A" : "LOCAL"}`).join(" · ") : "";
+    const offset = type.passthrough || !mixer ? null : aesOffset(rig, d, mixer);
+    const blocks = mixer.inSource ? mixer.inSource.map((v, b) => `CH ${b * 8 + 1}–${b * 8 + 8}: ${inSourceName(mixer.inSource, b)}`).join(" · ") : "";
+    const span = offset === null ? "" : `AES50 A${offset + 1}–${offset + type.ins}`;
+    const link = offset === 0 ? `✓ AES50 link to the console: its inputs are ${span}.`
+      : offset !== null ? `✓ AES50 link through the box before it (its AES50 B): this box's inputs come after that box's, as ${span}.`
+      : "No AES50 link: a Cat5 cable from AES50 A into the console's AES50 A, or into the AES50 B of a box that is linked.";
+    const shift = (d.outBank || 0) * 8;
+    const outs = type.bank ? `OUTPUT switch on ${SD8_BANKS[d.outBank || 0]}: OUT n carries AES50 output ${shift ? `n + ${shift}` : "n"}. In Salmon, AES50 outputs 1–16 carry the console's XLR OUT 1–16, and 17–24 repeat OUT 1–8.` : "OUT n carries the console's XLR OUT n.";
     const ins = plugged.filter((p) => p.dir === "in" && (p.role === "sb-in" || p.end === "stage")).length;
     const status = !plugged.length ? "idle" : live.length >= ins ? "ok" : "warn";
     const note = type.passthrough
       ? "Passive: IN n on stage comes out as tail n at FOH, phantom power included. RETURN sends at FOH come out on stage."
-      : `${up ? "✓ AES50 link to the console." : "No AES50 link: plug a Cat5 cable from AES50 A into the console's AES50 A."} The console's GAIN and 48V drive these preamps. ROUTING: ${blocks}. OUT n carries the console's XLR OUT n.`;
+      : `${link} The console's GAIN and 48V drive these preamps. ROUTING: ${blocks}. ${outs}`;
+    const bank = type.bank
+      ? `<div class="dev-settings"><label>OUTPUT switch <select data-device="${esc(d.id)}" data-device-key="outBank" aria-label="${esc(d.label || type.name)} OUTPUT switch">${SD8_BANKS.map((t, i) => `<option value="${i}"${(d.outBank || 0) === i ? " selected" : ""}>${t}</option>`).join("")}</select></label></div>`
+      : "";
     return this.card(d.id, `<li class="source-card status-${status}" data-device-card="${esc(d.id)}">
       <div class="source-top">
         <span class="source-order">BOX</span>
@@ -243,7 +295,9 @@ export class PatchView {
         <span class="status-pill status-${status}">${live.length} on the console</span>
       </div>
       <p class="source-note">${esc(note)}</p>
-      ${net ? this.portButton(net.ref, net.dir) : ""}
+      ${bank}
+      ${powerHtml(rig, d)}
+      ${nets.map((p) => this.portButton(p.ref, p.dir)).join("")}
       ${plugged.map((p) => this.portButton(p.ref, p.dir)).join("")}
     </li>`);
   }
@@ -267,6 +321,9 @@ export class PatchView {
         card.querySelector('[data-readout="technique"]').innerHTML = techniqueText(d);
       }
       if (d.type === "reverb") set("decay", `${d.decay.toFixed(1)} s`);
+      for (const k of DEVICE_TYPES[d.type].knobs || []) if (!k.select) set(k.key, knobText(knobPos(d, k), k.unity));
+      const vk = d.sourceId && this.manifest.SOURCES_BY_ID[d.sourceId]?.volumeKnob;
+      if (vk) set("vol", knobText(d.vol ?? vk.start, vk.unity));
       if (d.type === "camera-input") set("inputLevel", d.inputLevel === 1 ? "LINE" : "MIC");
     }
   }
@@ -278,7 +335,12 @@ export class PatchView {
     const mixer = mixerOf(rig);
     const outs = listPorts(rig, mixer).filter((p) => p.dir === "out");
     const endpoints = new Map(mix.rig.endpoints.map((e) => [e.deviceId, e]));
-    const busName = (portId) => ({ "main-l": "Main L", "main-r": "Main R", "cr-l": "C-R L", "cr-r": "C-R R" })[portId] || terms[portId] || portId;
+    // A routed output (full X32) is named by its jack and what ROUTING sends it: "XLR OUT 11 · MIX 11".
+    const routedName = (portId) => {
+      const src = state.routing?.[portId];
+      return src && `XLR OUT ${portId.slice(3)} · ${({ "main-l": "MAIN L", "main-r": "MAIN R" })[src] || terms[src] || src.toUpperCase().replace(/(\d+)$/, " $1")}`;
+    };
+    const busName = (portId) => ({ "main-l": "Main L", "main-r": "Main R", "cr-l": "C-R L", "cr-r": "C-R R" })[portId] || terms[portId] || routedName(portId) || portId;
     const boardNames = modelOf(state) !== "generic"; // real mixers' jacks are named as printed on them
 
     const outRows = outs
@@ -288,7 +350,7 @@ export class PatchView {
         const reached = mix.rig.buses[p.id] || [];
         const cable = cableAt(rig, p.ref);
         const target = cable ? getPort(rig, cable.to) : null;
-        const feeds = target && !DEVICE_TYPES[target.device.type].endpoint && target.device.type !== "power-amp";
+        const feeds = target && !DEVICE_TYPES[target.device.type].endpoint && !DEVICE_TYPES[target.device.type].poweramp;
         const note = reached.length
           ? `<p class="port-msg ok">✓ Sound from: ${reached.map((id) => esc(rig.devices.find((d) => d.id === id).label)).join(", ")}</p>`
           : feeds
@@ -331,7 +393,7 @@ export class PatchView {
       })
       .join("");
 
-    const amps = rig.devices.filter((d) => d.type === "power-amp");
+    const amps = rig.devices.filter((d) => DEVICE_TYPES[d.type].poweramp);
     const ampHtml = amps
       .map(
         (d) => this.card(d.id, `<li class="device-card">
@@ -346,8 +408,28 @@ export class PatchView {
             .map((p) => this.portButton(p.ref, p.dir))
             .join("")}</div>
         </div>
+        ${micSwitchHtml(d)}
+        ${knobsHtml(d)}
+        ${powerHtml(rig, d)}
+        ${DEVICE_TYPES[d.type].where ? `<p class="source-note">${esc(DEVICE_TYPES[d.type].where)}</p>` : ""}
       </li>`),
       )
+      .join("");
+
+    // A small mixer with a console of its own (the hall's Mix5), a rack's power, and the wireless rack's gear.
+    const gear = rig.devices.filter((d) => ["console", "decor", "rackPower", "receiver", "rfSplit", "sink"].some((f) => DEVICE_TYPES[d.type][f]) || d.type === "antenna");
+    const gearHtml = gear
+      .map((d) => {
+        const type = DEVICE_TYPES[d.type];
+        return this.card(d.id, `<li class="device-card" data-device-card="${esc(d.id)}">
+        <div class="device-top"><span class="dev-ico">${icon(deviceIconName(d), { size: 44 })}</span><div class="source-names"><strong>${esc(d.label || type.name)}</strong><span>${esc(type.blurb)}</span></div></div>
+        ${type.receiver ? receiverHtml(rig, d, this.manifest.SOURCES_BY_ID) : ""}
+        ${type.console ? "" : knobsHtml(d)}
+        ${powerHtml(rig, d)}
+        ${listPorts(rig, d).map((p) => this.portButton(p.ref, p.dir)).join("")}
+        ${type.console ? `<button type="button" class="btn btn-start" data-open-console="${esc(d.id)}">Open Console: ${esc(type.name.replace(/^Mackie /, ""))}</button>` : ""}
+      </li>`);
+      })
       .join("");
 
     const speakers = rig.devices.filter((d) => DEVICE_TYPES[d.type].endpoint);
@@ -356,8 +438,8 @@ export class PatchView {
       .map((d) => {
         const type = DEVICE_TYPES[d.type];
         const ep = endpoints.get(d.id);
-        const status = ep.valid ? (ep.status === "ok" ? "ok" : "warn") : ep.status === "unpatched" ? "idle" : ep.status === "danger" ? "bad" : "warn";
-        const statusText = ep.valid ? `${ep.status === "hot" ? "⚠ Distorting" : ep.status === "weak" ? "⚠ Too quiet" : "✓ Sound"}: ${busName(ep.output)}${ep.viaAmp ? " via amp" : ""}` : ep.status === "unpatched" ? "Silent" : ep.status === "danger" ? "✕ Danger" : "✕ No sound";
+        const status = ep.status === "off" ? "idle" : ep.valid ? (ep.status === "ok" && !ep.cableWarn ? "ok" : "warn") : ep.status === "unpatched" ? "idle" : ep.status === "danger" ? "bad" : "warn";
+        const statusText = ep.status === "off" ? `○ Turned down: ${busName(ep.output)}` : ep.valid ? `${ep.cableWarn ? "⚠ Wrong cable" : ep.status === "hot" ? "⚠ Distorting" : ep.status === "weak" ? "⚠ Too quiet" : "✓ Sound"}: ${busName(ep.output)}${ep.viaAmp ? " via amp" : ""}` : ep.status === "unpatched" ? "Silent" : ep.status === "danger" ? "✕ Danger" : "✕ No sound";
         const amp = type.camera ? "Records what it's fed" : type.amp === "internal" ? "Amp: built in (powered)" : "Amp: none inside (passive)";
         const settings = type.camera && d.type === "camera-input"
           ? `<div class="dev-settings"><label>INPUT <output data-readout="inputLevel">${d.inputLevel === 1 ? "LINE" : "MIC"}</output>
@@ -373,6 +455,8 @@ export class PatchView {
             .map((p) => this.portButton(p.ref, p.dir))
             .join("")}
           ${settings}
+          ${knobsHtml(d)}
+          ${powerHtml(rig, d)}
           ${ep.messages.map((m) => `<p class="port-msg">${esc(m)}</p>`).join("")}
         </li>`);
       })
@@ -385,9 +469,103 @@ export class PatchView {
       ${reverbs.length ? `<h3 class="group-title">Effects</h3><ul class="device-list">${reverbHtml}</ul>` : ""}
       ${recorders.length ? `<h3 class="group-title">Recorder</h3><ul class="device-list">${recHtml}</ul>` : ""}
       ${amps.length ? `<h3 class="group-title">Amplifier</h3><ul class="device-list">${ampHtml}</ul>` : ""}
+      ${gear.length ? `<h3 class="group-title">Rack gear</h3><ul class="device-list">${gearHtml}</ul>` : ""}
       <h3 class="group-title">${icon("role-destination", { size: 22 })}${speakers.every((d) => DEVICE_TYPES[d.type].camera) ? "Camera — does the level match?" : "Speakers — where is the amplifier?"}</h3>
       <ul class="device-list">${spkHtml}</ul>`;
   }
+}
+
+// A knob's position and what it does, as its readout prints it: "7 · −6 dB".
+function knobText(pos, unity) {
+  const db = knobDb(pos, unity);
+  return `${pos} · ${db === -Infinity ? "off" : Math.abs(db) < 0.5 ? "0 dB" : `${db > 0 ? "+" : "−"}${Math.abs(db).toFixed(0)} dB`}`;
+}
+const knobInput = (d, key, label, pos, unity) => `<label>${esc(label)} <output data-readout="${esc(key)}">${knobText(pos, unity)}</output>
+  <input type="range" min="0" max="10" step="0.5" value="${pos}" data-device="${esc(d.id)}" data-device-key="${esc(key)}" aria-label="${esc(d.label || DEVICE_TYPES[d.type].name)}: ${esc(label)}" /></label>`;
+
+// The knobs on an amp, a rack's mixer or an active wedge (DEVICE_TYPES `knobs`).
+function knobsHtml(d) {
+  const knobs = DEVICE_TYPES[d.type].knobs;
+  if (!knobs) return "";
+  return `<div class="dev-settings" data-device-card="${esc(d.id)}">${knobs
+    .map((k) =>
+      k.select
+        ? `<label>${esc(k.label)} <select data-device="${esc(d.id)}" data-device-key="${esc(k.key)}" aria-label="${esc(d.label || DEVICE_TYPES[d.type].name)}: ${esc(k.label)}">${k.select.map((t, i) => `<option value="${i}"${knobPos(d, k) === i ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></label>`
+        : knobInput(d, k.key, k.label, knobPos(d, k), k.unity),
+    )
+    .join("")}</div>`;
+}
+
+// Its power: the cable and the switch, separately, and whether it has power
+// (the same two controls as the tab on its box in the diagram).
+export const POWER_TEXT = { on: "On", off: "Switched off", unplugged: "Unplugged", "no-power": "No power reaching it" };
+function powerHtml(rig, d) {
+  const spec = powerSpec(d);
+  if (!spec) return "";
+  const st = powerState(rig, d);
+  const name = esc(d.label || DEVICE_TYPES[d.type].name);
+  const sel = (key, label, opts) => `<label>${esc(label)} <select data-device="${esc(d.id)}" data-device-key="${key}" aria-label="${name}: ${esc(label)}">${opts.map((t, i) => `<option value="${i}"${(d[key] ?? 1) === i ? " selected" : ""}>${t}</option>`).join("")}</select></label>`;
+  return `<div class="dev-settings power-row pwr-${st}" data-device-card="${esc(d.id)}">
+    ${sel("plugged", spec.gear ? `${spec.gear}: power cable` : spec.plug ? spec.plug[0].toUpperCase() + spec.plug.slice(1) : "Power cable", ["Unplugged", "Plugged in"])}
+    ${spec.noSwitch ? "" : sel("on", "Power switch", ["Off", "On"])}
+    <p class="power-state"><span class="pwr-dot" aria-hidden="true"></span>${st === "on" ? "Power: on" : esc(powerWhy(rig, d))}</p>
+  </div>`;
+}
+
+// A radio handheld's way in: no cable, its receiver channel at FOH and the input that one plugs into.
+function rfLine(rig, d) {
+  const rx = rig.devices.find((x) => DEVICE_TYPES[x.type].receiver && Object.values(x.pairs || {}).includes(d.sourceId));
+  const port = rx && Object.keys(rx.pairs).find((k) => rx.pairs[k] === d.sourceId);
+  const into = port && rig.cables.find((c) => c.from === `${rx.id}/${port}`);
+  return `<p class="source-note">No cable: by radio to ${rx ? `${esc(rx.label)}, CH ${port.slice(3)}` : "no receiver"}${into ? `, whose AF OUT is in ${esc(into.to.replace("mixer/", "the console's ").replace(/ch(\d+)-mic/, "LOCAL $1"))}` : ""}.</p>`;
+}
+
+// A receiver's channels: which mic each is paired with, and what its display shows.
+function receiverHtml(rig, d, sources) {
+  const rows = Array.from({ length: DEVICE_TYPES[d.type].channels }, (_, i) => {
+    const ch = receiverChannel(rig, d, i + 1);
+    const tx = ch.sourceId && rig.devices.find((x) => x.sourceId === ch.sourceId);
+    const txOn = !!tx && (tx.mic || 0) !== 2 && !tx.dead;
+    const status = !ch.on ? "off" : !(ch.a || ch.b) ? "no antenna" : !ch.sourceId ? "no mic paired" : tx?.dead ? "no signal (the mic is dead)" : !txOn ? "no signal (the mic is off)" : tx.mic ? "signal ✓ · audio — (muted at the mic)" : "signal ✓ · audio ✓";
+    const one = ch.on && ch.sourceId && ch.a !== ch.b ? " · one antenna only" : "";
+    return `<li><strong>CH ${i + 1}</strong> ${esc(ch.sourceId ? sources[ch.sourceId]?.name || ch.sourceId : "—")} · ${status}${one}</li>`;
+  });
+  return `<ul class="rx-status">${rows.join("")}</ul>`;
+}
+
+// What a source's own gear lets you do: a wireless handheld's one button, or
+// the volume knob on the amp or instrument in front of its mic or DI.
+function sourceGearHtml(d, src, rig) {
+  if (d.type === "wireless-handheld" || d.type === "rf-handheld") {
+    // A dead handheld (`dead`: it won't switch on, whatever its button does): set it aside.
+    if (d.dead) {
+      return `<div class="dev-settings mic-button" data-device-card="${esc(d.id)}">
+      <p class="mic-display"><strong>Mic: DEAD</strong> · Receiver: no signal</p>
+      <p class="source-note">It won't switch on, with a fresh battery or without. Set it aside, tag it, and give the player a spare.</p>
+    </div>`;
+    }
+    const st = d.mic || 0;
+    // A radio handheld's receiver channel says what it really gets: power, antennas, then the mic.
+    const rxDev = d.type === "rf-handheld" && rig?.devices.find((x) => DEVICE_TYPES[x.type].receiver && Object.values(x.pairs || {}).includes(d.sourceId));
+    const port = rxDev && Object.keys(rxDev.pairs).find((k) => rxDev.pairs[k] === d.sourceId);
+    const ch = port && receiverChannel(rig, rxDev, Number(port.slice(3)));
+    const rx = ch && !ch.on ? "Receiver: off (no power)" : ch && !(ch.a || ch.b) ? "Receiver: no antenna signal" : ["Receiver: signal ✓ · audio ✓", "Receiver: signal ✓ · audio —", "Receiver: no signal"][st];
+    return `<div class="dev-settings mic-button" data-device-card="${esc(d.id)}">
+      <p class="mic-display"><strong>Mic: ${MIC_STATES[st]}</strong> · ${rx}</p>
+      <div class="mic-press"><button type="button" class="btn" data-device="${esc(d.id)}" data-mic-press="tap">Tap the button</button><button type="button" class="btn" data-device="${esc(d.id)}" data-mic-press="hold">Press and hold</button></div>
+      <p class="source-note">One button: a tap mutes or unmutes it, press and hold switches it on or off.</p>
+    </div>`;
+  }
+  const k = src.volumeKnob;
+  return k ? `<div class="dev-settings" data-device-card="${esc(d.id)}">${knobInput(d, "vol", k.label, d.vol ?? k.start, k.unity)}</div>` : "";
+}
+
+// A line mixer's Line / Mic button in front of an amp (BH 109's rack: the Ashly's Ch.1).
+function micSwitchHtml(d) {
+  const sw = DEVICE_TYPES[d.type].micSwitch;
+  if (!sw) return "";
+  const on = d[sw.key] === 1;
+  return `<div class="dev-settings"><label>Ashly Ch.1 <select data-device="${esc(d.id)}" data-device-key="${sw.key}" aria-label="${esc(d.label)}: Ashly Ch.1 Line / Mic button"><option value="0"${on ? "" : " selected"}>LINE</option><option value="1"${on ? " selected" : ""}>MIC (+${sw.gainDb} dB)</option></select></label></div>`;
 }
 
 // ---------- the patch dialog ----------
@@ -444,7 +622,7 @@ class PatchDialog {
     const p = getPort(this.rig, this.ref);
     const dev = p.device.label || DEVICE_TYPES[p.device.type].name;
     return `<div class="pv">
-      <figure class="pv-end pv-from">${jackArt(p.jack, p.dir)}<figcaption><small>${p.dir === "out" ? "From" : "Into"}</small> ${esc(isMixer(p.device) ? "Mixer" : dev)} · ${esc(p.name)}</figcaption></figure>
+      <figure class="pv-end pv-from">${jackArt(p.jack, p.dir)}<figcaption><small>${p.parallel || p.dir === "out" ? "From" : "Into"}</small> ${esc(isMixer(p.device) ? "Mixer" : dev)} · ${esc(p.name)}</figcaption></figure>
       <div class="pv-cable">${this.cableArt(cable)}</div>
       <figure class="pv-end pv-to">${this.targetArt(target)}</figure>
     </div>`;
@@ -465,7 +643,7 @@ class PatchDialog {
   targetArt(ref) {
     if (!ref) return `<div class="pv-unknown" aria-hidden="true">?</div><figcaption><small>To</small> …</figcaption>`;
     const q = getPort(this.rig, ref);
-    return `${jackArt(q.jack, q.dir)}<figcaption><small>${q.dir === "in" ? "To" : "From"}</small> ${esc(portLabel(this.rig, ref))}</figcaption>`;
+    return `${jackArt(q.jack, q.dir)}<figcaption><small>${q.parallel || q.dir === "in" ? "To" : "From"}</small> ${esc(portLabel(this.rig, ref))}</figcaption>`;
   }
 
   showCableArt(cableId) {
@@ -489,8 +667,9 @@ class PatchDialog {
     const a = getPort(this.rig, aRef);
     const b = getPort(this.rig, bRef);
     if (!a || !b) return;
-    if (a.dir === b.dir) return this.view.toast(`Both are ${a.dir === "out" ? "outputs" : "inputs"}. A cable runs from an output to an input.`, "bad");
-    const [from, to] = a.dir === "out" ? [aRef, bRef] : [bRef, aRef];
+    const ends = orient(this.rig, aRef, bRef);
+    if (!ends) return this.view.toast(`Both are ${a.dir === "out" ? "outputs" : "inputs"}. A cable runs from an output to an input.`, "bad");
+    const [from, to] = ends;
     const fits = Object.values(CABLES).filter((c) => checkConnection(this.rig, from, to, c.id).ok);
     if (!fits.length) {
       const why = Object.values(CABLES).map((c) => checkConnection(this.rig, from, to, c.id)).find((r) => !/doesn't fit/.test(r.reason || ""));
@@ -513,7 +692,7 @@ class PatchDialog {
     this.el.innerHTML = `<div class="patch-inner">
       ${this.header("Pick a cable")}
       ${this.visual({ target: bRef })}
-      <p class="patch-sub">To <strong>${esc(portLabel(this.rig, bRef))}</strong>. ${fits.length} cables fit both ends; they don't all do the same job.</p>
+      <p class="patch-sub">To <strong>${esc(portLabel(this.rig, bRef))}</strong>. ${count(fits.length, "cable")} fit both ends; they don't all do the same job.</p>
       <div class="cable-grid">${fits.map(card).join("")}</div>
     </div>`;
     if (!this.el.open) this.el.showModal();
@@ -526,7 +705,7 @@ class PatchDialog {
     return `<header class="patch-head">
       <p class="patch-kicker">${step}</p>
       <h2 id="patch-title">${esc(portLabel(this.rig, this.ref))}</h2>
-      <p class="patch-sub">${icon(jackIconName(p.jack, p.dir), { size: 28 })}${p.dir === "out" ? "Output" : "Input"} · ${esc(JACKS[p.jack].name)} jack · ${esc(lvl ? lvl.name : LEVEL_SHORT[p.level] || p.level)}</p>
+      <p class="patch-sub">${icon(jackIconName(p.jack, p.dir), { size: 28 })}${p.parallel ? "Either way (wired in parallel)" : p.dir === "out" ? "Output" : "Input"} · ${esc(JACKS[p.jack].name)} jack · ${esc(lvl ? lvl.name : LEVEL_SHORT[p.level] || p.level)}</p>
       <button type="button" class="patch-x" data-act="close" aria-label="Close">✕</button>
     </header>`;
   }
@@ -537,12 +716,13 @@ class PatchDialog {
       ${this.header("Connected")}
       <p class="patch-current"><span class="cable-dot" style="--hue:${cableHue(cable.id)}" aria-hidden="true"></span>
         ${esc(CABLES[cable.cable].name)} to <strong>${esc(portLabel(this.rig, other))}</strong></p>
+      ${cable.fixed ? `<p class="port-msg">Wired into a permanent rack: this cable stays where it is.</p>` : ""}
       <div class="patch-actions">
-        <button type="button" class="btn btn-stop" data-act="unplug" data-cable="${esc(cable.id)}">Unplug</button>
-        <button type="button" class="btn btn-start" data-act="close">Keep it</button>
+        ${cable.fixed ? "" : `<button type="button" class="btn btn-stop" data-act="unplug" data-cable="${esc(cable.id)}">Unplug</button>`}
+        <button type="button" class="btn btn-start" data-act="close">${cable.fixed ? "OK" : "Keep it"}</button>
       </div>
     </div>`;
-    this.el.querySelector('[data-act="unplug"]').focus();
+    this.el.querySelector('[data-act="unplug"], [data-act="close"]').focus();
   }
 
   showCables() {
@@ -581,10 +761,10 @@ class PatchDialog {
     const groups = [];
     for (const d of rig.devices) {
       if (d.id === p.device.id) continue;
-      const ports = listPorts(rig, d).filter((q) => q.dir !== p.dir && plugFitsJack(ends.far, q.jack));
+      const ports = listPorts(rig, d).filter((q) => orient(rig, this.ref, q.ref) && plugFitsJack(ends.far, q.jack));
       if (!ports.length) continue;
       const items = ports.map((q) => {
-        const [from, to] = p.dir === "out" ? [this.ref, q.ref] : [q.ref, this.ref];
+        const [from, to] = orient(rig, this.ref, q.ref);
         const check = checkConnection(rig, from, to, cableId);
         const busy = cableAt(rig, q.ref);
         const why = check.ok ? "" : busy ? `In use → ${portLabel(rig, busy.from === q.ref ? busy.to : busy.from)}` : check.reason;
@@ -607,8 +787,7 @@ class PatchDialog {
   }
 
   connect(targetRef) {
-    const p = getPort(this.rig, this.ref);
-    const [from, to] = p.dir === "out" ? [this.ref, targetRef] : [targetRef, this.ref];
+    const [from, to] = orient(this.rig, this.ref, targetRef) || [this.ref, targetRef];
     const result = this.view.store.connect(from, to, this.cable);
     if (!result.ok) {
       this.view.toast(result.reason, "bad");

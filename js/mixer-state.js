@@ -117,7 +117,8 @@ export function computeMix(state, sourcesById, stems) {
   const channels = state.channels.map((ch, i) => {
     const input = rig.channels[i] || { connected: false, signal: false };
     const source = input.sourceId ? sourcesById[input.sourceId] : null;
-    const peakDb = sourcePeakDb(source, stems);
+    const stemPeak = sourcePeakDb(source, stems);
+    const peakDb = stemPeak === null ? null : stemPeak + (input.trimDb ?? 0);
     let inputPeakDb = -Infinity;
     if (input.connected && input.signal && source && peakDb !== null) {
       inputPeakDb = peakDb + source.outputDb + (input.padDb || 0) + ch.gainDb + HEADROOM_DB;
@@ -319,6 +320,8 @@ export class MixerStore {
   }
 
   disconnect(cableId) {
+    // A cable wired into a permanent rack (`fixed`) stays where it is.
+    if (this.state.rig.cables.find((c) => c.id === cableId)?.fixed) return;
     const before = this.state.rig.cables.length;
     this.state.rig.cables = this.state.rig.cables.filter((c) => c.id !== cableId);
     if (this.state.rig.cables.length === before) return;

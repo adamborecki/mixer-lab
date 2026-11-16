@@ -8,7 +8,7 @@
 //   drag a plugged jack         move that cable's end to another jack
 //   tap a box                   its details (status, settings) below the diagram
 
-import { CABLES, DEVICE_TYPES, JACKS, SIGNAL_LEVELS, cableAt, getPort, isMixer, mixerOf } from "../connection-model.js";
+import { CABLES, DEVICE_TYPES, JACKS, SIGNAL_LEVELS, cableAt, getPort, isMixer, mixerOf, orient, powerSpec, powerState, powerWhy } from "../connection-model.js";
 import { deviceIconName, icon, jackIconName } from "./icons.js";
 import { JACK, layoutStage } from "./stage-layout.js";
 import { cableHue, portLabel } from "./patch-view.js";
@@ -25,6 +25,7 @@ function plugKind(cableId, jack) {
   const c = CABLES[cableId];
   if (!c) return "xlr";
   if (c.kind === "network") return "ethercon";
+  if (jack === "speakon") return "speakon";
   if (jack === "xlr" || jack === "combo") return c.ends.includes("xlr") && (jack === "xlr" || c.id === "xlr" || c.ends[0] === "xlr") ? "xlr" : "quarter";
   return { quarter: "quarter", linepair: "quarter", rca: "rca", rcapair: "rca", mini: "mini", ethercon: "ethercon" }[jack] || "quarter";
 }
@@ -47,7 +48,7 @@ export function cablePath(a, b) {
 // The plug body sticking out of a jack along its side.
 function plugShape(j, kind, hue) {
   const [dx, dy] = DIR[j.side] || DIR.right;
-  const w = kind === "xlr" ? 12 : kind === "ethercon" ? 12 : kind === "mini" ? 6 : 9;
+  const w = kind === "xlr" || kind === "ethercon" || kind === "speakon" ? 12 : kind === "mini" ? 6 : 9;
   const len = PLUG_LEN + 2;
   const x = dx === 0 ? j.x - w / 2 : dx > 0 ? j.x + 4 : j.x - 4 - len;
   const y = dy === 0 ? j.y - w / 2 : dy > 0 ? j.y + 4 : j.y - 4 - len;
@@ -98,6 +99,8 @@ export class StageView {
       }
       const ear = e.target.closest("[data-listen]");
       if (ear) return this.store.setListen(ear.dataset.listen);
+      const pwr = e.target.closest("[data-power]");
+      if (pwr) return this.flipPower(pwr);
       const jack = e.target.closest("[data-port]");
       if (jack) return this.patchView.openPort(jack.dataset.port);
       const wire = e.target.closest(".cable[data-cable]");
@@ -117,6 +120,11 @@ export class StageView {
         e.preventDefault();
         return this.store.setListen(ear.dataset.listen);
       }
+      const pwr = e.target.closest("[data-power]");
+      if (pwr) {
+        e.preventDefault();
+        return this.flipPower(pwr);
+      }
       const jack = e.target.closest("[data-port]");
       const box = e.target.closest("[data-box]");
       if (!jack && !box) return;
@@ -130,6 +138,14 @@ export class StageView {
       this.highlight(el ? el.dataset.cable || cableAt(this.store.state.rig, el.dataset.port)?.id : null);
     });
     this.canvas.addEventListener("pointerleave", () => this.highlight(null));
+  }
+
+  // A box's power tab: the plug (in or out) or the switch (on or off).
+  flipPower(el) {
+    const d = this.store.state.rig.devices.find((x) => x.id === el.dataset.power);
+    if (!d) return;
+    const key = el.dataset.powerKey;
+    this.store.setDevice(d.id, key, (d[key] ?? 1) ? 0 : 1);
   }
 
   setPlaying(on) {
@@ -169,17 +185,30 @@ export class StageView {
 
     // Column headings and faint bands.
     for (const c of L.columns) {
-      parts.push(`<g class="col col-${c.id}"><rect class="col-band" x="${c.x - 10}" y="4" width="${c.w + 20}" height="${L.height - 4}" rx="14"/>
+      parts.push(`<g class="col col-${c.id} zone-${c.zone || "stage"}"><rect class="col-band" x="${c.x - 10}" y="4" width="${c.w + 20}" height="${L.height - 4}" rx="14"/>
         <text class="col-label" x="${c.x}" y="22">${esc(c.label.toUpperCase())}</text>${c.sub ? `<text class="col-sub" x="${c.x}" y="36">${esc(c.sub)}</text>` : ""}</g>`);
     }
+    // Racks: one frame around each rack's gear (the amp rack, the hall's mains rack).
+    for (const r of L.racks || []) parts.push(`<g class="rack-frame"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="10"/><text x="${r.x + 10}" y="${r.y + 17}">${esc(r.title.toUpperCase())}</text></g>`);
     for (const b of L.boxes) parts.push(this.boxSvg(b, rig, status));
+    // Above the cables: each box's title row (a tap there opens the box, not a cable crossing it) and its power tab.
+    const tops = L.boxes.map((b) => {
+      const d = rig.devices.find((x) => x.id === b.deviceId);
+      const pst = d && b.id === d.id ? powerState(rig, d) : null;
+      return `<rect class="box-hit" data-box="${esc(b.id)}" x="${b.x}" y="${b.y}" width="${b.w}" height="28" aria-hidden="true"/>${pst ? this.powerTab(b, d, pst, rig) : ""}`;
+    });
 
     // Network links (Dante, AES50) that aren't cables in the model: drawn, not patchable.
     const fixed = this.fixedLinks(L);
     const cables = [];
     for (const f of fixed) cables.push(`<g class="cable cable-network fixed"><path class="cable-shadow" d="${cablePath(f.a, f.b)}"/><path class="cable-core" d="${cablePath(f.a, f.b)}"/></g>`);
     // A snake's multicore: one thick jacket from the stage box to its fan-out at FOH.
-    for (const m of L.links || []) cables.push(`<g class="cable cable-multicore fixed"><title>Multicore: every snake channel and return in one cable, stage ↔ FOH</title><path class="cable-shadow" d="${cablePath(m.a, m.b)}"/><path class="cable-core" d="${cablePath(m.a, m.b)}"/></g>`);
+    // A sub snake's tails: thin cables off the end of its multicore, each ending in a plug.
+    for (const m of L.links || []) {
+      if (m.kind === "rf") cables.push(`<g class="cable cable-radio fixed"><title>Radio: a wireless handheld reaches the antennas at FOH, no cable</title><path class="cable-core" d="${cablePath(m.a, m.b)}"/></g>`);
+      else if (m.kind === "tail") cables.push(`<g class="cable cable-tail fixed"><path class="cable-shadow" d="${cablePath(m.a, m.b)}"/><path class="cable-core" d="${cablePath(m.a, m.b)}"/></g>`);
+      else cables.push(`<g class="cable cable-multicore fixed"><title>${esc(m.title || "Multicore: every snake channel and return in one cable, stage ↔ FOH")}</title><path class="cable-shadow" d="${cablePath(m.a, m.b)}"/><path class="cable-core" d="${cablePath(m.a, m.b)}"/></g>`);
+    }
 
     const plugs = [];
     for (const c of rig.cables) {
@@ -190,11 +219,12 @@ export class StageView {
       const hue = cableHue(c.id);
       const st = status.cables.get(c.id) || "ok";
       const d = cablePath(a, b);
-      const kind = def.kind === "speaker" ? "speaker" : def.kind === "network" ? "network" : def.kind === "multicore" ? "multicore" : "signal";
+      const kind = def.kind === "speaker" ? "speaker" : def.kind === "network" ? "network" : def.kind === "multicore" ? "multicore" : def.kind === "rf" ? "rf" : "signal";
       cables.push(`<g class="cable cable-${kind} st-${st}" data-cable="${esc(c.id)}" style="--hue:${hue}">
         <title>${esc(def.name || c.cable)}: ${esc(portLabel(rig, c.from))} → ${esc(portLabel(rig, c.to))}</title>
         <path class="cable-hit" d="${d}"/><path class="cable-shadow" d="${d}"/><path class="cable-core" d="${d}"/>${kind === "speaker" ? `<path class="cable-pair" d="${d}"/>` : ""}<path class="cable-flow" d="${d}"/></g>`);
-      plugs.push(`<g data-cable="${esc(c.id)}" class="plugs st-${st}">${plugShape(a, plugKind(c.cable, a.port.jack), hue)}${plugShape(b, plugKind(c.cable, b.port.jack), hue)}${st === "warn" || st === "bad" ? this.badge(b, st) : ""}</g>`);
+      // A sub snake's tail is the cable itself: no plug-in-a-socket drawn at its end.
+      plugs.push(`<g data-cable="${esc(c.id)}" class="plugs st-${st}">${a.tail ? "" : plugShape(a, plugKind(c.cable, a.port.jack), hue)}${plugShape(b, plugKind(c.cable, b.port.jack), hue)}${st === "warn" || st === "bad" ? this.badge(b, st) : ""}</g>`);
     }
     const jacks = [...L.jacks.values()].map((j) => this.jackSvg(j, rig));
     const nets = L.net.map((n) => this.netPortSvg(n));
@@ -207,6 +237,7 @@ export class StageView {
       </defs>
       ${parts.join("")}
       <g class="layer-cables">${cables.join("")}</g>
+      <g class="layer-tops">${tops.join("")}</g>
       <g class="layer-jacks">${jacks.join("")}${nets.join("")}</g>
       <g class="layer-plugs">${plugs.join("")}</g>
       <g class="layer-ears">${this.earsSvg(L, rig)}</g>
@@ -273,11 +304,23 @@ export class StageView {
     // Sources: what their channels say.
     const inputs = [...mix.channels.map((c) => c.input), ...Object.values(mix.rig.recorders || {}).flat()].filter((i) => i && i.connected);
     for (const d of rig.devices.filter((x) => DEVICE_TYPES[x.type].source)) {
+      // A radio handheld: by its receiver's channel, which goes silent if the rack, the antennas or the mic are off.
+      if (DEVICE_TYPES[d.type].rf) {
+        const ch = mix.channels.find((c) => c.sourceId === d.sourceId);
+        devices.set(d.id, d.dead ? { tone: "warn", text: "! Dead mic" } : !ch ? { tone: "warn", text: "! No channel" } : ch.band === "none" ? { tone: "warn", text: "! No audio" } : { tone: "ok", text: `✓ Radio · CH ${ch.index + 1}` });
+        continue;
+      }
+      // Its own gear switched off or unplugged (a guitar amp, the Nord, the Mac mini).
+      const pst = powerState(rig, d);
+      if (pst && pst !== "on") {
+        devices.set(d.id, { tone: "warn", text: pst === "unplugged" ? "! Unplugged" : pst === "off" ? "! Switched off" : "! No power" });
+        continue;
+      }
       const mine = inputs.filter((i) => i.sourceDeviceId === d.id);
       const worst = mine.find((i) => i.status === "danger") || mine.find((i) => i.status !== "ok");
       // Plugged in (into a snake or stage box) but no channel hears it.
       const plugged = DEVICE_TYPES[d.type].ports.some((p) => cableAt(rig, `${d.id}/${p.id}`));
-      devices.set(d.id, !mine.length ? (plugged ? { tone: "warn", text: "! No channel" } : { tone: "idle", text: "Unpatched" }) : worst ? { tone: tone(worst.status), text: worst.status === "danger" ? "✕ Danger" : "! Check" } : { tone: "ok", text: "✓ Signal" });
+      devices.set(d.id, !mine.length ? (plugged ? { tone: "warn", text: "! No channel" } : { tone: "idle", text: "Unpatched" }) : worst ? { tone: tone(worst.status), text: worst.status === "danger" ? "✕ Danger" : worst.status === "no-power" ? "! No power" : "! Check" } : { tone: "ok", text: "✓ Signal" });
     }
     const mixer = mixerOf(rig);
     const mixerPorts = mixer ? DEVICE_TYPES[mixer.type].ports : [];
@@ -296,10 +339,11 @@ export class StageView {
       const routed = this.store.state.routing?.[ep.output];
       const out = routed && routed !== "off" ? routed : ep.output;
       const busName = ({ "main-l": "Main L", "main-r": "Main R" })[out] || terms[out] || (routed ? out.toUpperCase().replace(/^([A-Z]+)(\d+)$/, "$1 $2") : mixerPorts.find((p) => p.id === out)?.name) || out;
-      const text = ep.valid ? `${ep.status === "hot" ? "⚠ Hot" : ep.status === "weak" ? "⚠ Weak" : "✓"} ${busName}` : ep.status === "unpatched" ? "Silent" : ep.status === "danger" ? "✕ Danger" : "✕ No sound";
-      devices.set(ep.deviceId, { tone: ep.valid ? (ep.status === "ok" ? "ok" : "warn") : tone(ep.status), text });
+      // `off`: a working chain with a knob turned all the way down on purpose (the hall's speakers at CME).
+      const text = ep.status === "off" ? `○ Off · ${busName}` : ep.valid ? `${ep.cableWarn ? "⚠ Wrong cable ·" : ep.status === "hot" ? "⚠ Hot" : ep.status === "weak" ? "⚠ Weak" : "✓"} ${busName}` : ep.status === "unpatched" ? "Silent" : ep.status === "danger" ? "✕ Danger" : ep.status === "no-power" ? "✕ No power" : "✕ No sound";
+      devices.set(ep.deviceId, { tone: ep.status === "off" ? "idle" : ep.valid ? (ep.status === "ok" && !ep.cableWarn ? "ok" : "warn") : tone(ep.status), text });
       const into = rig.cables.find((c) => c.to.startsWith(`${ep.deviceId}/`));
-      if (into) cables.set(into.id, ep.valid ? (ep.status === "ok" ? "ok" : "warn") : ep.status === "danger" ? "bad" : "warn");
+      if (into) cables.set(into.id, ep.status === "off" ? "ok" : ep.valid ? (ep.status === "ok" && !ep.cableWarn ? "ok" : "warn") : ep.status === "danger" ? "bad" : "warn");
     }
     return { devices, cables };
   }
@@ -333,7 +377,35 @@ export class StageView {
       if (st) parts.push(`<g class="pill pill-${st.tone}" transform="translate(${tx} ${b.y + 44})"><rect width="${8 + st.text.length * 6.2}" height="16" rx="8"/><text x="6" y="11.5">${esc(st.text)}</text></g>`);
       if (type.dante) parts.push(`<text class="box-sub" x="${tx}" y="${b.y + b.h - 10}">Tracks go out over Dante</text>`);
     }
-    return `<g class="sbox kind-${b.kind} ${st ? `tone-${st.tone}` : ""}" data-box="${esc(b.id)}" tabindex="0" role="button" aria-label="${esc(label)}: show details">${parts.join("")}</g>`;
+    const pst = b.id === d.id ? powerState(rig, d) : null;
+    return `<g class="sbox kind-${b.kind} ${st ? `tone-${st.tone}` : ""}${pst && pst !== "on" ? " dark" : ""}" data-box="${esc(b.id)}" tabindex="0" role="button" aria-label="${esc(label)}: show details">${parts.join("")}</g>`;
+  }
+
+  // Power, on the box's top edge: its plug and its switch, each tappable. The
+  // switch lights green only when the box has power; switched on with nothing
+  // reaching it (its rack's Furman off), it stays dark but shows it's on.
+  powerTab(b, d, st, rig) {
+    const spec = powerSpec(d);
+    const name = d.label || DEVICE_TYPES[d.type].name;
+    const plugName = spec.gear ? `${spec.gear}'s power cable` : spec.plug || "power cable";
+    const plugged = (d.plugged ?? 1) === 1;
+    const on = (d.on ?? 1) === 1;
+    const w = spec.noSwitch ? 26 : 50;
+    const x = b.x + b.w - w - 14;
+    const y = b.y - 10;
+    const why = st === "on" ? "Power: on." : powerWhy(rig, d);
+    const plugLabel = `${name}: ${plugName} ${plugged ? "plugged in. Tap to unplug" : "unplugged. Tap to plug it in"}. ${why}`;
+    const swLabel = `${name}: power switch ${on ? "on. Tap to switch off" : "off. Tap to switch on"}. ${why}`;
+    const plug = `<g class="pwr-btn pwr-plug ${plugged ? "is-in" : "is-out"}" data-power="${esc(d.id)}" data-power-key="plugged" tabindex="0" role="button" aria-label="${esc(plugLabel)}"><title>${esc(plugLabel)}</title>
+      <rect class="pwr-hit" x="1" y="1" width="24" height="18" rx="9"/>
+      ${plugged ? `<path class="pwr-cord" d="M4 10h4"/><rect class="pwr-body" x="8" y="6" width="7" height="8" rx="1.5"/><path class="pwr-prong" d="M15 8.2h4M15 11.8h4"/>`
+        : `<path class="pwr-cord" d="M3 10h3"/><rect class="pwr-body" x="6" y="6" width="7" height="8" rx="1.5"/><path class="pwr-prong" d="M13 8.2h3M13 11.8h3"/><path class="pwr-gap" d="M19.5 5.5v9"/>`}
+    </g>`;
+    const sw = spec.noSwitch ? "" : `<g class="pwr-btn pwr-sw ${on ? "is-on" : "is-off"}" data-power="${esc(d.id)}" data-power-key="on" tabindex="0" role="button" aria-label="${esc(swLabel)}"><title>${esc(swLabel)}</title>
+      <rect class="pwr-hit" x="25" y="1" width="24" height="18" rx="9"/>
+      <path class="pwr-glyph" d="M34.3 6.4a5 5 0 1 0 5.4 0M37 4.2v5.3"/>
+    </g>`;
+    return `<g class="pwr pwr-${st}" transform="translate(${x} ${y})"><rect class="pwr-bg" width="${w}" height="20" rx="10"/>${plug}${sw}</g>`;
   }
 
   jackSvg(j, rig) {
@@ -344,10 +416,13 @@ export class StageView {
     const lvl = SIGNAL_LEVELS[p.level];
     const desc = `${portLabel(rig, j.ref)} (${JACKS[p.jack]?.name || p.jack}${lvl ? `, ${lvl.name.toLowerCase()}` : ""}): ${other ? `connected to ${portLabel(rig, other)}` : "empty"}`;
     const size = p.jack === "mini" ? 16 : p.jack === "rca" ? 18 : 23;
-    const art = name ? `<g transform="translate(${j.x - size / 2} ${j.y - size / 2})">${icon(name, { size })}</g>` : `<rect class="jack-ethercon" x="${j.x - 10}" y="${j.y - 9}" width="20" height="18" rx="3"/><rect x="${j.x - 5}" y="${j.y - 4}" width="10" height="7" class="jack-rj"/>`;
+    // A sub snake's tail: a loose XLR plug while it's unplugged, just the cable once it's in.
+    const art = j.tail
+      ? cable ? `<circle class="tail-knot" cx="${j.x}" cy="${j.y}" r="3"/>` : `<g transform="translate(${j.x - 9} ${j.y - 9})">${icon("xlr-m", { size: 18 })}</g>`
+      : name ? `<g transform="translate(${j.x - size / 2} ${j.y - size / 2})">${icon(name, { size })}</g>` : `<rect class="jack-ethercon" x="${j.x - 10}" y="${j.y - 9}" width="20" height="18" rx="3"/><rect x="${j.x - 5}" y="${j.y - 4}" width="10" height="7" class="jack-rj"/>`;
     const head = j.head ? `<text class="jack-head" x="${j.x}" y="${j.y - JACK / 2 - 3}" text-anchor="middle">${esc(j.head)}</text>` : "";
     const word = j.word ? `<text class="jack-word" x="${j.wordSide === "right" ? j.x + 16 : j.wordSide === "left" ? j.x - 16 : j.x}" y="${j.wordSide ? j.y + 3 : j.y + JACK / 2 + 3}" text-anchor="${j.wordSide === "right" ? "start" : j.wordSide === "left" ? "end" : "middle"}">${esc(j.word)}</text>` : "";
-    return `<g class="sjack ${cable ? "is-on" : ""} jack-${p.dir}" data-port="${esc(j.ref)}" ${cable ? `data-cable="${esc(cable.id)}"` : ""} tabindex="0" role="button" aria-label="${esc(desc)}">
+    return `<g class="sjack ${cable ? "is-on" : ""} jack-${p.dir}${j.tail ? " jack-tail" : ""}" data-port="${esc(j.ref)}" ${cable ? `data-cable="${esc(cable.id)}"` : ""} tabindex="0" role="button" aria-label="${esc(desc)}">
       <title>${esc(desc)}</title>${head}<circle class="jack-hit" cx="${j.x}" cy="${j.y}" r="14"/>${art}${word}</g>`;
   }
 
@@ -455,10 +530,11 @@ export class StageView {
     if (!target) return;
     const to = target.dataset.port;
     if (!d.cable) return this.patchView.openBetween(d.ref, to);
+    if (d.cable.fixed) return this.patchView.toast("That cable is wired into a permanent rack: it stays where it is.", "bad");
     // Move a plugged cable's end: same cable, new jack. Put it back if it doesn't go.
     const keep = d.cable.from === d.ref ? d.cable.to : d.cable.from;
     const keepPort = getPort(this.store.state.rig, keep);
-    const [from, into] = keepPort.dir === "out" ? [keep, to] : [to, keep];
+    const [from, into] = orient(this.store.state.rig, keep, to) || (keepPort.dir === "out" ? [keep, to] : [to, keep]);
     this.store.disconnect(d.cable.id);
     const r = this.store.connect(from, into, d.cable.cable);
     if (!r.ok) {

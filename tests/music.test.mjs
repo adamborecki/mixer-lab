@@ -91,3 +91,29 @@ test("bakeLoop makes the wrap continuous", () => {
   // Untouched well before the fade.
   assert.ok(Math.abs(data[start + len - 40] - Math.sin((start + len - 40) / 7)) < 1e-6);
 });
+
+test("a stem still decoding when the song changes doesn't fall back to a test tone (01V96i bug report)", async () => {
+  const { StemTransport } = await import("../js/transport.js");
+  const buffer = (ch, len, sampleRate) => {
+    const data = Array.from({ length: ch }, () => new Float32Array(len));
+    return { numberOfChannels: ch, length: len, sampleRate, getChannelData: (c) => data[c] };
+  };
+  const node = () => ({ gain: { value: 1 }, connect() {}, disconnect() {} });
+  const ctx = { sampleRate: 48000, destination: {}, createGain: node, createBuffer: buffer, decodeAudioData: async () => buffer(2, 8, 48000) };
+  const manifest = { STEM_SET: { id: "persephone" }, STEMS: { piano: { file: "persephone-piano.mp3" } }, SOURCES_BY_ID: {} };
+  const t = new StemTransport(ctx, manifest, () => {});
+  let release;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = () => new Promise((r) => (release = () => r({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) })));
+  try {
+    const pending = t.fetchStem("audio/persephone-piano.mp3", "piano", 0, 1);
+    manifest.STEM_SET = { id: "nostradamus" };
+    manifest.STEMS = {}; // a gig's song replaced Persephone mid-fetch
+    release();
+    const out = await pending;
+    assert.equal(out.numberOfChannels, 1);
+    assert.deepEqual([...t.errors.values()], []);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

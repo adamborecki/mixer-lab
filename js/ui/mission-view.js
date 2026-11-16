@@ -2,6 +2,7 @@
 //   by topic   (js/themes.js THEMES, shown as "Topics"): one idea, practised on
 //              the generic mixer and then on real consoles; the scenario picks the console.
 //   by mixer   (MIXERS): the desk in front of you, and its scenarios in order.
+//   Chapman gigs (GIGS): one real MUS 248 gig's rig, band and faults (opened like a topic).
 //   free play  any console, no goals.
 // Views:
 //   StartScreen   the first screen: Continue, the Canvas assignment, Free play,
@@ -9,13 +10,14 @@
 //   MissionView   the strip over the rig: where you are · step · console, the title,
 //                 the story, the goal, the live checklist, hints, Solved → Next.
 //                 When it scrolls away, a slim copy stays pinned under the top bar.
-//   ThemeDrawer   Topics or Mixers, each with its scenarios and progress, and the Canvas ten.
+//   ThemeDrawer   Topics, Mixers or Chapman gigs, each with its scenarios and progress.
 // Success is decided by js/scenarios.js from state; this only shows it.
 
 import { fillTerms, shortTitle } from "../scenarios.js";
 import { SKINS } from "../mixer-models.js";
-import { CANVAS_SCENARIOS, MIXERS, THEMES, consoleOf, mixerScenarios, skinOf, themeOf, themeScenarios } from "../themes.js";
+import { CANVAS_SCENARIOS, GIGS, MIXERS, THEMES, consoleOf, gigOf, mixerScenarios, skinOf, themeOf, themeScenarios } from "../themes.js";
 import { legacyHref } from "../deploy-context.js";
+import { count } from "../submission.js";
 import { nameMode } from "../names.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -31,6 +33,8 @@ const barsLoop = (section) => {
   const [a, b] = section.bars.split(/[–-]/).map(Number);
   return b > a ? `${b - a + 1 === 8 ? "An" : "A"} ${b - a + 1}-bar loop` : "A loop";
 };
+// "bars 5–12", or a section with no bar numbers by name ("the intro": rubato, before the beat).
+const barsText = (section) => (/\d/.test(section.bars) ? `bars ${section.bars}` : `the ${section.bars}`);
 const clock = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
 // The consoles Free play offers, in learning order (the generic one first).
@@ -55,7 +59,26 @@ function mixerCard(m, p, attrs) {
     <strong>${esc(mixerName(m))}</strong>
     <span class="theme-q">${esc(m.why)}</span>
     <span class="theme-meter" aria-label="${done} of ${total} solved"><i style="width:${(100 * done) / total}%"></i></span>
-    <small>${done ? `${done} of ${total} solved` : `${total} scenarios`}</small>
+    <small>${done ? `${done} of ${total} solved` : count(total, "scenario")}</small>
+  </button>`;
+}
+
+// A Chapman gig's card: its question, the gig and venue, progress. A planned
+// gig (`soon`) shows, but can't be opened yet.
+function gigCard(g, p, attrs) {
+  if (g.soon) {
+    return `<div class="theme-card gig-card gig-soon" aria-disabled="true">
+      <strong>${esc(g.title)}</strong>
+      <span class="theme-q">${esc(g.concept)}</span>
+      <small>Coming later</small>
+    </div>`;
+  }
+  const { done, total } = themeProgress(g, p);
+  return `<button type="button" class="theme-card gig-card" ${attrs}>
+    <strong>${esc(g.question)}</strong>
+    <span class="theme-q">${esc(g.title)} · ${esc(consoleName(themeScenarios(g)[0]))}</span>
+    <span class="theme-meter" aria-label="${done} of ${total} solved"><i style="width:${(100 * done) / total}%"></i></span>
+    <small>${done ? `${done} of ${total} solved` : count(total, "scenario")}</small>
   </button>`;
 }
 
@@ -82,7 +105,7 @@ export class StartScreen {
         <strong>${esc(t.question)}</strong>
         <span class="theme-q">${esc(t.title)}</span>
         <span class="theme-meter" aria-label="${done} of ${total} solved"><i style="width:${(100 * done) / total}%"></i></span>
-        <small>${done ? `${done} of ${total} solved` : `${total} scenarios`}</small>
+        <small>${done ? `${done} of ${total} solved` : count(total, "scenario")}</small>
       </button>`;
     };
     this.root.innerHTML = `<div class="start-inner">
@@ -94,6 +117,9 @@ export class StartScreen {
         <button type="button" class="start-big start-free" data-choose="free"><strong>Free play</strong><span>No goals: any console, the whole band, break things</span></button>
       </div>
       <p class="start-legacy">Late with Assignment 1 (the ten scenarios)? <a href="${legacyHref()}">Finish it in the original version</a>: your saved progress is there too.</p>
+      <p class="start-legacy">Your progress is saved in this browser only. Switching devices? <button type="button" class="linkish" data-open-canvas>Save a progress file</button> to load on the other one.</p>
+      <h2 class="start-h">Chapman gigs <small>a real MUS 248 gig: its room, its rig, its checklist</small></h2>
+      <div class="theme-grid gig-grid">${GIGS.map((g) => gigCard(g, p, `data-choose="theme:${g.id}"`)).join("")}</div>
       <h2 class="start-h">By topic <small>one question, answered on mixer after mixer</small></h2>
       <div class="theme-grid">${THEMES.map(card).join("")}</div>
       <h2 class="start-h">By mixer <small>standing at one of these? Start with it</small></h2>
@@ -137,9 +163,11 @@ export class ThemeDrawer {
     });
   }
 
-  // `tab`: "topic" or "mixer" (by default the one last shown).
+  // `tab`: "topic", "mixer" or "gig" (by default the one last shown). A gig's
+  // scenario opens on the gigs, whichever tab was asked for.
   open(currentId, tab = this.tab) {
     const p = this.progress;
+    if (tab === "topic" && gigOf(currentId)) tab = "gig";
     this.currentId = currentId;
     this.tab = tab;
     const by = tab === "mixer" ? "mixer" : "topic";
@@ -167,16 +195,27 @@ export class ThemeDrawer {
         <p class="dt-concept"><button type="button" class="linkish" data-free="${esc(m.skin)}">Free play on the ${esc(mixerName(m))}</button></p>
       </details>`;
     };
+    const gig = (g) => {
+      if (g.soon) return `<div class="drawer-theme gig-soon"><p class="dt-concept"><strong>${esc(g.title)}</strong>: coming later.</p></div>`;
+      const { done, total } = themeProgress(g, p);
+      return `<details class="drawer-theme" ${g.id === current ? "open" : ""}>
+        <summary><span class="dt-name"><strong>${esc(g.title)}</strong><small>${esc(g.venue)} · ${esc(consoleName(themeScenarios(g)[0]))}</small></span><span class="dt-prog">${done}/${total}</span></summary>
+        <p class="dt-concept">${esc(g.concept)}${g.checklist ? ` <a href="${esc(g.checklist)}" target="_blank" rel="noopener">The gig checklist ↗</a>` : ""}</p>
+        <ol class="drawer-list">${themeScenarios(g).map((s, k) => row(s, k + 1)).join("")}</ol>
+      </details>`;
+    };
     const tabBtn = (id, label) => `<button type="button" role="tab" class="mode-btn ${tab === id ? "active" : ""}" aria-selected="${tab === id}" data-drawer-tab="${id}">${label}</button>`;
     this.el.innerHTML = `<div class="drawer-inner">
       <header class="drawer-head"><h2 id="drawer-title">Scenarios</h2>
         <button type="button" class="chip" data-home>Start screen</button>
         <button type="button" class="patch-x" data-close-drawer aria-label="Close">✕</button>
-        <div class="mode-switch drawer-tabs" role="tablist" aria-label="Group the scenarios">${tabBtn("topic", "By topic")}${tabBtn("mixer", "By mixer")}</div></header>
+        <div class="mode-switch drawer-tabs" role="tablist" aria-label="Group the scenarios">${tabBtn("topic", "By topic")}${tabBtn("mixer", "By mixer")}${tabBtn("gig", "Chapman gigs")}</div></header>
       ${
         tab === "mixer"
           ? MIXERS.map(mixer).join("")
-          : THEMES.map(theme).join("")
+          : tab === "gig"
+            ? GIGS.map(gig).join("")
+            : THEMES.map(theme).join("")
       }
     </div>`;
     if (!this.el.open) this.el.showModal();
@@ -218,6 +257,10 @@ export class MissionView {
       else if (act === "music") this.onMusicMode(b.dataset.mode);
       else if (act === "song") this.onSong(b.dataset.song);
       else if (act === "more") this.toggleMore();
+      else if (act === "quiz") {
+        this.quizPick = Number(b.dataset.k);
+        if (this.result) this.updateStrip(this.result);
+      }
       else if (act === "drawer") this.onOpenDrawer(this.mode === "mixer" ? "mixer" : "topic");
     };
     root.addEventListener("click", onClick);
@@ -389,6 +432,7 @@ export class MissionView {
   resetHints() {
     this.hints = 0;
     this.solved = null;
+    this.quizPick = null;
     if (this.def) this.renderHints();
   }
 
@@ -427,8 +471,20 @@ export class MissionView {
     const next = seq.list.slice(i + 1).find((s) => !this.progress.has(s.id)) || seq.list[i + 1];
     banner.hidden = false;
     const still = result.complete ? "" : `<p class="complete-note">You've changed things since: the checklist shows what's true right now.</p>`;
-    banner.innerHTML = `<div><p class="complete-title">Solved ✓</p><p>${esc(fillTerms(this.def.complete, t))}</p>${still}</div>
+    banner.innerHTML = `<div><p class="complete-title">Solved ✓</p><p>${esc(fillTerms(this.def.complete, t))}</p>${still}${this.quiz(t)}</div>
       ${next ? `<button type="button" class="btn btn-start" data-act="next" data-id="${esc(next.id)}">Next: ${esc(shortTitle(next))}${consoleOf(next) !== consoleOf(this.def) ? ` <small>on the ${esc(consoleName(next))}</small>` : ""} →</button>` : `<button type="button" class="btn btn-start" data-act="drawer">${esc(seq.label)} done: ${seq.mixer ? "try another mixer" : "pick another topic"} →</button>`}`;
+  }
+
+  // An optional one-question check after the solve (def.quiz): pick an answer, see why.
+  quiz(t) {
+    const c = this.def.quiz;
+    if (!c) return "";
+    const pick = this.quizPick;
+    const opts = c.options
+      .map((o, k) => `<button type="button" class="chip${pick === k ? (k === c.answer ? " is-right" : " is-wrong") : ""}" data-act="quiz" data-k="${k}" aria-pressed="${pick === k}">${esc(fillTerms(o, t))}</button>`)
+      .join("");
+    const why = pick == null ? "" : `<p class="cc-why" role="status"><strong>${pick === c.answer ? "Right." : "Not quite."}</strong> ${esc(fillTerms(c.why, t))}</p>`;
+    return `<div class="concept-check"><p class="cc-q">Quick check (optional): ${esc(fillTerms(c.q, t))}</p><div class="cc-opts">${opts}</div>${why}</div>`;
   }
 
   // ---------- the pinned copy ----------
@@ -474,7 +530,7 @@ export class MissionView {
     dock.innerHTML = `<div class="dock-inner ${solved ? "is-solved" : ""}">
       <span class="dock-where">${esc(seq.mixer ? "By mixer" : seq.label)} · ${i + 1}/${seq.list.length}</span>
       <strong class="dock-title">${esc(def.title)}</strong>
-      <span class="dock-ticks" role="img" aria-label="${goals.filter((g) => g.met).length} of ${goals.length} goals met">${ticks}</span>
+      <span class="dock-ticks" role="img" aria-label="${goals.filter((g) => g.met).length} of ${count(goals.length, "goal")} met">${ticks}</span>
       <span class="dock-next ${broken && !solved ? "is-broken" : ""}">${esc(next)}</span>
       <span class="dock-actions">
         ${hintsLeft && !solved && !broken ? `<button type="button" class="chip dock-btn" data-act="hint">${this.hints ? "Another hint" : "Hint"}</button>` : ""}
@@ -500,7 +556,7 @@ export class MissionView {
     const songName = `“${esc(song.title)}” by ${esc(song.artist)}`;
     if (!this.def || this.def.id !== "free-play") {
       box.classList.add("music-now");
-      box.innerHTML = silent ? `<p class="music-note">♪ The band isn't playing in this one.</p>` : section ? `<p class="music-note">♪ ${songName}: the band loops bars ${esc(section.bars)} of the song (${clock(section.start)}), ${esc(section.label.toLowerCase())}.${resting}</p>` : "";
+      box.innerHTML = silent ? `<p class="music-note">♪ The band isn't playing in this one.</p>` : section ? `<p class="music-note">♪ ${songName}: the band loops ${esc(barsText(section))} of the song (${clock(section.start)}), ${esc(section.label.toLowerCase())}.${resting}</p>` : "";
       this.seekEl = this.timeEl = null;
       return;
     }
@@ -513,7 +569,7 @@ export class MissionView {
         ${songs.map(songOpt).join("")}
       </div>
       <div class="music-modes" role="radiogroup" aria-label="Band audio"><span class="music-title">Band audio</span>
-        ${sections.map((s) => opt(s.id, s.label, `bars ${s.bars}`)).join("")}${opt("full", "Full song", len)}
+        ${sections.map((s) => opt(s.id, s.label, barsText(s))).join("")}${opt("full", "Full song", len)}
       </div>
       <div class="music-pos" ${mode === "full" ? "" : "hidden"}>
         <input type="range" class="seek" min="0" max="${Math.round(duration * 2) / 2}" step="0.5" value="0" aria-label="Song position" />

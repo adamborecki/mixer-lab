@@ -2,7 +2,7 @@
 // nothing overlaps, and network-only ports aren't drawn as jacks.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_SONG, SONGS, SOURCES_BY_ID, useSong } from "../audio/source-manifest.js";
+import { DEFAULT_SONG, SONGS, SOURCES_BY_ID, songFits, useSong } from "../audio/source-manifest.js";
 import { DEVICE_TYPES } from "../js/connection-model.js";
 import { SKINS } from "../js/mixer-models.js";
 import { buildScenarioState, scenarioFor, scenariosFor } from "../js/scenarios.js";
@@ -15,7 +15,7 @@ function rigs() {
   for (const hw of hardware) {
     for (const s of scenariosFor(hw)) {
       // Each scenario with its own band; Free play with every band.
-      for (const song of s.id === "free-play" ? Object.keys(SONGS) : [s.song || DEFAULT_SONG]) {
+      for (const song of s.id === "free-play" ? Object.keys(SONGS).filter((id) => songFits(id, hw)) : [s.song || DEFAULT_SONG]) {
         useSong(song);
         const def = scenarioFor(s, hw);
         const state = buildScenarioState(def, SOURCES_BY_ID, hw);
@@ -49,6 +49,12 @@ describe("stage diagram layout", () => {
             continue;
           }
           assert.ok(j, `${name}: ${d.id}/${p.id} has no place`);
+          // A sub snake's tail is a cable end, not a jack on a box: it hangs off a tail of the multicore, inside the diagram.
+          if (j.tail) {
+            assert.ok(j.x > 0 && j.x < L.width && j.y > 0 && j.y < L.height, `${name}: ${d.id}/${p.id} is outside the diagram`);
+            assert.ok(L.links.some((l) => l.kind === "tail" && Math.abs(l.b.y - j.y) < 1), `${name}: ${d.id}/${p.id} has no tail`);
+            continue;
+          }
           assert.ok(inside(j, boxes.get(j.boxId)), `${name}: ${d.id}/${p.id} is outside its box`);
         }
       }
@@ -86,5 +92,14 @@ describe("stage diagram layout", () => {
     assert.equal(shortLabel({ name: "MAIN OUT L" }), "MAIN L");
     assert.equal(shortLabel({ name: "Aux 1 out" }), "AUX 1");
     assert.equal(shortLabel({ name: "C-R OUT R" }), "C-R R");
+  });
+
+  // B5: the STAGEPAS's outputs printed "SPEAKERS SPEAKERS MONITOR MONITOR SUBWOOFE",
+  // each wider than its 44 px cell. Five letters fit at any font's widest caps.
+  it("names the STAGEPAS outputs apart, short enough not to overlap", () => {
+    const outs = DEVICE_TYPES.stagepas400bt.ports.filter((p) => p.dir === "out" && isPhysical(p) && p.channel === undefined);
+    const names = outs.map(shortLabel);
+    assert.deepEqual(names, ["SPK L", "SPK R", "MON L", "MON R", "SUB"]);
+    for (const n of names) assert.ok(n.length <= 5, n);
   });
 });

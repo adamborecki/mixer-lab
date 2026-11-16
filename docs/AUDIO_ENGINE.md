@@ -89,6 +89,8 @@ The listen selector (`LISTEN_DESTINATIONS`: `main`, `aux1`, `aux2`, `pfl`) opens
 
 The selector picks a bus to audition, not a place to stand. If a bus has no valid chain, nothing plays and the listening bar says so. If a student patches Aux 1 into a house speaker, then Aux 1 is what comes out of that speaker; where a speaker physically sits is not modelled. Speakers still carry a `zone` (`foh` or `stage`), but the engine ignores it. Only scenario conditions read it (`validChain` and `noBrokenChains` take a `zone` parameter). Each device also has a `short` name ("singer's wedge", "drummer's wedge", "house left", ...) that the listening bar uses to say which speakers a bus reaches.
 
+**Spill between places isn't modelled either.** In a real hall, standing at FOH with the mains down, you still hear the wedges: their low end and the stage's reverb, bounced off the back and side walls of the stage. (The reverse is true on stage too: the mains spill back toward the performers.) Here, In the audience is the Main mix and nothing else, so a wedge check heard from the audience is silent in a way the room never is. See the idea in [HANDOFF.md](HANDOFF.md).
+
 The +4 dB fixed listening trim and the limiter sit before the destination to keep a typical mix comfortable and protect ears. They are not mix tools.
 
 ## Metering
@@ -113,8 +115,8 @@ This was verified in Chromium by capturing each stem with an `AudioWorklet` and 
 
 ### Delivery and loading
 
-- Three songs (`SONGS` in the manifest), one on stage at a time: `useSong(id)` swaps the manifest's live `STEM_SET`, `STEMS`, `SOURCES` and `SOURCES_BY_ID` bindings, and `js/app.js` calls it before building each scenario (its `song`, or Free play's choice). The transport drops everything it has decoded when `STEM_SET.id` changes, because stem ids ("drums") repeat between songs.
-- Excerpt: seven stereo 44.1 kHz MP3s (29.905 s each, about 3.8 MB in total) in `audio/persephone/`, or nine 48 kHz ones in `audio/nostradamus/` (8 bars, 21.926 s, about 2.9 MB) and `audio/ftw/` (6 bars, 22.071 s, about 3.3 MB). Every file of a song is the same span of it, so one loop (0.5 s into the file) serves all of them; each song's sections share its loop length.
+- Several songs (`SONGS` in the manifest), one on stage at a time: `useSong(id)` swaps the manifest's live `STEM_SET`, `STEMS`, `SOURCES` and `SOURCES_BY_ID` bindings, and `js/app.js` calls it before building each scenario (its `song`, or Free play's choice). The transport drops everything it has decoded when `STEM_SET.id` changes, because stem ids ("drums") repeat between songs.
+- Excerpt: seven stereo 44.1 kHz MP3s (29.905 s each, about 3.8 MB in total) in `audio/persephone/`, or nine 48 kHz ones in `audio/nostradamus/` (8 bars, 21.926 s, about 2.9 MB) and `audio/ftw/` (6 bars, 22.071 s, about 3.3 MB). Every file of a song is the same span of it, so one loop (0.5 s into the file) serves all of them; each song's sections share its loop length, except where a section gives its own `length` (the Vocal Jazz Ensemble's live pieces, looped breath to breath: `loopPoints()` in `js/transport.js`).
 - Full song: 12 segments per stem in `audio/persephone/full/` (about 18 MB in total), used only in Free play. Details below.
 - The 24-bit WAV masters are never loaded by the app. See [../audio/README.md](../audio/README.md).
 - `setSources(ids, { mode })` on the engine calls `prepare(ids)`, `rewire()`, `load(mode)` and then `play()`. Only stems for sources in the active scenario are fetched. Each buffer is folded to mono in `toMono` (`"sum"` = (L+R)/2, or `"left"` / `"right"`, plus `trimDb`), except a `"stereo"` stem (NOSTRADAMUS's pads), which keeps both sides: its source output and gate are explicit 2-channel nodes, and section stitching runs per channel. Decoded excerpt buffers are cached by stem id for later scenario switches.

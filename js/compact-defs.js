@@ -1,5 +1,5 @@
 // Compact analog mixers as data: the Mackie Mix8, Mackie 1202-VLZ, Yamaha
-// MG10/2, Yamaha STAGEPAS 400BT, Behringer Xenyx X1204USB, the Sound Devices
+// MG10/2, Yamaha STAGEPAS 400BT, Behringer Xenyx QX1204USB, the Sound Devices
 // 442 field mixer and the Soundcraft Ui16 digital mixer (`digital: true`, drawn
 // by js/ui/mixer-digital-view.js). One definition per mixer: its channels and jacks, gain stage, EQ, sends and where they tap, buses, returns, tape,
 // phones and outputs. js/compact.js (state and level model), js/graph-compact.js
@@ -211,8 +211,11 @@ export const COMPACT = {
 
   x1204usb: {
     id: "x1204usb",
-    name: "Behringer Xenyx X1204USB",
-    blurb: "4 mic channels with COMP, 2 stereo, AUX 1 (PRE) + FX into built-in effects, faders.",
+    // The QX1204USB, the one Chapman has (BH 109's karaoke rig): a slot on
+    // CH 1-2 for a Behringer digital wireless receiver (not modelled), Klark
+    // Teknik effects with 32 presets, 2-TRACK IN/OUT and USB/2-TR TO MAIN.
+    name: "Behringer Xenyx QX1204USB",
+    blurb: "4 mic channels with COMP, 2 stereo, AUX 1 (PRE) + FX into built-in Klark Teknik effects, faders.",
     phantom: { label: "+48V", channels: [0, 1, 2, 3] },
     channels: [
       ...[1, 2, 3, 4].map((n) => ({ label: String(n), kind: "mono", jacks: ["mic", "line"], gain: { min: 10, max: 60, linePad: -20 }, lowCut: { hz: 75, order: 3 }, comp: true, eq: "xenyx3", sends: ["aux1", "fx"], mute: "alt", solo: true, peak: true })),
@@ -233,35 +236,42 @@ export const COMPACT = {
     fx: {
       send: "aux2",
       ret: "ret2",
+      // 32 presets in the groups printed on the panel. Only the groups are
+      // from the board; each preset's sound here is a stand-in. BH 109 uses
+      // DLY + REV, one of the COMBINATION FX (which number isn't confirmed).
       presets: [
-        { name: "HALL 1", kind: "reverb", seconds: 2.6 },
-        { name: "HALL 2", kind: "reverb", seconds: 3.8 },
-        { name: "ROOM 1", kind: "reverb", seconds: 0.7 },
-        { name: "ROOM 2", kind: "reverb", seconds: 1.2 },
-        { name: "PLATE 1", kind: "reverb", seconds: 1.5 },
-        { name: "PLATE 2", kind: "reverb", seconds: 2.3 },
-        { name: "AMBIENCE", kind: "reverb", seconds: 0.4 },
-        { name: "DELAY", kind: "delay", seconds: 0.375, feedback: 0.35 },
-        { name: "ECHO", kind: "delay", seconds: 0.5, feedback: 0.55 },
-        { name: "SLAPBACK", kind: "delay", seconds: 0.11, feedback: 0 },
-        { name: "CHORUS 1", kind: "chorus", rate: 0.8, depth: 0.004 },
-        { name: "CHORUS 2", kind: "chorus", rate: 1.6, depth: 0.006 },
-        { name: "FLANGER 1", kind: "flanger", rate: 0.25, depth: 0.002 },
-        { name: "FLANGER 2", kind: "flanger", rate: 0.6, depth: 0.003 },
-        { name: "CHORUS + REVERB", kind: "chorus", rate: 0.8, depth: 0.004, reverb: 2 },
-        { name: "DELAY + REVERB", kind: "delay", seconds: 0.375, feedback: 0.3, reverb: 2 },
+        ...[2.2, 2.7, 3.2, 3.8].map((seconds, i) => ({ name: `LARGE HALL ${i + 1}`, group: "REVERB A", kind: "reverb", seconds })),
+        ...[0.5, 0.7, 0.9, 1.2].map((seconds, i) => ({ name: `SMALL ROOM ${i + 1}`, group: "REVERB B", kind: "reverb", seconds })),
+        ...[1.2, 1.5, 1.8, 2.1, 2.5, 3, 4.5].map((seconds, i) => ({ name: `SPECIAL REVERB ${i + 1}`, group: "REVERB C", kind: "reverb", seconds })),
+        { name: "DELAY/AMBIENCE 1", group: "DELAY/AMBIENCE", kind: "delay", seconds: 0.11, feedback: 0 },
+        { name: "DELAY/AMBIENCE 2", group: "DELAY/AMBIENCE", kind: "delay", seconds: 0.25, feedback: 0.25 },
+        { name: "DELAY/AMBIENCE 3", group: "DELAY/AMBIENCE", kind: "delay", seconds: 0.375, feedback: 0.35 },
+        { name: "DELAY/AMBIENCE 4", group: "DELAY/AMBIENCE", kind: "delay", seconds: 0.5, feedback: 0.5 },
+        { name: "MODULATION 1", group: "MODULATION", kind: "chorus", rate: 0.8, depth: 0.004 },
+        { name: "MODULATION 2", group: "MODULATION", kind: "chorus", rate: 1.6, depth: 0.006 },
+        { name: "MODULATION 3", group: "MODULATION", kind: "flanger", rate: 0.25, depth: 0.002 },
+        { name: "MODULATION 4", group: "MODULATION", kind: "flanger", rate: 0.6, depth: 0.003 },
+        { name: "DETUNE/PITCH 1", group: "DETUNE/PITCH", kind: "chorus", rate: 0.3, depth: 0.0015 },
+        { name: "DETUNE/PITCH 2", group: "DETUNE/PITCH", kind: "chorus", rate: 0.5, depth: 0.002 },
+        { name: "DETUNE/PITCH 3", group: "DETUNE/PITCH", kind: "chorus", rate: 0.2, depth: 0.003 },
+        { name: "COMBINATION 1", group: "COMBINATION FX", kind: "delay", seconds: 0.3, feedback: 0.25, reverb: 1 },
+        { name: "COMBINATION 2", group: "COMBINATION FX", kind: "delay", seconds: 0.375, feedback: 0.3, reverb: 1.5 },
+        { name: "COMBINATION 3", group: "COMBINATION FX", kind: "chorus", rate: 0.8, depth: 0.004, reverb: 2 },
+        { name: "SPECIAL FX 1", group: "SPECIAL FX", kind: "delay", seconds: 0.06, feedback: 0.7 },
+        { name: "SPECIAL FX 2", group: "SPECIAL FX", kind: "flanger", rate: 2.5, depth: 0.004 },
+        { name: "SPECIAL FX 3", group: "SPECIAL FX", kind: "delay", seconds: 0.75, feedback: 0.65 },
       ],
     },
     returns: [
       { id: "ret1", label: "STEREO AUX RETURN 1", law: "ret20", toMonitor: { bus: "aux1", label: "MON", law: "ret20" } },
       { id: "ret2", label: "STEREO AUX RETURN 2 (FX)", law: "ret20", toAlt: true },
     ],
-    tape: { level: null, routing: "switch", label: "CD/TAPE" }, // CD/TAPE TO MAIN switch; C-R SOURCE TAPE
+    tape: { level: null, routing: "switch", label: "2-TRACK", toMainLabel: "USB/2-TR TO MAIN" }, // 2-TRACK IN/OUT (RCA); USB/2-TR TO MAIN; C-R SOURCE USB/2-TR
     alt: { label: "ALT 3-4", fader: true },
     main: { label: "MAIN MIX", law: "level" },
-    phones: { label: "PHONES/CTRL R", sources: ["tape", "alt", "main"] },
+    phones: { label: "PHONES/CTRL R", sources: ["tape", "alt", "main"], tapeLabel: "USB/2-TR" },
     solo: { mode: "switch" }, // MODE: PFL (pressed) or SOLO in place
-    meter: [-30, -20, -10, -7, -4, -2, 0, 2, 4, 7, 10, "CLIP"],
+    meter: [-20, -5, -2, 0, 2, 5, 10, "CLIP"], // as printed on the QX1204USB
     peakLabel: "CLIP",
     outputs: ["mainXlrOnly", "alt", "cr", "aux1", "aux2", "tapeOut"],
     layout: { strip: ["head", "gain", "lowCut", "comp", "eq", "aux1", "fx", "minus10", "pan", "peak", "mute", "solo", "level"], level: "fader" },
@@ -513,8 +523,9 @@ export const COMPACT = {
     dca: 8,
     muteGroups: 6,
     mainMute: true,
+    scenes: 8, // the SCENES page: store and recall (the COB gig saves its show here)
     auxOut: "xlr",
-    aes50: true, // AES50 A: an SD8 or S32 on Cat5; ROUTING picks LOCAL or AES50-A per block of 8 inputs
+    aes50: true, // AES50 A: an SD8 or S32 on Cat5; ROUTING picks LOCAL, AES50-A or CARD (USB) per block of 8 inputs
     main: { label: "MAIN LR", law: "level" },
     phones: { label: "PHONES", sources: null },
     solo: { mode: "pfl", label: "SOLO" },
@@ -737,6 +748,8 @@ export const COMPACT = {
         label: String(i + 1).padStart(2, "0"),
         kind: "mono",
         jacks: ["mic"],
+        // The rear panel's XLR jacks, as ROUTING names them: LOCAL 25 isn't CH 25 unless the routing says so.
+        portName: `LOCAL ${i + 1}`,
         gain: { min: -12, max: 60 },
         hpf: { min: 20, max: 400 },
         peq: true,
@@ -776,6 +789,8 @@ export const COMPACT = {
     // AES50 A on the rear panel: a stage box (S32, SD8) on Cat5. ROUTING picks, per
     // block of 8 channels, LOCAL jacks or AES50-A (rig device `inSource`, 0 / 1).
     aes50: true,
+    // Salmon's expansion card (the only full X32 in the lab is Salmon's): an X-DANTE, 32 in / 32 out.
+    card: "x-dante",
     main: { label: "MAIN LR", law: "level" },
     phones: { label: "PHONES", sources: null },
     solo: { mode: "pfl", label: "SOLO" },
@@ -956,6 +971,8 @@ export function compactPorts(def) {
     ports.push(out("main-l", "quarter", `${mainName} L`, { bus: "main", side: "L" }), out("main-r", "quarter", `${mainName} R`, { bus: "main", side: "R" }));
   }
   if (def.aes50) ports.push({ id: "aes50a", dir: "in", jack: "ethercon", level: "line", role: "net", network: "aes50", name: "AES50 A" });
+  // The expansion card's network port: Salmon's X32 has an X-DANTE (32 in / 32 out), sending a multitrack to the FOH Mac mini.
+  if (def.card === "x-dante") ports.push({ id: "card-dante", dir: "out", jack: "ethercon", level: "line", role: "net", network: "dante", name: "CARD · X-DANTE (Dante)", short: "DANTE" });
   if (o.includes("alt")) ports.push(out("alt-l", "quarter", "ALT OUT L", { bus: "alt", side: "L" }), out("alt-r", "quarter", "ALT OUT R", { bus: "alt", side: "R" }));
   if (o.includes("cr")) ports.push(out("cr-l", "quarter", "C-R OUT L", { bus: "cr", side: "L" }), out("cr-r", "quarter", "C-R OUT R", { bus: "cr", side: "R" }));
   for (const b of ["aux1", "aux2", "aux3", "aux4"]) if (o.includes(b)) ports.push(out(b, def.auxOut || "quarter", def.auxOut === "xlr" ? `${def.buses[b].label} OUT (XLR)` : `${def.buses[b].label} SEND`, { bus: b }));

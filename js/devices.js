@@ -4,9 +4,11 @@
 // ({ id, type, label, ...settings }) and change through MixerStore.setDevice.
 // Pure JS: the audio side is js/outboard-audio.js. See docs/CR1604.md.
 
-import { DEVICE_TYPES } from "./connection-model.js";
+import { BLOCK_SOURCE_BY_ID, DEVICE_TYPES, IN_SOURCE_VALUES, powerSpec } from "./connection-model.js";
 
 const bool = (v) => !!v;
+// One of a fixed list (a number from a <select> arrives as a string, and is matched as a number).
+const oneOf = (list) => (v) => list.find((x) => x === v || (typeof x === "number" && x === Number(v)));
 const range = (lo, hi, step) => (v) => {
   const n = Math.min(hi, Math.max(lo, Number(v)));
   return Number.isFinite(n) ? (step ? Math.round(n / step) * step : n) : undefined;
@@ -105,11 +107,15 @@ const KEYS = {
   reverb: { decay: range(REVERB.decayMin, REVERB.decayMax, 0.1) },
   "stereo-mic-pair": { spacingCm: range(0, PAIR.spacingMax, 1), angleDeg: range(0, PAIR.angleMax, 1) },
   "camera-input": { inputLevel: range(0, 1, 1) }, // 0 = MIC, 1 = LINE
+  "bh109-rack": { ashlyMic: range(0, 1, 1) }, // the Ashly's Ch.1 Line / Mic button: 0 = LINE, 1 = MIC (+30 dB)
   sd442: { outLevel: range(0, 2, 1) }, // the 442's XLR OUTPUT LEVEL: 0 = MIC, 1 = −10, 2 = LINE
   f8n: { mainLevel: range(0, 1, 1), subLevel: range(0, 1, 1) },
   l20: Object.fromEntries(["A", "B", "C", "D", "E", "F"].map((x) => [`phones${x}`, range(0, 1, 1)])), // MONITOR OUT PHONES/SPEAKER switches (0 = SPEAKER)
-  x32: { inSource: range(0, 1, 1) }, // ROUTING inputs, per block of 8: 0 = LOCAL, 1 = AES50-A
-  x32c: { inSource: range(0, 1, 1) },
+  // ROUTING → BLOCK: INPUT per block of 8 channels (connection-model inSourceName for the values),
+  // and what each block of 8 AES50-A and card outputs carries (BLOCK_SOURCES ids).
+  x32: { inSource: oneOf(IN_SOURCE_VALUES), aesOut: oneOf(Object.keys(BLOCK_SOURCE_BY_ID)), cardOut: oneOf(Object.keys(BLOCK_SOURCE_BY_ID)) },
+  x32c: { inSource: oneOf(IN_SOURCE_VALUES), aesOut: oneOf(Object.keys(BLOCK_SOURCE_BY_ID)), cardOut: oneOf(Object.keys(BLOCK_SOURCE_BY_ID)) },
+  sd8: { outBank: range(0, 2, 1) }, // the SD8's OUTPUT switch: 0 = 1-8, 1 = 9-16, 2 = 17-24
   cl3: { danteRx: range(0, 16, 1), inPatch: range(0, 1, 1) }, // Dante Controller subscriptions (0 = none); INPUT PATCH 0 = Rio, 1 = Dante
   "daw-dvs": { dvs: range(0, 1, 1), outs: range(0, 16, 1) }, // each DAW track's output: DVS channel 1–16 (0 = none) // Output Level: MAIN OUT 0 = LINE, 1 = NORMAL; SUB OUT 0 = NORMAL, 1 = MIC
   "zoom-f8": {
@@ -122,13 +128,27 @@ const KEYS = {
   },
 };
 
+// The knobs on amps, a rack's mixer and an active wedge (DEVICE_TYPES `knobs`:
+// 0–10 in half steps, or a choice), a wireless handheld's button (`mic`: 0 ON,
+// 1 MUTED, 2 OFF) and the volume knob on the amp or instrument in front of a
+// source's mic or DI (`vol`, 0–10).
+function gearKey(dev, field) {
+  const k = DEVICE_TYPES[dev.type]?.knobs?.find((x) => x.key === field);
+  if (k) return k.select ? range(0, k.select.length - 1, 1) : range(0, 10, 0.5);
+  if (field === "mic" && (dev.type === "wireless-handheld" || dev.type === "rf-handheld")) return range(0, 2, 1);
+  if (field === "vol" && dev.sourceId) return range(0, 10, 0.5);
+  // Its power: the cable (`plugged`) and the switch (`on`), 0 or 1.
+  if ((field === "plugged" || (field === "on" && !powerSpec(dev)?.noSwitch)) && powerSpec(dev)) return range(0, 1, 1);
+  return null;
+}
+
 // Applies one setting to a device in place; returns true if it changed.
 // Keys: "decay", "spacingCm", "angleDeg", "hpLevel", "tracks.3.trimDb",
 // "link.1", "dual.0". A linked pair moves together (trim, 48V, arm).
 export function setDeviceValue(dev, key, value) {
   const parts = key.split(".");
   const field = parts.length === 3 ? parts[2] : parts[0];
-  const fn = KEYS[dev.type]?.[field];
+  const fn = KEYS[dev.type]?.[field] || gearKey(dev, field);
   if (!fn || !DEVICE_TYPES[dev.type]) return false;
   const v = fn(value);
   if (v === undefined) return false;

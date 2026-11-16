@@ -567,11 +567,14 @@ Object.assign(SOLVE, {
     a.st.setListen("aux1");
     a.st.setBus("aux1", "level", 0.5);
   },
+  // As a student does it (B3): swap and press 48V first. The overhead is loud
+  // in the house at the singer's GAIN but clips, so only the GAIN tick is left.
   "mix8-overhead": (a) => {
     a.unplugAt("src-backing-vocals/out");
     assert.ok(a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr").ok);
     a.st.setAllPhantom(true);
-    a.set("drums", "gainDb", 34);
+    assert.deepEqual(a.unmet(), ["gain"]);
+    a.set("drums", "gainDb", 30);
   },
   "stagepas400bt-speech": (a) => a.st.setBus("masterEq", "pos", 0.2),
   "stagepas400bt-hall": (a) => a.st.setBus("reverb", "type", 0.24),
@@ -610,6 +613,7 @@ Object.assign(SOLVE, {
   "x1204usb-overhead": (a) => {
     assert.ok(a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr").ok);
     a.st.setAllPhantom(true);
+    assert.deepEqual(a.unmet(), ["gain"]);
     a.set("drums", "gainDb", 34);
   },
   "x1204usb-pfl": (a) => {
@@ -619,7 +623,7 @@ Object.assign(SOLVE, {
     a.set("guitars", "gainDb", 36);
   },
   "x1204usb-comp": (a) => a.set("lead-vocal", "comp", 0.4),
-  "x1204usb-slapback": (a) => a.st.setBus("fx", "program", 9),
+  "x1204usb-slapback": (a) => a.st.setBus("fx", "program", 15),
   "x1204usb-ret-mon": (a) => {
     a.st.setBus("ret1", "mon", 0.5);
     a.st.setListen("aux1");
@@ -706,6 +710,10 @@ Object.assign(WRONG, {
     a.unplugAt("src-backing-vocals/out");
     a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr");
     a.set("drums", "gainDb", 34);
+  }], ["the singer's GAIN left on (OL)", (a) => {
+    a.unplugAt("src-backing-vocals/out");
+    a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr");
+    a.st.setAllPhantom(true);
   }]],
   "stagepas400bt-speech": [["MASTER LEVEL down", (a) => a.st.setBus("main", "level", 0.3)]],
   "stagepas400bt-hall": [["the ECHO end", (a) => a.st.setBus("reverb", "type", 0.9)]],
@@ -727,10 +735,13 @@ Object.assign(WRONG, {
   "x1204usb-overhead": [["no phantom", (a) => {
     a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr");
     a.set("drums", "gainDb", 34);
+  }], ["the singer's GAIN left on (CLIP)", (a) => {
+    a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr");
+    a.st.setAllPhantom(true);
   }]],
   "x1204usb-pfl": [["gain without listening", (a) => a.set("guitars", "gainDb", 36)]],
   "x1204usb-comp": [["COMP all the way", (a) => a.set("lead-vocal", "comp", 1)]],
-  "x1204usb-slapback": [["a hall", (a) => a.st.setBus("fx", "program", 1)]],
+  "x1204usb-slapback": [["a hall", (a) => a.st.setBus("fx", "program", 1)], ["the long delay", (a) => a.st.setBus("fx", "program", 18)]],
   "x1204usb-ret-mon": [["RET 1 louder in the house", (a) => {
     a.st.setBus("ret1", "level", 0.8);
     a.st.setListen("aux1");
@@ -1005,7 +1016,479 @@ Object.assign(WRONG, {
   "x32-scene-store": [["stored over scene 2", (a) => a.st.storeScene(1, "Encore")]],
 });
 
+// COB in Irvine: the X32 Compact gig with the SD8, the STAGEPAS and the wedge chain.
+const COB_HS = "abcdefghijk".split("").map((l) => `hs-${l}`);
+Object.assign(SOLVE, {
+  "x32c-cob-usb": (a) => {
+    a.st.setDevice("mixer", "inSource.0", 0);
+    a.st.setDevice("mixer", "inSource.1", 0);
+  },
+  "x32c-cob-gain": (a) => COB_HS.forEach((s) => a.set(s, "gainDb", -SOURCES_BY_ID[s].outputDb)),
+  "x32c-cob-tracks": (a) => {
+    a.set("track", "lr", true);
+    a.faderDb("track", -6);
+  },
+  "x32c-cob-link": (a) => assert.ok(a.st.connect("sb/aes50a", "mixer/aes50a", "cat5").ok),
+  "x32c-cob-one-side": (a) => assert.ok(a.st.connect("sb/out8", "stagepas/in-b", "xlr-ts").ok),
+  "x32c-cob-speaker-cable": (a) => {
+    a.unplugAt("sp6-r/in");
+    assert.ok(a.st.connect("stagepas/out-b", "sp6-r/in", "speaker").ok);
+  },
+  "x32c-cob-thru": (a) => assert.ok(a.st.connect("cob-w2/thru", "cob-w3/in", "xlr").ok),
+  "x32c-cob-prefader": (a) => [...COB_HS, "track"].forEach((s) => a.set(s, "pres.mix1", true)),
+  "x32c-cob-tracks-wedge": (a) => {
+    a.st.setListen("mix1");
+    a.sendDb("track", "mix1", -4);
+  },
+  "x32c-cob-scene": (a) => a.st.storeScene(1, "COB"),
+});
+
+Object.assign(WRONG, {
+  "x32c-cob-usb": [["AES50-A instead of LOCAL", (a) => {
+    a.st.setDevice("mixer", "inSource.0", 1);
+    a.st.setDevice("mixer", "inSource.1", 1);
+  }], ["only CH 1-8", (a) => a.st.setDevice("mixer", "inSource.0", 0)]],
+  "x32c-cob-gain": [["every GAIN at the top", (a) => COB_HS.forEach((s) => a.set(s, "gainDb", 60))], ["faders up instead", (a) => COB_HS.forEach((s) => a.nudge(s, 10))]],
+  "x32c-cob-tracks": [["MAIN LR on, fader still down", (a) => a.set("track", "lr", true)], ["fader up, MAIN LR still off", (a) => a.faderDb("track", -6)]],
+  "x32c-cob-link": [["inputs routed to AES50-A", (a) => {
+    a.st.setDevice("mixer", "inSource.0", 1);
+    a.st.setDevice("mixer", "inSource.1", 1);
+  }]],
+  "x32c-cob-one-side": [["SD8 OUT 2 into the right side", (a) => assert.ok(a.st.connect("sb/out2", "stagepas/in-b", "xlr-ts").ok)]],
+  "x32c-cob-speaker-cable": [["a TRS cable instead", (a) => {
+    a.unplugAt("sp6-r/in");
+    assert.ok(a.st.connect("stagepas/out-b", "sp6-r/in", "trs").ok);
+  }]],
+  "x32c-cob-thru": [["wedge 3 on SD8 OUT 2", (a) => assert.ok(a.st.connect("sb/out2", "cob-w3/in", "xlr").ok)]],
+  "x32c-cob-prefader": [["the headsets but not the track", (a) => COB_HS.forEach((s) => a.set(s, "pres.mix1", true))]],
+  "x32c-cob-tracks-wedge": [["the track up in the house", (a) => {
+    a.st.setListen("mix1");
+    a.faderDb("track", 0);
+  }]],
+  "x32c-cob-scene": [["stored over the choir's scene", (a) => a.st.storeScene(0, "COB")]],
+});
+
+// Vocal Jazz in Salmon: the full X32 with the S32, the NX3000 and the speakON wedge chain.
+const VJ = Array.from({ length: 11 }, (_, i) => `vj-${i + 1}`);
+const routeVj = (a, blocks) => blocks.forEach((v, b) => a.st.setDevice("mixer", `inSource.${b}`, v));
+// The monitor test, all but the parts `skip` names.
+const wedgeTest = (a, skip = []) => {
+  a.st.setListen("mix1");
+  if (!skip.includes("house")) a.st.setChannel(a.idx("preshow"), "level", 0);
+  if (!skip.includes("send")) a.sendDb("preshow", "mix1", 0);
+  if (!skip.includes("master")) a.st.setBus("mix1", "level", LAWS.level.toPos(0));
+  if (!skip.includes("mute")) a.st.setBus("mix1", "mute", false);
+};
+const patchWedges = (a, chain = true) => {
+  assert.ok(a.st.connect("s32/out1", "nx3000/in-a", "xlr").ok);
+  assert.ok(a.st.connect("nx3000/out-a", "vj-w1/in", "speakon").ok);
+  if (!chain) return;
+  assert.ok(a.st.connect("vj-w1/link", "vj-w2/in", "speakon").ok);
+  assert.ok(a.st.connect("vj-w2/link", "vj-w3/in", "speakon").ok);
+};
+Object.assign(SOLVE, {
+  "x32-vj-mains": (a) => {
+    a.faderDb("preshow", 0);
+    a.st.setListen("main");
+  },
+  "x32-vj-monitors": (a) => wedgeTest(a),
+  "x32-vj-local": (a) => routeVj(a, [0, 0, 0, 1]),
+  "x32-vj-gain": (a) => ["vj-4", "vj-6", "vj-10"].forEach((s) => a.set(s, "gainDb", 30)),
+  "x32-vj-lowcut": (a) => {
+    ["vj-3", "vj-7", "vj-11"].forEach((s) => a.set(s, "hpf", 0.2));
+    ["vj-1", "vj-2"].forEach((s) => a.set(s, "compOn", false));
+  },
+  "x32-vj-muted": (a) => a.set("vj-8", "enabled", true),
+  "x32-vj-send": (a) => {
+    a.st.setListen("main");
+    a.st.setListen("mix1");
+    a.sendDb("vj-5", "mix1", -22);
+  },
+  "x32-vj-amp": (a) => {
+    a.unplugAt("nx3000/in-b");
+    assert.ok(a.st.connect("s32/out1", "nx3000/in-a", "xlr").ok);
+  },
+  "x32-vj-chain": (a) => assert.ok(a.st.connect("vj-w2/link", "vj-w3/in", "speakon").ok),
+  "x32-vj-link": (a) => assert.ok(a.st.connect("s32/aes50a", "mixer/aes50a", "cat5").ok),
+  "x32-vj-patch": (a) => patchWedges(a),
+});
+
+Object.assign(WRONG, {
+  "x32-vj-mains": [["fixed without listening", (a) => a.faderDb("preshow", 0)], ["into the wedges too", (a) => {
+    a.faderDb("preshow", 0);
+    a.sendDb("preshow", "mix1", 0);
+    a.st.setListen("main");
+  }]],
+  "x32-vj-monitors": [
+    ["still in the house", (a) => wedgeTest(a, ["house"])],
+    ["no send from the laptop", (a) => wedgeTest(a, ["send"])],
+    ["MIX 1 still down", (a) => wedgeTest(a, ["master"])],
+    ["MIX 1 still muted", (a) => wedgeTest(a, ["mute"])],
+    ["every singer's send up instead", (a) => {
+      wedgeTest(a);
+      VJ.forEach((s) => a.sendDb(s, "mix1", 0));
+    }],
+  ],
+  "x32-vj-local": [["every block on LOCAL, the stage box too", (a) => routeVj(a, [0, 0, 0, 0])], ["only CH 1-8", (a) => a.st.setDevice("mixer", "inSource.0", 0)]],
+  "x32-vj-gain": [["the quiet ones' faders up instead", (a) => ["vj-10"].forEach((s) => a.nudge(s, 8))], ["every GAIN at 40", (a) => VJ.forEach((s) => a.set(s, "gainDb", 40))]],
+  "x32-vj-lowcut": [["low cut only", (a) => ["vj-3", "vj-7", "vj-11"].forEach((s) => a.set(s, "hpf", 0.25))], ["compressors only", (a) => ["vj-1", "vj-2"].forEach((s) => a.set(s, "compOn", false))]],
+  "x32-vj-muted": [["the fader up instead", (a) => a.nudge("vj-8", 6)]],
+  "x32-vj-send": [["the MIX 1 master up instead", (a) => {
+    a.st.setListen("main");
+    a.st.setListen("mix1");
+    a.st.setBus("mix1", "level", LAWS.level.toPos(6));
+  }], ["fixed without listening", (a) => a.sendDb("vj-5", "mix1", -22)]],
+  "x32-vj-amp": [["S32 OUT 2 into CH A", (a) => assert.ok(a.st.connect("s32/out2", "nx3000/in-a", "xlr").ok)]],
+  "x32-vj-chain": [["wedge 3 on the amp's CH B", (a) => assert.ok(a.st.connect("nx3000/out-b", "vj-w3/in", "speakon").ok)]],
+  "x32-vj-link": [["the mics routed to AES50-A", (a) => routeVj(a, [1, 1, 1, 1])], ["the mains moved onto the X32's own OUT 15/16", (a) => {
+    a.unplugAt("mains-mackie/in-l");
+    a.unplugAt("mains-mackie/in-r");
+    assert.ok(a.st.connect("mixer/out15", "mains-mackie/in-l", "xlr").ok);
+    assert.ok(a.st.connect("mixer/out16", "mains-mackie/in-r", "xlr").ok);
+  }]],
+  "x32-vj-patch": [["only wedge 1", (a) => patchWedges(a, false)], ["each wedge on its own amp channel", (a) => {
+    patchWedges(a, false);
+    assert.ok(a.st.connect("nx3000/out-b", "vj-w2/in", "speakon").ok);
+  }]],
+});
+
+// The electroacoustic showcase in Salmon (js/scenarios.js EA_GIGS).
+Object.assign(SOLVE, {
+  "x32-ea-chain": (a) => assert.ok(a.st.connect("ea-sd8/aes50a", "s32/aes50b", "cat5").ok),
+  "x32-ea-route": (a) => a.st.setDevice("mixer", "inSource.2", 3 + 4),
+  "x32-ea-bank": (a) => a.st.setDevice("ea-sd8", "outBank", 0),
+  "x32-ea-48v": (a) => a.set("ea-piano", "phantom", true),
+  "x32-ea-collision": (a) => {
+    a.unplugAt("s32/in26");
+    assert.ok(a.st.connect("src-ea-guitar/out", "s32/in27", "xlr").ok);
+    assert.ok(a.st.connect("src-ea-piano/out", "s32/in26", "xlr").ok);
+  },
+  "x32-ea-click": (a) => a.set("ea-click", "lr", false),
+  "x32-ea-dead": (a) => {
+    a.st.setListen("mix3");
+    a.unplugAt("ea-perf/in");
+    assert.ok(a.st.connect("mixer/out3", "ea-perf/in", "xlr").ok);
+  },
+});
+
+Object.assign(WRONG, {
+  "x32-ea-chain": [["the SD8 on the X32's AES50 A instead of the S32", (a) => {
+    a.unplugAt("mixer/aes50a");
+    assert.ok(a.st.connect("ea-sd8/aes50a", "mixer/aes50a", "cat5").ok);
+  }]],
+  "x32-ea-route": [["CH 17-24 on AES50 A17-24", (a) => a.st.setDevice("mixer", "inSource.2", 1)], ["CH 25-32 moved to the SD8", (a) => a.st.setDevice("mixer", "inSource.3", 3 + 4)]],
+  "x32-ea-bank": [["MIX 3's master up", (a) => a.st.setBus("mix3", "level", LAWS.level.toPos(6))]],
+  "x32-ea-48v": [["the piano's GAIN up instead", (a) => a.set("ea-piano", "gainDb", 60)]],
+  "x32-ea-collision": [["the piano mic into the guitar's input", (a) => assert.ok(a.st.connect("src-ea-piano/out", "s32/in27", "xlr").ok)]],
+  "x32-ea-click": [["the click muted on the X32", (a) => a.set("ea-click", "enabled", false)]],
+  "x32-ea-dead": [["the wedge on SD8 OUT 4", (a) => {
+    a.st.setListen("mix3");
+    a.unplugAt("ea-perf/in");
+    assert.ok(a.st.connect("ea-sd8/out4", "ea-perf/in", "xlr").ok);
+  }], ["fixed without listening", (a) => {
+    a.unplugAt("ea-perf/in");
+    assert.ok(a.st.connect("mixer/out3", "ea-perf/in", "xlr").ok);
+  }]],
+});
+
+// CME in Salmon (js/scenarios.js CME_GIGS): Essentials.
+const CME_VOX = ["cme-red", "cme-orange", "cme-yellow", "cme-green"];
+const cmeMains = (a, cable = "speaker", [l, r] = ["in-a", "in-b"]) => {
+  assert.ok(a.st.connect("s32/out13", `cme-crown/${l}`, "xlr-trs").ok);
+  assert.ok(a.st.connect("s32/out14", `cme-crown/${r}`, "xlr-trs").ok);
+  assert.ok(a.st.connect("cme-crown/out-a", "cme-main-l/in", cable).ok);
+  assert.ok(a.st.connect("cme-crown/out-b", "cme-main-r/in", cable).ok);
+};
+const cmeWedges = (a, { cable = "speaker", power = true } = {}) => {
+  assert.ok(a.st.connect("s32/out9", "cme-km750/in-a", "xlr").ok);
+  assert.ok(a.st.connect("cme-km750/out-a", "cme-w1/in", cable).ok);
+  assert.ok(a.st.connect("s32/out10", "cme-km750/in-b", "xlr").ok);
+  assert.ok(a.st.connect("cme-km750/out-b", "cme-w2/in", cable).ok);
+  assert.ok(a.st.connect("s32/out11", "cme-w3/in", "xlr").ok);
+  if (power) a.st.setDevice("cme-w3", "plugged", 1);
+};
+const cmeMusicTest = (a, { listen = true, volume = true } = {}) => {
+  for (const b of ["mix9", "mix10", "mix11"]) {
+    a.sendDb("preshow", b, 0);
+    if (listen) a.st.setListen(b);
+  }
+  if (volume) a.st.setDevice("cme-w3", "vol", 7);
+};
+const cmeVox = (a, buses = ["mix10", "mix11"]) => {
+  for (const b of buses) {
+    a.st.setListen(b);
+    for (const s of CME_VOX) a.sendDb(s, b, -5);
+  }
+};
+const cmeBand = (a, { phantom = true, order = { "cme-nord": 1, "cme-pno-l": 3, "cme-pno-r": 4, "cme-bass": 5, "cme-gtr1": 6 } } = {}) => {
+  for (const [s, n] of Object.entries(order)) assert.ok(a.st.connect(`src-${s}/out`, `cme-hosa/in${n}`, "xlr").ok, s);
+  if (phantom) for (const ch of [26, 27]) a.st.setChannel(ch, "phantom", true);
+};
+Object.assign(SOLVE, {
+  "x32-cme-tour": (a) => ["main", "mix9", "mix10", "mix11"].forEach((d) => a.st.setListen(d)),
+  "x32-cme-rack": (a) => a.st.setDevice("cme-wl-power", "on", 1),
+  "x32-cme-mains": (a) => cmeMains(a),
+  "x32-cme-house": (a) => a.st.setDevice("cme-mix5", "lvl45", 0),
+  "x32-cme-wedges": (a) => cmeWedges(a),
+  "x32-cme-wedge-test": (a) => cmeMusicTest(a),
+  "x32-cme-amp-knob": (a) => a.st.setDevice("cme-km750", "volB", 7),
+  "x32-cme-mics": (a) => {
+    a.st.setDevice("src-cme-yellow", "mic", 0);
+    a.st.setDevice("src-cme-green", "mic", 0);
+  },
+  "x32-cme-vox": (a) => cmeVox(a),
+  "x32-cme-band": (a) => cmeBand(a),
+  "x32-cme-gtr": (a) => a.st.setDevice("src-cme-gtr1", "vol", 5),
+  "x32-cme-cable": (a) => {
+    a.unplugAt("cme-w1/in");
+    assert.ok(a.st.connect("cme-km750/out-a", "cme-w1/in", "speaker").ok);
+  },
+  "x32-cme-gains": (a) => {
+    a.set("cme-orange", "gainDb", 30);
+    for (const s of ["cme-pno-l", "cme-pno-r"]) a.set(s, "gainDb", 40);
+    a.set("cme-bass", "gainDb", 32);
+    a.set("cme-gtr1", "gainDb", 36);
+  },
+  "x32-cme-end": (a) => a.st.setDevice("cme-mix5", "lvl45", 7.5),
+});
+Object.assign(WRONG, {
+  "x32-cme-tour": [["only the house", (a) => a.st.setListen("main")], ["the hall's speakers turned back on", (a) => {
+    ["main", "mix9", "mix10", "mix11"].forEach((d) => a.st.setListen(d));
+    a.st.setDevice("cme-mix5", "lvl45", 7.5);
+  }]],
+  "x32-cme-rack": [["GAIN up on CH 17-21 instead", (a) => CME_VOX.forEach((s) => a.set(s, "gainDb", 60))], ["only the antenna distribution switched off and on", (a) => {
+    a.st.setDevice("cme-pas", "on", 0);
+    a.st.setDevice("cme-pas", "on", 1);
+  }]],
+  "x32-cme-mains": [["instrument cable to the Yamahas", (a) => cmeMains(a, "ts")], ["left and right swapped at the amp", (a) => cmeMains(a, "speaker", ["in-b", "in-a"])]],
+  "x32-cme-house": [["MAIN MIX down instead", (a) => a.st.setDevice("cme-mix5", "main", 0)], ["the rack unplugged", (a) => {
+    a.unplugAt("cme-mix5/in-l");
+    a.unplugAt("cme-mix5/in-r");
+  }], ["4/5 LEVEL only halfway down", (a) => a.st.setDevice("cme-mix5", "lvl45", 4)]],
+  "x32-cme-wedges": [["the active wedge left unplugged from power", (a) => cmeWedges(a, { power: false })], ["instrument cable to the passive wedges", (a) => cmeWedges(a, { cable: "ts" })]],
+  "x32-cme-wedge-test": [["fixed without listening", (a) => cmeMusicTest(a, { listen: false })], ["MIX 11 up instead of the wedge's VOLUME", (a) => {
+    cmeMusicTest(a, { volume: false });
+    a.st.setBus("mix11", "level", 1);
+  }], ["the music up in the house too", (a) => {
+    cmeMusicTest(a);
+    a.faderDb("preshow", 0);
+  }]],
+  "x32-cme-amp-knob": [["MIX 10's master up instead", (a) => a.st.setBus("mix10", "level", 1)], ["the singers' MIX 10 sends up instead", (a) => CME_VOX.forEach((s) => a.sendDb(s, "mix10", 10))]],
+  "x32-cme-mics": [["GAIN up instead", (a) => ["cme-yellow", "cme-green"].forEach((s) => a.set(s, "gainDb", 60))], ["only yellow", (a) => a.st.setDevice("src-cme-yellow", "mic", 0)], ["green tapped instead of held", (a) => {
+    a.st.setDevice("src-cme-yellow", "mic", 0);
+    a.st.setDevice("src-cme-green", "mic", 1);
+  }]],
+  "x32-cme-vox": [["only wedge 2", (a) => cmeVox(a, ["mix10"])], ["the masters up instead", (a) => {
+    a.st.setListen("mix10");
+    a.st.setListen("mix11");
+    a.st.setBus("mix10", "level", 1);
+    a.st.setBus("mix11", "level", 1);
+  }]],
+  "x32-cme-band": [["no 48V on the piano mics", (a) => cmeBand(a, { phantom: false })], ["plugged in out of order", (a) => cmeBand(a, { order: { "cme-nord": 2, "cme-pno-l": 3, "cme-pno-r": 4, "cme-bass": 6, "cme-gtr1": 5 } })]],
+  "x32-cme-gtr": [["GAIN all the way up instead", (a) => a.set("cme-gtr1", "gainDb", 60)], ["the amp's MASTER all the way up", (a) => a.st.setDevice("src-cme-gtr1", "vol", 10)]],
+  "x32-cme-cable": [["an instrument cable in its place", (a) => {
+    a.unplugAt("cme-w1/in");
+    assert.ok(a.st.connect("cme-km750/out-a", "cme-w1/in", "ts").ok);
+  }], ["the KM750's CH A level up", (a) => a.st.setDevice("cme-km750", "volA", 10)]],
+  "x32-cme-gains": [["faders instead of GAIN", (a) => {
+    a.nudge("cme-orange", 10);
+    a.nudge("cme-bass", -10);
+  }], ["only the vocals", (a) => a.set("cme-orange", "gainDb", 30)]],
+  "x32-cme-end": [["MAIN MIX up instead", (a) => a.st.setDevice("cme-mix5", "main", 10)]],
+});
+
+// CME in Salmon: Advanced. GUEST_GAIN / DRUM_GAIN: what puts the new inputs in the good range once routed.
+const GUEST_GAIN = 30;
+const DRUM_GAIN = { "cme-kick": 30, "cme-snare": 30 };
+const cmeGuest = (a, { block = 1, send = true } = {}) => {
+  a.st.setDevice("mixer", `inSource.${block}`, 13);
+  a.st.setChannel(block * 8, "gainDb", GUEST_GAIN);
+  a.faderDb("cme-guest", 0);
+  if (send) a.sendDb("cme-guest", "mix10", -5);
+};
+const cmeDrums = (a, inSource = 1) => {
+  a.st.setDevice("mixer", "inSource.1", inSource);
+  for (const [s, g] of Object.entries(DRUM_GAIN)) if (a.idx(s) >= 0) a.set(s, "gainDb", g);
+};
+const cmeLead = (a, buses = ["mix9", "mix10", "mix11"]) => {
+  a.faderDb("cme-red", 0);
+  for (const b of buses) a.sendDb("cme-red", b, -5);
+};
+const cmeStack = (a, { route = true, gtr = true } = {}) => {
+  a.st.setDevice("cme-pas-x", "on", 1);
+  a.st.setDevice("cme-km750", "on", 1);
+  if (route) a.st.setBus("routing", "out11", "mix11");
+  if (gtr) a.st.setDevice("src-cme-gtr1", "plugged", 1);
+};
+Object.assign(SOLVE, {
+  "x32-cme-adv-antenna": (a) => a.st.setDevice("cme-pas-x", "on", 1),
+  "x32-cme-adv-vol": (a) => a.st.setDevice("cme-rx3", "vol2", 2),
+  "x32-cme-adv-headset": (a) => cmeGuest(a),
+  "x32-cme-adv-s32": (a) => a.st.setDevice("s32", "plugged", 1),
+  "x32-cme-adv-inst": (a) => {
+    a.unplugAt("cme-w2/in");
+    assert.ok(a.st.connect("cme-km750/out-b", "cme-w2/in", "speaker").ok);
+  },
+  "x32-cme-adv-active-amp": (a) => {
+    a.unplugAt("cme-w3/in");
+    a.unplugAt("s32/out11");
+    assert.ok(a.st.connect("s32/out11", "cme-w3/in", "xlr").ok);
+  },
+  "x32-cme-adv-route": (a) => {
+    a.st.setBus("routing", "out11", "mix11");
+    a.st.setListen("mix11");
+  },
+  "x32-cme-adv-katana": (a) => a.st.setDevice("src-cme-gtr1", "plugged", 1),
+  "x32-cme-adv-inputs": (a) => cmeDrums(a),
+  "x32-cme-adv-lead": (a) => cmeLead(a),
+  "x32-cme-adv-mix5": (a) => {
+    assert.ok(a.st.connect("s32/out15", "cme-mix5/in-l", "xlr-trs").ok);
+    assert.ok(a.st.connect("s32/out16", "cme-mix5/in-r", "xlr-trs").ok);
+  },
+  "x32-cme-adv-stack": (a) => cmeStack(a),
+});
+Object.assign(WRONG, {
+  "x32-cme-adv-antenna": [["the Furman switched off and on", (a) => {
+    a.st.setDevice("cme-wl-power", "on", 0);
+    a.st.setDevice("cme-wl-power", "on", 1);
+  }], ["GAIN up on CH 17-21", (a) => CME_VOX.forEach((s) => a.set(s, "gainDb", 60))]],
+  "x32-cme-adv-vol": [["GAIN down instead", (a) => a.set("cme-orange", "gainDb", 0)], ["the receiver's VOL all the way down", (a) => a.st.setDevice("cme-rx3", "vol2", 0)]],
+  "x32-cme-adv-headset": [["CH 25-32 moved to Local 25-32", (a) => cmeGuest(a, { block: 3 })], ["in the house but not the wedge", (a) => cmeGuest(a, { send: false })]],
+  "x32-cme-adv-s32": [["switched off and on, still unplugged", (a) => {
+    a.st.setDevice("s32", "on", 0);
+    a.st.setDevice("s32", "on", 1);
+  }], ["GAIN up on the band", (a) => ["cme-nord", "cme-bass", "cme-gtr1"].forEach((s) => a.set(s, "gainDb", 60))]],
+  "x32-cme-adv-inst": [["a TRS patch cable instead", (a) => {
+    a.unplugAt("cme-w2/in");
+    assert.ok(a.st.connect("cme-km750/out-b", "cme-w2/in", "trs").ok);
+  }]],
+  "x32-cme-adv-active-amp": [["the KM750 turned down", (a) => a.st.setDevice("cme-km750-2", "volA", 0)], ["S32 OUT 12 into the wedge", (a) => {
+    a.unplugAt("cme-w3/in");
+    assert.ok(a.st.connect("s32/out12", "cme-w3/in", "xlr").ok);
+  }]],
+  "x32-cme-adv-route": [["MIX 11's master up", (a) => {
+    a.st.setBus("mix11", "level", 1);
+    a.st.setListen("mix11");
+  }], ["Output 11 on MixBus 10", (a) => {
+    a.st.setBus("routing", "out11", "mix10");
+    a.st.setListen("mix11");
+  }]],
+  "x32-cme-adv-katana": [["GAIN all the way up", (a) => a.set("cme-gtr1", "gainDb", 60)], ["switched off and on, still unplugged", (a) => {
+    a.st.setDevice("src-cme-gtr1", "on", 0);
+    a.st.setDevice("src-cme-gtr1", "on", 1);
+  }]],
+  "x32-cme-adv-inputs": [["CH 9-16 on Local 25-32", (a) => cmeDrums(a, 13)], ["CH 25-32 moved to AES50 A9-16", (a) => a.st.setDevice("mixer", "inSource.3", 3 + 1)]],
+  "x32-cme-adv-lead": [["only the house", (a) => a.faderDb("cme-red", 0)], ["only wedge 1", (a) => cmeLead(a, ["mix9"])]],
+  "x32-cme-adv-mix5": [["left and right swapped", (a) => {
+    assert.ok(a.st.connect("s32/out15", "cme-mix5/in-r", "xlr-trs").ok);
+    assert.ok(a.st.connect("s32/out16", "cme-mix5/in-l", "xlr-trs").ok);
+  }], ["MAIN MIX up instead", (a) => a.st.setDevice("cme-mix5", "main", 10)]],
+  "x32-cme-adv-stack": [["all but the routing", (a) => cmeStack(a, { route: false })], ["all but the guitar amp", (a) => cmeStack(a, { gtr: false })]],
+});
+
 // The generic digital mixer is the X32 Compact's model with no brand on it: the same fixes (and mistakes) apply.
+// Mariachi in Salmon (js/scenarios.js MARIACHI_GIGS).
+const MAR_VLN = ["mar-vln1", "mar-vln2", "mar-vln3", "mar-vln4"];
+const MAR_BUSES = ["mix3", "mix4", "mix5", "mix6", "mix7", "mix8"];
+const marWedges = (a, { power = true, swap = false } = {}) => {
+  assert.ok(a.st.connect("s32/out3", "mar-w1/in", "xlr").ok);
+  assert.ok(a.st.connect(swap ? "s32/out5" : "s32/out4", "mar-km750-1/in-a", "xlr").ok);
+  assert.ok(a.st.connect("mar-km750-1/out-a", "mar-w2/in", "speakon").ok);
+  assert.ok(a.st.connect(swap ? "s32/out4" : "s32/out5", "mar-km750-1/in-b", "xlr").ok);
+  assert.ok(a.st.connect("mar-km750-1/out-b", "mar-w3/in", "speakon").ok);
+  assert.ok(a.st.connect("s32/out6", "mar-km750-2/in-a", "xlr").ok);
+  assert.ok(a.st.connect("mar-km750-2/out-a", "mar-w4/in", "speakon").ok);
+  if (power) a.st.setDevice("mar-w1", "plugged", 1);
+};
+const marQuarter = (a, cable = "speaker") => {
+  a.unplugAt("s32/out6");
+  a.unplugAt("mar-w4/in");
+  assert.ok(a.st.connect("s32/out6", "mar-km750-2/in-a", "xlr").ok);
+  assert.ok(a.st.connect("mar-km750-2/out-a", "mar-w4/in", "speakon").ok);
+  assert.ok(a.st.connect("s32/out7", "mar-crown/in-a", "xlr-trs").ok);
+  assert.ok(a.st.connect("mar-crown/out-a", "mar-w5/in", cable).ok);
+};
+const marMusic = (a, { listen = true, knob = true } = {}) => {
+  for (const b of MAR_BUSES) a.sendDb("preshow", b, 0);
+  if (listen) MAR_BUSES.forEach((b) => a.st.setListen(b));
+  if (knob) a.st.setDevice("mar-crown", "volB", 8);
+};
+const marSpare = (a, { wedges = true } = {}) => {
+  a.set("mar-spare", "gainDb", 44);
+  a.set("mar-spare", "hpf", 0.25);
+  a.faderDb("mar-spare", -14);
+  if (wedges) for (const b of ["mix3", "mix4"]) {
+    a.set("mar-spare", `pres.${b}`, true);
+    a.sendDb("mar-spare", b, -16);
+  }
+};
+Object.assign(SOLVE, {
+  "x32-mariachi-tour": (a) => ["main", ...MAR_BUSES].forEach((d) => a.st.setListen(d)),
+  "x32-mariachi-house": (a) => a.st.setDevice("cme-mix5", "lvl45", 7.5),
+  "x32-mariachi-wedges": (a) => marWedges(a),
+  "x32-mariachi-quarter": (a) => marQuarter(a),
+  "x32-mariachi-wedge-test": (a) => marMusic(a),
+  "x32-mariachi-route": (a) => a.st.setBus("routing", "out6", "mix6"),
+  "x32-mariachi-swap": (a) => marSpare(a),
+  "x32-mariachi-vox": (a) => {
+    for (const b of ["mix7", "mix8"]) {
+      a.st.setListen(b);
+      for (const s of ["mar-vox1", "mar-vox2"]) a.sendDb(s, b, -6);
+    }
+  },
+  "x32-mariachi-gains": (a) => {
+    for (const s of MAR_VLN) a.set(s, "gainDb", 44);
+    a.set("mar-vih", "gainDb", 32);
+  },
+  "x32-mariachi-feedback": (a) => MAR_VLN.forEach((s) => a.sendDb(s, "mix3", -16)),
+  "x32-mariachi-cable": (a) => {
+    a.unplugAt("mar-w3/in");
+    assert.ok(a.st.connect("mar-km750-1/out-b", "mar-w3/in", "speakon").ok);
+  },
+});
+Object.assign(WRONG, {
+  "x32-mariachi-tour": [["only the house", (a) => a.st.setListen("main")], ["the hall's speakers turned down", (a) => {
+    ["main", ...MAR_BUSES].forEach((d) => a.st.setListen(d));
+    a.st.setDevice("cme-mix5", "lvl45", 0);
+  }]],
+  "x32-mariachi-house": [["MAIN MIX up instead", (a) => a.st.setDevice("cme-mix5", "main", 10)], ["the X32's MAIN up instead", (a) => a.st.setBus("main", "level", 1)]],
+  "x32-mariachi-wedges": [["the active wedge left unplugged from power", (a) => marWedges(a, { power: false })], ["wedges 2 and 3 on each other's mix", (a) => marWedges(a, { swap: true })]],
+  "x32-mariachi-quarter": [["an instrument cable to wedge 5", (a) => marQuarter(a, "ts")], ["wedge 4's cable moved to wedge 5", (a) => {
+    a.unplugAt("mar-w4/in");
+    assert.ok(a.st.connect("mar-crown/out-a", "mar-w5/in", "speaker").ok);
+  }]],
+  "x32-mariachi-wedge-test": [["fixed without listening", (a) => marMusic(a, { listen: false })], ["MIX 8 up instead of the Crown's knob", (a) => {
+    marMusic(a, { knob: false });
+    a.st.setBus("mix8", "level", 1);
+  }], ["the music up in the house too", (a) => {
+    marMusic(a);
+    a.faderDb("preshow", 0);
+  }]],
+  "x32-mariachi-route": [["the guitarra added to MIX 5 instead", (a) => a.sendDb("mar-gtra", "mix5", -8)], ["output 6 on MAIN", (a) => a.st.setBus("routing", "out6", "main-l")], ["MIX 6 rebuilt with MIX 5's sends", (a) => {
+    a.st.setBus("routing", "out6", "mix6");
+    a.sendDb("mar-gtrn", "mix6", -8);
+  }]],
+  "x32-mariachi-swap": [["the XLRs swapped at the receivers", (a) => {
+    a.unplugAt("cme-rx1/out1");
+    a.unplugAt("cme-rx2/out4");
+    assert.ok(a.st.connect("cme-rx2/out4", "mixer/ch1-mic", "xlr").ok);
+    assert.ok(a.st.connect("cme-rx1/out1", "mixer/ch12-mic", "xlr").ok);
+  }], ["the house only, no wedges", (a) => marSpare(a, { wedges: false })]],
+  "x32-mariachi-vox": [["only wedge 5", (a) => {
+    a.st.setListen("mix7");
+    a.st.setListen("mix8");
+    for (const s of ["mar-vox1", "mar-vox2"]) a.sendDb(s, "mix7", -6);
+  }], ["the masters up instead", (a) => {
+    a.st.setListen("mix7");
+    a.st.setListen("mix8");
+    a.st.setBus("mix7", "level", 1);
+    a.st.setBus("mix8", "level", 1);
+  }]],
+  "x32-mariachi-gains": [["faders instead of GAIN", (a) => MAR_VLN.forEach((s) => a.nudge(s, 12))], ["only the violins", (a) => MAR_VLN.forEach((s) => a.set(s, "gainDb", 44))]],
+  "x32-mariachi-feedback": [["MIX 3's master pulled down", (a) => a.st.setBus("mix3", "level", 0)], ["every mic pulled out of MIX 3", (a) => ["mar-vox1", "mar-vox2", "mar-vih", ...MAR_VLN].forEach((s) => a.sendDb(s, "mix3", -Infinity))]],
+  "x32-mariachi-cable": [["KM750 #1's CH B level up", (a) => a.st.setDevice("mar-km750-1", "volB", 10)]],
+});
+
 for (const k of ["doors", "gain", "48v", "lowcut", "lr", "mud", "eq-on", "comp-on", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "new-mix"]) {
   SOLVE[`gdig-${k}`] = SOLVE[`x32c-${k}`];
   if (WRONG[`x32c-${k}`]) WRONG[`gdig-${k}`] = WRONG[`x32c-${k}`];
@@ -1230,6 +1713,100 @@ Object.assign(WRONG, {
   "b207mp3-speech": [["MAIN LEVEL down", (a) => a.st.setBus("main", "level", LAWS.master.toPos(-6))]],
 });
 
+// The Film Recording Workshop on the L-20: the tracks are taken before MUTE and the
+// faders, so the headphones (MONITOR OUT A → the HP12U) carry only the click.
+const FILM_MICS = ["film-cello", "film-horn", "film-vibes", "film-clarinet", "film-vocal"];
+const L20_LEVEL = levelLaw(COMPACT.l20);
+Object.assign(SOLVE, {
+  "l20-rec-click": (a) => a.st.setBus("routing", "outA", "main"),
+  "l20-rec-mutes": (a) => FILM_MICS.forEach((s) => a.set(s, "enabled", false)),
+  "l20-rec-gain": (a) => a.set("film-clarinet", "gainDb", 42),
+  "l20-rec-fader-lies": (a) => a.set("film-click", "level", L20_LEVEL.toPos(0)),
+  "l20-rec-48v": (a) => [12, 13, 14, 15].forEach((i) => a.st.setChannel(i, "phantom", true)),
+});
+Object.assign(WRONG, {
+  "l20-rec-click": [
+    ["MONITOR OUT A's VOL all the way up", (a) => a.st.setBus("outA", "level", 1)],
+    ["unmute the mics instead", (a) => FILM_MICS.forEach((s) => a.set(s, "enabled", true))],
+  ],
+  "l20-rec-mutes": [
+    ["GAIN all the way down instead", (a) => FILM_MICS.forEach((s) => a.set(s, "gainDb", 16))],
+    ["MONITOR OUT A to its own mix", (a) => a.st.setBus("routing", "outA", "monA")],
+  ],
+  "l20-rec-gain": [["unmute it and push its fader", (a) => {
+    a.set("film-clarinet", "enabled", true);
+    a.set("film-clarinet", "level", L20_LEVEL.toPos(10));
+  }]],
+  "l20-rec-fader-lies": [["MONITOR OUT A's VOL up instead", (a) => a.st.setBus("outA", "level", 1)]],
+  "l20-rec-48v": [["GAIN all the way up instead", (a) => ["film-clarinet", "film-vocal"].forEach((s) => a.set(s, "gainDb", 60))]],
+});
+
+// Karaoke in BH 109: the Xenyx gig on the room's own rack (Ashly Ch.1 → Crown → wall speakers).
+const KY_FX = () => COMPACT.x1204usb.fx.presets.findIndex((p) => p.group === "COMBINATION FX");
+Object.assign(SOLVE, {
+  "x1204usb-ky-house": (a) => {
+    assert.ok(a.st.connect("mixer/main-l", "bh109-rack/in-a", "xlr-trs").ok);
+    assert.ok(a.st.connect("mixer/main-r", "bh109-rack/in-b", "xlr-trs").ok);
+  },
+  "x1204usb-ky-one-side": (a) => assert.ok(a.st.connect("mixer/main-r", "bh109-rack/in-b", "xlr-trs").ok),
+  "x1204usb-ky-cr": (a) => {
+    a.unplugAt("bh109-rack/in-a");
+    a.unplugAt("bh109-rack/in-b");
+    assert.ok(a.st.connect("mixer/main-l", "bh109-rack/in-a", "xlr-trs").ok);
+    assert.ok(a.st.connect("mixer/main-r", "bh109-rack/in-b", "xlr-trs").ok);
+  },
+  "x1204usb-ky-mic-line": (a) => {
+    a.unplugAt("mixer/ch2-line");
+    assert.ok(a.st.connect("src-ky-mic2/out", "mixer/ch2-mic", "xlr").ok);
+  },
+  "x1204usb-ky-2track": (a) => {
+    a.unplugAt("mixer/tape-in");
+    assert.ok(a.st.connect("src-ky-track/out", "mixer/ch5-lr", "mini-dual-ts").ok);
+  },
+  "x1204usb-ky-comp": (a) => a.set("ky-mic2", "comp", 0.8),
+  "x1204usb-ky-minus10": (a) => {
+    a.set("ky-track", "minus10", true);
+    a.set("ky-v3", "minus10", true);
+  },
+  "x1204usb-ky-lowcut": (a) => ["ky-mic1", "ky-mic2"].forEach((s) => a.set(s, "lowCut", true)),
+  "x1204usb-ky-alt": (a) => a.set("ky-mic2", "enabled", true),
+  "x1204usb-ky-reverb": (a) => a.st.setBus("ret2", "toAlt", false),
+  "x1204usb-ky-program": (a) => a.st.setBus("fx", "program", KY_FX()),
+  "x1204usb-ky-v3": (a) => assert.ok(a.st.connect("src-ky-v3/out", "mixer/ch6-l", "ts").ok),
+});
+
+Object.assign(WRONG, {
+  "x1204usb-ky-house": [["ALT 3-4 OUTPUTS into the rack", (a) => {
+    assert.ok(a.st.connect("mixer/alt-l", "bh109-rack/in-a", "trs").ok);
+    assert.ok(a.st.connect("mixer/alt-r", "bh109-rack/in-b", "trs").ok);
+  }], ["L and R swapped", (a) => {
+    assert.ok(a.st.connect("mixer/main-r", "bh109-rack/in-a", "xlr-trs").ok);
+    assert.ok(a.st.connect("mixer/main-l", "bh109-rack/in-b", "xlr-trs").ok);
+  }]],
+  "x1204usb-ky-one-side": [["MAIN L into both sides", (a) => {
+    a.unplugAt("bh109-rack/in-a");
+    assert.ok(a.st.connect("mixer/main-l", "bh109-rack/in-b", "xlr-trs").ok);
+  }]],
+  "x1204usb-ky-cr": [["ALT 3-4 OUTPUTS instead", (a) => {
+    a.unplugAt("bh109-rack/in-a");
+    a.unplugAt("bh109-rack/in-b");
+    assert.ok(a.st.connect("mixer/alt-l", "bh109-rack/in-a", "trs").ok);
+    assert.ok(a.st.connect("mixer/alt-r", "bh109-rack/in-b", "trs").ok);
+  }]],
+  "x1204usb-ky-mic-line": [["GAIN all the way up instead", (a) => a.set("ky-mic2", "gainDb", 60)]],
+  "x1204usb-ky-2track": [["5/6's fader up, with nothing in it", (a) => a.st.setChannel(4, "level", 0.9)]],
+  "x1204usb-ky-comp": [["channel 2's COMP all the way", (a) => a.set("ky-mic2", "comp", 1)], ["channel 2's fader down instead", (a) => a.nudge("ky-mic2", -6)]],
+  "x1204usb-ky-minus10": [["faders up instead", (a) => {
+    a.nudge("ky-track", 10);
+    a.nudge("ky-v3", 10);
+  }], ["only the laptop", (a) => a.set("ky-track", "minus10", true)]],
+  "x1204usb-ky-lowcut": [["LOW EQ down instead", (a) => ["ky-mic1", "ky-mic2"].forEach((s) => a.set(s, "eq.low", -15))]],
+  "x1204usb-ky-alt": [["fader up instead", (a) => a.nudge("ky-mic2", 10)]],
+  "x1204usb-ky-reverb": [["RET 2 all the way up, still on ALT 3-4", (a) => a.st.setBus("ret2", "level", 1)], ["more FX send instead", (a) => ["ky-mic1", "ky-mic2"].forEach((s) => a.sendDb(s, "fx", 10))]],
+  "x1204usb-ky-program": [["a plain hall", (a) => a.st.setBus("fx", "program", 0)]],
+  "x1204usb-ky-v3": [["V3 into channel 3's LINE jack", (a) => assert.ok(a.st.connect("src-ky-v3/out", "mixer/ch3-line", "ts").ok)]],
+});
+
 describe("board scenarios: data", () => {
   it("validate, and every board has at least nine, numbered from 1", () => {
     assert.deepEqual(validateScenarios(), []);
@@ -1280,3 +1857,78 @@ for (const def of ALL_BOARD_SCENARIOS) {
     }
   });
 }
+
+// Keep-conditions follow the source they name, wherever it's patched. A student
+// unplugged the backing vocal (not the lead) and "the lead vocal stays" didn't tick.
+describe("board scenarios: keep-conditions follow their source", () => {
+  it("STAGEPAS overhead: unplugging the backing vocal leaves the lead vocal's check met", () => {
+    const a = attempt(byId["stagepas400bt-overhead"]);
+    a.unplugAt("src-backing-vocals/out");
+    a.unplugAt("src-drums/out");
+    assert.ok(a.st.connect("src-drums/out", "mixer/ch2-mic", "xlr").ok);
+    const items = Object.fromEntries(a.result().items.map((i) => [i.id, i]));
+    assert.equal(items.drums.met, true, "the overhead is heard");
+    assert.equal(items.vox.met, true, "the lead vocal is still in the house");
+    assert.match(items.vox.label, /lead vocal/);
+    assert.deepEqual(a.unmet(), ["bv"], "only the backing vocal's own check fails");
+    assert.match(items.bv.label, /backing vocal/);
+  });
+
+  it("every condition about the lead or backing vocal checks that source", () => {
+    for (const s of ALL_BOARD_SCENARIOS) {
+      for (const c of s.conditions) {
+        const m = c.source && /^The (lead|backing) vocal/.exec(c.label);
+        if (!m) continue;
+        const named = m[1] === "backing" ? "backing-vocals" : "lead-vocal";
+        assert.equal(c.source, named, `${s.id} ${c.id}: "${c.label}"`);
+      }
+    }
+  });
+});
+
+// A passive wedge's two speakON jacks are in parallel: the Vocal Jazz wedge
+// scenarios accept a chain plugged into either jack, drawn either way round.
+describe("Vocal Jazz: either wedge jack", () => {
+  it("x32-vj-patch: the amp into wedge 1's second jack, each wedge on from its first jack", () => {
+    const a = attempt(byId["x32-vj-patch"]);
+    assert.ok(a.st.connect("s32/out1", "nx3000/in-a", "xlr").ok);
+    assert.ok(a.st.connect("nx3000/out-a", "vj-w1/link", "speakon").ok);
+    assert.ok(a.st.connect("vj-w1/in", "vj-w2/link", "speakon").ok);
+    assert.ok(a.st.connect("vj-w2/in", "vj-w3/in", "speakon").ok);
+    assert.deepEqual(a.unmet(), []);
+    assert.ok(a.done());
+  });
+  it("x32-vj-chain: wedge 2 into wedge 3's second jack", () => {
+    const a = attempt(byId["x32-vj-chain"]);
+    assert.ok(a.st.connect("vj-w2/link", "vj-w3/link", "speakon").ok);
+    assert.ok(a.done());
+  });
+});
+
+// Wedge checks before the show: muting MAIN LR (or pulling its fader) to hear
+// only the wedges is fair, but a channel's own way into the house isn't.
+describe("wedge checks: the MAIN LR master may move", () => {
+  const FREE = ["x32-vj-send", "x32-vj-amp", "x32-vj-chain", "x32-vj-patch", "x32-ea-bank", "x32c-cob-thru"];
+  for (const id of FREE) {
+    it(`${id}: solved with the mains muted and the MAIN LR fader down`, () => {
+      const a = attempt(byId[id]);
+      a.st.setBus("main", "mute", true);
+      a.st.setBus("main", "level", 0.3);
+      SOLVE[id](a);
+      assert.deepEqual(a.unmet(), []);
+    });
+    it(`${id}: still not solved with a channel taken out of the house`, () => {
+      const a = attempt(byId[id]);
+      SOLVE[id](a);
+      const ch = a.mix().channels.find((c) => c.sourceId && Math.max(c.mainDb.L, c.mainDb.R) > -40);
+      a.st.setChannel(ch.index, "level", 0);
+      assert.ok(a.unmet().includes("house"), `${ch.sourceId} out of the house`);
+    });
+  }
+  it("a mid-song check still counts the master: x32-ea-dead with the mains muted", () => {
+    const a = attempt(byId["x32-ea-dead"]);
+    SOLVE["x32-ea-dead"](a);
+    a.st.setBus("main", "mute", true);
+    assert.ok(a.unmet().includes("house"));
+  });
+});

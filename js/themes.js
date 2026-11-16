@@ -4,6 +4,7 @@
 // A theme is one concept (phantom power, aux sends, EQ…) practised first on the
 // generic analog mixer and then on real consoles, simplest first, so the idea
 // carries over from desk to desk. The scenario picks its console.
+// The third way in is a Chapman gig (GIGS below): one real gig's rig and faults.
 //
 // Pure data and functions (no DOM), tested in tests/themes.test.mjs: every
 // scenario sits in exactly one theme.
@@ -17,7 +18,7 @@ export const THEMES = [
     id: "system",
     title: "Speakers and amps",
     question: "Where is the amplifier?",
-    concept: "Powered speakers have the amp inside and take line level; passive speakers need a power amp in between. A speaker that fits the cable can still be silent.",
+    concept: "The mixer puts out line level. A power amp raises that to speaker level: powered speakers have one inside, passive speakers need one in between. A speaker that fits the cable can still be silent.",
     ids: ["find-amp", "drummer-wedge", "b207mp3-amp", "stagepas400bt-speakers", "stagepas400bt-sub"],
   },
   {
@@ -31,7 +32,7 @@ export const THEMES = [
     id: "phantom",
     title: "Phantom power",
     question: "Why is the condenser silent?",
-    concept: "Condenser mics need +48 V from the mixer, and it only travels over an XLR into the mic input. Every console puts the switch somewhere different.",
+    concept: "Condenser mics need +48 V from the mixer, and it only travels over an XLR into the mic input. Speakers never need it: they get their power from the wall or an amp. Every console puts the switch somewhere different.",
     ids: ["b207mp3-phantom", "mix8-overhead", "stagepas400bt-overhead", "mg102-phantom", "x1204usb-overhead", "cr1604-phantom", "ui16-48v", "gdig-48v", "x32c-48v", "x32c-sections-48v", "yam01v96-phantom", "dm2000-48v", "x32-room", "cl3-48v", "sd442-phantom", "f8n-room"],
   },
   {
@@ -127,7 +128,93 @@ export const THEMES = [
   },
 ];
 
-export const THEMES_BY_ID = Object.fromEntries(THEMES.map((t) => [t.id, t]));
+// ---------- Chapman gigs ----------
+
+// Real MUS 248 gigs, each in its own Chapman venue: the room's own rig and
+// band, and faults from that gig's checklist in the course site. Not a topic
+// and not a mixer list: a gig's scenarios live here only. `soon`: a gig that's
+// planned but not built yet (shown, not openable).
+const SITE = "https://adamborecki.github.io/mus248";
+export const GIGS = [
+  {
+    id: "vocal-jazz",
+    title: "Vocal Jazz in Salmon",
+    venue: "Salmon Recital Hall",
+    question: "Can you set up Vocal Jazz before rehearsal?",
+    concept: "Eleven singers on wireless handhelds into Salmon's full-size X32 at FOH, inputs on LOCAL, an S32 stage box on AES50, three passive wedges on one speakON chain from the NX3000, and test music from a laptop on AUX IN 1/2. It opens with the checklist's mains and monitor tests and ends by patching the wedges from scratch; every fault between is on the Vocal Jazz Gig Checklist or the reset. The ensemble's two pieces take turns.",
+    checklist: `${SITE}/vocal-jazz-gig-checklist/`,
+    ids: ["x32-vj-mains", "x32-vj-monitors", "x32-vj-local", "x32-vj-gain", "x32-vj-lowcut", "x32-vj-muted", "x32-vj-send", "x32-vj-amp", "x32-vj-chain", "x32-vj-link", "x32-vj-patch"],
+  },
+  {
+    id: "cme",
+    title: "CME in Salmon: Essentials",
+    venue: "Salmon Recital Hall",
+    question: "Can you set up a rock band's gig, start to finish?",
+    concept: "The Commercial Music Ensemble on Salmon's full-size X32: wireless handhelds on LOCAL 17-21, the band on a Hosa sub snake into the S32's IN 25-32, three wedges on three mixes (MIX 9-11: two passive wedges on a KM750, one active wedge with its own VOLUME and IEC cable), and CME's own mains on stands downstage of the band, so the mics are behind them, with the hall's speakers turned down at the Mix5 in its mains rack. It opens with the whole rig working, then follows the gig as a crew runs it, one fault at a time: speakers, a music test, mics, the band, levels, a bad cable, and the end of the night.",
+    checklist: `${SITE}/cme-gig-checklist/`,
+    ids: ["x32-cme-tour", "x32-cme-rack", "x32-cme-mains", "x32-cme-house", "x32-cme-wedges", "x32-cme-wedge-test", "x32-cme-amp-knob", "x32-cme-mics", "x32-cme-vox", "x32-cme-band", "x32-cme-gtr", "x32-cme-cable", "x32-cme-gains", "x32-cme-end"],
+  },
+  {
+    id: "cme-advanced",
+    title: "CME in Salmon: Advanced",
+    venue: "Salmon Recital Hall",
+    question: "Can you keep CME's gig running when things go wrong?",
+    concept: "The same rig a week later, when things go wrong: the wireless rack's antenna chain and VOL knobs, a guest on the headset receiver nobody can hear, the stage box and a guitar amp without power, the wrong cable and the wrong output on the wedges, more inputs than the sub snake has, the pianist singing lead, the Mix5's cables pulled at the end of the night, and finally four faults at once.",
+    checklist: `${SITE}/cme-gig-checklist/`,
+    ids: ["x32-cme-adv-antenna", "x32-cme-adv-vol", "x32-cme-adv-headset", "x32-cme-adv-s32", "x32-cme-adv-inst", "x32-cme-adv-active-amp", "x32-cme-adv-route", "x32-cme-adv-katana", "x32-cme-adv-inputs", "x32-cme-adv-lead", "x32-cme-adv-mix5", "x32-cme-adv-stack"],
+  },
+  {
+    id: "mariachi",
+    title: "Mariachi in Salmon",
+    venue: "Salmon Recital Hall",
+    question: "Can you give six wedges six mixes, and keep them working?",
+    concept: "Mariachi Panteras on Salmon's full-size X32, from their own dress rehearsal: nine wireless handhelds on receivers 1 and 2 (four violins, guitarrón, vihuela, guitarra, two vocal mics up front; the trumpets need no mic), six wedges across the back on six mixes (MIX 3-8: one active, three on the KM750s by speakON, two that take only 1/4\" on the Crown), and the hall's own speakers as the house. It opens with the whole rig working; then the hall left off after CME, wedges to patch and test, a wedge that only takes 1/4\", a wedge on the wrong mix, a handheld that dies at soundcheck, vocals in every wedge, gains, feedback and a bad cable.",
+    checklist: `${SITE}/mariachi-gig-checklist/`,
+    ids: ["x32-mariachi-tour", "x32-mariachi-house", "x32-mariachi-wedges", "x32-mariachi-quarter", "x32-mariachi-wedge-test", "x32-mariachi-route", "x32-mariachi-swap", "x32-mariachi-vox", "x32-mariachi-gains", "x32-mariachi-feedback", "x32-mariachi-cable"],
+  },
+  {
+    id: "cob",
+    title: "COB in Irvine",
+    venue: "Chapman on Broadway, Irvine",
+    question: "Can you run a musical from the booth?",
+    concept: "Eleven wireless headsets (and a spare) and a backing-track laptop into an X32 Compact in the booth, an SD8 stage box carrying its outputs to the floor, a STAGEPAS 600BT driving the mains and B207MP3 wedges chained on THRU. Every fault here is on the COB Gig Checklist.",
+    checklist: `${SITE}/cob-gig-checklist/`,
+    ids: ["x32c-cob-usb", "x32c-cob-gain", "x32c-cob-tracks", "x32c-cob-link", "x32c-cob-one-side", "x32c-cob-speaker-cable", "x32c-cob-thru", "x32c-cob-prefader", "x32c-cob-tracks-wedge", "x32c-cob-scene"],
+  },
+  {
+    id: "electroacoustic",
+    title: "Electroacoustic showcase in Salmon",
+    venue: "Salmon Recital Hall",
+    question: "Can you keep nine pieces running when a stage box dies?",
+    concept: "Laptops, a click, a mic inside a piano and a MalletKAT into Salmon's full-size X32: an S32 on its AES50 A and an SD8 on the far side of the stage, daisy-chained off the S32's AES50 B, so its inputs arrive as AES50 A33-40. Every fault here is from the showcase of October 18, 2026 or its gig checklist, ending with the one that actually happened: the SD8's outputs died mid-piece.",
+    checklist: `${SITE}/electroacoustic-gig-checklist/`,
+    ids: ["x32-ea-chain", "x32-ea-route", "x32-ea-bank", "x32-ea-48v", "x32-ea-collision", "x32-ea-click", "x32-ea-dead"],
+  },
+  {
+    id: "karaoke",
+    title: "Karaoke in BH 109",
+    venue: "BH 109, the choir room",
+    question: "Can you run karaoke through the room's own PA?",
+    concept: "Singers on SM58s, a karaoke laptop and a Zoom V3 vocal processor into a Behringer Xenyx QX1204USB, its built-in delay and reverb on RETURN 2, and the choir room's own rack as the PA: AUX AUDIO INPUT, the Ashly line mixer's Ch.1, and a Crown amp driving the passive wall speakers. Every fault here is on the BH 109 Karaoke Gig Checklist.",
+    checklist: `${SITE}/bh109-karaoke-gig-checklist/`,
+    ids: ["x1204usb-ky-house", "x1204usb-ky-one-side", "x1204usb-ky-cr", "x1204usb-ky-v3", "x1204usb-ky-mic-line", "x1204usb-ky-2track", "x1204usb-ky-minus10", "x1204usb-ky-comp", "x1204usb-ky-alt", "x1204usb-ky-reverb", "x1204usb-ky-program", "x1204usb-ky-lowcut"],
+  },
+  {
+    id: "film",
+    title: "Film Recording Workshop",
+    venue: "wherever the session is",
+    question: "Can you record every mic on its own track while the players hear only the click?",
+    concept: "A multitrack session on a Zoom LiveTrak L-20: every input records to Logic over USB, taken before MUTE and the faders, so the L-20's own mix is just the players' headphones (MONITOR OUT A, on MASTER, into an AKG HP12U), carrying Logic's click from 17/18 and no live mics. The faders aren't motorized: the green LED is the level, not the cap. Every fault here is on the L-20 Multitrack Recording Checklist.",
+    checklist: `${SITE}/l20-multitrack-gig-checklist/`,
+    ids: ["l20-rec-click", "l20-rec-mutes", "l20-rec-gain", "l20-rec-fader-lies", "l20-rec-48v"],
+  },
+];
+export const isGig = (t) => !!t && GIGS.includes(t);
+// The gigs that can be opened.
+export const OPEN_GIGS = GIGS.filter((g) => !g.soon);
+
+// Topics and gigs are both ordered lists of scenarios, looked up the same way.
+export const THEMES_BY_ID = Object.fromEntries([...THEMES, ...OPEN_GIGS].map((t) => [t.id, t]));
 
 // Every scenario by id: the Canvas ones on the generic mixer, and every real console's.
 const ALL = [...SCENARIOS.filter((s) => s.number > 0), ...ALL_BOARD_SCENARIOS];
@@ -152,7 +239,10 @@ export function themeScenarios(theme) {
   return listed.sort((a, b) => consoleRank(consoleOf(a.s)) - consoleRank(consoleOf(b.s)) || a.i - b.i).map((x) => x.s);
 }
 
-const THEME_OF = new Map(THEMES.flatMap((t) => t.ids.map((id) => [id, t.id])));
+const THEME_OF = new Map([...THEMES, ...OPEN_GIGS].flatMap((t) => t.ids.map((id) => [id, t.id])));
+const IN_GIG = new Set(OPEN_GIGS.flatMap((g) => g.ids));
+// Is this scenario one of a Chapman gig's?
+export const gigOf = (scenarioId) => (IN_GIG.has(scenarioId) ? THEMES_BY_ID[THEME_OF.get(scenarioId)] : null);
 export const themeOf = (scenarioId) => THEMES_BY_ID[THEME_OF.get(scenarioId)] || null;
 
 // The Canvas assignment: the numbered scenarios on the generic analog mixer.
@@ -175,10 +265,10 @@ export const MIXERS = [
 ];
 export const mixerEntry = (consoleId) => MIXERS.find((m) => m.model === consoleId) || null;
 
-// A console's scenarios in its own teaching order.
+// A console's scenarios in its own teaching order (a gig's are in Chapman gigs instead).
 export function mixerScenarios(consoleId) {
   if (consoleId === "generic") return CANVAS_SCENARIOS;
-  return scenariosFor(consoleId).filter((s) => s.number > 0);
+  return scenariosFor(consoleId).filter((s) => s.number > 0 && !IN_GIG.has(s.id));
 }
 
 // The scenario to open on a console: the first one not solved yet (or the first).

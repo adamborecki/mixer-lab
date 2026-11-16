@@ -1,6 +1,6 @@
 // Compact mixers from data (js/compact-defs.js, js/compact.js): Mackie Mix8,
 // Mackie 1202-VLZ, Yamaha MG10/2, Yamaha STAGEPAS 400BT, Behringer Xenyx
-// X1204USB. See docs/COMPACT_MIXERS.md.
+// QX1204USB. See docs/COMPACT_MIXERS.md.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { COMPACT, COMPACT_IDS, LAWS, balanceGains, fxPreset, reverbSetting } from "../js/compact.js";
@@ -188,16 +188,16 @@ describe("routing", () => {
   });
 });
 
-describe("Behringer Xenyx X1204USB", () => {
+describe("Behringer Xenyx QX1204USB", () => {
   const X = COMPACT.x1204usb;
   const VOX = 0; // lead vocal on channel 1
 
-  it("rear panel: XLR main outs only, ALT 3-4 and C-R outs, two aux sends, CD/TAPE in and out", () => {
+  it("rear panel: XLR main outs only, ALT 3-4 and C-R outs, two aux sends, 2-TRACK in and out", () => {
     const ids = portIds("x1204usb");
     for (const p of ["main-l", "main-r", "alt-l", "alt-r", "cr-l", "aux1", "aux2", "tape-in", "tape-out-l", "ret1-l", "ret2-r"]) assert.ok(ids.includes(p), p);
     assert.ok(!ids.includes("line-l"), "no ¼\" main outs");
     assert.equal(DEVICE_TYPES.x1204usb.ports.find((p) => p.id === "main-l").jack, "xlr");
-    assert.equal(DEVICE_TYPES.x1204usb.ports.find((p) => p.id === "tape-in").name, "CD/TAPE IN (L/R)");
+    assert.equal(DEVICE_TYPES.x1204usb.ports.find((p) => p.id === "tape-in").name, "2-TRACK IN (L/R)");
   });
 
   it("AUX 1 has a PRE switch on every channel", () => {
@@ -273,7 +273,7 @@ describe("Behringer Xenyx X1204USB", () => {
     assert.deepEqual(p.auxSolo, ["aux1"]);
   });
 
-  it("CD/TAPE TO MAIN puts the 2-track input in the main mix", () => {
+  it("USB/2-TR TO MAIN puts the 2-track input in the main mix", () => {
     const st = gig("x1204usb");
     const tape = X.channels.length;
     st.state.rig.devices.push({ id: "phone", type: "stereo-laptop", sourceId: "preshow" });
@@ -300,10 +300,13 @@ describe("Behringer Xenyx X1204USB", () => {
     assert.equal(st.state.alt.level, 0.3);
   });
 
-  it("the effects PROGRAM picks one of 16 presets", () => {
-    assert.equal(X.fx.presets.length, 16);
+  it("the effects PROGRAM picks one of 32 presets, in the panel's groups", () => {
+    assert.equal(X.fx.presets.length, 32);
     assert.equal(fxPreset(X, 0).number, 1);
-    assert.equal(fxPreset(X, 99).number, 16);
+    assert.equal(fxPreset(X, 99).number, 32);
+    // 01-04 REVERB A, 05-08 REVERB B, 09-15 REVERB C, 16-19 DELAY/AMBIENCE, 20-23 MODULATION, 24-26 DETUNE/PITCH, 27-29 COMBINATION FX, 30-32 SPECIAL FX
+    const first = { "REVERB A": 1, "REVERB B": 5, "REVERB C": 9, "DELAY/AMBIENCE": 16, MODULATION: 20, "DETUNE/PITCH": 24, "COMBINATION FX": 27, "SPECIAL FX": 30 };
+    for (const [g, n] of Object.entries(first)) assert.equal(X.fx.presets.findIndex((p) => p.group === g) + 1, n, g);
     const st = gig("x1204usb");
     st.setBus("fx", "program", 7.4);
     assert.equal(st.state.fx.program, 7);

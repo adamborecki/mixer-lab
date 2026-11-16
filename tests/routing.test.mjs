@@ -40,7 +40,8 @@ describe("connectors and signal levels", () => {
   });
 
   it("signal levels are not connectors, and one jack shape carries different levels", () => {
-    assert.deepEqual(Object.keys(SIGNAL_LEVELS), ["mic", "instrument", "line", "speaker"]);
+    assert.deepEqual(Object.keys(SIGNAL_LEVELS), ["mic", "instrument", "line", "speaker", "rf"]); // rf: antenna coax, wireless receivers only
+    for (const jack of Object.keys(JACKS)) assert.equal(plugFitsJack("bnc", jack), jack === "bnc", `bnc → ${jack}`);
     for (const level of Object.keys(SIGNAL_LEVELS)) assert.ok(!(level in PLUGS) && !(level in JACKS));
     const lineOut = DEVICE_TYPES["line-source"].ports[0];
     const speakerIn = DEVICE_TYPES["passive-speaker"].ports[0];

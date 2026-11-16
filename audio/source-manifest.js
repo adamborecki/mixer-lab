@@ -2,7 +2,7 @@
 // band input represents. Edit this (not the app code) to rename, reorder,
 // re-map or swap stems. Measurements come from tools/make-excerpts.sh.
 //
-// Three songs, three bands (SONGS). One is "current" at a time: STEM_SET, STEMS,
+// Five songs by four groups, plus four gigs that reuse them (SONGS). One is "current" at a time: STEM_SET, STEMS,
 // SOURCES and SOURCES_BY_ID below are live bindings that useSong() swaps, so
 // every module that imports them sees the current band. Sources that do the
 // same job in both bands share an id (drums, bass, guitars, backing-vocals,
@@ -709,6 +709,600 @@ const FTW_SOURCES = [
   },
 ];
 
+// ---------- the Vocal Jazz Ensemble, live: two pieces, eleven singers ----------
+
+// Chapman's Vocal Jazz Ensemble in concert (2026-10-23), from the board's
+// multitrack: eleven wireless handhelds, track n = the nth singer in the
+// program. No piano track: the piano (Celine You) is only heard faintly
+// through the vocal mics. Every track of both pieces got the same +10 dB
+// (the masters peaked at -11 to -21 dBFS), so each singer's level is their
+// own and the loudest peak sits near -1 dBFS. Mono files (`channels: 1`).
+//
+// Live, with no drummer, the tempo drifts, so every loop runs from one
+// breath to another where all eleven are silent, and each section has its
+// own `length` (seconds) instead of the song's loop length. Song time 0 is
+// SONG_START in tools/make-excerpts.sh: the dead air before the first note
+// and the applause after the last are cut. Bar numbers count from the first
+// bar in tempo; the downbeats were found by beat tracking, not by ear.
+// Who sings where: per bar, each mic's RMS above -50 dBFS on the master.
+const VJ_SINGERS = [
+  ["allie", "Allie Hulbert"],
+  ["karmyn", "Karmyn Trufant"],
+  ["magnolia", "Magnolia Bycott"],
+  ["abbey", "Abbey Sourov"],
+  ["nina", "Nina Brown"],
+  ["shayne", "Shayne Sayre"],
+  ["paola", "Paola Morales"],
+  ["jessica", "Jessica Kaber"],
+  ["brandon", "Brandon Borlaza"],
+  ["michael", "Michael Rogachefsky"],
+  ["silas", "Silas Arora"],
+];
+const ALL_SINGERS = VJ_SINGERS.map(([id]) => id);
+const allBut = (...ids) => ALL_SINGERS.filter((id) => !ids.includes(id));
+const ENSEMBLE = "Vocal Jazz Ensemble";
+
+// "Almost Like Being in Love": a rubato intro, then swing at about 124 bpm
+// (bar 1 at 40.30 s song time). Loops are 8 bars, the intro's two phrases;
+// the excerpt, which the Salmon scenarios play, is about 30 s.
+const ALMOST_SET = {
+  id: "almost-like",
+  title: "Almost Like Being in Love",
+  artist: ENSEMBLE,
+  basePath: "audio/almost-like/",
+  loop: { start: 0.5, end: 29.99 },
+  excerpt: { originalStart: 160.41, duration: 30.99 },
+  full: { basePath: "audio/almost-like/full/", segmentSeconds: 20, overlap: 0.5, duration: 222.5, segments: 12, trimDb: 0 },
+  sections: [
+    { id: "intro", bars: "intro", start: 0.65, length: 16.85, label: "Rubato intro, before the beat", plays: allBut("karmyn", "silas"), partly: ["karmyn", "silas"] },
+    { id: "bars-15", bars: "15–22", start: 65.98, length: 15.55, label: "First chorus in tempo, everyone", plays: allBut("nina"), partly: ["nina"] },
+    { id: "bars-45", bars: "45–52", start: 124.06, length: 15.59, label: "Soli: five voices carry the tune", plays: ["nina", "shayne", "paola", "brandon", "silas"], partly: allBut("nina", "shayne", "paola", "brandon", "silas") },
+    { id: "bars-53", bars: "53–60", start: 139.6, length: 15.51, label: "The soli goes on", plays: ["nina", "shayne", "paola", "brandon", "silas"], partly: allBut("nina", "shayne", "paola", "brandon", "silas") },
+    { id: "excerpt", bars: "64–78", start: 160.91, label: "Everyone, full out", plays: ALL_SINGERS, partly: [] },
+  ],
+};
+
+// "Love Me or Leave Me": swing at about 177 bpm (bar 1 at -0.87 s song time,
+// in the piano's intro). Loops are 16 bars; the excerpt, which COB and the
+// Salmon scenarios play, is a whole 32-bar chorus.
+const LOVE_ME_SET = {
+  id: "love-me",
+  title: "Love Me or Leave Me",
+  artist: ENSEMBLE,
+  basePath: "audio/love-me/",
+  loop: { start: 0.5, end: 44.3 },
+  excerpt: { originalStart: 49.98, duration: 45.3 },
+  full: { basePath: "audio/love-me/full/", segmentSeconds: 20, overlap: 0.5, duration: 224, segments: 12, trimDb: 0 },
+  sections: [
+    { id: "bars-3", bars: "3–18", start: 1.81, length: 21.47, label: "Abbey's solo, then the ensemble", plays: ["abbey"], partly: allBut("abbey") },
+    { id: "excerpt", bars: "40–71", start: 50.48, label: "Everyone, a whole chorus", plays: ALL_SINGERS, partly: [] },
+    { id: "bars-72", bars: "72–87", start: 94.28, length: 21.67, label: "Silas's solo, the others resting", plays: ["silas"], partly: [] },
+    { id: "bars-88", bars: "88–103", start: 116.47, length: 21.61, label: "Silas's solo over the ensemble", plays: ["silas"], partly: allBut("silas") },
+    { id: "bars-119", bars: "119–134", start: 159, length: 21.88, label: "Everyone, in short bursts", plays: [], partly: ALL_SINGERS },
+    { id: "bars-150", bars: "150–165", start: 200.9, length: 21.63, label: "The ending, everyone", plays: ALL_SINGERS, partly: [] },
+  ],
+};
+
+// Measured over the whole song (after the cut) by tools/make-excerpts.sh.
+const vjStems = (song, levels) => Object.fromEntries(VJ_SINGERS.map(([id], i) => [id, { file: `${song}-${String(i + 1).padStart(2, "0")}-${id}.mp3`, channels: 1, treatment: "sum", monoPeakDb: levels[i][0], monoRmsDb: levels[i][1], normalizeDb: 10 }]));
+const ALMOST_STEMS = vjStems("almost-like", [[-4.02, -28.27], [-2.68, -26.95], [-8.29, -28.05], [-6.3, -26.33], [-10.94, -32.82], [-7.73, -28.44], [-3.66, -27.76], [-4.07, -26.3], [-1.9, -25.95], [-4.8, -24.5], [-7.28, -30.21]]);
+const LOVE_ME_STEMS = vjStems("love-me", [[-4.67, -28.63], [-3.47, -26.06], [-4.52, -27.32], [-2.73, -24.69], [-6.11, -30.3], [-7.54, -28.94], [-2.46, -26.9], [-1.21, -25.48], [-1.41, -24.12], [-1.07, -21.29], [-7.65, -27.72]]);
+
+// Mic n is singer n, on receiver channel n. The handhelds are alike: the
+// differences between the meters are the singers' own. `color` names the
+// mic the way Salmon's crew does (its windscreen and ring).
+const handheld = (n, color) => {
+  const [stem, musician] = VJ_SINGERS[n - 1];
+  const first = musician.split(" ")[0];
+  return {
+    id: `vj-${n}`,
+    order: n,
+    name: `Mic ${n}${color ? ` (${color})` : ""} · ${first}`,
+    shortName: `MIC ${n}`,
+    musician,
+    musicianShort: first.toUpperCase(),
+    device: `Wireless handheld ${n}${color ? `, ${color}` : ""} (receiver channel ${n})`,
+    category: "Vocals",
+    deviceType: "wireless-handheld",
+    signalLevel: "mic",
+    connector: "xlr",
+    phantom: "none",
+    outputDb: -30,
+    stem,
+    mixDb: 0,
+    pan: 0,
+    scenarios: ANY_SCENARIO,
+  };
+};
+const JAZZ_SOURCES = VJ_SINGERS.map((_, i) => handheld(i + 1));
+
+// ---------- COB in Irvine: the Vocal Jazz Ensemble as the cast ----------
+
+// The Chapman on Broadway (COB) gig in Irvine: performers on wireless headsets
+// singing to backing tracks from a laptop (the MUS 248 COB Gig Checklist).
+// The Vocal Jazz Ensemble's "Love Me or Leave Me" stands in for the cast:
+// eleven singers on headsets A–K (the same files and loops). Their recording
+// has no accompaniment, so the laptop plays silence (tools/make-silent-track.sh):
+// its meter stays dark, but the level model keeps the NOSTRADAMUS backing
+// track's numbers, so its gain, routing and sends still count as at the gig.
+// The sections are love-me's: the track isn't heard in any of them.
+const COB_SET = { ...LOVE_ME_SET, id: "cob", title: "COB in Irvine", artist: `${ENSEMBLE} as the cast` };
+const COB_STEMS = {
+  ...LOVE_ME_STEMS,
+  track: { file: "cob-track-silent.mp3", channels: 1, treatment: "stereo", peakDb: -1.09, monoPeakDb: -2.42, monoRmsDb: -18.05, normalizeDb: 0 },
+};
+
+// Eleven headsets, lettered A–K like the bodypacks and the receiver channels
+// (three VocoPro Digital-Quad receivers, four channels each; L is spare).
+// Headset n is the ensemble's singer n. A receiver channel's XLR out is mic
+// level and needs no phantom power. Each performer sits a little differently
+// on their headset, and each voice is their own, so each needs its own gain.
+const HEADSET_LEVELS = { a: -44, b: -42, c: -40, d: -46, e: -41, f: -44, g: -38, h: -45, i: -43, j: -39, k: -47 };
+const headset = (letter, i) => {
+  const L = letter.toUpperCase();
+  const [stem, musician] = VJ_SINGERS[i];
+  const first = musician.split(" ")[0];
+  return {
+    id: `hs-${letter}`,
+    order: i + 1,
+    name: `Headset ${L} · ${first}`,
+    shortName: `HS ${L}`,
+    musician,
+    musicianShort: first.toUpperCase(),
+    device: `Wireless headset ${L} (receiver channel ${L})`,
+    category: "Vocals",
+    deviceType: "wireless-headset",
+    signalLevel: "mic",
+    connector: "xlr",
+    phantom: "none",
+    outputDb: HEADSET_LEVELS[letter],
+    stem,
+    mixDb: 0,
+    pan: 0,
+    scenarios: ANY_SCENARIO,
+  };
+};
+const COB_SOURCES = [
+  ..."abcdefghijk".split("").map(headset),
+  {
+    id: "track",
+    order: 13,
+    name: "Backing track",
+    shortName: "TRACK",
+    musician: "Silent laptop",
+    musicianShort: "SILENT",
+    device: "Laptop — Backing tracks",
+    category: "Playback",
+    deviceType: "stereo-laptop",
+    signalLevel: "line",
+    connector: "trs35",
+    phantom: "none",
+    outputDb: -10,
+    stereo: true,
+    stem: "track",
+    mixDb: -6,
+    pan: 0,
+    scenarios: ANY_SCENARIO,
+    note: "The show's backing tracks, in stereo: the laptop's 3.5 mm headphone out → a dual 1/4\" breakout → AUX IN 1 (left) and 2 (right). In the lab it plays silence: the ensemble standing in for the cast was recorded without an accompaniment track. Its meter stays dark; its routing and sends still count.",
+  },
+];
+
+// ---------- Karaoke in BH 109: NOSTRADAMUS as a karaoke track ----------
+
+// A karaoke night in BH 109, the choir room (MUS 248's BH 109 Karaoke Gig
+// Checklist): singers on SM58s and a laptop playing the karaoke track into a
+// Behringer Xenyx, with one more SM58 through a Zoom V3 vocal processor. COB's
+// backing track (NOSTRADAMUS's instruments summed) is the karaoke track, and
+// NOSTRADAMUS's three vocal parts are the singers. Same timeline as
+// NOSTRADAMUS, so the same loops and segments.
+const KARAOKE_SET = { ...NOSTRADAMUS_SET, id: "karaoke", title: "Karaoke in BH 109", artist: "NOSTRADAMUS (Will Tulip) as a karaoke track" };
+// The backing track plays in every bar; the vocals as in NOSTRADAMUS.
+const VOX = ["vox-main", "vox-harmony", "vox-bgv"];
+const KARAOKE_LABELS = { "bars-2": "Verse: two singers over the track", excerpt: "Instrumental break, the V3 singer now and then", "bars-18": "Second verse", "bars-26": "Bridge: the lead singer alone", "bars-35": "Outro: the track, the V3 singer now and then" };
+KARAOKE_SET.sections = NOSTRADAMUS_SET.sections.map((s) => ({ ...s, label: KARAOKE_LABELS[s.id], plays: ["track", ...s.plays.filter((st) => VOX.includes(st))], partly: s.partly.filter((st) => VOX.includes(st)) }));
+// track: NOSTRADAMUS's instruments summed (tools/make-backing-track.sh),
+// measured over the whole song; normalizeDb is the stems' own −0.9 plus the sum's −6.63.
+const KARAOKE_STEMS = {
+  track: { file: "nostradamus-backing-track.mp3", channels: 2, treatment: "stereo", peakDb: -1.09, monoPeakDb: -2.42, monoRmsDb: -18.05, normalizeDb: -7.53 },
+  "vox-main": NOSTRADAMUS_STEMS["vox-main"],
+  "vox-harmony": NOSTRADAMUS_STEMS["vox-harmony"],
+  "vox-bgv": NOSTRADAMUS_STEMS["vox-bgv"],
+};
+const karaokeSinger = (id, order, name, shortName, device, deviceType, stem, extra) => ({
+  id,
+  order,
+  name,
+  shortName,
+  musician: "Will Tulip",
+  musicianShort: "WILL",
+  device,
+  category: "Vocals",
+  deviceType,
+  signalLevel: deviceType === "dynamic-mic" ? "mic" : "line",
+  connector: deviceType === "dynamic-mic" ? "xlr" : "ts14",
+  phantom: "none",
+  stem,
+  pan: 0,
+  scenarios: ANY_SCENARIO,
+  ...extra,
+});
+const KARAOKE_SOURCES = [
+  karaokeSinger("ky-mic1", 1, "SM58 1 · lead singer", "MIC 1", "Shure SM58 (dynamic)", "dynamic-mic", "vox-main", { outputDb: -43, mixDb: 0 }),
+  karaokeSinger("ky-mic2", 2, "SM58 2 · harmony", "MIC 2", "Shure SM58 (dynamic)", "dynamic-mic", "vox-harmony", { outputDb: -46, mixDb: -3 }),
+  karaokeSinger("ky-v3", 4, "Zoom V3 · third singer", "V3", "SM58 → Zoom V3 vocal processor, OUTPUT L", "line-source", "vox-bgv", {
+    outputDb: -10,
+    mixDb: -8,
+    note: "An SM58 into the V3's MIC IN; its OUTPUT L (consumer level, about −10) on a 1/4\" TS cable into 7/8 L (MONO). The V3's own effects aren't modelled: what comes out is the singer's voice.",
+  }),
+  {
+    id: "ky-track",
+    order: 3,
+    name: "Karaoke track (laptop)",
+    shortName: "TRACK",
+    musician: "Will Tulip",
+    musicianShort: "WILL",
+    device: "Laptop — karaoke videos",
+    category: "Playback",
+    deviceType: "stereo-laptop",
+    signalLevel: "line",
+    connector: "trs35",
+    phantom: "none",
+    outputDb: -10,
+    stereo: true,
+    stem: "track",
+    mixDb: -4,
+    pan: 0,
+    scenarios: ANY_SCENARIO,
+    note: "The karaoke video's audio, in stereo: the laptop's headphone out → a 3.5 mm to dual 1/4\" cable → LINE IN 5/6, L and R.",
+  },
+];
+
+// ---------- Vocal Jazz in Salmon: the ensemble's own recording ----------
+
+// Vocal Jazz in Salmon Recital Hall (MUS 248's Vocal Jazz Gig Checklist): the
+// singers on wireless handhelds into the hall's full-size X32. The ensemble's
+// own two pieces (the same files and loops), eleven singers on eleven
+// handhelds; the scenarios take turns, so one plays "Almost Like Being in
+// Love" (`vj`) and the next "Love Me or Leave Me" (`vj-love`). Mic n is
+// receiver channel n is X32 input n.
+const VJ_SET = { ...ALMOST_SET, id: "vj", title: "Vocal Jazz in Salmon", artist: `${ENSEMBLE}, “Almost Like Being in Love”` };
+const VJ_LOVE_SET = { ...LOVE_ME_SET, id: "vj-love", title: "Vocal Jazz in Salmon", artist: `${ENSEMBLE}, “Love Me or Leave Me”` };
+
+// The crew names a handheld by its windscreen, then its ring: black 1–8, gray
+// 9–16, rings red, orange, yellow, green, blue, purple, black, gray (the Salmon
+// Simulator's owner-confirmed facts).
+const RINGS = ["red", "orange", "yellow", "green", "blue", "purple", "black", "gray"];
+// The crew's test music: a laptop at FOH on AUX IN 1/2 plays the preshow
+// loop ("Bossa Nova") for the mains test and the monitor test.
+const VJ_LAPTOP = {
+  ...PRESHOW_SOURCE,
+  order: 33, // AUX IN 1/2
+  name: "Test music (laptop)",
+  device: "Laptop at FOH — test music",
+  scenarios: ANY_SCENARIO,
+  note: "The crew's test music, from a laptop at FOH into AUX IN 1/2: they play it through the mains, then the wedges, before the singers arrive. A 3.5 mm → dual 1/4\" breakout cable.",
+};
+const VJ_SOURCES = [...VJ_SINGERS.map((_, i) => handheld(i + 1, `${i < 8 ? "black" : "gray"}/${RINGS[i % 8]}`)), VJ_LAPTOP];
+
+// ---------- the electroacoustic showcase in Salmon: FTW's parts as stand-ins ----------
+
+// The Chapman Faculty Electroacoustic Showcase (2026-10-18), on Salmon's X32
+// with the S32 and an SD8 daisy-chained off its AES50 B (the Salmon Simulator's
+// showcase signal flow, and MUS 248's Electroacoustic Showcase Gig Checklist).
+// The pieces themselves aren't recorded here: FTW's stems stand in, each for a
+// source that does a similar job (its woodwinds for the bass clarinet, its
+// strings for the piano strings ringing, its vocals for the MalletKAT's
+// vocal-chop pads, its synths for the Mac mini's electronics), plus a click on
+// FTW's own beat grid (tools/make-click-track.sh), for the performer only.
+const EA_STEM_IDS = ["winds", "strings", "guitar", "percussion", "vocals", "synths", "click"];
+const EA_SET = { ...FTW_SET, id: "ea", title: "Electroacoustic showcase", artist: "FTW (after juno) as stand-ins, and a click" };
+EA_SET.sections = FTW_SET.sections.map((sec) => ({ ...sec, plays: [...sec.plays.filter((st) => EA_STEM_IDS.includes(st)), "click"], partly: sec.partly.filter((st) => EA_STEM_IDS.includes(st)) }));
+const EA_STEMS = {
+  ...Object.fromEntries(EA_STEM_IDS.filter((id) => id !== "click").map((id) => [id, FTW_STEMS[id]])),
+  // A metronome, not a recording: 1600 Hz on each downbeat, 1000 Hz on the other beats.
+  click: { file: "ftw-click.mp3", channels: 2, treatment: "sum", monoPeakDb: -1.21, monoRmsDb: -26.78, normalizeDb: 0 },
+};
+const FTW_BY_STEM = Object.fromEntries(FTW_SOURCES.map((src) => [src.stem, src]));
+const eaSource = (id, order, stem, name, shortName, device, deviceType, extra) => ({
+  id,
+  order,
+  name,
+  shortName,
+  musician: stem === "click" ? "A click" : FTW_BY_STEM[stem].musician,
+  musicianShort: stem === "click" ? "CLICK" : FTW_BY_STEM[stem].musicianShort,
+  device,
+  category: "Showcase",
+  deviceType,
+  signalLevel: { "condenser-mic": "mic", "dynamic-mic": "mic", "di-box": "mic" }[deviceType] || "line",
+  connector: { "line-source": "trs14", "stereo-laptop": "trs35" }[deviceType] || "xlr",
+  phantom: deviceType === "condenser-mic" ? "required" : "none",
+  stem,
+  pan: 0,
+  scenarios: ANY_SCENARIO,
+  ...extra,
+});
+const EA_SOURCES = [
+  eaSource("ea-click", 1, "click", "Click (Mac mini, SSL 2+ OUT 3)", "CLICK", "Mac mini · SSL 2+ OUT 3: the click", "line-source", { outputDb: -4, mixDb: 0, note: "The performer's click, from the Mac mini at FOH. In Salmon it went into an AUX IN; the lab's X32 has AUX IN 1/2 only, so it comes in on LOCAL 1. It belongs in the performer's mix, never the house." }),
+  eaSource("ea-pots", 17, "percussion", "Flower-pot mic (SD8 IN 1)", "POTS", "Flower-pot mic (dynamic), on the SD8", "dynamic-mic", { outputDb: -40, mixDb: -4, note: "Betweenness: one mic over the flower pots. Stand-in audio: FTW's percussion." }),
+  eaSource("ea-kat", 18, "vocals", "MalletKAT rig (SD8 IN 2)", "KAT", "MalletKAT · laptop · Scarlett 18i8 line out, on the SD8", "line-source", { outputDb: -6, mixDb: -2, note: "Betweenness: the MalletKAT's pads trigger vocal-chop samples on a laptop; the Scarlett 18i8's line out goes into the SD8. Stand-in audio: FTW's vocals." }),
+  eaSource("ea-bcl", 25, "winds", "Bass clarinet mic (S32 IN 25)", "B CLAR", "Bass clarinet mic (condenser), on the S32", "condenser-mic", { outputDb: -36, mixDb: 0, note: "Electrostatic Whale and Blood Memory: one condenser on a stand. Stand-in audio: FTW's woodwinds." }),
+  eaSource("ea-piano", 26, "strings", "Piano mic (S32 IN 26)", "PIANO", "Condenser inside the grand piano, on the S32", "condenser-mic", { outputDb: -38, mixDb: -2, note: "I PUNCH PIANOS: two speakers lie on the strings, and this mic hears the strings ringing. Stand-in audio: FTW's strings." }),
+  eaSource("ea-guitar", 27, "guitar", "Guitar rig (S32 IN 27)", "GTR", "Guitar → pedals → laptop and interface → DI, on the S32", "di-box", { outputDb: -30, mixDb: -2, note: "Running Spring: the guitarist's own rig, into a DI on the stage box. Stand-in audio: FTW's guitar." }),
+  eaSource("ea-track", 33, "synths", "Electronics (Mac mini, SSL 2+ OUT 1/2)", "TRACK", "Mac mini · SSL 2+ OUT 1/2: the electronics", "stereo-laptop", { outputDb: -10, stereo: true, mixDb: -4, note: "The fixed electronics for the bass clarinet pieces, from the Mac mini at FOH into AUX IN 1/2. Stand-in audio: FTW's synths." }),
+];
+
+// ---------- the Film Recording Workshop: FTW's orchestra as stand-ins ----------
+
+// A multitrack session on a Zoom LiveTrak L-20 (MUS 248's L-20 Multitrack
+// Recording Checklist, from the Film Recording Workshop of 2026-11-02): one
+// small-diaphragm condenser per player, every input recorded to its own track
+// in Logic over USB, and Logic's click back on USB 1-2 into channel 17/18 for
+// the players' headphones. The session's own stems aren't here yet, so FTW's
+// parts stand in for the five spot mics the lab has stems for, on the real
+// session's input numbers (4 cello, 7 trumpet/horn, 10 vibes, 13 clarinet,
+// 14 vocal). The Decca (inputs 1–3) and the other spots aren't modelled.
+// Same timeline as FTW, so the same loops, segments and click.
+const FILM_STEM_IDS = ["strings", "winds", "brass", "percussion", "vocals", "click"];
+const FILM_SET = { ...FTW_SET, id: "film", title: "Film Recording Workshop", artist: "FTW's orchestra as stand-ins, and a click" };
+FILM_SET.sections = FTW_SET.sections.map((sec) => ({ ...sec, plays: [...sec.plays.filter((st) => FILM_STEM_IDS.includes(st)), "click"], partly: sec.partly.filter((st) => FILM_STEM_IDS.includes(st)) }));
+const FILM_STEMS = { ...Object.fromEntries(FILM_STEM_IDS.filter((id) => id !== "click").map((id) => [id, FTW_STEMS[id]])), click: EA_STEMS.click };
+const filmMic = (id, order, stem, name, shortName, outputDb, mixDb, pan, note) => ({
+  id,
+  order,
+  name,
+  shortName,
+  musician: FTW_BY_STEM[stem].musician,
+  musicianShort: FTW_BY_STEM[stem].musicianShort,
+  device: "Small-diaphragm condenser on a stand",
+  category: "Film session",
+  deviceType: "condenser-mic",
+  signalLevel: "mic",
+  connector: "xlr",
+  phantom: "required",
+  outputDb,
+  stem,
+  mixDb,
+  pan,
+  scenarios: ANY_SCENARIO,
+  note: `${note} Stand-in audio: FTW's ${stem}.`,
+});
+const FILM_SOURCES = [
+  filmMic("film-cello", 4, "strings", "Cello (input 4)", "CELLO", -40, -6, -0.4, "The cello's spot mic."),
+  filmMic("film-horn", 7, "brass", "Trumpet/Horn (input 7)", "TPT/HN", -38, -10, 0.4, "The trumpet/horn spot mic. (The stand-in only plays in bars 16–17.)"),
+  filmMic("film-vibes", 10, "percussion", "Vibes (input 10)", "VIBES", -36, -8, 0.2, "One of the two vibes mics (Vibes Hi)."),
+  filmMic("film-clarinet", 13, "winds", "Clarinet (input 13)", "CLAR", -42, -8, 0.3, "The clarinet's spot mic: a soft instrument, so plenty of gain."),
+  filmMic("film-vocal", 14, "vocals", "Vocal 1 (input 14)", "VOCAL 1", -42, -6, 0, "The singer's mic."),
+  {
+    id: "film-click",
+    order: 17,
+    name: "Click (Logic, USB 1-2)",
+    shortName: "CLICK",
+    musician: "A click",
+    musicianShort: "CLICK",
+    device: "MacBook Pro · Logic's Stereo Out: the metronome",
+    category: "Playback",
+    deviceType: "stereo-laptop",
+    signalLevel: "line",
+    connector: "trs35",
+    phantom: "none",
+    outputDb: -10,
+    stereo: true,
+    stem: "click",
+    mixDb: 0,
+    pan: 0,
+    scenarios: ANY_SCENARIO,
+    note: "Logic's metronome, out of its Stereo Out. On the real L-20 it arrives over the USB cable: channel 17/18's USB button picks USB 1-2 instead of its jacks. The lab draws it as a cable into 17/18.",
+  },
+];
+
+// ---------- CME in Salmon: Persephone as the Commercial Music Ensemble ----------
+
+// The Commercial Music Ensemble (CME) in Salmon Recital Hall (MUS 248's CME
+// Gig Checklist): a rock band on the hall's X32. Persephone's stems stand in
+// for the band. Its stereo stems split into their two sides where CME has two
+// of something: the two guitar amps (guitars L and R), the two pencil
+// condensers on the grand piano (piano L and R) and two backing singers
+// (backing vocals L and R; measured 2026-11-02, the sides correlate 0.35–0.55,
+// so they are different parts). The Nord plays the whole piano stem, and the
+// mic over the piano (red) carries the lead vocal, for the songs the pianist
+// sings: a scenario's stage says who is playing (js/music.js stageFor).
+const CME_SET = { ...PERSEPHONE_SET, id: "cme", title: "CME in Salmon", artist: "Persephone (Giovanna) as the band" };
+const CME_SPLIT = { guitars: ["gtr-l", "gtr-r"], piano: ["piano", "piano-l", "piano-r"], "backing-vocals": ["bv-l", "bv-r"] };
+const cmeStems = (list) => list.flatMap((st) => CME_SPLIT[st] || [st]);
+CME_SET.sections = PERSEPHONE_SET.sections.map((s) => ({ ...s, plays: cmeStems(s.plays), partly: cmeStems(s.partly) }));
+const side = (stem, treatment, monoPeakDb, monoRmsDb) => ({ ...PERSEPHONE_STEMS[stem], treatment, monoPeakDb, monoRmsDb });
+const CME_STEMS = {
+  drums: PERSEPHONE_STEMS.drums,
+  bass: PERSEPHONE_STEMS.bass,
+  "gtr-l": side("guitars", "left", -0.9, -14.3),
+  "gtr-r": side("guitars", "right", -1.3, -14.1),
+  piano: PERSEPHONE_STEMS.piano,
+  "piano-l": side("piano", "left", -1.0, -13.2),
+  "piano-r": side("piano", "right", -3.1, -17.0),
+  trumpets: PERSEPHONE_STEMS.trumpets,
+  "bv-l": side("backing-vocals", "left", -1.2, -15.0),
+  "bv-r": side("backing-vocals", "right", -2.8, -16.9),
+  "lead-vocals": PERSEPHONE_STEMS["lead-vocals"],
+};
+const PERSEPHONE_BY_STEM = Object.fromEntries(PERSEPHONE_SOURCES.filter((s) => s.stem).map((s) => [s.stem, s]));
+const cmeSource = (id, order, name, shortName, device, deviceType, stem, extra) => {
+  const player = PERSEPHONE_BY_STEM[{ "gtr-l": "guitars", "gtr-r": "guitars", "piano-l": "piano", "piano-r": "piano", "bv-l": "backing-vocals", "bv-r": "backing-vocals" }[stem] || stem];
+  return {
+    id,
+    order,
+    name,
+    shortName,
+    musician: player.musician,
+    musicianShort: player.musicianShort,
+    device,
+    category: "CME",
+    deviceType,
+    signalLevel: "mic",
+    connector: "xlr",
+    phantom: deviceType === "condenser-mic" ? "required" : "none",
+    stem,
+    pan: 0,
+    mixDb: 0,
+    scenarios: ANY_SCENARIO,
+    ...extra,
+  };
+};
+// The wireless handhelds go left to right across the stage in ring order:
+// red is the mic over the piano, orange the lead singer, yellow and green the
+// backing singers, blue the horn player (who always comes in on a wireless).
+// They're the no-windscreen set, paired with the third PTU-6000 in the
+// wireless rack at FOH (channels 17–24), whose AF OUTs plug into LOCAL 17–24.
+// No cable: by radio to the receiver (`rf-handheld`). `outputDb` is the
+// receiver's AF OUT with its VOL knob at 9 o'clock, as the rack leaves it.
+const cmeHandheld = (id, n, ring, who, stem, extra) => cmeSource(id, 16 + n, `${who} (${ring})`, ring.toUpperCase(), `Wireless handheld, ${ring} ring, no windscreen → receiver 3 CH ${n} (CH ${16 + n})`, "rf-handheld", stem, { outputDb: -30, ...extra });
+const CME_SOURCES = [
+  cmeHandheld("cme-red", 1, "red", "Piano vocal mic", "lead-vocals", { note: "A handheld on a boom over the grand piano: some songs the pianist sings lead." }),
+  cmeHandheld("cme-orange", 2, "orange", "Lead vocal", "lead-vocals"),
+  cmeHandheld("cme-yellow", 3, "yellow", "Backing vocal 1", "bv-l", { mixDb: -4, pan: -0.3 }),
+  cmeHandheld("cme-green", 4, "green", "Backing vocal 2", "bv-r", { mixDb: -4, pan: 0.3 }),
+  cmeHandheld("cme-blue", 5, "blue", "Horn", "trumpets", { mixDb: -6, pan: 0.2, outputDb: -34, note: "The horn player comes in on a wireless handheld too." }),
+  // CME in Salmon: Advanced. Each is on stage in one scenario only, and lands
+  // on CH 9-10 once ROUTING → INPUT points CH 9-16 at it (Salmon's default has
+  // them on LOCAL 9-16, receiver 2). The gig gain-stages those channels for them.
+  // A guest singer's headset on a body pack, paired with the PTU-7000's CH 1
+  // (`cme-rx-lav` pairs), whose AF OUT 1 is in LOCAL 25: CH 9-16 ← Local 25-32.
+  cmeSource("cme-guest", 9, "Guest vocal (headset)", "GUEST", "Headset mic on a wireless body pack → PTU-7000 CH 1 → LOCAL 25", "rf-handheld", "lead-vocals", {
+    outputDb: -30,
+    scenarios: ["x32-cme-adv-headset"],
+    note: "A guest singer on a headset: its body pack is paired with the PTU-7000 (lav and headset packs), whose AF OUT 1 plugs into LOCAL 25.",
+  }),
+  // The band's own kick and snare mics, more inputs than the sub snake has: straight into
+  // S32 IN 9 and 10, so CH 9-16 ← AES50 A9-16.
+  cmeSource("cme-kick", 9, "Kick drum (dynamic)", "KICK", "Dynamic mic in the kick drum → S32 IN 9", "dynamic-mic", "drums", { outputDb: -28, mixDb: -4, scenarios: ["x32-cme-adv-inputs"] }),
+  cmeSource("cme-snare", 10, "Snare (SM57)", "SNARE", "SM57 on the snare → S32 IN 10", "dynamic-mic", "drums", { outputDb: -32, mixDb: -6, scenarios: ["x32-cme-adv-inputs"] }),
+  cmeSource("cme-nord", 25, "Nord (DI)", "NORD", "Nord Stage 4 → DI box, on sub snake 1", "di-box", "piano", {
+    outputDb: -32,
+    mixDb: -6,
+    pan: -0.3,
+    volumeKnob: { label: "Nord MASTER LEVEL", unity: 7.5, start: 7.5 },
+    gearPower: "The Nord",
+    note: "The Nord's output into a DI box, the DI's XLR into sub snake 1. One channel is enough; 26 is free if it ever comes in stereo.",
+  }),
+  cmeSource("cme-pno-l", 27, "Piano mic L (pencil condenser)", "PNO L", "Pencil condenser in the grand piano, on sub snake 3", "condenser-mic", "piano-l", { outputDb: -40, mixDb: -6, pan: -0.5 }),
+  cmeSource("cme-pno-r", 28, "Piano mic R (pencil condenser)", "PNO R", "Pencil condenser in the grand piano, on sub snake 4", "condenser-mic", "piano-r", { outputDb: -40, mixDb: -6, pan: 0.5 }),
+  cmeSource("cme-bass", 29, "Bass (DI)", "BASS", "Bass guitar → DI box, on sub snake 5", "di-box", "bass", {
+    outputDb: -32,
+    mixDb: -3,
+    volumeKnob: { label: "Bass guitar VOLUME", unity: 10, start: 10 },
+    note: "The DI goes between the bass and its amp: the bass amp is for the player, the DI is for the PA.",
+  }),
+  cmeSource("cme-gtr1", 30, "Guitar amp 1 (SM57)", "GTR 1", "SM57 on the Boss Katana-50, on sub snake 6", "dynamic-mic", "gtr-l", {
+    outputDb: -36,
+    mixDb: -5,
+    pan: -0.4,
+    volumeKnob: { label: "Katana-50 MASTER", unity: 5, start: 5 },
+    gearPower: "The Katana-50",
+    note: "An SM57 an inch or two from the amp's grille. The mic hears whatever the amp plays, so the amp's own knobs come first.",
+  }),
+  cmeSource("cme-gtr2", 31, "Guitar amp 2 (SM57)", "GTR 2", "SM57 on a second guitar amp, on sub snake 7", "dynamic-mic", "gtr-r", { outputDb: -36, mixDb: -5, pan: 0.4, volumeKnob: { label: "Amp 2 MASTER", unity: 5, start: 5 }, gearPower: "Guitar amp 2" }),
+  cmeSource("cme-oh", 32, "Drum overhead (condenser)", "OH", "Condenser over the drum kit, on sub snake 8", "condenser-mic", "drums", {
+    outputDb: -34,
+    mixDb: -6,
+    note: "Optional: the kit is loud enough in Salmon on its own. The lab has no room sound, so an overhead stands in for it.",
+  }),
+  {
+    ...VJ_LAPTOP,
+    name: "Test music (Mac mini · SSL 2+)",
+    device: "FOH Mac mini (MUS-BH100-MINI) → SSL 2+",
+    deviceType: "foh-mac",
+    connector: "trs14",
+    note: "The crew's test music, from the FOH Mac mini through its SSL 2+ into AUX IN 1/2 (two 1/4\" TRS cables): through the mains, then each wedge, before anyone plays. The same Mac mini takes the X32's Dante multitrack.",
+  },
+];
+
+// ---------- Mariachi in Salmon: Mariachi Panteras' own dress rehearsal ----------
+
+// Mariachi Panteras in Salmon Recital Hall (MUS 248's Mariachi Gig Checklist),
+// from the X32's multitrack of the dress rehearsal (Logic "261106 Mariachi
+// Dress", 2026-11-06; audio/README.md has how the files were cut). Nine
+// wireless handhelds, nothing else: four on the violins, one each on the
+// guitarrón, the lead vihuela and the lead guitarra, and two up front for
+// vocal solos. The trumpets have no mic (they don't need one). Track 3 of the
+// session was dead and isn't here. Tracks 06 and 07 were first guessed to be
+// trumpets; with no trumpet mic at the gig they are violins 3 and 4 (the file
+// names keep the old guess). Song 1 of the eight; its loop is everyone playing,
+// the singer on the second vocal mic at its start and end (the first vocal mic
+// only hears the band). Mono files, every track +7.5 dB (`normalizeDb`).
+const MARIACHI_PARTS = [
+  // [stem id, file's track and name, Logic track]
+  ["vocal-1", "01-vocal-lead"],
+  ["vocal-2", "02-mc"],
+  ["violin-1", "04-violin-1"],
+  ["violin-2", "05-violin-2"],
+  ["violin-3", "06-trumpet-1"],
+  ["violin-4", "07-trumpet-2"],
+  ["guitarron", "08-guitarron"],
+  ["vihuela", "09-vihuela"],
+  ["guitarra", "10-guitarra"],
+];
+// monoPeakDb, monoRmsDb over the whole song (audio/README.md, MARIACHI_LEVELS["mariachi-1"]), in the order above.
+const MARIACHI_1_LEVELS = [[-13.92, -34.12], [-2.23, -22.92], [-18.08, -38.29], [-22.17, -39.26], [-14.97, -35.35], [-14.37, -35.64], [-10.64, -28.62], [-5.19, -25.31], [-7.58, -28.57]];
+const MARIACHI_STEMS = Object.fromEntries(MARIACHI_PARTS.map(([id, file], i) => [id, { file: `mariachi-1-${file}.mp3`, channels: 1, treatment: "sum", monoPeakDb: MARIACHI_1_LEVELS[i][0], monoRmsDb: MARIACHI_1_LEVELS[i][1], normalizeDb: 7.5 }]));
+const MARIACHI_ALL = MARIACHI_PARTS.map(([id]) => id);
+const MARIACHI_ENSEMBLE = "Mariachi Panteras";
+// ~172 bpm, A minor. The excerpt is song time 64.13 + 37.591 s; its loop 0.5 → 36.591 (the seam within ±12 ms).
+const MARIACHI_SET = {
+  id: "mariachi",
+  title: "Mariachi in Salmon",
+  artist: `${MARIACHI_ENSEMBLE}, dress rehearsal`,
+  basePath: "audio/mariachi-1/",
+  loop: { start: 0.5, end: 36.591 },
+  excerpt: { originalStart: 64.13, duration: 37.591 },
+  full: { basePath: "audio/mariachi-1/full/", segmentSeconds: 20, overlap: 0.5, duration: 163.08, segments: 9, trimDb: 0 },
+  sections: [{ id: "excerpt", bars: "loop", start: 64.63, label: "Everyone playing, a vocal solo at the start and the end", plays: MARIACHI_ALL, partly: [] }],
+};
+// Left to right across the stage in rainbow order, as the crew hands them out:
+// receiver 1 (black windscreens, CH 1-8) for the band, then receiver 2 (gray
+// windscreens, CH 9-16) for the two vocal mics. Yellow on receiver 1 isn't
+// used. A handheld clipped to a stand for the instruments. `order` is the
+// console channel: receiver channel n's AF OUT is in LOCAL n.
+const marHandheld = (id, ch, windscreen, ring, name, shortName, stem, extra) => ({
+  id,
+  order: ch,
+  name: `${name} (${windscreen}/${ring})`,
+  shortName,
+  musician: `${MARIACHI_ENSEMBLE}: ${name.toLowerCase()}`,
+  musicianShort: shortName,
+  device: `Wireless handheld, ${windscreen} windscreen, ${ring} ring → receiver ${ch > 8 ? 2 : 1} CH ${((ch - 1) % 8) + 1} (CH ${ch})`,
+  category: "Mariachi",
+  deviceType: "rf-handheld",
+  signalLevel: "mic",
+  connector: "xlr",
+  phantom: "none",
+  outputDb: -30,
+  stem,
+  mixDb: 0,
+  pan: 0,
+  scenarios: ANY_SCENARIO,
+  ...extra,
+});
+const MARIACHI_SOURCES = [
+  marHandheld("mar-vln1", 1, "black", "red", "Violin 1", "VLN 1", "violin-1", { mixDb: -14, pan: -0.6, outputDb: -34 }),
+  marHandheld("mar-vln2", 2, "black", "orange", "Violin 2", "VLN 2", "violin-2", { mixDb: -14, pan: -0.5, outputDb: -34 }),
+  marHandheld("mar-vln3", 4, "black", "green", "Violin 3", "VLN 3", "violin-3", { mixDb: -14, pan: -0.4, outputDb: -34 }),
+  marHandheld("mar-vln4", 5, "black", "blue", "Violin 4", "VLN 4", "violin-4", { mixDb: -14, pan: -0.3, outputDb: -34 }),
+  marHandheld("mar-gtrn", 6, "black", "purple", "Guitarrón", "GTRRN", "guitarron", { mixDb: -3, pan: 0, outputDb: -32, note: "The mariachi's bass: a handheld on a stand aimed at its back." }),
+  marHandheld("mar-vih", 7, "black", "black", "Vihuela (lead)", "VIHUELA", "vihuela", { mixDb: -6, pan: 0.3, outputDb: -32 }),
+  marHandheld("mar-gtra", 8, "black", "gray", "Guitarra (lead)", "GUITARRA", "guitarra", { mixDb: -5, pan: 0.4, outputDb: -32 }),
+  marHandheld("mar-vox1", 9, "gray", "red", "Vocal mic 1", "VOX 1", "vocal-1", { note: "Up front, for vocal solos. In this song the band leaks into it; the singer is on vocal mic 2." }),
+  marHandheld("mar-vox2", 10, "gray", "orange", "Vocal mic 2", "VOX 2", "vocal-2", { note: "Up front, for vocal solos and talking between songs." }),
+  // The spare a player gets when a handheld dies mid-soundcheck: receiver 2's green, on CH 12 (one scenario only).
+  marHandheld("mar-spare", 12, "gray", "green", "Spare handheld", "SPARE", "violin-1", { mixDb: -14, pan: -0.6, outputDb: -34, scenarios: ["x32-mariachi-swap"], note: "The spare from the wireless drawer, now on the first violin's stand." }),
+  {
+    ...VJ_LAPTOP,
+    name: "Test music (Mac mini · SSL 2+)",
+    device: "FOH Mac mini (MUS-BH100-MINI) → SSL 2+",
+    deviceType: "foh-mac",
+    connector: "trs14",
+    note: "The crew's test music, from the FOH Mac mini through its SSL 2+ into AUX IN 1/2: through the hall's speakers, then each wedge, before anyone plays.",
+  },
+];
+
 // Virtual sources: the two mics of the stereo room pair. Their sound is built
 // from the band stems by js/room-mics.js (distance, angle, delay, room reverb).
 export const ROOM_SOURCES = [
@@ -722,7 +1316,20 @@ export const SONGS = {
   persephone: { id: "persephone", title: "Persephone", artist: "Giovanna", set: PERSEPHONE_SET, stems: PERSEPHONE_STEMS, sources: PERSEPHONE_SOURCES },
   nostradamus: { id: "nostradamus", title: "NOSTRADAMUS", artist: "Will Tulip", set: NOSTRADAMUS_SET, stems: NOSTRADAMUS_STEMS, sources: NOSTRADAMUS_SOURCES },
   ftw: { id: "ftw", title: "FTW", artist: "after juno", set: FTW_SET, stems: FTW_STEMS, sources: FTW_SOURCES },
+  "almost-like": { id: "almost-like", title: "Almost Like Being in Love", artist: ENSEMBLE, set: ALMOST_SET, stems: ALMOST_STEMS, sources: JAZZ_SOURCES },
+  "love-me": { id: "love-me", title: "Love Me or Leave Me", artist: ENSEMBLE, set: LOVE_ME_SET, stems: LOVE_ME_STEMS, sources: JAZZ_SOURCES },
+  // A gig, not just a band: its rig is the X32 Compact's, so it plays on that console only.
+  cob: { id: "cob", title: "COB in Irvine", artist: "the Vocal Jazz Ensemble as the cast", set: COB_SET, stems: COB_STEMS, sources: COB_SOURCES, consoles: ["x32c"] },
+  vj: { id: "vj", title: "Vocal Jazz in Salmon", artist: "the Vocal Jazz Ensemble (“Almost Like Being in Love”)", set: VJ_SET, stems: ALMOST_STEMS, sources: VJ_SOURCES, consoles: ["x32"] },
+  "vj-love": { id: "vj-love", title: "Vocal Jazz in Salmon", artist: "the Vocal Jazz Ensemble (“Love Me or Leave Me”)", set: VJ_LOVE_SET, stems: LOVE_ME_STEMS, sources: VJ_SOURCES, consoles: ["x32"] },
+  karaoke: { id: "karaoke", title: "Karaoke in BH 109", artist: "a karaoke track (NOSTRADAMUS)", set: KARAOKE_SET, stems: KARAOKE_STEMS, sources: KARAOKE_SOURCES, consoles: ["x1204usb"] },
+  ea: { id: "ea", title: "Electroacoustic showcase", artist: "FTW's parts as stand-ins, and a click", set: EA_SET, stems: EA_STEMS, sources: EA_SOURCES, consoles: ["x32"] },
+  film: { id: "film", title: "Film Recording Workshop", artist: "FTW's orchestra as stand-ins, and a click", set: FILM_SET, stems: FILM_STEMS, sources: FILM_SOURCES, consoles: ["l20"] },
+  cme: { id: "cme", title: "CME in Salmon", artist: "Persephone (Giovanna) as the Commercial Music Ensemble", set: CME_SET, stems: CME_STEMS, sources: CME_SOURCES, consoles: ["x32"] },
+  mariachi: { id: "mariachi", title: "Mariachi in Salmon", artist: "Mariachi Panteras, from their dress rehearsal", set: MARIACHI_SET, stems: MARIACHI_STEMS, sources: MARIACHI_SOURCES, consoles: ["x32"] },
 };
+// Can this song play on this console? A gig's song (`consoles`) only on its own.
+export const songFits = (id, model) => !SONGS[id]?.consoles || SONGS[id].consoles.includes(model);
 export const DEFAULT_SONG = "persephone";
 
 // Live bindings: importers always see the current song's.
@@ -731,7 +1338,8 @@ export let STEM_SET;
 export let STEMS;
 export let SOURCES;
 // The band's sources plus the room pair and the preshow laptop, so a loop
-// player or a room mic is found whichever band is on stage.
+// player or a room mic is found whichever band is on stage. A song's own
+// source wins over a shared one with its id (Salmon's test-music laptop).
 export let SOURCES_BY_ID;
 
 // Puts a song's band on stage. Returns true if it changed.
@@ -742,7 +1350,7 @@ export function useSong(id) {
   STEM_SET = song.set;
   STEMS = song.stems;
   SOURCES = song.sources;
-  SOURCES_BY_ID = Object.fromEntries([...SOURCES, ...ROOM_SOURCES, PRESHOW_SOURCE].map((s) => [s.id, s]));
+  SOURCES_BY_ID = Object.fromEntries([...ROOM_SOURCES, PRESHOW_SOURCE, ...SOURCES].map((s) => [s.id, s]));
   return changed;
 }
 useSong(DEFAULT_SONG);
@@ -820,6 +1428,39 @@ export const CREDITS = [
       ["Mixing and mastering", "Mitchell Oeth"],
     ],
     note: "Used with permission for this educational project.",
+  },
+  ...[
+    ["Almost Like Being in Love", "Frederick Loewe and Alan Jay Lerner", "Darmon Meader"],
+    ["Love Me or Leave Me", "Walter Donaldson and Gus Kahn", "Rosana Eckert"],
+  ].map(([title, writers, arranger]) => ({
+    title,
+    lines: [
+      ["Music and lyrics", writers],
+      ["Arrangement", arranger],
+      ["Vocal Jazz Ensemble", VJ_SINGERS.map(([, name]) => name).join(", ")],
+      ["Director", "Alex Robinson"],
+      ["Piano", "Celine You (heard only through the vocal mics)"],
+      ["Recorded", "live in concert, October 23, 2026"],
+    ],
+    note: "Used with permission for this educational project.",
+  })),
+  {
+    title: "COB in Irvine",
+    lines: [["Music", "“Love Me or Leave Me” by the Vocal Jazz Ensemble, eleven singers on eleven headsets; the backing-track laptop is silent"]],
+    note: "Used with permission for this educational project.",
+  },
+  {
+    title: "Vocal Jazz in Salmon",
+    lines: [["Music", "“Almost Like Being in Love” by the Vocal Jazz Ensemble, eleven singers on eleven handhelds"]],
+    note: "Used with permission for this educational project.",
+  },
+  {
+    title: "Mariachi in Salmon",
+    lines: [
+      ["Ensemble", "Mariachi Panteras"],
+      ["Recorded", "the X32's multitrack of the dress rehearsal, Salmon Recital Hall, November 6, 2026"],
+    ],
+    note: "Shared by the course for this educational project; song titles and credits to come.",
   },
   {
     title: "Announcements",

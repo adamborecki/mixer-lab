@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { stageFor, stageNote } from "../js/music.js";
 import { ALL_BOARD_SCENARIOS, SCENARIOS } from "../js/scenarios.js";
-import { SOURCES_BY_ID, VOICES } from "../audio/source-manifest.js";
+import { DEFAULT_SONG, SOURCES_BY_ID, VOICES, useSong } from "../audio/source-manifest.js";
 
 const BAND = ["drums", "bass", "guitars", "keys", "trumpets", "backing-vocals", "lead-vocal"];
 const ALL = [...SCENARIOS.filter((s) => s.number > 0), ...ALL_BOARD_SCENARIOS];
@@ -42,9 +42,11 @@ describe("scenarios: who's on stage", () => {
 
   it("names only real sources and voices", () => {
     for (const s of ALL.filter((x) => x.stage)) {
+      useSong(s.song || DEFAULT_SONG); // a song's own band (CME's red and orange mics)
       for (const id of [...(s.stage.only || []), ...(s.stage.out || []), ...Object.keys(s.stage.voice || {})]) assert.ok(SOURCES_BY_ID[id], `${s.id}: ${id}`);
       for (const v of Object.values(s.stage.voice || {})) assert.ok(VOICES[v], `${s.id}: voice ${v}`);
     }
+    useSong(DEFAULT_SONG);
   });
 
   it("never silences a source the scenario needs to hear", () => {

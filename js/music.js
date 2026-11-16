@@ -88,6 +88,7 @@ function hash(str) {
 // A scenario's `stage` says who is actually playing; everyone else's stem is
 // silent (their mic is still there, patched or not). Free play: everyone.
 //   silent: true          nobody plays (doors: only the laptop is heard)
+//   note:   "…"           with silent, the line shown instead of "The band isn't on stage yet."
 //   only:   [sourceId…]   just these play
 //   out:    [sourceId…]   these sit out (the backing singer went home)
 //   voice:  { sourceId: voiceId }   that mic carries a spoken clip instead of
@@ -107,7 +108,7 @@ export function stageNote(def, sourcesById, voices = {}) {
   const st = (def && def.stage) || {};
   const name = (id) => sourcesById[id]?.name.toLowerCase() || id;
   const parts = [];
-  if (st.silent) parts.push("The band isn't on stage yet.");
+  if (st.silent) parts.push(st.note || "The band isn't on stage yet.");
   else if (st.only) parts.push(`Only the ${listOf(st.only.map(name))} ${st.only.length > 1 ? "are" : "is"} on stage.`);
   else if (st.out?.length) parts.push(`Sitting out: ${listOf(st.out.map(name))}.`);
   for (const [src, v] of Object.entries(st.voice || {})) {

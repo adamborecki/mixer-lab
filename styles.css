@@ -255,7 +255,10 @@ button {
   gap: 0.75rem;
 }
 .lab[data-view="console"] .region-patch,
-.lab[data-view="patch"] .region-mixer {
+.lab[data-view="patch"] .region-mixer,
+.lab:not([data-view="mix5"]) .region-mix5,
+.lab[data-view="mix5"] .region-mixer,
+.lab[data-view="mix5"] .region-patch {
   display: none;
 }
 
@@ -307,6 +310,11 @@ button {
   justify-content: center;
   cursor: pointer;
   text-align: left;
+}
+/* A view the rig doesn't have (Console: Mix5 outside CME): hidden, whatever display says. */
+.view-btn[hidden],
+[data-tab-btn][hidden] {
+  display: none;
 }
 .view-btn strong {
   font-family: var(--font-display);
@@ -793,6 +801,47 @@ kbd {
   font-weight: 700;
   color: var(--ok);
   font-size: 1.15rem;
+}
+/* The optional one-question check after a solve. */
+.concept-check {
+  margin-top: 0.4rem;
+}
+.concept-check .cc-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.3rem 0;
+}
+.concept-check .chip.is-right {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+.concept-check .chip.is-wrong {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.concept-check .cc-why {
+  font-size: 0.9rem;
+}
+/* First visit to a big digital console: where its knobs went. */
+.console-tip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: 0.7rem 1rem;
+  margin-bottom: 0.9rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.console-tip[hidden] {
+  display: none;
+}
+.console-tip p {
+  margin: 0;
+  flex: 1 1 22rem;
 }
 @keyframes pop {
   from {
@@ -2351,6 +2400,65 @@ dialog::backdrop {
   flex: none;
   min-width: 96px;
 }
+/* A wedge scenario heard from somewhere else: the bar lights up, the wedge's
+   spot pulses, and a nudge offers the switch (js/ears.js). The page leaves
+   room for the taller bar. */
+:root:has(.listen-bar.ears-nudge) {
+  --listen-h: 132px;
+}
+.listen-bar.ears-nudge {
+  border-top: 2px solid var(--accent);
+  box-shadow: 0 -6px 24px rgba(124, 224, 255, 0.18);
+}
+.listen-bar.ears-nudge .listen-label {
+  color: var(--accent);
+  font-weight: 700;
+}
+.ears-nudge-box {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.6rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgba(124, 224, 255, 0.45);
+  border-radius: 8px;
+  background: rgba(124, 224, 255, 0.1);
+}
+.ears-nudge-box[hidden],
+.ears-switch[hidden] {
+  display: none;
+}
+.ears-nudge-text {
+  margin: 0;
+  flex: 1 1 16rem;
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+.ears-switch {
+  flex: none;
+  min-height: 34px;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.82rem;
+}
+.ear-spot.target .spot-dot {
+  stroke: var(--accent);
+  fill: rgba(124, 224, 255, 0.35);
+  animation: ears-pulse 1.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes ears-pulse {
+  50% {
+    transform: scale(1.45);
+    fill: rgba(124, 224, 255, 0.6);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ear-spot.target .spot-dot {
+    animation: none;
+    stroke-width: 2.4;
+  }
+}
 
 @media (max-width: 899px) {
   :root {
@@ -2380,6 +2488,25 @@ dialog::backdrop {
   }
   .listen-msg {
     font-size: 0.75rem;
+  }
+  :root:has(.listen-bar.ears-nudge) {
+    --listen-h: 228px;
+  }
+  .ears-nudge-box {
+    flex-wrap: nowrap;
+    padding: 0.3rem 0.45rem;
+  }
+  .ears-nudge-text {
+    flex: 1 1 auto;
+    font-size: 0.75rem;
+  }
+  .ears-switch {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+  }
+  /* the nudge already says what you're hearing */
+  .listen-bar.ears-nudge .listen-msg {
+    display: none;
   }
   .transport {
     order: 3;
@@ -3125,6 +3252,20 @@ dialog::backdrop {
 .dev-settings output {
   color: var(--text);
   font-variant-numeric: tabular-nums;
+}
+/* A wireless handheld's one button (tap = mute, press and hold = power). */
+.mic-display {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.mic-display strong {
+  color: var(--text);
+}
+.mic-press {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 .dev-technique {
   margin: 0;
@@ -4938,6 +5079,20 @@ dialog::backdrop {
   font-size: 10px;
   fill: var(--text-dim);
 }
+/* A rack (the amp rack, the hall's mains rack): one frame around its gear. */
+.rack-frame rect {
+  fill: rgba(255, 255, 255, 0.025);
+  stroke: var(--line);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+.rack-frame text {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  fill: var(--text-dim);
+}
 
 /* Boxes: gear on stage, panels with screws, rack units. */
 .sbox {
@@ -4973,6 +5128,107 @@ dialog::backdrop {
 .sbox.tone-bad .box-bg {
   stroke: var(--bad);
   stroke-width: 2;
+}
+/* A box with no power: its name and icon dim (the power tab on its top edge says why). */
+.sbox.dark .box-ico,
+.sbox.dark .box-name,
+.sbox.dark .box-title {
+  opacity: 0.5;
+}
+/* A box's title row, drawn above the cables so a tap there reaches the box. */
+.box-hit {
+  fill: transparent;
+  cursor: pointer;
+}
+/* The power tab: plug and switch, on a box's top edge. */
+.pwr-bg {
+  fill: var(--bg-sunken);
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+.pwr-on .pwr-bg {
+  stroke: color-mix(in srgb, var(--ok) 55%, transparent);
+}
+.pwr-unplugged .pwr-bg,
+.pwr-off .pwr-bg,
+.pwr-no-power .pwr-bg {
+  stroke: color-mix(in srgb, var(--warn) 70%, transparent);
+}
+.pwr-btn {
+  cursor: pointer;
+}
+.pwr-hit {
+  fill: transparent;
+}
+.pwr-btn:hover .pwr-hit,
+.pwr-btn:focus-visible .pwr-hit {
+  fill: rgba(255, 255, 255, 0.12);
+}
+.pwr-btn:focus-visible {
+  outline: none;
+}
+.pwr-btn:focus-visible .pwr-hit {
+  stroke: var(--accent);
+}
+.pwr-cord,
+.pwr-prong,
+.pwr-gap,
+.pwr-glyph {
+  fill: none;
+  stroke: var(--text-dim);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.pwr-body {
+  fill: var(--text-dim);
+}
+.pwr-plug.is-out .pwr-body {
+  fill: var(--warn);
+}
+.pwr-plug.is-out .pwr-cord,
+.pwr-plug.is-out .pwr-prong {
+  stroke: var(--warn);
+}
+.pwr-gap {
+  stroke: var(--text-dim);
+  stroke-width: 2;
+}
+/* The switch: green and glowing only with power; on but dark is plain white. */
+.pwr-sw.is-off .pwr-glyph {
+  stroke: rgba(255, 255, 255, 0.28);
+}
+.pwr-no-power .pwr-sw.is-on .pwr-glyph,
+.pwr-unplugged .pwr-sw.is-on .pwr-glyph {
+  stroke: var(--text);
+}
+.pwr-on .pwr-sw .pwr-glyph {
+  stroke: var(--ok);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 3px var(--ok));
+}
+/* The same, on a box's card. */
+.power-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  flex-basis: 100%;
+}
+.pwr-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  flex: none;
+}
+.power-row.pwr-on .pwr-dot {
+  background: var(--ok);
+  box-shadow: 0 0 6px var(--ok);
+}
+.power-row:not(.pwr-on) .power-state {
+  color: var(--warn);
 }
 .box-title {
   font-family: var(--font-display);
@@ -6356,6 +6612,7 @@ dialog::backdrop {
   gap: 0.35rem;
   overflow-x: auto;
   scrollbar-width: thin;
+  position: relative; /* a chip's visually-hidden text is clipped here, not left to widen the page */
 }
 .mstep-chip {
   display: flex;
@@ -6455,6 +6712,7 @@ dialog::backdrop {
   color: var(--accent);
 }
 .canvas-total,
+.canvas-backup,
 .canvas-bugs {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
@@ -6493,6 +6751,18 @@ dialog::backdrop {
   align-self: center;
 }
 .canvas-bugs .chip {
+  margin-top: 0.4rem;
+}
+.canvas-backup-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.canvas-backup-status:empty {
+  display: none;
+}
+.canvas-backup-status {
   margin-top: 0.4rem;
 }
 .bug-where {
@@ -6547,6 +6817,24 @@ dialog::backdrop {
 .l20-bank .dg-extra .lit-btn {
   white-space: nowrap;
 }
+/* The L-20's level LED beside each fader: the real level, wherever the cap is (the faders aren't motorized). */
+.l20-led {
+  position: absolute;
+  left: calc(50% + 18px);
+  bottom: calc(14px + var(--pos, 0) * (100% - 28px));
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  transform: translateY(50%);
+  background: #3ddc6a;
+  box-shadow: 0 0 4px #3ddc6a;
+  pointer-events: none;
+}
+.l20-led.is-apart {
+  width: 7px;
+  height: 7px;
+  box-shadow: 0 0 6px 2px #3ddc6a;
+}
 .l20-efx {
   border-left: 1px solid rgba(255, 255, 255, 0.12);
 }
@@ -6571,4 +6859,350 @@ dialog::backdrop {
 .l20-panel .dg-note {
   margin: 0.2rem 0 0;
   font-size: 0.65rem;
+}
+
+/* Chapman gigs: a planned gig shows but can't be opened yet. */
+.gig-card.gig-soon { opacity: 0.6; cursor: default; }
+.drawer-theme.gig-soon { opacity: 0.7; }
+
+/* ---------- Console: Mix5 (the hall's mains rack) ---------- */
+
+.m5-face {
+  display: grid;
+  gap: 0.9rem;
+  max-width: 900px;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #2b2e33, #1f2125);
+  border: 1px solid var(--line);
+}
+.m5-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.m5-brand strong {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  letter-spacing: 0.08em;
+}
+.m5-brand span {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.m5-jacks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.5rem;
+}
+.m5-jack {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 0.75rem;
+}
+.m5-jack small {
+  color: var(--text-dim);
+}
+.m5-jack.is-plugged {
+  border-color: var(--accent);
+}
+.m5-strips {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.6rem;
+  align-items: start;
+}
+.m5-strip {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.6rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.m5-strip h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  text-align: center;
+}
+.m5-knob,
+.m5-switch {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 0.4rem;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+.m5-knob input {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: var(--text-dim);
+}
+.m5-knob output {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+/* The knobs on the way to the hall's speakers: 4/5 BAL and LEVEL, MAIN MIX. */
+.m5-knob.m5-live {
+  color: var(--text);
+  font-weight: 600;
+}
+.m5-knob.m5-live input {
+  accent-color: var(--accent);
+}
+.m5-power {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+.m5-meter {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  gap: 0.4rem;
+  justify-content: center;
+  align-items: end;
+}
+.m5-meter-col,
+.m5-meter-scale {
+  display: grid;
+  gap: 0.3rem;
+  justify-items: center;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+}
+.m5-meter-scale {
+  grid-column: 3;
+  grid-row: 1;
+  padding-bottom: 1rem;
+}
+.m5-led {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #3a3d42;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.m5-meter-col .m5-led.m5-on:nth-child(1) {
+  background: #ff4d4d;
+}
+.m5-meter-col .m5-led.m5-on:nth-child(2) {
+  background: #ffc94d;
+}
+.m5-led.m5-on {
+  background: #5ddc6a;
+  box-shadow: 0 0 6px currentColor;
+}
+.m5-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+/* A sub snake's tails: thinner than the multicore they split from. */
+.cable-tail .cable-shadow {
+  stroke-width: 6;
+}
+.cable-tail .cable-core {
+  stroke: #3b3f4d;
+  stroke-width: 3.5;
+}
+.sjack .tail-knot {
+  fill: #3b3f4d;
+}
+
+/* ---------- X32 main display: ROUTING, laid out as the console's own screen ---------- */
+
+.x32-display.x32-display-wide {
+  flex-basis: 100%;
+  max-width: none;
+  order: -1;
+}
+.x32-rscreen {
+  display: grid;
+  gap: 0.45rem;
+  color: #e7eef6;
+}
+.x32-rconnected {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: #9fd38a;
+}
+.x32-rtabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+.x32-rmode {
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  background: #2e4a63;
+  border-radius: 4px;
+}
+.x32-rtab,
+.x32-rflip,
+.x32-rconnect {
+  font: inherit;
+  font-size: 0.72rem;
+  color: #c9d6e3;
+  background: #1a2a3a;
+  border: 1px solid #2e4a63;
+  border-radius: 4px;
+  padding: 0.2rem 0.55rem;
+  cursor: pointer;
+}
+.x32-rtab.on {
+  color: #ffd84d;
+  border-color: #ffd84d;
+  font-weight: 700;
+}
+.x32-rflip {
+  margin-left: auto;
+  background: #26394c;
+}
+.x32-rconnect {
+  width: 100%;
+  margin-top: 0.3rem;
+  background: #26394c;
+  font-weight: 700;
+}
+.x32-rpage {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.x32-rtitle {
+  margin: 0;
+  text-align: center;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  background: #22364a;
+  padding: 0.2rem;
+  border-radius: 3px;
+}
+.x32-rcols {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(118px, 1fr);
+  gap: 0.35rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 0.2rem;
+}
+.x32-rcol h6 {
+  margin: 0 0 0.2rem;
+  text-align: center;
+  font-size: 0.66rem;
+  color: #9fb4c8;
+}
+.x32-rlist {
+  list-style: none;
+  margin: 0;
+  padding: 2px;
+  max-height: 15.5rem;
+  overflow-y: auto;
+  background: #e9eef3;
+  border-radius: 3px;
+  scrollbar-width: thin;
+}
+.x32-ritem {
+  font-size: 0.68rem;
+  line-height: 1.25;
+  padding: 0.12rem 0.3rem;
+  margin: 1px 0;
+  color: #fff;
+  background: #1f2a44;
+  border: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.x32-ritem.off {
+  color: #8b97ad;
+}
+/* What's connected (filled), and the cursor (the yellow box). */
+.x32-ritem.on {
+  background: #7a4a12;
+  color: #ffd84d;
+  font-weight: 700;
+}
+.x32-ritem.cur {
+  border-color: #ffd84d;
+}
+.x32-ritem:focus-visible {
+  outline: 2px solid #8fd3ff;
+}
+.x32-rsetting {
+  align-self: start;
+  background: #1a2a3a;
+  border: 1px solid #2e4a63;
+  border-radius: 4px;
+  padding: 0.3rem;
+  font-size: 0.7rem;
+}
+.x32-rsetting h6 {
+  margin: 0;
+  font-size: 0.62rem;
+  color: #9fb4c8;
+}
+.x32-rsetting p {
+  margin: 0.2rem 0 0;
+}
+.x32-rnote {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #ffd84d;
+  min-height: 1em;
+}
+.x32-rhelp {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #9fb4c8;
+}
+/* Antenna coax (BNC): thin and dark. Radio from a handheld to the antennas: a faint dashed line, no cable. */
+.cable-rf .cable-core {
+  stroke: #6b6f7d;
+  stroke-width: 2.5;
+}
+.cable-radio .cable-core {
+  stroke: rgba(150, 200, 255, 0.35);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 7;
+  fill: none;
+}
+/* A wireless receiver's channels, as its displays show them. */
+.rx-status {
+  list-style: none;
+  margin: 0.4rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.rx-status strong {
+  color: var(--text);
+  margin-right: 0.3rem;
+}
+/* The room's zones: FOH (the booth) tinted apart from the stage and the stage-side racks. */
+.zone-foh .col-band {
+  fill: rgba(110, 170, 255, 0.07);
+  stroke: rgba(110, 170, 255, 0.25);
+  stroke-dasharray: 4 4;
+}
+.zone-foh .col-label {
+  fill: #8fc4ff;
+}
+.zone-side .col-band {
+  fill: rgba(255, 200, 120, 0.035);
 }

@@ -4,7 +4,7 @@
 // offers, so js/mixer-state.js can dispatch to either. See docs/COMPACT_MIXERS.md.
 
 import { COMPACT, EQ } from "./compact-defs.js";
-import { analyzeRig } from "./connection-model.js";
+import { AES_OUT_START, CARD_OUT_START, analyzeRig } from "./connection-model.js";
 
 // Blocks of 8 mic channels for input routing (X32: LOCAL or AES50-A per block).
 export const inputBlocks = (def) => Math.ceil(def.channels.filter((c) => c.jacks.includes("mic")).length / 8);
@@ -114,7 +114,7 @@ export function createState(id) {
     main: { level: def.main.law === "master" ? 0.5 : 0.75 },
     listen: "main",
     // The 442's OUTPUT LEVEL switch lives on the mixer device: what the XLR outs carry decides what they can feed.
-    rig: { devices: [{ id: "mixer", type: id, label: def.name, ...(def.outLevel ? { outLevel: 2 } : {}), ...Object.fromEntries((def.outSwitches || []).map((w) => [w.key, w.start ?? 0])), ...(def.dante ? { danteRx: Array(def.dante.rx).fill(0), inPatch: Array(def.dante.rx).fill(0) } : {}), ...(def.aes50 ? { inSource: Array(inputBlocks(def)).fill(0) } : {}) }], cables: [] },
+    rig: { devices: [{ id: "mixer", type: id, label: def.name, ...(def.outLevel ? { outLevel: 2 } : {}), ...Object.fromEntries((def.outSwitches || []).map((w) => [w.key, w.start ?? 0])), ...(def.dante ? { danteRx: Array(def.dante.rx).fill(0), inPatch: Array(def.dante.rx).fill(0) } : {}), ...(def.aes50 ? { inSource: Array(inputBlocks(def)).fill(0), aesOut: [...AES_OUT_START], cardOut: [...CARD_OUT_START] } : {}) }], cables: [] },
   };
   if (def.tape) state.channels.push({ index: def.channels.length, label: def.tape.level || def.tape.label || "TAPE", stereo: true, tape: true, gainDb: 0, level: 0.5, toMain: false, toCr: false, enabled: true, pan: 0, phantom: false, auxSends: {}, sends: {}, eq: {} });
   // Masters start at unity (U), whatever their law.
@@ -360,7 +360,9 @@ export function computeMix(def, state, sourcesById, stems, sourcePeakDb) {
   const channels = state.channels.map((ch, i) => {
     const input = rig.channels[i] || { connected: false, signal: false };
     const source = input.sourceId ? sourcesById[input.sourceId] : null;
-    const peak = sourcePeakDb(source, stems);
+    const stemPeak = sourcePeakDb(source, stems);
+    // A muted handheld or an amp turned down at the source (rig device settings).
+    const peak = stemPeak === null ? null : stemPeak + (input.trimDb ?? 0);
     const live = input.connected && input.signal && source && peak !== null;
     const aux = Object.fromEntries(buses.map((b) => [b, { sendDb: OFF, monitorDb: OFF, heardDb: OFF }]));
     const base = { index: i, sourceId: input.sourceId || null, input, aux, pflDb: OFF };

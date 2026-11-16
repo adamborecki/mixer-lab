@@ -7,6 +7,12 @@
 //   sources    →    (snake, Rio,  →  the console's     →    outboard   →    house & stage
 //                   S32, SD8)        rear panel
 //
+// A sub snake on stage that feeds a stage box gets a column of its own
+// between the sources and the stage box: its box of inputs, then its
+// multicore splitting into tails, each tail an XLR plug that goes straight
+// into a stage box input (`tailsAsCables`). Gear in the same rack (a device's
+// `rack`) is drawn inside one frame: the amp rack, the hall's mains rack.
+//
 // Every physical jack in the model gets a position and the side its cable
 // leaves from. Network-only ports (Dante RX, AES50 channels) are not jacks:
 // their audio rides one network cable, drawn between the boxes' network ports.
@@ -19,27 +25,37 @@ const GAP = 14; // between boxes in a column
 const COL_GAP = 78; // between columns: room for the cables to bend
 const TOP = 46; // below the column headings
 const HEAD = 30; // a box's title bar
+const RACK_HEAD = 26; // a rack frame's name, above its first box
+const TAIL_GAP = 24; // between a sub snake's tails where they fan out
+const RACK_TITLES = { amp: "Amp rack", hall: "Hall's mains rack · permanent", wireless: "Wireless rack · FOH" };
 
 // Ports that are a socket you can plug a cable into.
 export const isPhysical = (p) => p.jack !== "dante" && p.jack !== "aes50" && !p.internal;
+
+// Gear in these racks sits at FOH beside the console (Salmon's wireless rack): a column of its own, just left of it.
+const FOH_RACKS = ["wireless"];
 
 // Which column a device belongs in.
 export function columnOf(device) {
   const type = DEVICE_TYPES[device.type];
   if (!type) return null;
-  if (isMixer(device)) return "foh";
+  if (FOH_RACKS.includes(device.rack)) return "fohrack";
+  if (isMixer(device) || type.foh) return "foh";
   if (type.stagebox) return "box";
   if (type.source) return "stage";
   if (type.endpoint) return "speakers";
   return "rack"; // amps, effects units, recorders
 }
 
+// `zone`: where in the room a column is. FOH (the booth) is drawn apart from the stage and its racks.
 const COLUMNS = [
-  { id: "stage", label: "On stage", sub: "sources" },
-  { id: "box", label: "Stage box", sub: "one cable to FOH" },
-  { id: "foh", label: "Front of house", sub: "console rear panel" },
-  { id: "rack", label: "Amp rack & outboard", sub: "" },
-  { id: "speakers", label: "Speakers & cameras", sub: "stage and house" },
+  { id: "stage", zone: "stage", label: "On stage", sub: "sources" },
+  { id: "sub", zone: "stage", label: "On stage · sub snake", sub: "stage end → tails" },
+  { id: "box", zone: "side", label: "Stage side · stage box", sub: "one cable to FOH" },
+  { id: "fohrack", zone: "foh", label: "FOH · wireless rack", sub: "beside the console" },
+  { id: "foh", zone: "foh", label: "FOH · console", sub: "rear panel, and the computer" },
+  { id: "rack", zone: "side", label: "Stage side · amp racks & outboard", sub: "" },
+  { id: "speakers", zone: "stage", label: "Speakers & cameras", sub: "stage and house" },
 ];
 
 // A short name printed next to a jack on a crowded panel.
@@ -50,6 +66,10 @@ export function shortLabel(p) {
     .replace(/\b(MASTER|MAIN) OUT\b/, "MAIN")
     .replace(/\bSTEREO OUT\b/, "ST")
     .replace(/(?!^)\b(OUTPUT|OUT|SEND)\b/g, "")
+    // Long words would be cut to 8 letters and lose their L/R ("SPEAKERS", "SPEAKERS").
+    .replace(/\bSPEAKERS?\b/, "SPK")
+    .replace(/\bMONITOR\b/, "MON")
+    .replace(/\bSUBWOOFER\b/, "SUB")
     .replace(/\s+/g, " ")
     .trim();
   return (n || p.name.toUpperCase()).slice(0, 8);
@@ -57,6 +77,7 @@ export function shortLabel(p) {
 
 // An amp's or effect's jack: IN A / SPEAKER OUT A, INPUT L / OUTPUT R, recorder INPUT 1.
 function rackWord(p) {
+  if (p.short) return p.short; // printed on the gear (the STAGEPAS's 5/6 L, SPEAKERS R)
   if (p.pair) return p.dir === "in" ? `LINE IN ${p.pair.toUpperCase()}` : `SPEAKER OUT ${p.pair.toUpperCase()}`;
   return p.name.replace(/\s*\(.*?\)\s*/g, " ").trim().toUpperCase();
 }
@@ -99,22 +120,30 @@ export function layoutStage(rig, { order = () => 0, channelLabels = [], mixerNam
   const panels = mixerType?.panels || {};
 
   // ---- measure each box (width, height, jack offsets) ----
-  const measured = { stage: [], box: [], foh: [], rack: [], speakers: [] };
+  const measured = { stage: [], sub: [], box: [], fohrack: [], foh: [], rack: [], speakers: [] };
 
   for (const d of cols.stage) measured.stage.push(simpleBox(d, "stage"));
   for (const [id, panel] of Object.entries(panels)) measured.box.push(panelBox(mixer, id, panel, channelLabels));
+  // FOH: the console's rear panel, the computer below it; the rack beside it in its own column.
+  for (const d of cols.fohrack) measured.fohrack.push({ ...rackBox(d), group: d.rack });
   if (mixer) measured.foh.push(consoleBox(mixer, channelLabels, mixerName));
+  for (const d of cols.foh.filter((x) => !isMixer(x))) measured.foh.push(DEVICE_TYPES[d.type].source ? simpleBox(d, "stage") : rackBox(d));
   // A snake is two boxes: its stage end, and the fan of tails at FOH (under the console).
   const multicores = [];
+  const breakouts = [];
   for (const d of cols.box) {
     const type = DEVICE_TYPES[d.type];
-    if (type.passthrough) {
+    if (type.tailsAsCables) {
+      // A sub snake: the box on stage only. Its tails are cables, placed once the stage box is.
+      measured.sub.push(stageBoxBox(d, (p) => p.end === "stage", [["INPUTS", (p) => p.dir === "in"]]));
+      breakouts.push(d);
+    } else if (type.passthrough) {
       measured.box.push(stageBoxBox(d, (p) => p.end === "stage", [["INPUTS", (p) => p.dir === "in"], ["RETURNS", (p) => p.dir === "out"]]));
       measured.foh.push(stageBoxBox(d, (p) => p.end === "foh", [["TAILS (to the console)", (p) => p.dir === "out"], ["RETURN SENDS", (p) => p.dir === "in"]], { id: `${d.id}-fan`, title: "Snake fan-out at FOH" }));
       multicores.push([d.id, `${d.id}-fan`]);
     } else measured.box.push(stageBoxBox(d));
   }
-  for (const d of cols.rack) measured.rack.push(rackBox(d));
+  for (const d of cols.rack) measured.rack.push({ ...rackBox(d), group: d.rack });
   for (const d of cols.speakers) measured.speakers.push(simpleBox(d, "speakers"));
 
   // ---- place the columns ----
@@ -122,15 +151,17 @@ export function layoutStage(rig, { order = () => 0, channelLabels = [], mixerNam
   let x = 16;
   const columns = [];
   // Every column is centred on the tallest, so cables run mostly sideways.
-  const colH = (id) => measured[id].reduce((h, b) => h + b.h + GAP, -GAP);
+  const startsRack = (list, i) => list[i].group && list[i].group !== list[i - 1]?.group;
+  const colH = (id) => measured[id].reduce((h, b, i) => h + b.h + GAP + (startsRack(measured[id], i) ? RACK_HEAD + (i ? GAP : 0) : 0), -GAP);
   const tallest = Math.max(...used.map((c) => colH(c.id)));
   let height = 0;
   for (const c of used) {
     const w = Math.max(...measured[c.id].map((b) => b.w));
     let y = TOP + Math.max(0, (tallest - colH(c.id)) / 2);
-    for (const b of measured[c.id]) {
+    for (const [i, b] of measured[c.id].entries()) {
+      if (startsRack(measured[c.id], i)) y += RACK_HEAD + (i ? GAP : 0);
       const bx = x + (c.id === "foh" ? 0 : (w - b.w) / 2);
-      boxes.push({ ...b.box, x: bx, y, w: b.w, h: b.h, column: c.id });
+      boxes.push({ ...b.box, x: bx, y, w: b.w, h: b.h, column: c.id, ...(b.group ? { group: b.group } : {}) });
       for (const j of b.jacks) jacks.set(j.ref, { ...j, x: bx + j.dx, y: y + j.dy, column: c.id, boxId: b.box.id });
       for (const n of b.net || []) net.push({ ...n, x: bx + n.dx, y: y + n.dy, boxId: b.box.id });
       y += b.h + GAP;
@@ -145,8 +176,38 @@ export function layoutStage(rig, { order = () => 0, channelLabels = [], mixerNam
     const B = boxes.find((x) => x.id === b);
     return { kind: "multicore", a: { x: A.x + A.w / 2, y: A.y + A.h, side: "down" }, b: { x: B.x, y: B.y + 40, side: "left" } };
   });
+  // Radio, not a cable: a faint line from each wireless handheld to the antennas.
+  const antenna = boxes.find((b) => rig.devices.find((d) => d.id === b.deviceId)?.type === "antenna");
+  if (antenna) for (const b of boxes.filter((x) => DEVICE_TYPES[rig.devices.find((d) => d.id === x.deviceId)?.type]?.rf)) links.push({ kind: "rf", a: { x: b.x + b.w, y: b.y + b.h / 2, side: "right" }, b: { x: antenna.x, y: antenna.y + antenna.h / 2, side: "left" } });
+  // A sub snake's multicore runs from its box to a breakout beside the stage
+  // box, where it splits into tails; each tail ends in an XLR plug (a jack in
+  // the model, `tail`), level with the stage box inputs it's plugged into.
+  for (const d of breakouts) {
+    const A = boxes.find((x) => x.id === d.id);
+    const col = columns.find((c) => c.id === "sub");
+    const tails = DEVICE_TYPES[d.type].ports.filter((p) => p.end === "foh" && p.dir === "out");
+    const into = tails.map((p) => rig.cables.find((c) => c.from === `${d.id}/${p.id}`)).map((c) => c && jacks.get(c.to)).filter(Boolean);
+    const mid = into.length ? into.reduce((a, j) => a + j.y, 0) / into.length : A.y + A.h + 120;
+    const top = Math.max(A.y + A.h + 40, mid - ((tails.length - 1) * TAIL_GAP) / 2);
+    const x = col.x + col.w + 26;
+    const fan = { x: x - 40, y: top + ((tails.length - 1) * TAIL_GAP) / 2 };
+    links.push({ kind: "multicore", title: "Sub snake: eight mic lines in one cable, splitting into tails", a: { x: A.x + A.w / 2, y: A.y + A.h, side: "down" }, b: { ...fan, side: "left" } });
+    tails.forEach((p, i) => {
+      const y = top + i * TAIL_GAP;
+      jacks.set(`${d.id}/${p.id}`, { ref: `${d.id}/${p.id}`, x, y, side: "right", port: p, word: String(i + 1), wordSide: "left", tail: true, column: "sub", boxId: d.id });
+      links.push({ kind: "tail", a: { ...fan, side: "right" }, b: { x: x - 6, y, side: "left" } });
+      height = Math.max(height, y + 24);
+    });
+  }
+  // A frame around each rack's gear, its name in the top edge.
+  const racks = [...new Set(boxes.map((b) => b.group).filter(Boolean))].map((g) => {
+    const list = boxes.filter((b) => b.group === g);
+    const x0 = Math.min(...list.map((b) => b.x)) - 8;
+    const y0 = Math.min(...list.map((b) => b.y)) - RACK_HEAD + 2;
+    return { id: g, title: RACK_TITLES[g] || g, x: x0, y: y0, w: Math.max(...list.map((b) => b.x + b.w)) + 8 - x0, h: Math.max(...list.map((b) => b.y + b.h)) + 8 - y0 };
+  });
   // +44: room right of the last column for the listening figure.
-  return { width: x - COL_GAP + 16 + 44, height: height + 8, columns, boxes, jacks, net, links };
+  return { width: x - COL_GAP + 16 + 44, height: height + 8, columns, boxes, jacks, net, links, racks };
 }
 
 // A stage box channel's number or letter ("IN 12" → "12", "Return B" → "B").
@@ -166,7 +227,7 @@ function simpleBox(d, col) {
     dy: (ports.length > 1 ? HEAD + 10 + i * JACK + JACK / 2 : h - 22),
     side: sideFor(col, p),
     port: p,
-    word: ports.length > 1 ? p.name.split(" ")[0].toUpperCase() : "",
+    word: ports.length > 1 ? p.short || p.name.split(" ")[0].toUpperCase() : "",
     wordSide: col === "stage" ? "left" : "right",
   }));
   // The DAW laptop has no jacks: one network port to the Dante switch.
@@ -175,18 +236,29 @@ function simpleBox(d, col) {
 }
 
 // An amp, effects unit or recorder: inputs down the left edge, outputs down the right.
+// A side with more than four jacks (a receiver's eight AF OUTs) goes two wide,
+// each jack named by its short word under it, so a rack of them stays short.
 function rackBox(d) {
   const type = DEVICE_TYPES[d.type];
   const ins = type.ports.filter((p) => p.dir === "in" && isPhysical(p));
   const outs = type.ports.filter((p) => p.dir === "out" && isPhysical(p));
   const w = 216;
-  const rows = Math.max(ins.length, outs.length, 1);
-  const h = HEAD + 14 + rows * JACK;
-  const jacks = [
-    ...ins.map((p, i) => ({ ref: `${d.id}/${p.id}`, dx: 20, dy: HEAD + 10 + i * JACK + JACK / 2, side: "left", port: p, word: rackWord(p), wordSide: "right" })),
-    ...outs.map((p, i) => ({ ref: `${d.id}/${p.id}`, dx: w - 20, dy: HEAD + 10 + i * JACK + JACK / 2, side: "right", port: p, word: rackWord(p), wordSide: "left" })),
-  ];
-  return { box: { id: d.id, deviceId: d.id, kind: "rack" }, w, h, jacks };
+  const per = (list) => (list.length > 4 ? Math.ceil(list.length / 2) : list.length);
+  const wide = (list) => list.length > 4;
+  const step = (list) => (wide(list) ? JACK + 10 : JACK);
+  const rows = Math.max(per(ins) * step(ins), per(outs) * step(outs), JACK) / JACK;
+  const h = ins.length + outs.length ? HEAD + 14 + rows * JACK : HEAD + 10;
+  const place = (list, side) =>
+    list.map((p, i) => {
+      const col = wide(list) ? Math.floor(i / per(list)) : 0;
+      const row = wide(list) ? i % per(list) : i;
+      const dx = side === "left" ? 20 + col * 40 : w - 20 - col * 40;
+      const dy = HEAD + 10 + row * step(list) + JACK / 2;
+      return wide(list)
+        ? { ref: `${d.id}/${p.id}`, dx, dy, side, port: p, word: (p.short || rackWord(p)).replace(/^(OUT|IN) /, ""), wordSide: "" }
+        : { ref: `${d.id}/${p.id}`, dx, dy, side, port: p, word: rackWord(p), wordSide: side === "left" ? "right" : "left" };
+    });
+  return { box: { id: d.id, deviceId: d.id, kind: "rack" }, w, h, jacks: [...place(ins, "left"), ...place(outs, "right")] };
 }
 
 // A grid of jacks inside a panel: `cells` are columns of ports with a heading.

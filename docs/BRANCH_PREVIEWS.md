@@ -17,7 +17,7 @@ The slug is the branch name in lower case with every run of other characters tur
 
 Branches starting with `claude/`, `skin/`, `feature/` or `preview/`. Cloud and phone sessions create `claude/...` branches, so their work shows up without any renaming. Other branches stay unpublished.
 
-At most 15 previews are published, newest commit first, because each one carries its own copy of `audio/` and Pages sites are capped at 1 GB. Delete merged or abandoned branches and their previews disappear on the next deploy.
+At most 15 previews are published, newest commit first, and only as many as fit in about 950 MB with the live site (`MAX_BYTES` in `tools/build-pages.sh`), because each one carries its own copy of `audio/` (~190 MB since the mariachi multitrack) and Pages sites are capped at 1 GB. The stalest are dropped first. Delete merged or abandoned branches and their previews disappear on the next deploy.
 
 ## How it works
 

@@ -40,6 +40,8 @@ export function summarize(scenarios, isSolved, statsFor = NO_STATS) {
 }
 
 export const duration = (sec) => `${Math.floor(sec / 60)}m ${String(sec % 60).padStart(2, "0")}s`;
+// "1 action", "2 actions". (Assignment 1's own lines below keep "1 actions": its check code covers them.)
+export const count = (n, noun, nouns = `${noun}s`) => `${n} ${n === 1 ? noun : nouns}`;
 const statText = (o) => `${duration(o.sec)}, ${o.actions} actions`;
 
 export function validate({ name, reflection }) {

@@ -4,10 +4,11 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import * as manifest from "../audio/source-manifest.js";
-import { DEFAULT_SONG, SONGS, useSong } from "../audio/source-manifest.js";
+import { DEFAULT_SONG, SONGS, songFits, useSong } from "../audio/source-manifest.js";
 import { ALL_BOARD_SCENARIOS, SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, gigFor, scenarioFor } from "../js/scenarios.js";
 import { MODELS, computeMix, sourcePeakDb } from "../js/mixer-state.js";
 import { pickSection } from "../js/music.js";
+import { loopPoints } from "../js/transport.js";
 
 const exists = (path) => fs.existsSync(new URL(`../${path}`, import.meta.url));
 
@@ -55,7 +56,8 @@ describe("songs", () => {
       assert.ok(set.sections.some((s) => s.id === "excerpt"));
       for (const sec of set.sections) {
         assert.ok(sec.start - set.loop.start >= 0, sec.id);
-        assert.ok(sec.start - set.loop.start + set.loop.end + 1 <= set.full.duration, `${sec.id} runs past the end`);
+        const { start, end } = loopPoints(set, sec.id);
+        assert.ok(sec.start - start + end + 1 <= set.full.duration, `${sec.id} runs past the end`);
         for (const st of [...sec.plays, ...sec.partly]) assert.ok(stems[st] && ids.includes(st), `${sec.id}: ${st}`);
       }
       const ex = set.sections.find((s) => s.id === "excerpt");
@@ -66,7 +68,7 @@ describe("songs", () => {
 
 describe("both bands on every mixer", () => {
   for (const song of Object.keys(SONGS)) {
-    for (const model of MODELS) {
+    for (const model of MODELS.filter((m) => songFits(song, m))) {
       it(`${song} on ${model}: every patched source arrives with signal`, () => {
         useSong(song);
         const state = buildScenarioState(scenarioFor(SCENARIOS_BY_ID["free-play"], model), manifest.SOURCES_BY_ID, model);

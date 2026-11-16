@@ -9,7 +9,7 @@ import { PREVIEW, liveUrl, storageKey } from "./deploy-context.js";
 import { DEFAULT_SKIN, SKINS } from "./mixer-models.js";
 import { MixerStore, computeMix, createMixerState } from "./mixer-state.js";
 import { ALL_BOARD_SCENARIOS, SCENARIOS, SCENARIOS_BY_ID, buildScenarioState, captureBaseline, evaluateScenario, scenarioFor, scenariosFor } from "./scenarios.js";
-import { Progress, numberedScenarios } from "./progress.js";
+import { ActiveTime, Progress, numberedScenarios } from "./progress.js";
 import { FREE_PLAY_STAT_IDS, freePlayStatId } from "./export.js";
 import { pickSection, sittingOut, stageFor, stageNote } from "./music.js";
 import { nameMode, setNameMode, setStandIns } from "./names.js";
@@ -17,8 +17,9 @@ import { renderFlow } from "./ui/flow.js";
 import { ListenBar } from "./ui/listen-bar.js";
 import { MixerView } from "./ui/mixer-view.js";
 import { PatchView } from "./ui/patch-view.js";
+import { Mix5View } from "./ui/mix5-view.js";
 import { MissionView, StartScreen, ThemeDrawer } from "./ui/mission-view.js";
-import { SCENARIO_BY_ID, THEMES_BY_ID, consoleOf, mixerEntry, nextInTheme, nextOnMixer, skinOf } from "./themes.js";
+import { SCENARIO_BY_ID, THEMES_BY_ID, consoleOf, gigOf, mixerEntry, nextInTheme, nextOnMixer, skinOf } from "./themes.js";
 import { BugLog } from "./bugs.js";
 import { BugView } from "./ui/bug-view.js";
 import { SubmissionView } from "./ui/submission-view.js";
@@ -51,7 +52,7 @@ const hardwareOf = (sk) => sk.hardware || "generic";
 
 const store = new MixerStore(createMixerState(hardwareOf(skin)));
 // Every scenario's progress is remembered: the Canvas export (js/export.js) reports all of it.
-// Free play's time is kept per console ("free-play/l20"); plain "free-play" is from before that.
+// Free play's time is kept per console ("free-play/l20"); plain "free-play" is from before that, or legacy/.
 const progress = new Progress([...numberedScenarios(SCENARIOS), ...ALL_BOARD_SCENARIOS].map((s) => s.id), undefined, [...SCENARIOS, ...ALL_BOARD_SCENARIOS].map((s) => s.id).concat(FREE_PLAY_STAT_IDS));
 const engine = new AudioEngine(store, M);
 
@@ -83,6 +84,9 @@ const patchView = new PatchView({
   onOpenRecorder: (id) => recorderView.open(id),
   onOpenDante: (tab) => danteView.open(tab),
   getRecorder: (id) => engine.recorder(id),
+  // A knob let go or a button pressed on the gear: the cards' status follows.
+  onSettle: () => (pending.any = pending.patch = true),
+  onOpenConsole: () => setView("mix5"),
 });
 
 // The field recorder's own panel (opened from its card in Outputs).
@@ -129,7 +133,7 @@ const missionView = new MissionView($("#mission"), {
       mode: musicMode,
       started: engine.started,
       song: manifest.SONGS[manifest.SONG],
-      songs: Object.values(manifest.SONGS),
+      songs: Object.values(manifest.SONGS).filter((sg) => manifest.songFits(sg.id, hardwareOf(skin))),
       duration: manifest.STEM_SET.full.duration,
       sections: manifest.STEM_SET.sections,
       section: m.section,
@@ -140,10 +144,10 @@ const missionView = new MissionView($("#mission"), {
   },
   // Free play: another band on stage (the rig is rebuilt with its sources).
   onSong: (id) => {
-    if (id === freeSong || !manifest.SONGS[id]) return;
+    if (id === manifest.SONG || !manifest.SONGS[id]) return;
     freeSong = id;
     writePref("mixer-lab-song", id);
-    selectScenario("free-play");
+    selectScenario("free-play", { keepSurface: true }); // another band, the same console as you left it
     toast(`${manifest.SONGS[id].title} (${manifest.SONGS[id].artist}) is on stage`, "");
   },
   onMusicMode: (m) => {
@@ -173,6 +177,7 @@ const listenBar = new ListenBar($("#listen-bar"), {
   getSkin: () => skin,
   onTransport: () => (engine.playing ? engine.stop() : engine.play()),
   getRecorder: () => (firstRecorderId() ? engine.recorder(firstRecorderId()) : null),
+  getScenario: () => current.def,
 });
 
 renderFlow($("#flow"), skin);
@@ -189,6 +194,8 @@ store.subscribe((state, change) => {
   // a camera's MIC/LINE switch and the 442's OUTPUT LEVEL change what the camera cards say.
   if (change.type === "device" && (["zoom-f8", "camera-input", "daw-dvs"].includes(state.rig.devices.find((d) => d.id === change.id)?.type) || change.key?.startsWith("danteRx") || change.key?.startsWith("inPatch") || change.key?.startsWith("inSource") || change.key?.endsWith("Level"))) pending.patch = true;
   if (change.type === "device" && change.id === "mixer") pending.patch = true;
+  // Power (a plug or a switch, from a box's tab or its card): the diagram and the cards follow.
+  if (change.type === "device" && (change.key === "on" || change.key === "plugged")) pending.patch = true;
 });
 
 function refresh() {
@@ -198,12 +205,18 @@ function refresh() {
   const mix = computeMix(state, M.SOURCES_BY_ID, M.STEMS);
   lastMix = mix;
   mixerView.sync(mix);
+  syncConsoles(mix);
   listenBar.update(mix, { playing: engine.playing, ready, loadingText, buffering });
   // The diagram's figure follows where you're listening.
   if (pending.patch || store.state.listen !== lastListen) {
     lastListen = store.state.listen;
+    // A redraw replaces the cards: keep keyboard focus on the same control (a knob moved with the arrow keys).
+    const el = document.activeElement;
+    const keep = el?.dataset?.deviceKey ? `[data-device="${CSS.escape(el.dataset.device)}"][data-device-key="${CSS.escape(el.dataset.deviceKey)}"]` : el?.dataset?.power ? `[data-power="${CSS.escape(el.dataset.power)}"][data-power-key="${CSS.escape(el.dataset.powerKey)}"]` : null;
+    const inside = keep && el.closest(".stage-inspector") ? ".stage-inspector " : "";
     if (pending.patch) patchView.render(mix);
     stageView.render(mix);
+    if (keep && !document.activeElement?.matches?.(keep)) document.querySelector(inside + keep)?.focus({ preventScroll: true });
   }
   if (recorderView.isOpen) recorderView.sync();
   if (danteView.isOpen) danteView.sync();
@@ -258,14 +271,19 @@ function resetUndo() {
 // ---------- scenarios ----------
 
 // Builds a scenario on the current console (the skin must already be the right one).
-function selectScenario(id) {
+let switchingConsole = false; // useConsole draws the surface itself, after build()
+// `keepSurface`: leave the console's layer, page and modes as they are (Free
+// play's song picker); otherwise a new scenario or Start over resets them.
+function selectScenario(id, { keepSurface = false } = {}) {
   const available = scenariosFor(hardwareOf(skin));
   const found = available.find((s) => s.id === id) || SCENARIOS_BY_ID["free-play"];
   // The band first: the rig, the gig text and the music all follow the song.
-  if (manifest.useSong(found.id === "free-play" ? freeSong : found.song || manifest.DEFAULT_SONG) && musicMode !== "full" && !manifest.STEM_SET.sections.some((s) => s.id === musicMode)) musicMode = "excerpt";
+  const freeFits = manifest.songFits(freeSong, hardwareOf(skin)) ? freeSong : manifest.DEFAULT_SONG;
+  if (manifest.useSong(found.id === "free-play" ? freeFits : found.song || manifest.DEFAULT_SONG) && musicMode !== "full" && !manifest.STEM_SET.sections.some((s) => s.id === musicMode)) musicMode = "excerpt";
   const def = scenarioFor(found, hardwareOf(skin));
   const state = buildScenarioState(def, M.SOURCES_BY_ID, hardwareOf(skin));
   store.replace(state);
+  if (!keepSurface) mixerView.resetSurface({ render: !switchingConsole });
   resetUndo();
   current = { def, baseline: captureBaseline(def, state, M.SOURCES_BY_ID, M.STEMS), session: { listened: new Set([state.listen]) } };
   lastEval = "";
@@ -283,7 +301,8 @@ function selectScenario(id) {
 function openScenario(id, { by = "topic" } = {}) {
   const s = SCENARIO_BY_ID[id];
   if (!s) return openFree();
-  mode = by === "mixer" ? "mixer" : "topic";
+  // A Chapman gig's scenarios aren't on any mixer's list: they step through their gig.
+  mode = by === "mixer" && !gigOf(id) ? "mixer" : "topic";
   writePref("mixer-lab-mode", mode);
   useConsole(skinOf(consoleOf(s)), () => selectScenario(id));
 }
@@ -368,10 +387,16 @@ function useConsole(id, build) {
   if (changed) mixerView.detach();
   skin = SKINS[id];
   booted = true;
-  build();
+  switchingConsole = true;
+  try {
+    build();
+  } finally {
+    switchingConsole = false;
+  }
   mixerView.setSkin(skin);
   renderFlow($("#flow"), skin);
   listenBar.render();
+  showConsoleTip(id);
   missionView.render(current.def, evaluateNow(), { skinId: skin.id, mode });
   document.body.dataset.skin = id;
   for (const b of document.querySelectorAll(".topbar .mode-btn")) {
@@ -381,6 +406,39 @@ function useConsole(id, build) {
   }
   pending.any = pending.patch = true;
   lastEval = "";
+}
+
+// The first time a student opens a big digital console: where its knobs went.
+// Shown once per console; "Got it" is remembered.
+const CONSOLE_TIPS = {
+  cl3: "Most of the CL3's knobs aren't on the faders. Press a channel's SEL key: the SELECTED CHANNEL knobs left of the touch screen (and the screen's SELECTED CHANNEL page) then edit that one channel (gain, EQ, compressor, +48V). The bank keys choose which channels the faders show.",
+  dm2000: "Most of the DM2000's knobs aren't on the faders. Press a channel's SEL key: the SELECTED CHANNEL section then edits that one channel (EQ, compressor, sends, routing), and DISPLAY ACCESS opens its pages on the screen. GAIN, PAD and +48V are in the INPUT row along the top. LAYER chooses which channels the faders show.",
+  x32: "Most of the X32's knobs aren't on the faders. Press a channel's SEL key: the channel strip on the left then edits that one channel (gain, low cut, EQ, compressor, +48V), and the main display draws its curves. The layer keys choose which channels the faders show.",
+  x32c: "Most of the X32 Compact's knobs aren't on the faders. Press a channel's SEL key: the channel strip on the left then edits that one channel (gain, low cut, EQ, compressor, +48V). The layer keys choose which channels the faders show.",
+  gdig: "Most of a digital mixer's knobs aren't on the faders. Press a channel's SEL key: the channel strip on the left then edits that one channel (gain, low cut, EQ, compressor, 48V). The layer buttons choose which channels the faders show.",
+};
+function showConsoleTip(id) {
+  const box = $("#console-tip");
+  const tip = CONSOLE_TIPS[id];
+  const key = `mixer-lab-tip-${id}`;
+  if (!tip || readPref(key)) {
+    box.hidden = true;
+    return;
+  }
+  box.innerHTML = "";
+  const text = document.createElement("p");
+  text.innerHTML = `<strong>New to the ${SKINS[id].name}?</strong> `;
+  text.append(tip);
+  const ok = document.createElement("button");
+  ok.type = "button";
+  ok.className = "chip";
+  ok.textContent = "Got it";
+  ok.addEventListener("click", () => {
+    writePref(key, "1");
+    box.hidden = true;
+  });
+  box.append(text, ok);
+  box.hidden = false;
 }
 
 document.querySelector(".mode-switch").addEventListener("click", (e) => {
@@ -427,7 +485,20 @@ function setView(view, { focus = false } = {}) {
   }
   if (focus) document.querySelector(`[data-view-btn="${view}"]`).focus();
 }
-const turnAround = () => setView(main.dataset.view === "console" ? "patch" : "console");
+// "Console: X32" names the console in front of you; a rig with a small mixer of its
+// own (the hall's Mix5) adds its console next to it.
+const mix5View = new Mix5View($("#mix5"), { store });
+function syncConsoles(mix) {
+  const name = `Console: ${skin.name.replace(/^(Behringer|Mackie|Yamaha|Soundcraft|Zoom|Sound Devices)\s+/, "")}`;
+  for (const el of document.querySelectorAll("[data-console-name]")) if (el.textContent !== name) el.textContent = name;
+  const has = store.state.rig.devices.some((d) => DEVICE_TYPES[d.type]?.console);
+  for (const b of document.querySelectorAll('[data-view-btn="mix5"], [data-tab-btn="mix5"]')) b.hidden = !has;
+  if (!has && main.dataset.view === "mix5") setView("console");
+  if (has) mix5View.sync(mix);
+}
+const turnAround = () => setView(main.dataset.view === "patch" ? "console" : "patch");
+// The views on offer: the console, a small mixer's own console when the rig has one (the hall's Mix5), the stage.
+const views = () => [...document.querySelectorAll("[data-view-btn]")].filter((b) => !b.hidden).map((b) => b.dataset.viewBtn);
 document.querySelector(".tabs").addEventListener("click", (e) => {
   const b = e.target.closest("[data-tab-btn]");
   if (b) setView(b.dataset.tabBtn);
@@ -448,7 +519,9 @@ document.addEventListener("keydown", (e) => {
     turnAround();
   } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && t.closest?.(".view-switch")) {
     e.preventDefault();
-    setView(main.dataset.view === "console" ? "patch" : "console", { focus: true });
+    const list = views();
+    const k = list.indexOf(main.dataset.view);
+    setView(list[(k + (e.key === "ArrowLeft" ? list.length - 1 : 1)) % list.length], { focus: true });
   }
 });
 
@@ -550,18 +623,18 @@ document.addEventListener("click", (e) => {
 
 // ---------- activity (time and actions per scenario, for the Canvas report) ----------
 
-// Active time only: a second counts when the page is visible and the student
-// touched something in the last minute, and not on the start screen or while
-// writing the Canvas export or a bug report. A drag counts as one action, not one per pixel.
-const IDLE_MS = 60000;
-let lastActivity = performance.now();
+// Active time only: a second counts when the page is visible, the student keeps
+// touching things (a minute without, and that stretch doesn't count: ActiveTime),
+// and not on the start screen or while writing the Canvas export or a bug
+// report. A drag counts as one action, not one per pixel.
+const active = new ActiveTime((id, st) => progress.record(id, st));
 let lastAction = { key: "", at: 0 };
-for (const type of ["pointerdown", "keydown", "input"]) document.addEventListener(type, () => (lastActivity = performance.now()), true);
+for (const type of ["pointerdown", "keydown", "input"]) document.addEventListener(type, () => active.touch(performance.now()), true);
 
 function countAction(change) {
   const key = `${change.type}:${change.index ?? change.bus ?? ""}:${change.key ?? ""}`;
   const now = performance.now();
-  lastActivity = now;
+  active.touch(now);
   if (key === lastAction.key && now - lastAction.at < 600) {
     lastAction.at = now;
     return;
@@ -575,11 +648,16 @@ const statId = () => (current.def.id === "free-play" ? freePlayStatId(skin.id) :
 const working = () => !document.hidden && overlay.classList.contains("dismissed") && !$("#canvas").open && !$("#bug").open;
 
 setInterval(() => {
-  if (working() && performance.now() - lastActivity < IDLE_MS) progress.record(statId(), { sec: 1 });
+  if (working()) active.tick(statId(), performance.now());
 }, 1000);
 setInterval(() => progress.flush(), 5000);
-document.addEventListener("visibilitychange", () => progress.flush());
-window.addEventListener("pagehide", () => progress.flush());
+// Leaving soon after an interaction keeps those seconds.
+const leave = () => {
+  active.settle(performance.now());
+  progress.flush();
+};
+document.addEventListener("visibilitychange", leave);
+window.addEventListener("pagehide", leave);
 
 // ---------- Canvas submission ----------
 

@@ -1,6 +1,6 @@
 # Audio assets
 
-Mixer Lab has three bands, each a set of synchronized stems: "Persephone" (Giovanna, seven stems), "NOSTRADAMUS" (Will Tulip, nine stems) and "FTW" (after juno, nine instrument-group stems). A scenario names its band (`song`, Persephone if none); Free play lets the student pick. Each plays a short looping section in the scenarios, and the whole song in Free play. This folder holds the web delivery files and the manifest that maps them to mixer inputs. For how the app loads, streams and schedules them, see [../docs/AUDIO_ENGINE.md](../docs/AUDIO_ENGINE.md). NOSTRADAMUS and FTW are described [at the end](#nostradamus-will-tulip); everything before them is Persephone.
+Mixer Lab has three bands, each a set of synchronized stems: "Persephone" (Giovanna, seven stems), "NOSTRADAMUS" (Will Tulip, nine stems) and "FTW" (after juno, nine instrument-group stems), and the Vocal Jazz Ensemble live in two pieces (eleven handheld mics each, [described at the end](#the-vocal-jazz-ensemble-live)). A scenario names its band (`song`, Persephone if none); Free play lets the student pick. Each plays a short looping section in the scenarios, and the whole song in Free play. This folder holds the web delivery files and the manifest that maps them to mixer inputs. For how the app loads, streams and schedules them, see [../docs/AUDIO_ENGINE.md](../docs/AUDIO_ENGINE.md). NOSTRADAMUS and FTW are described [at the end](#nostradamus-will-tulip); everything before them is Persephone.
 
 ## Public use
 
@@ -101,6 +101,8 @@ SONG=nostradamus tools/make-excerpts.sh   # the other bands (same options)
 SONG=ftw tools/make-excerpts.sh
 ```
 
+The karaoke gig's backing track (NOSTRADAMUS without its vocals; COB used it until 2026-10-26) is built from the delivered mp3s, not the masters: `tools/make-backing-track.sh` sums the instrument files side by side, peak-normalizes over the whole song, writes `audio/nostradamus/nostradamus-backing-track.mp3` and its segments, and prints the numbers for its `KARAOKE_STEMS` entry.
+
 It reads the masters and writes `audio/persephone/*.mp3` (excerpt) and `audio/persephone/full/*-NN.mp3` (segments). The excerpt pass prints a table (`normDb`, `monoPk`, `monoRms`); paste those into `normalizeDb`, `monoPeakDb` and `monoRmsDb` in `source-manifest.js`. The full pass prints one line per stem with its segment count and gain.
 
 - If you change `LOOP_START`, `LOOP_LENGTH` or the pre/post-roll in the script, update `STEM_SET.loop` and `STEM_SET.excerpt` to match.
@@ -183,7 +185,106 @@ Regenerate with `SONG=ftw tools/make-excerpts.sh`.
 
 Musicians (from Caleb): Nathan Acupan recorded the drums and Elliot Shneider the bass and guitar, in a studio; Caleb Cox did everything else in the production (the vocals, and the mostly sampled percussion, strings, woodwinds, brass and synths). Mixed and mastered by Mitchell Oeth.
 
+## The Vocal Jazz Ensemble, live
+
+Two pieces from the Vocal Jazz Ensemble's concert of October 23, 2026, from the board's multitrack: eleven wireless handhelds, one per singer, cleared by the course owner for public use with the singers credited by name. Track n is the nth singer in the concert program (Allie Hulbert, Karmyn Trufant, Magnolia Bycott, Abbey Sourov, Nina Brown, Shayne Sayre, Paola Morales, Jessica Kaber, Brandon Borlaza, Michael Rogachefsky, Silas Arora), and source `vj-n` is mic n. There is no piano track: Celine You's piano is heard only faintly through the vocal mics. The masters (mono, 44.1 kHz, 24-bit, about 34 MB each) stay local and gitignored in `audio/VOCAL JAZZ NEW/`. Piece 1 of the folder is taken to be the program's first piece.
+
+| Song | Id, files | Song time 0 = master | Ends at | Tempo |
+|---|---|---|---|---|
+| “Almost Like Being in Love” (Loewe and Lerner, arr. Darmon Meader) | `almost-like`, `audio/almost-like/almost-like-NN-<singer>.mp3` | 20.0 s (a mic check runs 0–11.5 s) | 242.5 s (222.5 s long) | rubato intro, then swing at about 124 bpm from 40.3 s |
+| “Love Me or Leave Me” (Donaldson and Kahn, arr. Rosana Eckert) | `love-me`, `audio/love-me/love-me-NN-<singer>.mp3` | 45.0 s (the piano intro, which the mics barely hear) | 269.0 s (224 s long) | swing at about 177 bpm |
+
+- **Levels.** The tracks were recorded low (peaks −11 to −21 dBFS). Every track of both pieces gets the same +10 dB (`normalizeDb: 10`, `SHARED_GAIN_DB` in the script), so the loudest peak sits at −1.07 dBFS and each singer keeps their own level: the meters differ because the singers do. No limiting or compression. `monoPeakDb` / `monoRmsDb` are measured over the whole song.
+- **Mono.** The files are mono MP3s (`channels: 1`), −V4 for the excerpt (about 80 kb/s) and −V5 for the segments. Excerpts are about 3.0 MB (piece 1) and 4.5 MB (piece 2) for all eleven; full songs 12 segments per stem, 132 files, about 18 MB each.
+- **Loops, breath to breath.** With no drummer the tempo drifts by a few percent, so a loop cut on a bar grid would stumble at the seam. Every loop starts and ends in a breath where all eleven mics are below −52 dBFS on the master, the two breaths found the same number of bars apart on a beat tracker's grid. Each section therefore has its own `length`; `loopPoints()` in `js/transport.js` uses it, and the stitched buffer is laid out as usual (0.5 s pre-roll, the loop, 1 s post-roll). Piece 1's sections loop 8 bars (about 15.5 s; the intro two rubato phrases), piece 2's 16 bars (about 21.7 s). The excerpts are longer, so a scenario has time to listen: 15 bars of piece 1 (29.5 s) and a whole 32-bar chorus of piece 2 (43.8 s). Bar numbers count from the first bar in tempo; the downbeats come from beat tracking, not from the score.
+- **Who sings.** Per bar, each mic's RMS above −50 dBFS on the master (the bleed from the other singers sits below that).
+
+“Almost Like Being in Love”:
+
+| Section | Starts | Length | Singing | Partly |
+|---|---|---|---|---|
+| the intro | 0:00.7 | 16.85 s | everyone else | Karmyn, Silas |
+| bars 15–22 | 1:06.0 | 15.55 s | everyone but Nina | Nina |
+| bars 45–52 | 2:04.1 | 15.59 s | the soli: Nina, Shayne, Paola, Brandon, Silas | the other six |
+| bars 53–60 | 2:19.6 | 15.51 s | the same five | the other six |
+| bars 64–78 (the excerpt) | 2:40.9 | 29.49 s | everyone | |
+
+“Love Me or Leave Me”:
+
+| Section | Starts | Length | Singing | Partly |
+|---|---|---|---|---|
+| bars 3–18 | 0:01.8 | 21.47 s | Abbey's solo | the ensemble comes in |
+| bars 40–71 (the excerpt) | 0:50.5 | 43.80 s | everyone | |
+| bars 72–87 | 1:34.3 | 21.67 s | Silas's solo | nobody else |
+| bars 88–103 | 1:56.5 | 21.61 s | Silas | the ensemble behind |
+| bars 119–134 | 2:39.0 | 21.88 s | | everyone, in short bursts |
+| bars 150–165 | 3:20.9 | 21.63 s | everyone, the ending | |
+
+Regenerate with `SONG=almost-like tools/make-excerpts.sh` and `SONG=love-me tools/make-excerpts.sh`.
+
+**Where they play.** Both pieces are in Free play on every console. Where a console has fewer mic inputs than singers, it takes the two soloists (Abbey, mic 4, and Silas, mic 11), a quartet (mics 1, 4, 9, 11) or six of them on the F8n, and the rest stay on stage, unplugged (`JAZZ_GIGS` in `js/scenarios.js`; on Mixer A and B, mics 1–8). The Vocal Jazz in Salmon gig puts both on its eleven handhelds, taking turns scenario by scenario (`vj` is “Almost Like Being in Love”, `vj-love` “Love Me or Leave Me”), with the preshow “Bossa Nova” as the crew's test music on AUX IN 1/2. The COB gig (`cob`) puts “Love Me or Leave Me” on its eleven headsets, A–K; its backing-track laptop plays silence (`audio/love-me/cob-track-silent.mp3` and its segments, mono 22.05 kHz at 8 kb/s, about 300 kB, from `tools/make-silent-track.sh`), because the ensemble's recording has no accompaniment track.
+
+## The mariachi multitrack
+
+Eight songs from a live mariachi multitrack (Logic project "261106 Mariachi Dress", 2026-11-06): Mariachi Panteras' dress rehearsal in Salmon. Encoded in `audio/mariachi-1/` … `audio/mariachi-8/`. **Song 1 is in the app** as the `mariachi` song (`SONGS.mariachi`, the Mariachi in Salmon gig); songs 2-8 aren't loaded yet. Song titles and credits are still to come, and permission is to be confirmed with the course owner (shipped on the owner's say-so, 2026-11-10).
+
+**Labels confirmed by the instructor (2026-11-10):** the gig had nine wireless handhelds and no trumpet mics: four on violins, one each on the guitarrón, lead vihuela and lead guitarra, two up front for vocal solos. So tracks 06 and 07 are **violins 3 and 4**, not trumpets (the files keep the old names; the manifest's stem ids are `violin-3` and `violin-4`), 10 is the guitarra (no harp this semester), and 01 and 02 are the two vocal mics (`vocal-1`, `vocal-2`).
+
+**Masters.** On the external drive, read only: `/Volumes/Mus128_1018/261106 Mariachi Dress/Audio Files/261106 Mariachi Dress_<track>#<take>.aif`, mono 44.1 kHz 24-bit, ten tracks per take. Take 1 (`#01`, 7:48) holds song 1; take 2 (`#02`, 18:27) holds songs 2–8, with talk before, between and after them. Track 3 is dead in both takes and was skipped. Regenerate a song with `SONG=mariachi-N tools/make-excerpts.sh` (drive mounted).
+
+**Treatment.** Every track of every song gets the same +7.5 dB (the hottest songs peak near −1 dBFS); no limiting, no per-stem normalizing, `trimDb: 0`. Mono MP3s, excerpt `-V4`, full-song segments `-V5`. Same layout as the Vocal Jazz pieces: the excerpt has 0.5 s pre-roll and 1 s post-roll, so the loop is `0.5` → `0.5 + length`; segments are 20 s with 0.5 s overlap, song time 0 = the song's start on the original.
+
+**Stems.** File names are `mariachi-N-<track>-<stem>.mp3` (and `full/mariachi-N-<track>-<stem>-NN.mp3`). The instruments are best guesses from spectra and onsets, not confirmed by ear; if they turn out wrong, only the labels change, not the files.
+
+| Track | Stem id | Guess | Confidence |
+|---|---|---|---|
+| 01 | `vocal-lead` | lead singer's wireless (switched on and off by song) | medium |
+| 02 | `mc` | talk mic, also live during songs (maybe a second vocal) | medium |
+| 04, 05 | `violin-1`, `violin-2` | violins (correlate 0.94 with each other) | low |
+| 06, 07 | `trumpet-1`, `trumpet-2` | violins 3 and 4 (confirmed: no trumpet mics); manifest ids `violin-3`, `violin-4` | confirmed |
+| 08 | `guitarron` | guitarrón | medium–high |
+| 09 | `vihuela` | vihuela (strummed, brightest) | medium |
+| 10 | `guitarra` | guitarra (or harp) | low–medium |
+
+**Songs.** Times in seconds. "Original" is on the take's own timeline; everything else is song time, as the manifest wants it (`excerpt.originalStart` is song time, like `almost-like`'s).
+
+| Song | Take | Song on original | `full.duration` | `segments` | `excerpt.originalStart` | `excerpt.duration` | `loop` | Tempo, key | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| mariachi-1 | 1 | 209.12–372.20 | 163.08 | 9 | 64.13 | 37.591 | 0.5–36.591 | ~172 bpm, A minor | seam within ±12 ms |
+| mariachi-2 | 2 | 172.10–301.80 | 129.70 | 7 | 90.53 | 29.358 | 0.5–28.358 | ~129 bpm, E major | lead vocal only from song time 82 s; seam drifts up to ~36 ms, listen |
+| mariachi-3 | 2 | 311.45–399.00 | 87.55 | 5 | 42.61 | 37.364 | 0.5–36.364 | ~175 bpm, 2/4, A major | weakest onset match at the seam |
+| mariachi-4 | 2 | 421.42–573.00 | 151.58 | 8 | 13.00 | 40.379 | 0.5–39.379 | ~202 bpm, A minor | seam within ±13 ms |
+| mariachi-5 | 2 | 632.12–783.00 | 150.88 | 8 | 91.89 | 28.898 | 0.5–27.898 | ~150 bpm, 3/4, A major | full stop inside the song at song time 29.4–31.4 s (vocal alone just before) |
+| mariachi-6 | 2 | 793.80–853.00 | 59.20 | 3 | 24.84 | 29.242 | 0.5–28.242 | ~85 bpm, A major | seam drifts up to ~35 ms, listen |
+| mariachi-7 | 2 | 864.25–979.00 | 114.75 | 6 | 5.24 | 34.520 | 0.5–33.520 | ~87 bpm, E minor | lead vocal only at song time ~55–97 s, so not in the loop; near-silent drops at ~22.8–24.2 s and ~76 s |
+| mariachi-8 | 2 | 992.82–1035.00 | 42.18 | 3 | 9.07 | 28.318 | 0.5–27.318 | ~89 bpm, G major | lead vocal silent the whole song (its stem is near-silence) |
+
+Every loop has the instrument tracks (04–10) playing for at least 96% of it. Tempos and meters are estimates from onsets.
+
+**Levels for the manifest** (`monoPeakDb`, `monoRmsDb`, measured over the whole song after the +7.5 dB; `normalizeDb: 7.5`), in track order 01, 02, 04, 05, 06, 07, 08, 09, 10:
+
+```js
+const MARIACHI_LEVELS = {
+  "mariachi-1": [[-13.92, -34.12], [-2.23, -22.92], [-18.08, -38.29], [-22.17, -39.26], [-14.97, -35.35], [-14.37, -35.64], [-10.64, -28.62], [-5.19, -25.31], [-7.58, -28.57]],
+  "mariachi-2": [[-5.29, -41.6], [-7.22, -25.7], [-26.04, -42.01], [-25.39, -40.9], [-17.09, -37.96], [-23.37, -40.97], [-14.94, -32.81], [-6.69, -29.84], [-15.28, -37.26]],
+  "mariachi-3": [[-1.11, -37.0], [-8.16, -28.88], [-22.74, -39.37], [-22.25, -38.74], [-23.53, -41.53], [-18.87, -39.52], [-14.34, -31.21], [-6.35, -27.69], [-11.44, -28.9]],
+  "mariachi-4": [[-3.65, -39.86], [-3.44, -25.72], [-21.39, -40.63], [-23.36, -41.66], [-17.53, -39.04], [-21.09, -40.57], [-13.21, -31.57], [-7.01, -28.75], [-13.73, -34.54]],
+  "mariachi-5": [[-4.21, -25.71], [-20.68, -40.21], [-23.47, -42.61], [-23.46, -42.43], [-13.56, -37.74], [-21.23, -40.38], [-13.97, -32.59], [-6.39, -31.1], [-7.2, -27.85]],
+  "mariachi-6": [[-8.58, -31.91], [-1.0, -37.36], [-28.48, -45.15], [-25.96, -45.77], [-18.16, -39.62], [-24.82, -43.13], [-16.95, -35.08], [-9.08, -35.79], [-13.34, -36.14]],
+  "mariachi-7": [[-1.32, -42.55], [-12.01, -30.87], [-22.05, -42.71], [-25.19, -44.26], [-16.64, -37.59], [-21.12, -40.82], [-15.86, -35.95], [-6.73, -35.0], [-14.83, -35.89]],
+  "mariachi-8": [[-66.41, -87.07], [-10.64, -33.91], [-24.49, -42.96], [-25.78, -43.78], [-16.97, -37.1], [-20.49, -40.53], [-14.81, -34.2], [-5.47, -31.97], [-16.15, -35.83]],
+};
+```
+
+The `mc` track's numbers include crowd and talk spill near song edges; the vocal-lead peaks in songs 3 and 7 are single transients (their RMS is low). Sizes: about 76 MB for all eight songs (excerpts 2–3 MB per song, the rest is `full/`).
+
+## The electroacoustic showcase (stand-ins and a click)
+
+The `ea` song (`SONGS.ea` in `source-manifest.js`) has no recordings of its own: it puts FTW's stems on stage as stand-ins for the showcase's sources, and adds one generated file, a click track on FTW's own timeline, so it stays sample-locked with them: `ftw/ftw-click.mp3` (the excerpt) and `ftw/full/ftw-click-00.mp3` … `-12.mp3` (the segments, cut like the stems). `tools/make-click-track.sh` makes them with ffmpeg: 70 bpm, 1600 Hz on each downbeat and 1000 Hz on the other beats, 40 ms each, from a downbeat measured in FTW's drums at song time 134.846 s (0.03 s after the excerpt's loop start). No permissions needed: it's a synthesized metronome.
+
 ## Credits
+
+“Almost Like Being in Love” (Frederick Loewe and Alan Jay Lerner, arr. Darmon Meader) and “Love Me or Leave Me” (Walter Donaldson and Gus Kahn, arr. Rosana Eckert): the Vocal Jazz Ensemble, Allie Hulbert, Karmyn Trufant, Magnolia Bycott, Abbey Sourov, Nina Brown, Shayne Sayre, Paola Morales, Jessica Kaber, Brandon Borlaza, Michael Rogachefsky and Silas Arora; Alex Robinson, director; Celine You, piano. Recorded live in concert, October 23, 2026. Used with permission for this educational project.
 
 FTW: after juno. Drums Nathan Acupan; bass and guitar Elliot Shneider; vocals and production Caleb Cox; mixing and mastering Mitchell Oeth. Used with permission for this educational project.
 
