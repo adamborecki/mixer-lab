@@ -7206,3 +7206,54 @@ dialog::backdrop {
 .zone-side .col-band {
   fill: rgba(255, 200, 120, 0.035);
 }
+
+/* ---------- Logic on the FOH Mac mini (js/ui/logic-view.js) ---------- */
+.logic-table td {
+  vertical-align: middle;
+}
+.logic-table .logic-in {
+  min-width: 5.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.logic-table .logic-arm {
+  min-width: 2.2rem;
+  font-weight: 700;
+}
+.logic-table .logic-arm.on {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: #1a0b10;
+}
+.logic-meter {
+  position: relative;
+  min-width: 6.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.logic-meter .logic-bar {
+  position: absolute;
+  left: 0;
+  top: 25%;
+  height: 50%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--ok), var(--warn));
+  opacity: 0.35;
+}
+.logic-meter b {
+  position: relative;
+}
+.logic-flat .logic-hears {
+  color: var(--warn);
+}
+.logic-hears {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+.logic-ins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.4rem 0;
+}
+.logic-ins .chip {
+  font-variant-numeric: tabular-nums;
+}

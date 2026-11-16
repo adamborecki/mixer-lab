@@ -25,6 +25,8 @@ import { BugView } from "./ui/bug-view.js";
 import { SubmissionView } from "./ui/submission-view.js";
 import { RecorderView } from "./ui/recorder-view.js";
 import { DanteView } from "./ui/dante-view.js";
+import { LogicView } from "./ui/logic-view.js";
+import { recordingMac } from "./recording.js";
 import { StageView } from "./ui/stage-view.js";
 
 // What the views and the engine read: always the song that's on stage (manifest.useSong).
@@ -82,7 +84,7 @@ const patchView = new PatchView({
   toast,
   getTerms: () => skin.terms,
   onOpenRecorder: (id) => recorderView.open(id),
-  onOpenDante: (tab) => danteView.open(tab),
+  onOpenDante: (tab) => openDante(tab),
   getRecorder: (id) => engine.recorder(id),
   // A knob let go or a button pressed on the gear: the cards' status follows.
   onSettle: () => (pending.any = pending.patch = true),
@@ -93,9 +95,15 @@ const patchView = new PatchView({
 const firstRecorderId = () => store.state.rig.devices.find((d) => d.type === "zoom-f8")?.id;
 const recorderView = new RecorderView({ store, getRuntime: (id) => engine.recorder(id), getMix: () => lastMix, toast });
 const danteView = new DanteView({ store, manifest: M });
+// A rig that records over Dante (Vocal Jazz v2) has the FOH Mac mini's Logic windows instead of the CL3's.
+const logicView = new LogicView({ store, manifest: M });
+function openDante(tab) {
+  if (recordingMac(store.state.rig)) logicView.open(tab === "daw" ? "logic" : tab);
+  else danteView.open(tab);
+}
 
 // The Stage & patch diagram (cables between jacks); its inspector reuses the patch panel's cards.
-const stageView = new StageView($("#stage"), { store, manifest: M, patchView, getSkin: () => skin, onOpenDante: (tab) => danteView.open(tab), canAddGear: () => current.def.id === "free-play", getPlaces: () => listenBar.places });
+const stageView = new StageView($("#stage"), { store, manifest: M, patchView, getSkin: () => skin, onOpenDante: (tab) => openDante(tab), canAddGear: () => current.def.id === "free-play", getPlaces: () => listenBar.places });
 
 const mixerView = new MixerView($("#mixer"), {
   store,
@@ -220,6 +228,7 @@ function refresh() {
   }
   if (recorderView.isOpen) recorderView.sync();
   if (danteView.isOpen) danteView.sync();
+  if (logicView.isOpen) logicView.sync();
   if (current.def.conditions.length) {
     const result = evaluateScenario(current.def, state, current.baseline, M.SOURCES_BY_ID, M.STEMS, current.session);
     const key = JSON.stringify(result.items.map((i) => [i.met, i.detail])) + result.complete;
@@ -463,6 +472,7 @@ function setNames(m) {
   }
   missionView.renderMusic();
   if (danteView.isOpen) danteView.sync();
+  if (logicView.isOpen) logicView.sync();
   pending.any = pending.patch = true;
 }
 document.querySelector(".names-switch").addEventListener("click", (e) => {

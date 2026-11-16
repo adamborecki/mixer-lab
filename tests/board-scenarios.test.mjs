@@ -1152,6 +1152,75 @@ Object.assign(WRONG, {
   }]],
 });
 
+// Vocal Jazz v2 in Salmon: the recording session (js/scenarios.js VJR_GIGS).
+const MAC = "src-preshow";
+const PAIR_OUT = ["room-pair/out-l", "room-pair/out-r", "piano-pair/out-l", "piano-pair/out-r"];
+// The session's move: the four condensers off the S32 into LOCAL 29-32, CH 25-32 ← Local 25-32, the card on Local 25-32.
+const vjrGoLocal = (a) => {
+  PAIR_OUT.forEach((from, i) => {
+    a.unplugAt(from);
+    assert.ok(a.st.connect(from, `mixer/ch${29 + i}-mic`, "xlr").ok);
+  });
+  a.st.setDevice("mixer", "inSource.3", 0);
+};
+Object.assign(SOLVE, {
+  "x32-vjr-tour": (a) => {
+    a.st.setListen("mix1");
+    a.st.setListen("phones");
+  },
+  "x32-vjr-mains": (a) => a.st.setDevice("cme-mix5", "lvl45", 0),
+  "x32-vjr-route": (a) => a.st.setDevice("mixer", "inSource.1", 0),
+  "x32-vjr-amp": (a) => a.st.setDevice("nx3000", "on", 1),
+  "x32-vjr-ortf": (a) => a.st.setDevice("room-pair", "spacingCm", 17),
+  "x32-vjr-48v": (a) => [24, 25, 26, 27].forEach((i) => a.st.setChannel(i, "phantom", true)),
+  "x32-vjr-sides": (a) => {
+    a.unplugAt("room-pair/out-l");
+    a.unplugAt("room-pair/out-r");
+    assert.ok(a.st.connect("room-pair/out-l", "s32/in25", "xlr").ok);
+    assert.ok(a.st.connect("room-pair/out-r", "s32/in26", "xlr").ok);
+  },
+  "x32-vjr-card": (a) => a.st.setDevice("mixer", "cardOut.3", "aesa3"),
+  "x32-vjr-buzz": (a) => vjrGoLocal(a),
+  "x32-vjr-local48": (a) => a.st.setChannel(29, "phantom", true),
+  "x32-vjr-logic": (a) => a.st.setDeviceMany(MAC, [29, 30, 31, 32].map((n, i) => [`tracks.${16 + i}.in`, n])),
+  "x32-vjr-device": (a) => a.st.setDevice(MAC, "logicIn", 0),
+  "x32-vjr-dante": (a) => a.st.setDeviceMany(MAC, Array.from({ length: 32 }, (_, i) => [`macRx.${i}`, i + 1])),
+  "x32-vjr-ready": (a) => {
+    a.st.setDevice("cme-mix5", "lvl45", 0);
+    a.st.setDevice(MAC, "dvs", 1);
+    a.st.setDevice(MAC, "tracks.4.arm", 1);
+    a.st.setChannel(27, "phantom", true);
+  },
+});
+Object.assign(WRONG, {
+  "x32-vjr-tour": [["only the wedges", (a) => a.st.setListen("mix1")]],
+  "x32-vjr-mains": [["MIX 1 muted instead", (a) => a.st.setBus("mix1", "mute", true)]],
+  "x32-vjr-route": [["every block on LOCAL, the S32 too", (a) => routeVj(a, [0, 0, 0, 0])]],
+  "x32-vjr-amp": [["MIX 1 turned up instead", (a) => a.st.setBus("mix1", "level", LAWS.level.toPos(6))]],
+  "x32-vjr-ortf": [["the angle changed instead", (a) => a.st.setDevice("room-pair", "angleDeg", 90)], ["XY instead", (a) => a.st.setDeviceMany("room-pair", [["spacingCm", 0], ["angleDeg", 90]])]],
+  "x32-vjr-48v": [["only the ORTF pair", (a) => [24, 25].forEach((i) => a.st.setChannel(i, "phantom", true))]],
+  "x32-vjr-sides": [["swapped in Logic instead", (a) => a.st.setDeviceMany(MAC, [["tracks.16.in", 26], ["tracks.17.in", 25]])]],
+  "x32-vjr-card": [["CH 25-32 moved to Local instead", (a) => a.st.setDevice("mixer", "inSource.3", 0)]],
+  "x32-vjr-buzz": [["routing only, the cables still on the S32", (a) => a.st.setDevice("mixer", "inSource.3", 0)], ["cables only, the routing still on AES50", (a) => {
+    PAIR_OUT.forEach((from, i) => {
+      a.unplugAt(from);
+      assert.ok(a.st.connect(from, `mixer/ch${29 + i}-mic`, "xlr").ok);
+    });
+  }]],
+  "x32-vjr-local48": [["+48 V on CH 26 instead", (a) => a.st.setChannel(25, "phantom", true)]],
+  "x32-vjr-logic": [["one track at a time, off by one", (a) => a.st.setDeviceMany(MAC, [28, 29, 30, 31].map((n, i) => [`tracks.${16 + i}.in`, n]))]],
+  "x32-vjr-device": [["Dante Virtual Soundcard restarted instead", (a) => {
+    a.st.setDevice(MAC, "dvs", 0);
+    a.st.setDevice(MAC, "dvs", 1);
+  }]],
+  "x32-vjr-dante": [["only the condensers' channels", (a) => a.st.setDeviceMany(MAC, [25, 26, 27, 28].map((n) => [`macRx.${n - 1}`, n]))]],
+  "x32-vjr-ready": [["three of the four", (a) => {
+    a.st.setDevice("cme-mix5", "lvl45", 0);
+    a.st.setDevice(MAC, "dvs", 1);
+    a.st.setDevice(MAC, "tracks.4.arm", 1);
+  }]],
+});
+
 // The electroacoustic showcase in Salmon (js/scenarios.js EA_GIGS).
 Object.assign(SOLVE, {
   "x32-ea-chain": (a) => assert.ok(a.st.connect("ea-sd8/aes50a", "s32/aes50b", "cat5").ok),

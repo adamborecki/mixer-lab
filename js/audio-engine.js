@@ -25,7 +25,7 @@ import { buildRecorder, buildReverb, buildRoomPair } from "./outboard-audio.js";
 import { splitRef } from "./connection-model.js";
 
 // Outboard gear with audio of its own (settings: js/devices.js).
-const OUTBOARD = { reverb: "reverb", "zoom-f8": "recorder", "stereo-mic-pair": "pair" };
+const OUTBOARD = { reverb: "reverb", "zoom-f8": "recorder", "stereo-mic-pair": "pair", "piano-mic-pair": "pair" };
 
 const LISTEN_TRIM_DB = 4; // fixed make-up gain so a typical mix sits at a comfortable level
 
@@ -235,7 +235,7 @@ export class AudioEngine {
       const rt =
         type === "reverb"
           ? buildReverb(this.ctx)
-          : type === "stereo-mic-pair"
+          : OUTBOARD[type] === "pair"
             ? buildRoomPair(this.ctx, () => this.manifest.SOURCES_BY_ID)
             : buildRecorder(this.ctx, { onUpdate: () => this.emit({ type: "recorder", id }) });
       this.devices.set(id, { type, rt });
@@ -271,6 +271,23 @@ export class AudioEngine {
     }
     const d = this.devices.get(deviceId);
     return d ? d.rt.inputs[portId] || null : null;
+  }
+
+  // A mains buzz (60 Hz and its harmonics, a little band-limited), made once: interference on a stage box's inputs.
+  buzzNode() {
+    if (this.buzz) return this.buzz;
+    const osc = this.ctx.createOscillator();
+    osc.type = "sawtooth";
+    osc.frequency.value = 60;
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 1400;
+    const out = this.ctx.createGain();
+    out.gain.value = 0.02;
+    osc.connect(lp).connect(out);
+    osc.start();
+    this.buzz = out;
+    return out;
   }
 
   unroute() {
@@ -310,6 +327,18 @@ export class AudioEngine {
       const from = this.outNode(c.from);
       const to = this.inNode(c.to);
       if (from && to) link(from, to);
+    }
+    // A stage box picking up interference (`buzz` on its rig device: Vocal Jazz v2's S32):
+    // every channel that hears one of its inputs gets a mains buzz too, through the same preamp.
+    const buzzing = new Set(state.rig.devices.filter((d) => d.buzz).map((d) => d.id));
+    if (buzzing.size) {
+      for (const c of rigLinks(state.rig)) {
+        if (!buzzing.has(c.via)) continue;
+        const port = c.to.startsWith("mixer/") && mixerPorts.find((p) => `mixer/${p.id}` === c.to);
+        if (!port || port.role !== "channel-input" || rigInfo.channels[port.channel]?.fromPort !== c.from) continue;
+        const to = this.inNode(c.to);
+        if (to) link(this.buzzNode(), to);
+      }
     }
     for (const d of this.devices.values()) if (d.rt.phones && this.listenGains.rec) link(d.rt.phones, this.listenGains.rec);
 

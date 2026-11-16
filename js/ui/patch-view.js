@@ -37,6 +37,7 @@ import { CONNECTOR_GUIDE, deviceIconName, icon, jackIconName, levelIconName, plu
 import { jackArt, plugArt } from "./connector-art.js";
 import { nameMode, sourceName } from "../names.js";
 import { dvsRunning } from "../dante.js";
+import { isRecordingMac, logicTracks } from "../recording.js";
 import { count } from "../submission.js";
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -152,7 +153,7 @@ export class PatchView {
     const rig = state.rig;
     const { SOURCES_BY_ID } = this.manifest;
     const sources = rig.devices.filter((d) => DEVICE_TYPES[d.type].source && d.sourceId).sort((a, b) => SOURCES_BY_ID[a.sourceId].order - SOURCES_BY_ID[b.sourceId].order);
-    const pairs = rig.devices.filter((d) => d.type === "stereo-mic-pair");
+    const pairs = rig.devices.filter((d) => d.type === "stereo-mic-pair" || d.type === "piano-mic-pair");
     const cards = sources.map((d) => {
       const src = SOURCES_BY_ID[d.sourceId];
       const ref = `${d.id}/out`;
@@ -196,6 +197,7 @@ export class PatchView {
         <div class="tags">${tags}</div>
         ${rf ? rfLine(rig, d) : this.portButton(ref, "out")}
         ${sourceGearHtml(d, src, rig)}
+        ${isRecordingMac(d) ? this.logicHtml(mix) : ""}
         ${powerHtml(rig, d)}
         ${msgs.map((m) => `<p class="port-msg">${esc(m)}</p>`).join("")}
         ${note ? `<p class="source-note">${esc(note)}</p>` : ""}
@@ -236,6 +238,20 @@ export class PatchView {
     </li>`);
   }
 
+  // The FOH Mac mini that records (Vocal Jazz v2): how many of Logic's tracks get
+  // something, and the buttons for Logic, Dante Virtual Soundcard and Dante Controller.
+  logicHtml() {
+    const tracks = logicTracks(this.store.state, this.manifest.SOURCES_BY_ID, this.manifest.STEMS);
+    const live = tracks.filter((t) => t.ok).length;
+    const armed = tracks.filter((t) => t.arm).length;
+    return `<p class="source-note">Logic: ${live} of ${tracks.length} tracks have signal, ${armed} record-enabled. The multitrack arrives over Dante from the X32's X-DANTE card.</p>
+      <div class="dante-buttons">
+        <button type="button" class="btn btn-start" data-open-dante="logic">Open Logic</button>
+        <button type="button" class="btn btn-start" data-open-dante="dvs">Dante Virtual Soundcard</button>
+        <button type="button" class="btn btn-start" data-open-dante="controller">Open Dante Controller</button>
+      </div>`;
+  }
+
   // The stereo room pair: two condenser outs, spacing and angle, and which
   // named technique the setting matches.
   pairCard(d, mix) {
@@ -246,19 +262,19 @@ export class PatchView {
       <div class="source-top">
         <span class="source-order">ST</span>
         <span class="dev-ico">${icon(deviceIconName({ type: "condenser-mic" }), { size: 40 })}</span>
-        <div class="source-names"><strong>Room pair</strong><span>${esc(d.label)}</span></div>
+        <div class="source-names"><strong>${d.type === "piano-mic-pair" ? "Piano mics" : "Room pair"}</strong><span>${esc(d.label)}</span></div>
         <span class="status-pill status-${status}">${status === "ok" ? "✓ Signal" : status === "idle" ? "Unpatched" : "! Check"}</span>
       </div>
       <div class="tags"><span class="tag">2× condenser (cardioid)</span><span class="tag">XLR outs</span><span class="tag tag-phantom">Needs +48 V</span></div>
       ${listPorts(this.store.state.rig, d).map((p) => this.portButton(p.ref, "out")).join("")}
       ${(bad ? bad.messages : []).map((m) => `<p class="port-msg">${esc(m)}</p>`).join("")}
-      <div class="dev-settings">
+      ${d.type === "piano-mic-pair" ? `<p class="source-note">Stand-ins: the ensemble's recording has no piano track, so these two mics hear the singers from the piano's side of the stage.</p>` : `<div class="dev-settings">
         <label>Spacing <output data-readout="spacingCm">${d.spacingCm} cm</output>
           <input type="range" min="0" max="${PAIR.spacingMax}" step="1" value="${d.spacingCm}" data-device="${esc(d.id)}" data-device-key="spacingCm" /></label>
         <label>Angle between the mics <output data-readout="angleDeg">${d.angleDeg}°</output>
           <input type="range" min="0" max="${PAIR.angleMax}" step="1" value="${d.angleDeg}" data-device="${esc(d.id)}" data-device-key="angleDeg" /></label>
         <p class="dev-technique" data-readout="technique">${techniqueText(d)}</p>
-      </div>
+      </div>`}
     </li>`);
   }
 

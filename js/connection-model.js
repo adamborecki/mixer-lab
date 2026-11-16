@@ -267,6 +267,17 @@ export const DEVICE_TYPES = {
     ],
     blurb: "Two condensers on a stereo bar; their angle and spacing make the stereo image.",
   },
+  // Vocal Jazz v2's two pencil condensers over the grand piano's strings, on boom stands.
+  "piano-mic-pair": {
+    name: "Piano mics (two pencil condensers)",
+    source: true,
+    needsPhantom: true,
+    ports: [
+      { id: "out-l", dir: "out", jack: "xlr", level: "mic", sourceId: "pno-l", name: "Low-string mic XLR out" },
+      { id: "out-r", dir: "out", jack: "xlr", level: "mic", sourceId: "pno-r", name: "High-string mic XLR out" },
+    ],
+    blurb: "Two pencil condensers over the strings, one toward the low end and one toward the high end. They need +48 V.",
+  },
   // A video camera's XLR audio input, with its own MIC/LINE switch (`inputLevel`:
   // 0 = MIC, 1 = LINE). One device per input, so each has its own switch and status.
   // A small camera's 3.5 mm stereo mic input (a DSLR or mirrorless): mic level only.
@@ -1290,7 +1301,7 @@ export function analyzeRig(rig, channels = [], sources = {}) {
   return { channels: channelInfo, endpoints, buses, returns, recorders };
 }
 
-function analyzeChannelInput(rig, cable, ch, sources, port) {
+export function analyzeChannelInput(rig, cable, ch, sources, port) {
   if (!cable) return { connected: false, signal: false, status: "empty", messages: [] };
   const from = getPort(rig, cable.from);
   const plug = cable.plug || plugAtInput(rig, cable);

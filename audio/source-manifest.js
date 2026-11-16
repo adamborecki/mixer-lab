@@ -1303,6 +1303,33 @@ const MARIACHI_SOURCES = [
   },
 ];
 
+// ---------- Vocal Jazz v2 in Salmon: the recording session ----------
+
+// The same ensemble and pieces as Vocal Jazz in Salmon, on Salmon's full rig
+// for a recording session (MUS 248's Vocal Jazz Recording Gig Checklist,
+// November 2026): the wireless rack (mic n on receiver 1 or 2, its AF OUT in
+// LOCAL n), four condensers on the S32 (an ORTF pair for the room on IN
+// 25/26, two pencil condensers on the grand piano on IN 27/28), and the X32's
+// X-DANTE card into Logic on the FOH Mac mini. No audience: the mains stay
+// off. The ensemble's recording has no piano track, so the piano mics are
+// stand-ins built like the room pair (js/outboard-audio.js buildRoomPair):
+// they hear the singers from the piano's side of the stage.
+const vjrHandheld = (n) => {
+  const color = `${n <= 8 ? "black" : "gray"}/${RINGS[(n - 1) % 8]}`;
+  return { ...handheld(n, color), deviceType: "rf-handheld", device: `Wireless handheld ${n}, ${color} → receiver ${n <= 8 ? 1 : 2} CH ${((n - 1) % 8) + 1} (CH ${n})` };
+};
+const VJR_SOURCES = [...VJ_SINGERS.map((_, i) => vjrHandheld(i + 1)), MARIACHI_SOURCES.find((s) => s.deviceType === "foh-mac")];
+const VJR_SET = { ...ALMOST_SET, id: "vjr", title: "Vocal Jazz recording session", artist: `${ENSEMBLE}, “Almost Like Being in Love”` };
+const VJR_LOVE_SET = { ...LOVE_ME_SET, id: "vjr-love", title: "Vocal Jazz recording session", artist: `${ENSEMBLE}, “Love Me or Leave Me”` };
+
+// Virtual sources: the two pencil condensers on the grand piano (Vocal Jazz
+// v2). Built like the room pair, from the stems on stage: stand-ins, since the
+// ensemble's recording has no piano track. `pair`: the device that makes them.
+export const PIANO_SOURCES = [
+  { id: "pno-l", name: "Piano mic L (low strings)", shortName: "PNO L", device: "Piano mics · low-string side", deviceType: "piano-mic-pair", signalLevel: "mic", connector: "xlr", phantom: "required", outputDb: -38, peakDb: -4, room: true, pair: "piano-pair", pan: -0.5, mixDb: -10 },
+  { id: "pno-r", name: "Piano mic R (high strings)", shortName: "PNO R", device: "Piano mics · high-string side", deviceType: "piano-mic-pair", signalLevel: "mic", connector: "xlr", phantom: "required", outputDb: -38, peakDb: -4, room: true, pair: "piano-pair", pan: 0.5, mixDb: -10 },
+];
+
 // Virtual sources: the two mics of the stereo room pair. Their sound is built
 // from the band stems by js/room-mics.js (distance, angle, delay, room reverb).
 export const ROOM_SOURCES = [
@@ -1326,6 +1353,8 @@ export const SONGS = {
   ea: { id: "ea", title: "Electroacoustic showcase", artist: "FTW's parts as stand-ins, and a click", set: EA_SET, stems: EA_STEMS, sources: EA_SOURCES, consoles: ["x32"] },
   film: { id: "film", title: "Film Recording Workshop", artist: "FTW's orchestra as stand-ins, and a click", set: FILM_SET, stems: FILM_STEMS, sources: FILM_SOURCES, consoles: ["l20"] },
   cme: { id: "cme", title: "CME in Salmon", artist: "Persephone (Giovanna) as the Commercial Music Ensemble", set: CME_SET, stems: CME_STEMS, sources: CME_SOURCES, consoles: ["x32"] },
+  vjr: { id: "vjr", title: "Vocal Jazz recording session", artist: "the Vocal Jazz Ensemble (“Almost Like Being in Love”)", set: VJR_SET, stems: ALMOST_STEMS, sources: VJR_SOURCES, consoles: ["x32"] },
+  "vjr-love": { id: "vjr-love", title: "Vocal Jazz recording session", artist: "the Vocal Jazz Ensemble (“Love Me or Leave Me”)", set: VJR_LOVE_SET, stems: LOVE_ME_STEMS, sources: VJR_SOURCES, consoles: ["x32"] },
   mariachi: { id: "mariachi", title: "Mariachi in Salmon", artist: "Mariachi Panteras, from their dress rehearsal", set: MARIACHI_SET, stems: MARIACHI_STEMS, sources: MARIACHI_SOURCES, consoles: ["x32"] },
 };
 // Can this song play on this console? A gig's song (`consoles`) only on its own.
@@ -1350,7 +1379,7 @@ export function useSong(id) {
   STEM_SET = song.set;
   STEMS = song.stems;
   SOURCES = song.sources;
-  SOURCES_BY_ID = Object.fromEntries([...ROOM_SOURCES, PRESHOW_SOURCE, ...SOURCES].map((s) => [s.id, s]));
+  SOURCES_BY_ID = Object.fromEntries([...ROOM_SOURCES, ...PIANO_SOURCES, PRESHOW_SOURCE, ...SOURCES].map((s) => [s.id, s]));
   return changed;
 }
 useSong(DEFAULT_SONG);

@@ -35,14 +35,17 @@ test("scenarios that need the trumpets get the full-band excerpt", () => {
   for (const d of trumpet) assert.equal(pickSection(d, STEM_SET.sections, SOURCES_BY_ID).id, "excerpt");
 });
 
+// Only the scenarios that play the default band: a gig (Vocal Jazz, CME, the mariachi…) plays its own
+// song, whose sections aren't these, and it pins its own loop.
 test("the scenarios spread over the song, not one loop", () => {
   const used = new Map();
-  for (const def of ALL) {
+  const band = ALL.filter((def) => !def.song);
+  for (const def of band) {
     const id = pickSection(def, STEM_SET.sections, SOURCES_BY_ID).id;
     used.set(id, (used.get(id) || 0) + 1);
   }
   assert.equal(used.size, STEM_SET.sections.length);
-  assert.ok(used.get("excerpt") < ALL.length / 3);
+  assert.ok(used.get("excerpt") < band.length / 3);
 });
 
 test("a scenario can pin its section; Free play defaults to the excerpt", () => {

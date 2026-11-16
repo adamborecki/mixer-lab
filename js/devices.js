@@ -106,6 +106,11 @@ export function micResponse(pair, source) {
 const KEYS = {
   reverb: { decay: range(REVERB.decayMin, REVERB.decayMax, 0.1) },
   "stereo-mic-pair": { spacingCm: range(0, PAIR.spacingMax, 1), angleDeg: range(0, PAIR.angleMax, 1) },
+  "piano-mic-pair": { spacingCm: range(0, PAIR.spacingMax, 1), angleDeg: range(0, PAIR.angleMax, 1) },
+  // The FOH Mac mini (Vocal Jazz v2, js/recording.js): Dante Virtual Soundcard on/off, Logic's input device
+  // (0 = Dante Virtual Soundcard, 1 = SSL 2+), Dante Controller (Mac RX n ← X32 TX 1–32, 0 = none),
+  // and each Logic track's input (1–32, 0 = none) and record-enable.
+  "foh-mac": { dvs: range(0, 1, 1), logicIn: range(0, 1, 1), macRx: range(0, 32, 1), in: range(0, 32, 1), arm: range(0, 1, 1) },
   "camera-input": { inputLevel: range(0, 1, 1) }, // 0 = MIC, 1 = LINE
   "bh109-rack": { ashlyMic: range(0, 1, 1) }, // the Ashly's Ch.1 Line / Mic button: 0 = LINE, 1 = MIC (+30 dB)
   sd442: { outLevel: range(0, 2, 1) }, // the 442's XLR OUTPUT LEVEL: 0 = MIC, 1 = −10, 2 = LINE

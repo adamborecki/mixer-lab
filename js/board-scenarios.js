@@ -12,6 +12,8 @@ import { COMPACT, LAWS, fxPreset, levelLaw, reverbSetting } from "./compact.js";
 import * as CR1604 from "./cr1604.js";
 import { DAW_TRACKS } from "./dante.js";
 import { aesBlockOf } from "./connection-model.js";
+import { techniqueOf } from "./devices.js";
+import { logicTracks } from "./recording.js";
 
 const AUDIBLE = -45; // as AUDIBLE_DB in js/scenarios.js
 const ORCHESTRA = ["strings", "winds", "brass"]; // FTW's section mics
@@ -6236,7 +6238,7 @@ const ORDER = {
   l20: ["doors", "gain", "pad", "lowcut", "mud", "eq-on", "keys-wedge", "less-guitar", "out-of-house", "wedge-quiet", "switch", "reverb", "efx-mon", "rec-click", "rec-mutes", "rec-gain", "rec-fader-lies", "rec-48v"],
   sd442: ["camera", "tone", "phantom", "hot-vocal", "master", "line", "hpf", "mono", "iso"],
   yam01v96: ["doors", "pad", "phantom", "on", "fader-mode", "master", "mud", "eq", "eq-on", "to-st", "reverb", "pre-point", "comp", "comp-on", "new-mix"],
-  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9", "vj-mains", "vj-monitors", "vj-local", "vj-gain", "vj-lowcut", "vj-muted", "vj-send", "vj-amp", "vj-chain", "vj-link", "vj-patch", "ea-chain", "ea-route", "ea-bank", "ea-48v", "ea-collision", "ea-click", "ea-dead", "cme-tour", "cme-rack", "cme-mains", "cme-house", "cme-wedges", "cme-wedge-test", "cme-amp-knob", "cme-mics", "cme-vox", "cme-band", "cme-gtr", "cme-cable", "cme-gains", "cme-end", "cme-adv-antenna", "cme-adv-vol", "cme-adv-headset", "cme-adv-s32", "cme-adv-inst", "cme-adv-active-amp", "cme-adv-route", "cme-adv-katana", "cme-adv-inputs", "cme-adv-lead", "cme-adv-mix5", "cme-adv-stack", "mariachi-tour", "mariachi-house", "mariachi-wedges", "mariachi-quarter", "mariachi-wedge-test", "mariachi-route", "mariachi-swap", "mariachi-vox", "mariachi-gains", "mariachi-feedback", "mariachi-cable"],
+  x32: ["doors", "mud", "eq-on", "comp-on", "room", "routing-house", "routing-wedge", "stagebox", "stagebox-link", "stagebox-out", "mc", "matrix", "subgroup", "fx", "scene-recall", "scene-store", "bus9", "vj-mains", "vj-monitors", "vj-local", "vj-gain", "vj-lowcut", "vj-muted", "vj-send", "vj-amp", "vj-chain", "vj-link", "vj-patch", "ea-chain", "ea-route", "ea-bank", "ea-48v", "ea-collision", "ea-click", "ea-dead", "cme-tour", "cme-rack", "cme-mains", "cme-house", "cme-wedges", "cme-wedge-test", "cme-amp-knob", "cme-mics", "cme-vox", "cme-band", "cme-gtr", "cme-cable", "cme-gains", "cme-end", "cme-adv-antenna", "cme-adv-vol", "cme-adv-headset", "cme-adv-s32", "cme-adv-inst", "cme-adv-active-amp", "cme-adv-route", "cme-adv-katana", "cme-adv-inputs", "cme-adv-lead", "cme-adv-mix5", "cme-adv-stack", "mariachi-tour", "mariachi-house", "mariachi-wedges", "mariachi-quarter", "mariachi-wedge-test", "mariachi-route", "mariachi-swap", "mariachi-vox", "mariachi-gains", "mariachi-feedback", "mariachi-cable", "vjr-tour", "vjr-mains", "vjr-route", "vjr-amp", "vjr-ortf", "vjr-48v", "vjr-sides", "vjr-card", "vjr-buzz", "vjr-local48", "vjr-logic", "vjr-device", "vjr-dante", "vjr-ready"],
   f8n: ["track", "trim", "room", "hpf", "pfl", "balance", "link", "camera", "dslr", "iso-safety"],
   dm2000: ["doors", "pad", "48v", "on", "mud", "eq-on", "comp-on", "fader-mode", "encoder", "to-st", "reverb", "subgroup", "bus-to-st", "fader-group", "mute-group", "output-patch", "matrix", "scene-recall", "new-mix"],
   cl3: ["doors", "gain", "48v", "on", "mud", "eq-on", "comp-on", "sof", "routing-house", "routing-wedge", "dca", "mute-group", "matrix", "fx", "dante", "dante-dvs", "dante-121", "dante-back", "dante-fix", "scene-recall", "scene-store"],
@@ -6244,7 +6246,355 @@ const ORDER = {
   x32c: ["doors", "gain", "48v", "sections-48v", "lowcut", "mud", "eq-on", "comp-on", "lr", "sof", "drummer-quiet", "bus-mute", "reverb", "out-of-house", "dca", "orchestra", "mute-group", "new-mix", "stagebox", "cob-usb", "cob-gain", "cob-tracks", "cob-link", "cob-one-side", "cob-speaker-cable", "cob-thru", "cob-prefader", "cob-tracks-wedge", "cob-scene"],
 };
 
-const LISTS = { gdig: GDIG, l20: [...L20, ...L20_REC], b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: [...XEN, ...KY], sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c, ...COB], yam01v96: Y96, x32: [...X32F, ...BOXES.x32, ...VJS, ...EAS, ...CMES, ...CME_ADV, ...MARIACHI] };
+// ---------- Vocal Jazz v2 in Salmon: the recording session ----------
+// The Vocal Jazz Recording Gig Checklist's rig (js/scenarios.js VJR_GIGS): the
+// session of November 2026, the instructor's photos and answers. Everything a
+// Vocal Jazz gig needs (eleven handhelds, the wedges, the mains), on Salmon's
+// full rig (the wireless rack), plus the recording: an ORTF pair and two piano
+// mics on the S32 (IN 25-28), the X32's X-DANTE card, Dante Controller, and
+// Logic on the FOH Mac mini (js/recording.js). In order: the rig working, the
+// mains off (no audience), the routing CME left behind, the wedges, the ORTF
+// bar, +48 V, left and right, the card, then the session's own story: a buzz on
+// the S32, so the four condensers move to the X32's own LOCAL 29-32 (one comes
+// back silent), and Logic's inputs move with them; then Logic's own settings,
+// Dante Controller, and four faults at once.
+
+const VJR_C = ["room-l", "room-r", "pno-l", "pno-r"];
+const VJR_C_NAMES = ["ORTF left", "ORTF right", "piano low", "piano high"];
+const VJR_ROOM = "Turn around to Stage & patch (T): the singers' handhelds, the ORTF pair and the piano mics on stage, the S32 in the stage-side rack, the wireless rack, the X32 and the Mac mini at FOH, the NX3000 in the monitor amp rack, the hall's mains rack, and the speakers: three wedges and the hall's installed pair.";
+const VJR_LOGIC = "Logic is on the FOH Mac mini: in Sources (or on Stage & patch), its card has Open Logic, Dante Virtual Soundcard and Dante Controller.";
+const tracksOf = (ctx) => logicTracks(ctx.state, ctx.sourcesById, ctx.stems);
+const records = (ctx, t, src) => {
+  const r = tracksOf(ctx)[t];
+  return !!r && r.ok && r.sourceId === src;
+};
+// Audio 1-11 the singers, Audio 17-20 the four condensers.
+const singersRecorded = (ctx) => VJ.every((src, i) => records(ctx, i, src));
+const condensersRecorded = (ctx) => VJR_C.every((src, i) => records(ctx, 16 + i, src));
+const allArmed = (ctx) => tracksOf(ctx).every((t) => t.arm);
+const vjrHallOff = (ctx) => !["cme-hall-l", "cme-hall-r"].some((id) => plays(ctx, id)) || VJ.every((src) => house(ctx, src) < AUDIBLE);
+const vjrWedgesOk = (ctx) => VJ_WEDGES.every((id) => wedgeOk(ctx, id)) && singersInWedges(ctx);
+const onCh = (ctx, src, n) => mc(ctx, src)?.index === n - 1;
+const goodOn = (ctx, src, n) => onCh(ctx, src, n) && goodBand(ctx, src);
+const macOf = (st) => st.rig.devices.find((d) => d.id === "src-preshow");
+// The session's own move: the four condensers off the buzzing S32, into the X32's LOCAL 29-32,
+// CH 25-32 ← Local 25-32, the card back on Local 25-32. `phantom`: +48 V on CH 29-32; `ins`: Logic's Audio 17-20.
+const vjrMoved = (st, h, { phantom = [1, 1, 1, 1], ins = [29, 30, 31, 32] } = {}) => {
+  VJR_C.forEach((src, i) => {
+    h.cut(`s32/in${25 + i}`);
+    h.cable(`${src.startsWith("room") ? "room-pair" : "piano-pair"}/out-${i % 2 ? "r" : "l"}`, `mixer/ch${29 + i}-mic`, "xlr");
+    Object.assign(st.channels[28 + i], { phantom: !!phantom[i], gainDb: 38, level: 0, lr: false });
+  });
+  const mixer = st.rig.devices.find((d) => d.id === "mixer");
+  mixer.inSource[3] = 0;
+  mixer.cardOut[3] = "local3";
+  h.dev("s32", "buzz", 1);
+  ins.forEach((n, i) => (macOf(st).tracks[16 + i].in = n));
+};
+const VJR_TRACKS_SAME = keep("rec", "Logic keeps recording all eleven singers and the four condensers", (ctx) => singersRecorded(ctx) && condensersRecorded(ctx));
+const VJR_SINGERS_REC = keep("singers", "Logic keeps recording all eleven singers (Audio 1-11)", singersRecorded);
+
+const VJRS = [
+  {
+    id: "x32-vjr-tour",
+    short: "Everything working",
+    title: "The recording rig",
+    who: "Recording engineer",
+    prompt: "“This is the recording session the way it should be, five minutes before we roll. Nothing is broken. No audience, so the hall's speakers are off. Listen to what the singers hear in the wedges, then put on headphones and solo the room pair.”",
+    goal: "Listen to the wedges (MIX 1), then to your headphones (SOLO). Change nothing: it all works.",
+    setup: { listen: "main" },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      { id: "mix1", kind: "goal", type: "listenedTo", dest: "mix1", label: "You listened to the wedges (MIX 1)" },
+      { id: "phones", kind: "goal", type: "listenedTo", dest: "phones", label: "You listened in your headphones (SOLO)" },
+      keep("wedges", "All three wedges play every singer", vjrWedgesOk),
+      keep("hall", "The hall's speakers stay off: no audience today", vjrHallOff),
+      VJR_TRACKS_SAME,
+    ],
+    hints: [
+      "The listening bar at the bottom: MAIN is the audience (silent today), MIX 1 the wedges, and the headphones hear whatever is soloed.",
+      VJR_ROOM + " Follow one singer: mic 1 → by radio to the antennas → the PAS-225 → receiver 1's CH 1 → AF OUT 1 → LOCAL 1 → CH 1 → MIX 1 → S32 OUT 1 → the NX3000 → the wedges. And the same LOCAL 1 → the X-DANTE card → Dante → the Mac mini → Logic's Audio 1.",
+      "Press SOLO on CH 25 or 26 (the ORTF pair, on the CH 17-32 layer) and switch the listening bar to your headphones. " + VJR_LOGIC,
+    ],
+    complete: "That's the session working: eleven handhelds on CH 1-11 and in the wedges, the hall's speakers off, and four condensers for the recording only (their faders down, MAIN LR off): the ORTF pair on CH 25/26 and the piano mics on 27/28, over the S32. The card sends the inputs to Logic, where Audio 1-16 take In 1-16 and Audio 17-20 take In 25-28. Every scenario after this breaks one piece of it.",
+  },
+  {
+    id: "x32-vjr-mains",
+    short: "No audience today",
+    title: "No audience today",
+    who: "Vocal Jazz director",
+    prompt: "“It's a recording session, not a concert: there's nobody out there. Why is the whole choir coming out of the hall's speakers? It's going straight into the room mics.”",
+    goal: "The hall's speakers silent; the singers still in the wedges and in Logic.",
+    setup: { tweak: (st, h) => h.dev("cme-mix5", "lvl45", 7.5), listen: "main" },
+    conditions: [
+      goal("hall", "No singer comes out of the hall's speakers", vjrHallOff),
+      keep("wedges", "All three wedges keep playing every singer", vjrWedgesOk),
+      VJR_TRACKS_SAME,
+    ],
+    hints: [
+      "Concert: the mains are on. Rehearsals and recording sessions: they're off, and the singers use the wedges. Where can the house be turned off without touching the wedges?",
+      "Two places work: the X32's MAIN LR (its MUTE, or the fader all the way down), or the hall's mains rack: Console: Mix5, its 4/5 LEVEL (S32 OUT 15/16).",
+      "Mute MAIN LR on the X32, or open Console: Mix5 and turn 4/5 LEVEL all the way down. MIX 1 doesn't go through MAIN, so the wedges carry on.",
+    ],
+    complete: "Rehearsals and recording sessions run with the mains off: the singers hear themselves in the wedges, and nothing from the PA ends up in the room mics. For the concert, the mains come back on. MIX 1's sends are pre-fader and don't go through MAIN LR, so turning the house off never touches the wedges.",
+  },
+  {
+    id: "x32-vjr-route",
+    short: "CH 9-16 on the stage box",
+    title: "Three singers missing",
+    who: "Mic engineer",
+    prompt: "“Mics 9, 10 and 11 are on and their receivers show signal, but CH 9-11 are dead at the console, and they're not in the wedges. The first eight are fine.”",
+    goal: "CH 9-11 hear mics 9-11 again, in the wedges, with CH 25-32 still on the S32.",
+    setup: { tweak: (st) => (st.rig.devices.find((d) => d.id === "mixer").inSource[1] = 1) },
+    conditions: [
+      goal("routing", "ROUTING → INPUT: CH 9-16 listen to Local 9-16", (ctx) => mixerDev(ctx).inSource[1] === 0),
+      goal("mics", "Mics 9-11 are on CH 9-11 and in the wedges", (ctx) => ["vj-9", "vj-10", "vj-11"].every((src, i) => goodOn(ctx, src, 9 + i) && wedge(ctx, "mix1", src) >= AUDIBLE)),
+      keep("sb", "CH 25-32 stay on AES50 A25-32 (the condensers on the S32)", (ctx) => mixerDev(ctx).inSource[3] === 1),
+      VJR_SINGERS_REC,
+    ],
+    hints: [
+      "The receivers show signal, so the mics and the radio are fine. The first eight work. What's different about CH 9-16?",
+      "Main display → ROUTING → INPUT. Receiver 2's AF OUTs plug into LOCAL 9-16, but this block is listening to AES50 A9-16: the S32, where nothing is plugged in. CME's first rehearsal left it that way.",
+      "ROUTING → INPUT: set 9-16 back to Local 9-16. Leave 25-32 on AES50 A25-32.",
+    ],
+    complete: "One block of eight, left on the stage box by another group, and three singers vanish from the console. Logic never lost them, though: the card sends the X32's LOCAL inputs, whatever the channels listen to. Check ROUTING → INPUT at the start of every gig: it's the first line of the Vocal Jazz Reset.",
+  },
+  {
+    id: "x32-vjr-amp",
+    short: "Silent wedges",
+    title: "The singers can't hear themselves",
+    who: "Singers",
+    prompt: "“We can't hear ourselves at all. Nothing in any of the wedges.”",
+    goal: "All three wedges playing every singer, the house balance unchanged.",
+    setup: { tweak: (st, h) => h.dev("nx3000", "on", 0), listen: "mix1" },
+    baseline: { main: { metric: "mainDbByChannel" } },
+    conditions: [
+      goal("wedges", "All three wedges play every singer", vjrWedgesOk),
+      { id: "house", kind: "keep", type: "mainUnchanged", baseline: "main", toleranceDb: 1, masterFree: true, label: "The house balance stays the same (muting MAIN LR to hear only the wedges is fine)" },
+    ],
+    hints: [
+      "All three at once: look for the one thing every wedge shares. Check MIX 1 at the console first: do its meters move?",
+      VJR_ROOM + " MIX 1 leaves on S32 OUT 1, into the NX3000 in the monitor amp rack. Is the amp on?",
+      "Switch the NX3000 on. Amps go on last, after the console, and off first at the end.",
+    ],
+    complete: "Before the recording, the singers have to be happy hearing themselves: everything else waits for that. Power order: console and sources first, the amp last. At the end of the session, the amp goes off first.",
+  },
+  {
+    id: "x32-vjr-ortf",
+    short: "The ORTF bar",
+    title: "Capsules on the marks",
+    who: "Recording engineer",
+    prompt: "“Someone set up the room pair with the mic clips on the ORTF marks. The capsules hang way past them, and the stereo image is all hole in the middle.”",
+    goal: "The room pair set to ORTF: the capsules 17 cm apart, angled 110°.",
+    setup: { tweak: (st, h) => h.dev("room-pair", "spacingCm", 40), listen: "phones" },
+    conditions: [
+      goal("ortf", "The room pair is ORTF (17 cm, 110°)", (ctx) => techniqueOf(devOf(ctx, "room-pair"))?.id === "ortf"),
+      keep("rec", "Logic keeps recording both room mics (Audio 17 and 18)", (ctx) => records(ctx, 16, "room-l") && records(ctx, 17, "room-r")),
+    ],
+    hints: [
+      "The ORTF marks on the stereo bar are where the capsules go, not the clips. With the clips on the marks, the capsules end up much further apart than 17 cm.",
+      "Find the ORTF room pair's card in Sources (or tap it on Stage & patch): it has the spacing and the angle. SOLO CH 25 and 26 to hear the pair in your headphones as you move them.",
+      "Spacing 17 cm, angle 110°. In the room: cross the mics so each capsule lands on its ORTF mark, one mic a little higher than the other so they clear, both tilted down toward the singers.",
+    ],
+    complete: "ORTF is 17 cm between the capsules and 110° between the mics: close enough to stay solid in the middle, angled enough for a wide image. On the bar, the capsules sit on the marks, so the mics cross; one sits a little higher so they clear, and both point down at the ensemble. Wrap each XLR once around the stand so a tug doesn't move the mics.",
+  },
+  {
+    id: "x32-vjr-48v",
+    short: "+48 V on the condensers",
+    title: "Four flat meters",
+    who: "Recording engineer",
+    prompt: "“The ORTF pair and the piano mics are plugged into the S32, 25 to 28, and Logic's tracks are armed. Every one of those four meters is flat.”",
+    goal: "CH 25-28 with signal, and Logic recording all four condensers on Audio 17-20.",
+    setup: { tweak: (st) => [24, 25, 26, 27].forEach((i) => (st.channels[i].phantom = false)), listen: "phones" },
+    conditions: [
+      goal("ch", "CH 25-28 have signal: the ORTF pair, then the piano mics", (ctx) => VJR_C.every((src, i) => goodOn(ctx, src, 25 + i))),
+      goal("rec", "Logic records the four condensers on Audio 17-20", condensersRecorded),
+      VJR_SINGERS_REC,
+    ],
+    hints: [
+      "Handhelds work without help. Pencil condensers don't: what do they need from the console?",
+      "Phantom power. On the X32 it's the 48V button in the channel strip's CONFIG / PREAMP section, for each channel: SEL CH 25 (CH 17-32 layer) and look.",
+      "SEL CH 25, 26, 27 and 28 in turn and press 48V on each.",
+    ],
+    complete: "Every condenser needs +48 V, and on the X32 it's switched per input. The handhelds don't, which is why the meters you watch first always look fine. If a meter you expect isn't moving, stop and find out why before anyone sings a note.",
+  },
+  {
+    id: "x32-vjr-sides",
+    short: "Left and right",
+    title: "Left is right",
+    who: "Recording engineer",
+    prompt: "“Played back, the sopranos on the left come out of the right speaker. The room pair is backwards.”",
+    goal: "The ORTF left mic on S32 IN 25 (CH 25, Audio 17) and the right mic on IN 26 (CH 26, Audio 18).",
+    setup: {
+      tweak: (st, h) => {
+        h.cut("s32/in25");
+        h.cut("s32/in26");
+        h.cable("room-pair/out-l", "s32/in26", "xlr");
+        h.cable("room-pair/out-r", "s32/in25", "xlr");
+      },
+      listen: "phones",
+    },
+    conditions: [
+      goal("ch", "CH 25 is the left mic, CH 26 the right one", (ctx) => goodOn(ctx, "room-l", 25) && goodOn(ctx, "room-r", 26)),
+      goal("rec", "Logic: Audio 17 records the left mic, Audio 18 the right", (ctx) => records(ctx, 16, "room-l") && records(ctx, 17, "room-r")),
+      keep("piano", "The piano mics stay on Audio 19 and 20", (ctx) => records(ctx, 18, "pno-l") && records(ctx, 19, "pno-r")),
+    ],
+    hints: [
+      "Swapping them in Logic would fix the recording but not the console. Where did the two XLRs cross?",
+      VJR_ROOM + " Follow each mic's XLR from the stereo bar to the S32. The two cables look alike, which is how it happened: one of them is marked with a colored ring.",
+      "On the S32, the left mic's XLR goes into IN 25 and the right mic's into IN 26.",
+    ],
+    complete: "Two XLRs that look alike are easy to swap. Mark one, with a colored ring or tape, so left and right can be told apart on the floor and at the stage box, and check it with a SOLO on each channel before you record: scratch or tap the left mic, and it should move CH 25.",
+  },
+  {
+    id: "x32-vjr-card",
+    short: "ROUTING → CARD",
+    title: "Logic hears the wrong inputs",
+    who: "Recording engineer",
+    prompt: "“The four condensers are on CH 25-28 at the console and the meters look great. But Logic's Audio 17-20 are flat. The singers' tracks are fine.”",
+    goal: "Logic recording the four condensers on Audio 17-20, with the X32's channels left as they are.",
+    setup: { tweak: (st) => (st.rig.devices.find((d) => d.id === "mixer").cardOut[3] = "local3") },
+    conditions: [
+      goal("rec", "Logic records the four condensers on Audio 17-20", condensersRecorded),
+      keep("ch", "CH 25-32 stay on the S32 (AES50 A25-32), the condensers on CH 25-28", (ctx) => mixerDev(ctx).inSource[3] === 1 && VJR_C.every((src, i) => goodOn(ctx, src, 25 + i))),
+      VJR_SINGERS_REC,
+    ],
+    hints: [
+      "The console hears the condensers, so the mics, +48 V and the S32 are fine. What decides what goes out on the card?",
+      "The X-DANTE card sends inputs, not channels: ROUTING → CARD picks which inputs fill each block of eight. What is block 25-32 sending?",
+      "Main display → ROUTING → CARD: set 25-32 to AES50 A25-32, the S32's inputs. (Local 25-32 is the X32's own rear panel: the PTU-7000, with nothing on it.)",
+    ],
+    complete: "CH 25-32 can listen to the S32 while the card still sends the X32's own LOCAL 25-32: two different pages. Salmon's card is normally Local 1-32, which suits mics plugged into the console. With the condensers on the S32, the card's 25-32 block has to follow them to AES50 A25-32.",
+  },
+  {
+    id: "x32-vjr-buzz",
+    short: "A buzz on the S32",
+    title: "A buzz on the stage box",
+    who: "Recording engineer",
+    prompt: "“There's a buzz on all four condensers. It's on the S32's inputs, not the mics: we can't find it, and the singers are waiting. Run the four XLRs to the X32's own inputs instead. The PTU-7000 is on LOCAL 25-28, so use 29-32.”",
+    goal: "The ORTF pair and the piano mics on the X32's LOCAL 29-32, in order, and CH 25-32 listening to Local 25-32.",
+    setup: { tweak: (st, h) => h.dev("s32", "buzz", 1), listen: "phones" },
+    conditions: [
+      goal("cables", "ORTF left, ORTF right, piano low, piano high: into the X32's LOCAL 29, 30, 31 and 32", (ctx) => VJR_C.every((src, i) => ctx.state.rig.cables.some((c) => c.from === `${src.startsWith("room") ? "room-pair" : "piano-pair"}/out-${i % 2 ? "r" : "l"}` && c.to === `mixer/ch${29 + i}-mic`))),
+      goal("routing", "ROUTING → INPUT: CH 25-32 listen to Local 25-32", (ctx) => mixerDev(ctx).inSource[3] === 0),
+      goal("ch", "CH 29-32 hear the four condensers (they'll be quiet until the next step)", (ctx) => VJR_C.every((src, i) => onCh(ctx, src, 29 + i))),
+      keep("mics", "CH 1-24 stay on LOCAL: all eleven singers", (ctx) => [0, 1, 2].every((b) => mixerDev(ctx).inSource[b] === 0) && VJ.every((src) => goodBand(ctx, src))),
+    ],
+    hints: [
+      "SOLO CH 25 (CH 17-32 layer) and listen in your headphones: that's the buzz. It rides in on the S32's inputs: maybe radio interference, maybe an unshielded cable somewhere nobody can reach. With singers waiting, you don't fix it: you go around it.",
+      VJR_ROOM + " Unplug the four condenser XLRs from S32 IN 25-28 and run them to the X32's rear panel: IN 29, 30, 31 and 32, in the same order. IN 25-28 already have the PTU-7000.",
+      "Then main display → ROUTING → INPUT: set 25-32 to Local 25-32. The condensers now land on CH 29-32.",
+    ],
+    complete: "Going local is a fair workaround: the four mics skip the S32 entirely. Note what moved with them. They're on CH 29-32 now, not 25-28, and the X32's own preamps on 29-32 have their own +48 V and GAIN, so nothing you set on 25-28 came along. That's the next step. (The buzz itself goes on the known-issues list: nobody found its source.)",
+  },
+  {
+    id: "x32-vjr-local48",
+    short: "Three came back, one didn't",
+    title: "Three came back, one didn't",
+    who: "Recording engineer",
+    prompt: "“We moved the condensers to LOCAL 29-32 and set the routing. 29, 31 and 32 are moving. 30 is flat, and so is Logic's Audio 18.”",
+    goal: "All four condensers with signal on CH 29-32, and in Logic on Audio 17-20.",
+    setup: { tweak: (st, h) => vjrMoved(st, h, { phantom: [1, 0, 1, 1] }), listen: "phones" },
+    conditions: [
+      goal("ch", "CH 29-32 all have signal: ORTF left and right, piano low and high", (ctx) => VJR_C.every((src, i) => goodOn(ctx, src, 29 + i))),
+      goal("rec", "Logic records the four condensers on Audio 17-20", condensersRecorded),
+      VJR_SINGERS_REC,
+    ],
+    hints: [
+      "Three of four came back, so the routing and the cables are right. What's different about the one that didn't?",
+      "SEL CH 30 (CH 17-32 layer). These are the X32's own preamps: the +48 V you set on CH 26 didn't come with the mic.",
+      "Press 48V on CH 30.",
+    ],
+    complete: "That's the lesson from the real session: Logic's Audio 18 sat flat after the move, and nobody can say now whether it was +48 V, the mic, or a cable. Watching the meters is how you catch it. When one you expect isn't moving, stop, say so, and fix it before the take, not after.",
+  },
+  {
+    id: "x32-vjr-logic",
+    short: "Logic's inputs",
+    title: "Logic is on the old inputs",
+    who: "Recording engineer",
+    prompt: "“The condensers are on CH 29-32 now and every meter is moving. Logic's Audio 17-20 are still on In 27-30, from before.”",
+    goal: "Logic's Audio 17-20 on In 29-32, recording the ORTF pair and the piano mics.",
+    setup: { tweak: (st, h) => vjrMoved(st, h, { ins: [27, 28, 29, 30] }), listen: "phones" },
+    conditions: [
+      goal("rec", "Logic: Audio 17-20 record ORTF left, ORTF right, piano low, piano high", condensersRecorded),
+      VJR_SINGERS_REC,
+    ],
+    hints: [
+      "The card sends the X32's inputs by number: LOCAL 29-32 come out on Dante 29-32, so Logic's input numbers are 29-32 too.",
+      VJR_LOGIC + " Each track's input is the In button on its row.",
+      "Select Audio 17-20, hold Option, and pick In 29 on the first one: Logic gives them 29, 30, 31 and 32 in order. (On a phone, tick ⌥ Ascending instead of holding Option.)",
+    ],
+    complete: "Holding Option while you pick an input assigns ascending inputs to every selected track, which is how the session's four tracks moved from In 27-30 to In 29-32 in one click. Check the meters on the new inputs afterwards: a track can be armed and sitting on the wrong input with nothing on it.",
+  },
+  {
+    id: "x32-vjr-device",
+    short: "Logic's input device",
+    title: "Every track in Logic is flat",
+    who: "Recording engineer",
+    prompt: "“The console's meters are all moving, the card is set, and Dante Controller is routed. Every one of Logic's twenty tracks is flat.”",
+    goal: "Logic recording the singers and the condensers again.",
+    setup: { tweak: (st) => (macOf(st).logicIn = 1) },
+    conditions: [goal("rec", "Logic records all eleven singers and the four condensers", (ctx) => singersRecorded(ctx) && condensersRecorded(ctx))],
+    hints: [
+      "Everything up to the Mac mini checks out. What does Logic itself listen to?",
+      VJR_LOGIC + " Logic → Settings → Audio → Devices: which Input Device is it set to?",
+      "Set Logic's Input Device to Dante Virtual Soundcard. The Output Device stays the SSL 2+, where your headphones are.",
+    ],
+    complete: "Logic records from one input device at a time. The SSL 2+ has two inputs; Dante Virtual Soundcard has the X32's 32. Set the input device first: until Logic is using Dante Virtual Soundcard, its inputs aren't there to pick from.",
+  },
+  {
+    id: "x32-vjr-dante",
+    short: "Dante Controller",
+    title: "No routes in Dante Controller",
+    who: "Recording engineer",
+    prompt: "“Logic's input device is Dante Virtual Soundcard and it's running. The tracks are still flat. Someone cleared the routing in Dante Controller.”",
+    goal: "Dante Controller routing the X32 to the Mac mini one to one, and Logic recording again.",
+    setup: { tweak: (st) => (macOf(st).macRx = Array(32).fill(0)) },
+    conditions: [
+      goal("routes", "Dante Controller: the Mac mini's RX 1-32 each take the X32's TX of the same number", (ctx) => macOf(ctx.state).macRx.every((k, i) => k === i + 1)),
+      goal("rec", "Logic records all eleven singers and the four condensers", (ctx) => singersRecorded(ctx) && condensersRecorded(ctx)),
+    ],
+    hints: [
+      "Dante Controller connects a transmitter (the X32's card) to a receiver (the Mac mini). With no ticks in the grid, nothing arrives.",
+      VJR_LOGIC + " Open Dante Controller: transmitters across, receivers down.",
+      "Hold Control and click the square where the X32 and the Mac mini meet: it routes every channel one to one, a diagonal of ticks.",
+    ],
+    complete: "One to one: X32 TX 1 → Mac RX 1, and so on, so Logic's input numbers match the X32's input numbers. Ctrl-click on the square where the two devices meet does all 32 at once.",
+  },
+  {
+    id: "x32-vjr-ready",
+    short: "Ready to record",
+    title: "Ready to roll",
+    who: "Vocal Jazz director",
+    prompt: "“We're ready to sing. Are you ready to record? Every track, every mic, and nothing in the hall's speakers.”",
+    goal: "All twenty tracks record-enabled, Logic recording the singers and the condensers, the hall's speakers off, and the singers in the wedges.",
+    setup: {
+      tweak: (st, h) => {
+        h.dev("cme-mix5", "lvl45", 7.5);
+        macOf(st).dvs = 0;
+        macOf(st).tracks[4].arm = 0;
+        st.channels[27].phantom = false;
+      },
+    },
+    conditions: [
+      goal("armed", "All twenty of Logic's tracks are record-enabled", allArmed),
+      goal("rec", "Logic records all eleven singers and the four condensers", (ctx) => singersRecorded(ctx) && condensersRecorded(ctx)),
+      goal("hall", "No singer comes out of the hall's speakers", vjrHallOff),
+      keep("wedges", "All three wedges keep playing every singer", vjrWedgesOk),
+    ],
+    hints: [
+      "Four things are wrong. Start with what you can hear (the hall), then work along the recording: the mics, the network, Logic.",
+      "The hall: Console: Mix5 or MAIN LR. The mics: is every condenser's meter moving at the console? The network: is Dante Virtual Soundcard running? Logic: is every track's R lit?",
+      "Turn the hall off; 48V on CH 28; start Dante Virtual Soundcard; record-enable Audio 5.",
+    ],
+    complete: "That's the whole session: the singers happy in the wedges, the house off, every mic on a moving meter, and Logic armed on every track with the right inputs. Record a short test and play it back before the first real take.",
+  },
+];
+// Each piece's loop where all eleven sing: the first chorus of "Almost Like Being in Love", the ending of
+// "Love Me or Leave Me" (the scenarios take turns with the two pieces, vjrSong).
+VJRS.forEach((d, i) => (d.music = i % 2 ? "bars-150" : "bars-15"));
+
+const LISTS = { gdig: GDIG, l20: [...L20, ...L20_REC], b207mp3: B207, f8n: F8S, dm2000: DM, cl3: CL3, mix8: MIX8, vlz1202: VLZ, mg102: MG, stagepas400bt: SP, x1204usb: [...XEN, ...KY], sd442: SD, ui16: UI, cr1604: [...C16, ...BOXES.cr1604], x32c: [...X32, ...BOXES.x32c, ...COB], yam01v96: Y96, x32: [...X32F, ...BOXES.x32, ...VJS, ...EAS, ...CMES, ...CME_ADV, ...MARIACHI, ...VJRS] };
 
 // Who is on stage (js/music.js stageFor). Every scenario's story was read for
 // this; anything not listed has the whole band playing (the 8-bar section it
@@ -6321,10 +6671,11 @@ const FTW = {
 // Vocal Jazz takes turns with the ensemble's two pieces: the first scenario
 // plays "Almost Like Being in Love", the second "Love Me or Leave Me", and so on.
 const vjSong = (board, k) => (ORDER[board].filter((x) => x.startsWith("vj-")).indexOf(k) % 2 ? "vj-love" : "vj");
+const vjrSong = (board, k) => (ORDER[board].filter((x) => x.startsWith("vjr-")).indexOf(k) % 2 ? "vjr-love" : "vjr");
 // A gig is its own song (its cast, its tracks, its rig): COB, Vocal Jazz, the showcase, karaoke, CME, mariachi.
 const songOf = (board, id) => {
   const k = id.slice(board.length + 1);
-  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? vjSong(board, k) : k.startsWith("ea-") ? "ea" : k.startsWith("ky-") ? "karaoke" : k.startsWith("cme-") ? "cme" : k.startsWith("mariachi-") ? "mariachi" : k.startsWith("rec-") ? "film" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
+  return k.startsWith("cob-") ? "cob" : k.startsWith("vj-") ? vjSong(board, k) : k.startsWith("vjr-") ? vjrSong(board, k) : k.startsWith("ea-") ? "ea" : k.startsWith("ky-") ? "karaoke" : k.startsWith("cme-") ? "cme" : k.startsWith("mariachi-") ? "mariachi" : k.startsWith("rec-") ? "film" : NOSTRADAMUS[board]?.includes(k) ? "nostradamus" : FTW[board]?.includes(k) ? "ftw" : null;
 };
 
 // Arrange a board's scenarios in ORDER, number them from 1, and tag them with the mixer.

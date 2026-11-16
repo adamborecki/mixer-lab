@@ -9,6 +9,7 @@ import { BUSES, CHANNEL_LAYOUT, computeMix, createMixerState, dbToLevel, levelTo
 import * as CR1604 from "./cr1604.js";
 import { createF8, createPair, createReverb } from "./devices.js";
 import { createDaw } from "./dante.js";
+import { createLogic } from "./recording.js";
 import { COMPACT, LAWS as COMPACT_LAWS, channelGainDb, compactModel, levelLaw } from "./compact.js";
 import { BOARD_SCENARIOS, MIXER_ORDER } from "./board-scenarios.js";
 const LAWS_LEVEL = COMPACT_LAWS.level;
@@ -21,7 +22,11 @@ export const STAGE_GEAR = {
   reverb: () => ({ id: "reverb", type: "reverb", label: "Reverb unit (stereo)", ...createReverb() }),
   recorder: () => ({ id: "rec", type: "zoom-f8", label: "Zoom F8 field recorder", ...createF8() }),
   pair: () => ({ id: "room-pair", type: "stereo-mic-pair", label: "Room pair · stereo bar at FOH", ...createPair() }),
+  // Vocal Jazz v2: two pencil condensers on boom stands over the grand piano's strings (stand-ins: js/outboard-audio.js).
+  "piano-pair": () => ({ id: "piano-pair", type: "piano-mic-pair", label: "Piano mics · two pencil condensers on boom stands", ...createPair({ spacingCm: 60, angleDeg: 40 }) }),
 };
+// The jack a virtual mic (the room pair's, the piano mics') comes out of.
+const pairOut = (s) => `${s.pair || "room-pair"}/out-${/-l$/.test(s.id) ? "l" : "r"}`;
 const REVERB_CABLES = [
   { from: "mixer/aux3", to: "reverb/in-l", cable: "trs" },
   { from: "reverb/out-l", to: "mixer/ret1-l", cable: "trs" },
@@ -1727,6 +1732,88 @@ const MARIACHI_GIGS = {
   },
 };
 
+// Vocal Jazz v2 in Salmon: the recording session (MUS 248's Vocal Jazz
+// Recording Gig Checklist, from the session of November 2026 and the
+// instructor's photos and answers). The same ensemble as Vocal Jazz in Salmon,
+// on Salmon's full rig: the eleven handhelds reach the wireless rack by radio,
+// mic n on receiver 1 (CH 1-8, black windscreens) or 2 (CH 9-11, gray), its
+// AF OUT n in LOCAL n; the PTU-7000 sits on LOCAL 25-28, as always. The
+// wedges are Vocal Jazz's: MIX 1 on S32 OUT 1 into the NX3000's CH A and three
+// passive wedges down one speakON chain. No audience, so the mains stay off
+// (the hall's speakers turned down at the Mix5's 4/5 LEVEL). Four condensers
+// on the S32 for the recording: the ORTF room pair on IN 25/26, the piano's two
+// pencil condensers on 27/28, +48 V and GAIN on CH 25-28 (ROUTING: 25-32 ←
+// AES50 A25-32). The X32's X-DANTE card sends the multitrack to Logic on the
+// FOH Mac mini (js/recording.js): Logic's 20 tracks on In 1-16 and 25-28.
+// Card outputs carry inputs, not channels, so while the condensers are on the
+// S32 the card's 25-32 block is AES50 A25-32 (Salmon's photo shows Local
+// 25-32: that's for when they move to the X32's own LOCAL 29-32). That block,
+// and how the mains were turned off, are the lab's plan, not confirmed.
+export const VJR_MICS = Array.from({ length: 11 }, (_, i) => `vj-${i + 1}`);
+export const VJR_CONDENSERS = ["room-l", "room-r", "pno-l", "pno-r"];
+// Logic's tracks: Audio 1-16 on In 1-16 (every handheld channel), Audio 17-20 on the condensers.
+export const VJR_TRACK_INS = [...Array.from({ length: 16 }, (_, i) => i + 1), 25, 26, 27, 28];
+const VJR_GIGS = {
+  x32: {
+    prompt: "The Vocal Jazz Ensemble's recording session in Salmon Recital Hall, on the hall's full-size X32. No audience: the mains stay off (the hall's speakers turned down at the Mix5's 4/5 LEVEL), and the singers hear themselves in the wedges. Eleven singers on wireless handhelds reach the wireless rack at FOH by radio: mic n is on receiver 1 (black windscreens, CH 1-8) or receiver 2 (gray, CH 9-11), its AF OUT n in LOCAL n. The PTU-7000 (lav and headset packs) is on LOCAL 25-28, unused today. MIX 1 is the wedges: XLR OUT 1 → S32 OUT 1 → the NX3000's CH A → three passive wedges on one speakON chain. Four condensers for the recording, on the S32: the ORTF pair on a stereo bar for the room (left on IN 25, right on IN 26) and two pencil condensers on boom stands over the grand piano (low strings on IN 27, high strings on IN 28), +48 V on CH 25-28; ROUTING has CH 25-32 on AES50 A25-32. The X32's X-DANTE card sends the multitrack over Dante to Logic on the FOH Mac mini: ROUTING → CARD has 1-24 on Local 1-24 and 25-32 on AES50 A25-32 (the card records inputs, not channels), Dante Controller routes the X32 to the Mac mini one to one, and Logic's 20 tracks take In 1-16 (the handheld channels) and In 25-28 (the condensers). The test music comes from the same Mac mini through its SSL 2+ into AUX IN 1/2. The ensemble's recording has no piano track: the piano mics are stand-ins that hear the singers from the piano's side of the stage.",
+    patch: { preshow: [32, "lr"] },
+    rxPatch: Object.fromEntries(VJR_MICS.map((id, i) => [id, [i < 8 ? "cme-rx1" : "cme-rx2", (i % 8) + 1, i]])),
+    pairs: {
+      "cme-rx1": Object.fromEntries(VJR_MICS.slice(0, 8).map((id, i) => [`out${i + 1}`, id])),
+      "cme-rx2": Object.fromEntries(VJR_MICS.slice(8).map((id, i) => [`out${i + 1}`, id])),
+    },
+    extraSources: VJR_CONDENSERS,
+    boxPatch: Object.fromEntries(VJR_CONDENSERS.map((id, i) => [id, ["s32", 25 + i, 24 + i]])),
+    gearLabels: { "room-pair": "ORTF room pair · stereo bar" },
+    cableFor: { preshow: "pair-trs" },
+    gainDb: 30,
+    gainPlus: each(VJR_CONDENSERS, 8), // the condensers at their own level (38 dB), not the handhelds' 30
+    inSource: [0, 0, 0, 1],
+    devices: ["cme-ant-a", "cme-ant-b", "cme-wl-power", "cme-rx1", "cme-rx2", "cme-rx3", "cme-rx-lav", "cme-pas", "cme-pas-x", "s32", "nx3000", "vj-w1", "vj-w2", "vj-w3", "cme-mix5", "cme-hall-power", "cme-hall-crown", "cme-hall-l", "cme-hall-r"],
+    cables: [
+      // The wireless rack, as at CME and the mariachi gig.
+      { from: "cme-ant-a/out", to: "cme-pas/ant-a", cable: "bnc" },
+      { from: "cme-ant-b/out", to: "cme-pas/ant-b", cable: "bnc" },
+      ...[["out1", "cme-rx1"], ["out2", "cme-rx2"], ["out3", "cme-rx-lav"], ["out4", "cme-pas-x"]].flatMap(([o, to]) => ["a", "b"].map((x) => ({ from: `cme-pas/${o}${x}`, to: `${to}/ant-${x}`, cable: "bnc" }))),
+      ...["a", "b"].map((x) => ({ from: `cme-pas-x/out1${x}`, to: `cme-rx3/ant-${x}`, cable: "bnc" })),
+      // Every receiver channel the handhelds don't use, into its LOCAL input (theirs come from rxPatch).
+      ...[4, 5, 6, 7, 8].map((n) => ({ from: `cme-rx2/out${n}`, to: `mixer/ch${n + 8}-mic`, cable: "xlr" })),
+      ...Array.from({ length: 8 }, (_, i) => ({ from: `cme-rx3/out${i + 1}`, to: `mixer/ch${i + 17}-mic`, cable: "xlr" })),
+      // The PTU-7000 on LOCAL 25-28: nothing on it today.
+      ...Array.from({ length: 4 }, (_, i) => ({ from: `cme-rx-lav/out${i + 1}`, to: `mixer/ch${i + 25}-mic`, cable: "xlr" })),
+      // The X32's X-DANTE card to the FOH Mac mini: the multitrack into Logic.
+      { from: "mixer/card-dante", to: "src-preshow/dante", cable: "cat5" },
+      { from: "s32/aes50a", to: "mixer/aes50a", cable: "cat5" },
+      // The wedges, as at Vocal Jazz: MIX 1 → S32 OUT 1 → the NX3000's CH A → three wedges on one speakON chain.
+      { from: "s32/out1", to: "nx3000/in-a", cable: "xlr" },
+      { from: "nx3000/out-a", to: "vj-w1/in", cable: "speakon" },
+      { from: "vj-w1/link", to: "vj-w2/in", cable: "speakon" },
+      { from: "vj-w2/link", to: "vj-w3/in", cable: "speakon" },
+      // The house: the hall's own speakers through the Mix5, turned down today.
+      { from: "s32/out15", to: "cme-mix5/in-l", cable: "xlr-trs" },
+      { from: "s32/out16", to: "cme-mix5/in-r", cable: "xlr-trs" },
+      { from: "cme-mix5/out-l", to: "cme-hall-crown/in-a", cable: "trs", fixed: true },
+      { from: "cme-mix5/out-r", to: "cme-hall-crown/in-b", cable: "trs", fixed: true },
+      { from: "cme-hall-crown/out-a", to: "cme-hall-l/in", cable: "speaker", fixed: true },
+      { from: "cme-hall-crown/out-b", to: "cme-hall-r/in", cable: "speaker", fixed: true },
+    ],
+    // The singers in the wedges; the condensers aren't in the wedges or the house: they're for the recording.
+    sends: { mix1: each(VJR_MICS, -8) },
+    preFor: ["mix1"],
+    hpf: each(VJR_MICS, 0.2),
+    lrOff: VJR_CONDENSERS,
+    dyn: {},
+    tweak: (state) => {
+      Object.assign(state.routing, { out1: "mix1", out15: "main-l", out16: "main-r" });
+      state.rig.devices.find((d) => d.id === "cme-mix5").lvl45 = 0;
+      const mixer = state.rig.devices.find((d) => d.id === "mixer");
+      mixer.cardOut = ["local0", "local1", "local2", "aesa3"];
+      Object.assign(state.rig.devices.find((d) => d.id === "src-preshow"), createLogic(VJR_TRACK_INS));
+      for (const i of [24, 25, 26, 27]) state.channels[i].level = 0; // the condensers' faders down: recording only
+    },
+  },
+};
+
 // Karaoke in BH 109, the choir room (MUS 248's BH 109 Karaoke Gig Checklist),
 // on a Behringer Xenyx: two SM58s on CH 1 and 2 (LOW CUT on, COMP about
 // 3 o'clock), the karaoke laptop on LINE IN 5/6, an SM58 through a Zoom V3 on
@@ -1789,7 +1876,7 @@ const FILM_GIGS = {
 };
 
 // Each band's version of the gigs, over Persephone's.
-const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS, "almost-like": JAZZ_GIGS, "love-me": JAZZ_GIGS, cob: COB_GIGS, vj: VJ_GIGS, "vj-love": VJ_GIGS, ea: EA_GIGS, film: FILM_GIGS, karaoke: KARAOKE_GIGS, cme: CME_GIGS, mariachi: MARIACHI_GIGS };
+const SONG_GIGS = { nostradamus: NOSTRADAMUS_GIGS, ftw: FTW_GIGS, "almost-like": JAZZ_GIGS, "love-me": JAZZ_GIGS, cob: COB_GIGS, vj: VJ_GIGS, "vj-love": VJ_GIGS, ea: EA_GIGS, film: FILM_GIGS, karaoke: KARAOKE_GIGS, cme: CME_GIGS, mariachi: MARIACHI_GIGS, vjr: VJR_GIGS, "vjr-love": VJR_GIGS };
 
 // A mixer's Free play gig for the band on stage.
 export function gigFor(model) {
@@ -1817,12 +1904,16 @@ function buildCompactState(model, sourcesById, scenarioId = "free-play") {
   for (const s of sources) state.rig.devices.push({ id: sourceDeviceId(s.id), type: s.deviceType, sourceId: s.id, label: s.device, ...(s.gearPower ? { gearPower: s.gearPower } : {}) });
   for (const id of gig.devices) {
     const d = PLAYBACK_DEVICES[id];
-    state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan, ...(d.rack ? { rack: d.rack } : {}), ...(d.pairs && Object.keys(pairsHere(d.pairs)).length ? { pairs: pairsHere(d.pairs) } : {}), ...(d.inputLevel !== undefined ? { inputLevel: d.inputLevel } : {}) });
+    // A gig can pair the receivers its own way (`pairs`: Vocal Jazz v2's handhelds on receivers 1 and 2).
+    const pairs = gig.pairs?.[id] || d.pairs;
+    state.rig.devices.push({ id, type: d.type, label: d.label, short: d.short, zone: d.zone, pan: d.pan, ...(d.rack ? { rack: d.rack } : {}), ...(pairs && Object.keys(pairsHere(pairs)).length ? { pairs: pairsHere(pairs) } : {}), ...(d.inputLevel !== undefined ? { inputLevel: d.inputLevel } : {}) });
   }
   if (gig.reverb) state.rig.devices.push(STAGE_GEAR.reverb());
-  // The room pair's two mics are sources too (442).
+  // The room pair's two mics are sources too (442), and Vocal Jazz v2's piano mics.
   for (const id of gig.extraSources || []) if (sourcesById[id]) sources.push(sourcesById[id]);
-  if (sources.some((s) => s.room && gig.patch[s.id])) state.rig.devices.push(STAGE_GEAR.pair());
+  for (const pair of new Set(sources.filter((s) => s.room && (gig.patch[s.id] || gig.boxPatch?.[s.id])).map((s) => s.pair || "room-pair"))) {
+    state.rig.devices.push({ ...STAGE_GEAR[pair === "room-pair" ? "pair" : pair](), ...(gig.gearLabels?.[pair] ? { label: gig.gearLabels[pair] } : {}) });
+  }
   let n = 0;
   const addCable = (c) => state.rig.cables.push({ id: `c${++n}`, ...c });
   const tape = def.channels.length;
@@ -1836,7 +1927,7 @@ function buildCompactState(model, sourcesById, scenarioId = "free-play") {
     // A source on a stage box input (the console hears it over AES50).
     const box = gig.boxPatch?.[s.id];
     if (box) {
-      addCable({ from: `${sourceDeviceId(s.id)}/out`, to: `${box[0]}/in${box[1]}`, cable: gig.cableFor?.[s.id] || defaultCableFor(s) });
+      addCable({ from: s.room ? pairOut(s) : `${sourceDeviceId(s.id)}/out`, to: `${box[0]}/in${box[1]}`, cable: gig.cableFor?.[s.id] || (s.room ? "xlr" : defaultCableFor(s)) });
       continue;
     }
     const where = gig.patch[s.id];
@@ -1844,7 +1935,7 @@ function buildCompactState(model, sourcesById, scenarioId = "free-play") {
     const [index, jack] = where[0] === "tape" ? [tape, "tape-in"] : where;
     const port = index === tape ? "tape-in" : `ch${index + 1}-${jack}`;
     const cable = gig.cableFor?.[s.id] || (s.stereo ? { lr: "mini-dual-ts", rca: "mini-rca", mini: "mini", "tape-in": "mini-rca" }[jack] : s.room ? "xlr" : defaultCableFor(s));
-    const from = s.room ? `room-pair/out-${s.id === "room-l" ? "l" : "r"}` : `${sourceDeviceId(s.id)}/out`;
+    const from = s.room ? pairOut(s) : `${sourceDeviceId(s.id)}/out`;
     addCable({ from, to: `mixer/${port}`, cable });
   }
   for (const c of gig.cables) addCable(c);

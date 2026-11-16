@@ -146,6 +146,15 @@ export const GIGS = [
     ids: ["x32-vj-mains", "x32-vj-monitors", "x32-vj-local", "x32-vj-gain", "x32-vj-lowcut", "x32-vj-muted", "x32-vj-send", "x32-vj-amp", "x32-vj-chain", "x32-vj-link", "x32-vj-patch"],
   },
   {
+    id: "vocal-jazz-recording",
+    title: "Vocal Jazz v2: the recording session",
+    venue: "Salmon Recital Hall",
+    question: "Can you record Vocal Jazz, start to finish?",
+    concept: "Vocal Jazz on Salmon's full rig, for a recording session: eleven handhelds through the wireless rack, the wedges on the NX3000, the hall's speakers off (no audience), and four condensers for the recording: an ORTF pair for the room and two pencil condensers on the grand piano, on the S32. The X32's X-DANTE card sends every input over Dante to Logic on the FOH Mac mini. It follows the session as it happened: a buzz on the S32, so the four condensers move to the X32's own LOCAL 29-32, one comes back silent, and Logic's inputs move with them. Stand-in audio for the piano mics: the ensemble's recording has no piano track.",
+    checklist: `${SITE}/vocal-jazz-recording-gig-checklist/`,
+    ids: ["x32-vjr-tour", "x32-vjr-mains", "x32-vjr-route", "x32-vjr-amp", "x32-vjr-ortf", "x32-vjr-48v", "x32-vjr-sides", "x32-vjr-card", "x32-vjr-buzz", "x32-vjr-local48", "x32-vjr-logic", "x32-vjr-device", "x32-vjr-dante", "x32-vjr-ready"],
+  },
+  {
     id: "cme",
     title: "CME in Salmon: Essentials",
     venue: "Salmon Recital Hall",
