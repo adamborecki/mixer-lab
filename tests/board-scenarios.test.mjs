@@ -1742,7 +1742,7 @@ Object.assign(WRONG, {
 });
 
 // Karaoke in BH 109: the Xenyx gig on the room's own rack (Ashly Ch.1 → Crown → wall speakers).
-const KY_FX = () => COMPACT.x1204usb.fx.presets.findIndex((p) => p.group === "COMBINATION FX");
+const KY_FX = () => COMPACT.x1204usb.fx.presets.findIndex((p) => p.name === "DLY + REV");
 Object.assign(SOLVE, {
   "x1204usb-ky-house": (a) => {
     assert.ok(a.st.connect("mixer/main-l", "bh109-rack/in-a", "xlr-trs").ok);
@@ -1803,7 +1803,7 @@ Object.assign(WRONG, {
   "x1204usb-ky-lowcut": [["LOW EQ down instead", (a) => ["ky-mic1", "ky-mic2"].forEach((s) => a.set(s, "eq.low", -15))]],
   "x1204usb-ky-alt": [["fader up instead", (a) => a.nudge("ky-mic2", 10)]],
   "x1204usb-ky-reverb": [["RET 2 all the way up, still on ALT 3-4", (a) => a.st.setBus("ret2", "level", 1)], ["more FX send instead", (a) => ["ky-mic1", "ky-mic2"].forEach((s) => a.sendDb(s, "fx", 10))]],
-  "x1204usb-ky-program": [["a plain hall", (a) => a.st.setBus("fx", "program", 0)]],
+  "x1204usb-ky-program": [["a plain hall", (a) => a.st.setBus("fx", "program", 0)], ["27, the combination next door", (a) => a.st.setBus("fx", "program", 26)]],
   "x1204usb-ky-v3": [["V3 into channel 3's LINE jack", (a) => assert.ok(a.st.connect("src-ky-v3/out", "mixer/ch3-line", "ts").ok)]],
 });
 
